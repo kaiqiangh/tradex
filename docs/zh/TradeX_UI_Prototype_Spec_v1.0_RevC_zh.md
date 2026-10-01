@@ -975,3 +975,15 @@ Accounts 按账户列出已保存的 Bitget Classic Spot Live CANCEL approval，
 如果派发前准确证据发生变化，且已保存 attempt 为 `INVALIDATED` / `STOPPED_BEFORE_DISPATCH`，应保留该 attempt 历史，并允许对同一准确订单重新刷新和审阅。可能已到达 provider 的 attempt 必须继续对账，不得重试。
 
 “刷新准确订单”是针对捕获账户、已消费 approval 和准确 `normal:{orderId}` 的显式只读操作。显示 Bitget 原始状态、归一 disposition、准确订单/成交/剩余 base quantity 与累计 quote value、完整时的 trade ID 和手续费金额/资产、来源，以及 provider/TradeX 观测时间。Bitget 有符号 `totalFee` 余额变化以非负手续费成本显示。竞态成交会更新已保存观测及关联的 S26.1 settlement，而 CANCEL attempt 继续保持 `CANCEL_PENDING`。不完整、陈旧、冲突或缺少手续费/成交证据时继续标为不可用，并保守保留容量。外部或仅相似的订单绝不关联。使用可访问的状态/错误提示、键盘可操作的审阅与刷新控件，并验证 390/768/1280 px 布局。不自动轮询。
+
+## 14.21 配置报价数据源并检查生产溯源（S28 #116）
+
+Settings → Data & Storage 提供显式选择符合条件的已保存 Alpaca 账户引用或专用原生安全输入、显式 IEX/SIP/delayed-SIP feed、独立 Save/Verify/Disconnect 操作和后端 source-version 冲突修复。Renderer 不含密码输入。技术访问与 coverage、freshness、terms 分开显示；SIP 被拒绝时不得自动切换 feed。Market Explorer 使用按需 Census/Warm 和 active Hot 生命周期，显示 source/feed/coverage、bid/ask venue、精确 price/BASE size 与 provider/receipt 时间。不可用字段保持 unavailable。导航释放 Hot subscription；重开要求重新验证。单 venue/延迟/未知 coverage 不得显示为 execution-ready。在390/768/1280px 保持键盘/focus/error 可用。报价同意和其他 Live 前置条件遵循 PRD §33 与 Backend §41.37。此目标不修复 clickable prototype，也不证明 provider 验收。
+
+Data credentials 显式区分已有账户 key 与专用行情 key。“Save data key securely” 打开原生输入，数据访问仍为未验证；重载恢复 kind/feed，不显示 secret。断开保留复用账户 key，仅删除独占专用 key。删除失败时显示待清理与“Retry data-key cleanup”；取消或陈旧保存保留原选择。此流程不创建券商账户。
+
+纯报价 observation 显示精确 bid/ask 及已验证的 BASE size；最后成交价明确为接口未提供。与精确时间戳和 snapshot ID 一起展示 `MarketSnapshotProvenance.alpaca` 中的 feed、coverage、上市 venue、bid/ask exchange code 及经认证的名称、tape/conditions、深度单位、source version 和 connection generation。按需 HTTP 读取不能显示为已激活 Hot 订阅。`Verify selected feed` 操作已保存的选择；credential/feed 控件存在未保存变更时禁用此操作。技术访问状态与报价新鲜度及所有交易门禁保持独立。
+
+Live 审批的报价来源部分在精确观察标识及时间戳旁保留同一已配置 Alpaca feed/覆盖范围、上市场所或提供方符号、买卖交易所、tape/条件及来源或连接代次。单位未验证的深度显示单位不可用，不显示 BASE。这些只读字段不改变现有解锁交易、审阅、审批顺序或授权门禁。
+
+解锁交易前只读证据说明（2026-10-01，story20）：现有 DISARMED PLACE 操作仍打开独立 Arm 确认。该视图另请求公开后端审批审阅投影，展示当前不可变 proposal 的报价来源及阻断原因，均为只读证据。核对返回 proposal 或账户身份，不将它呈现为已签发审批，也不改变 Arm 资格。缺少审阅或报价时明确显示不可用；后续显式 Arm 仍重新读取同一意图，并打开全新的独立审批审阅。继续使用已确认的公开 UI/Rust/一次性存储/外部提供方测试边界，报价来自提供方帧，假账户按正常连接保持 UNVERIFIED/DISARMED，不注入授权状态或报价 snapshot。

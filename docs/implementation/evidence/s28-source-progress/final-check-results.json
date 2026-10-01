@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-10-01T09:01:14.341074+00:00",
+  "results": [
+    {
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "exitCode": 101,
+      "seconds": 54.73
+    }
+  ]
+}

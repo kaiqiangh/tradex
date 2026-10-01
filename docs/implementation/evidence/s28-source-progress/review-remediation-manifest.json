@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-10-01T12:24:57.023288+00:00",
+  "baseline": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "status": "STANDARDS_FOLLOWUP_PENDING",
+  "initialReview": "PASS; no hard violation; three advisory Fowler judgments",
+  "changes": [
+    "Named exact decimal quote price and size fields replace positional vector; parser validation retained",
+    "Verification reuses sensitive source_headers construction",
+    "One AlpacaQuoteProvenanceFields component reused by two independently controlled dialogs"
+  ],
+  "checks": {
+    "sourcePublicBoundary": 13,
+    "hotPublicBoundary": 17,
+    "typeSchemaDiff": "PASS",
+    "actualGatewayTarget": 23
+  },
+  "limits": [
+    "Historical final build/UI evidence predates these refactors; affected final gates will be rerun",
+    "Spec independent review pending; no commit or issue closure; complete original goal still unproven"
+  ],
+  "sha256": {
+    "src-tauri/src/quote_source.rs": "5d25e1cbb6476d71437a33d53c2a4a5c84af227e83024a9b307b3bd949ec8b63",
+    "src/OrderDrafts.tsx": "bf1eed6a6631b092e591126cb88fffefc1311c7f10bfee25796a08b892dd03bb",
+    "docs/implementation/evidence/s28-source-progress/review-remediation-check.txt": "3913ee0e4cc5c6be642a1f190b522f98271531485451a9e76d230b25ca3af774",
+    "docs/implementation/evidence/s28-source-progress/final-gateway-check.txt": "38cfb1befcd12bc7998cf38a91e73c32f493484f731e756a29e71be255533c89"
+  }
+}

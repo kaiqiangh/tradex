@@ -1130,3 +1130,17 @@ Generated IPC/domain schema binding 与手写 UI logic 分离维护。
 - **UX:** UX-001–010。
 
 Risk、Reservation、Broker state、Approval validity、Reconciliation、Credential handling 与 Execution 的最终权威均在后端。
+
+## 已配置生产报价（S28 #116）
+
+通过生成的 IPC 消费 Backend §41.37 数据源配置和权威行情 projection；renderer/Agent 不得提交 entitlement、行情 observation、任意 URL 或凭据。遵循 UI §14.21 的 Settings 与 Market Explorer 交互目标，在导航/workspace 变化时释放 active Hot lease，准确显示 feed/coverage/depth/time/failure 状态。缓存渲染不得更新 provider/receipt freshness 或恢复 Live authority。保持不可变证据/同意绑定及其他全部金融门禁。此实现目标仍待运行时验证。
+
+Settings 渲染生成的 credentialKind 与 cleanupPending 字段。专用安全输入仅以元数据调用，renderer 不含密码字段或 Keychain 引用。失败/取消保存后重新读取权威选择及清理状态；独占 key 删除待处理时提供独立显式重试。复用券商 key 仍由账户生命周期持有。
+
+纯报价 adapter 不提供最后成交价。渲染精确 bid/ask、已验证 BASE 深度及生成的 `alpaca` 溯源，不用推断价格替代最后成交价。缓存导航保持 provider/receipt 时间戳与 snapshot 身份。初始 HTTP observation 不证明 Hot stream 已激活；明确显示此区别及报价/时间失败。
+
+#### 已配置股票 Hot 视图生命周期
+
+已配置 OD-001 的股票详情持有一个临时 `market.hot.acquire` 租约，绑定 workspace、canonical instrument 与来源连接的 `stateVersion`。视图渲染 `market.hot.get` 投影，renderer 不直接拉取提供方报价。本地投影可每 500 ms 刷新，最多一个请求进行中；它不能替代后端 WebSocket producer。认证/订阅标志及 stream status 与 `MarketDetail.status`、报价 freshness 分别展示。导航、切换标的、打开 screener、workspace 变化、卸载及 document 隐藏均释放租约；cleanup 后才返回的 acquire 也必须释放其租约。Failed/stale 投影提供显式所选 feed 重试。旧 effect 的迟到响应不能覆盖新视图。未配置股票与其他资产类别沿用原有受保护详情路径。仅 HTTP 刷新不能展示为 Hot 订阅更新。
+
+自动重连时，视图仍用其 `leaseId` / lease `generation` 读取和释放；单独展示轮换的 `connectionGeneration` 与 `reconnectAttempt`（0–3）。`RECONNECTING` 清除认证/订阅标志，旧报价非 current；视图不得自行 acquire 第二条连接或将 ACK 当作恢复的报价。

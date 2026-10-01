@@ -50,6 +50,8 @@ pub fn credentials() -> Result<Credentials> {
 }
 
 pub struct Http {
+    pub alpaca_quote_status: Cell<u16>,
+    pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
     pub fail: Cell<bool>,
     pub identity: String,
     pub calls: RefCell<Vec<String>>,
@@ -104,6 +106,8 @@ pub struct Http {
 impl Default for Http {
     fn default() -> Self {
         Self {
+            alpaca_quote_status: Cell::new(200),
+            alpaca_quote_body: RefCell::new(None),
             fail: Cell::new(false),
             identity: "81161e77-bafd-44bb-b2a0-60b9055e3cd4".into(),
             calls: RefCell::new(vec![]),
@@ -310,6 +314,50 @@ impl ProviderHttp for Http {
         headers: reqwest::header::HeaderMap,
         body: Option<&Value>,
     ) -> Result<ProviderHttpResponse> {
+        if endpoint == ProviderEndpoint::AlpacaMarketData {
+            if method != ProviderHttpMethod::Get || body.is_some() {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+            assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+            assert!(headers["APCA-API-KEY-ID"].is_sensitive());
+            assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+            assert_eq!(headers.len(), 2);
+            let metadata = match path {
+                "/v2/stocks/meta/exchanges" => {
+                    Some(br#"{"P":"NYSE Arca","Q":"Nasdaq"}"#.as_slice())
+                }
+                "/v2/stocks/meta/conditions/quote?tape=C" => {
+                    Some(br#"{"R":"Regular","Y":"Non-Firm Quote"}"#.as_slice())
+                }
+                _ => None,
+            };
+            if metadata.is_none()
+                && !["iex", "sip", "delayed_sip"].iter().any(|feed| {
+                    path == format!(
+                        "/v2/stocks/quotes/latest?symbols=AAPL&feed={feed}&currency=USD"
+                    )
+                })
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            self.calls
+                .borrow_mut()
+                .push(format!("{}{path}", endpoint.base_url()));
+            if let Some(body) = metadata {
+                return Ok(ProviderHttpResponse {
+                    status: 200,
+                    body: body.to_vec(),
+                });
+            }
+            if let Some(body) = self.alpaca_quote_body.borrow().as_ref() {
+                return Ok(ProviderHttpResponse {
+                    status: self.alpaca_quote_status.get(),
+                    body: body.clone(),
+                });
+            }
+            return Ok(ProviderHttpResponse {status:200,body:br#"{"quotes":{"AAPL":{"t":"2026-09-30T14:10:00.123456789Z","bx":"P","bp":250.1234567890123456789,"bs":205,"ax":"Q","ap":250.2234567890123456789,"as":310,"c":["R"],"z":"C"}}}"#.to_vec()});
+        }
         if matches!(
             endpoint,
             ProviderEndpoint::BitgetDemo | ProviderEndpoint::BitgetLive

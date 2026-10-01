@@ -25,6 +25,7 @@ pub mod portfolio;
 pub mod protocol;
 pub mod provider_io;
 pub mod providers;
+pub mod quote_source;
 pub mod research;
 pub mod risk;
 pub mod screener;
@@ -1670,6 +1671,10 @@ fn browser_fixture_dispatch(
     }
 }
 
+fn valid_bounded_text(value: &str, max: usize) -> bool {
+    !value.is_empty() && value.len() <= max && !value.chars().any(char::is_control)
+}
+
 fn provider_order_consumer_allowed(consumer: &str) -> bool {
     consumer == "main" || (cfg!(feature = "integration-test") && consumer == "stdio")
 }
@@ -2364,6 +2369,12 @@ pub struct ControlPlane {
     store: Option<Store>,
     subscribers: HashMap<(String, String, String), EventSink>,
     data_source_observations: HashMap<(String, String), protocol::DataSourceEntry>,
+    quote_source_epoch: String,
+    quote_connection_generation: String,
+    quote_source_probe_sequence: u64,
+    quote_source_access_binding: Option<quote_source::SourceReadBinding>,
+    quote_observations: HashMap<String, quote_source::AcceptedQuote>,
+    hot_quote: Option<quote_source::hot::HotLeaseState>,
     selected_local_paper_proposal: Option<(String, String)>,
     session: String,
     time: time::TimeService,
@@ -2382,6 +2393,12 @@ impl ControlPlane {
             store: None,
             subscribers: HashMap::new(),
             data_source_observations: HashMap::new(),
+            quote_source_epoch: uuid::Uuid::new_v4().to_string(),
+            quote_connection_generation: uuid::Uuid::new_v4().to_string(),
+            quote_source_probe_sequence: 0,
+            quote_source_access_binding: None,
+            quote_observations: HashMap::new(),
+            hot_quote: None,
             selected_local_paper_proposal: None,
             session: uuid::Uuid::new_v4().to_string(),
             time: time::TimeService::new(),
@@ -3166,6 +3183,9 @@ impl ControlPlane {
     }
 
     pub fn disarm_live_for_safety(&mut self, reason: &str) -> Result<()> {
+        if matches!(reason, "OS_SLEEP" | "SESSION_INACTIVE" | "SESSION_RESUMED") {
+            quote_source::hot::retire_for_session(self);
+        }
         self.persist_live_disarm(reason, true)
     }
 
@@ -3372,6 +3392,14 @@ impl ControlPlane {
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
                     self.time.reset(&workspace_id);
+                    self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
+                    self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
+                    self.quote_source_probe_sequence = 0;
+                    self.quote_source_access_binding = None;
+                    self.quote_observations.clear();
+                    self.hot_quote = None;
+                    self.data_source_observations
+                        .retain(|(_, source), _| source != "OD-001");
                     self.publish(&event);
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     Ok((json!(event.payload), Some(version)))
@@ -3413,6 +3441,14 @@ impl ControlPlane {
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.subscribers.clear();
                     self.session = uuid::Uuid::new_v4().to_string();
+                    self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
+                    self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
+                    self.quote_source_probe_sequence = 0;
+                    self.quote_source_access_binding = None;
+                    self.quote_observations.clear();
+                    self.hot_quote = None;
+                    self.data_source_observations
+                        .retain(|(_, source), _| source != "OD-001");
                     Ok((json!(event.payload), Some(version)))
                 }
             }
@@ -4463,6 +4499,15 @@ impl ControlPlane {
                 let run = self.cancel_backtest(input)?;
                 Ok((json!(run), Some(run.state_version.clone())))
             }
+            "data.source.connection" => {
+                let input: DataSourceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let connection = self.quote_source_connection(&input.workspace_id)?;
+                Ok((json!(connection), Some(connection.state_version)))
+            }
+            "data.source.configure" | "data.source.disconnect" | "data.source.cleanup" => {
+                quote_source::metadata_only(self, request, consumer)
+            }
             "data.source.catalog" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -4486,6 +4531,10 @@ impl ControlPlane {
                 let sources = self.data_source_sources(&input.workspace_id);
                 let catalog = market::catalog(&input, &sources)?;
                 Ok((json!(catalog), None))
+            }
+            "market.hot.get" => {
+                let input: crate::protocol::HotQuoteQuery = payload(request.payload)?;
+                Ok((json!(quote_source::hot::projection(self, input)?), None))
             }
             "market.get" => {
                 let input: MarketGetQuery = payload(request.payload)?;
@@ -7393,12 +7442,68 @@ impl ControlPlane {
         data_sources::entries()
             .into_iter()
             .map(|source| {
+                if source.source_id == "OD-001" {
+                    return quote_source::configured_entry(self, workspace_id).unwrap_or_else(|_| {
+                        let mut unavailable=source;
+                        unavailable.status=protocol::DataSourceStatus::Unavailable;
+                        unavailable.availability_reason="The configured quote source could not be read. Reload or reopen the workspace before using market data.".into();
+                        unavailable
+                    });
+                }
                 self.data_source_observations
                     .get(&(workspace_id.to_owned(), source.source_id.clone()))
                     .cloned()
                     .unwrap_or(source)
             })
             .collect()
+    }
+
+    fn quote_source_connection(
+        &self,
+        workspace_id: &str,
+    ) -> Result<protocol::DataSourceConnection> {
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let saved = store.quote_source()?;
+        let configured = saved.feed.is_some() && saved.credential.is_some();
+        let source = quote_source::configured_entry(self, workspace_id)?;
+        Ok(protocol::DataSourceConnection {
+            state_version: saved.state_version(workspace_id),
+            workspace_id: workspace_id.into(),
+            source_id: "OD-001".into(),
+            configured,
+            status: source.status,
+            availability_reason: source.availability_reason,
+            account_id: saved.account_id().map(str::to_owned),
+            credential_kind: saved
+                .credential
+                .as_ref()
+                .map(|credential| match credential {
+                    quote_source::SavedSourceCredential::ExistingAccount { .. } => {
+                        protocol::DataSourceCredentialKind::ExistingAccount
+                    }
+                    quote_source::SavedSourceCredential::Dedicated { .. } => {
+                        protocol::DataSourceCredentialKind::Dedicated
+                    }
+                }),
+            cleanup_pending: !store.quote_source_pending_cleanup()?.is_empty(),
+            feed: saved.feed,
+            eligible_accounts: store
+                .accounts()?
+                .into_iter()
+                .filter(|account| {
+                    account.provider_id == "alpaca"
+                        && account.connection_state == ConnectionState::Connected
+                        && account.health.credential == "CONFIGURED"
+                })
+                .map(|account| protocol::DataSourceAccountChoice {
+                    connection_id: account.connection_id,
+                    display_name: account.label,
+                })
+                .collect(),
+        })
     }
 
     fn current_portfolio_snapshot(
@@ -7448,7 +7553,19 @@ impl ControlPlane {
             .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
         let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
         let time_status = self.time.status(workspace_id)?;
-        market::detail_with_fixture(&input, source, calendar_source, &time_status, fixture)
+        let configured =
+            source.is_some_and(|source| source.source_id == "OD-001" && source.configured);
+        let mut detail = market::detail_with_fixture(
+            &input,
+            source,
+            calendar_source,
+            &time_status,
+            fixture && !configured,
+        )?;
+        if configured {
+            quote_source::project_quote(self, &time_status, &mut detail);
+        }
+        Ok(detail)
     }
 
     fn approval_market_detail_for(
@@ -7464,6 +7581,14 @@ impl ControlPlane {
                 tier: MarketTier::Census,
             };
             if live_provider_id(&proposal.fields.environment).is_some()
+                && !(market::source_id_for_instrument(
+                    &proposal.fields.instrument_id,
+                    &MarketTier::Census,
+                ) == Some("OD-001")
+                    && self
+                        .data_source_sources(&proposal.workspace_id)
+                        .iter()
+                        .any(|source| source.source_id == "OD-001" && source.configured))
                 && (std::env::var("TRADEX_LIVE_APPROVAL_FIXTURE").as_deref() == Ok("1") || {
                     #[cfg(test)]
                     {
@@ -13314,6 +13439,9 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute("DROP TABLE execution_dispatch_grants", [])
+            .unwrap();
+        migration_database
+            .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials;")
             .unwrap();
         migration_database
             .pragma_update(None, "user_version", 8)

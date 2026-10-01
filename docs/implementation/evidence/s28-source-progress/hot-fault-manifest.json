@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-10-01T08:08:25.273670+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "delivery": "Uncommitted #116 Hot fault regression stage; public Control Plane, disposable storage, external fake secure vault/HTTP and actual TCP WebSocket boundary",
+  "checks": {
+    "hotIntegration": "14 passed",
+    "fmtDiff": "PASS"
+  },
+  "verifiedCases": [
+    "Cancelled secure-vault read retains explicit source selection and performs no HTTP or socket connection",
+    "Source disconnect and same-workspace reopen close pending authentication; late acknowledgement cannot subscribe or create a quote",
+    "Eight malformed/crossed/nonpositive/wrong-symbol/unknown-condition/wrong-tape/future/before-subscription payload scenarios fail closed without retries or quotes",
+    "Previously verified bounded reconnect, heartbeat nonce, final-owner cleanup and generation isolation remain passing"
+  ],
+  "limits": [
+    "Added cases cover existing runtime behavior; no new feature RED is claimed",
+    "Hosted provider observations are recorded separately",
+    "Approval provenance, remaining cases, whole-ticket suite and serial review remain pending; all parent gates remain open"
+  ],
+  "sha256": {
+    "src-tauri/src/quote_source/hot.rs": "2c525ae2ccfe7e330908c1cb35a41291f71b7785ee1c5d99c360e55508cbddfb",
+    "src-tauri/tests/quote_hot.rs": "e4c4cdf12ffde3f80b923a25611d962ea071c2c1984f428465d6c15eb8fda42f",
+    "src-tauri/tests/data_sources.rs": "a58988821e6ff998f572b2b18d9c95386c79cb395bff177a1e3796a9c50d2e24",
+    "docs/implementation/evidence/s28-source-progress/hot-fault-check.txt": "f29a8d45fb1ff5c34d120fe01599d1f0560c3fbc04f0a69e924c5f4557ebe088"
+  }
+}

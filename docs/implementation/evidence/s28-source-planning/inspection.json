@@ -1,0 +1,63 @@
+{
+  "observedAt": "2026-09-30T18:20:39.124397+00:00",
+  "startCommit": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "sourceFindings": [
+    {
+      "file": "src-tauri/src/data_sources.rs",
+      "line": 169,
+      "finding": "CredentialedMetadata probe always returns BLOCKED_EXTERNAL without source configuration or authenticated feed access."
+    },
+    {
+      "file": "src-tauri/src/lib.rs",
+      "line": 7434,
+      "finding": "Ordinary market detail uses static source-gated detail; synthetic Live approval branch is test/integration only."
+    },
+    {
+      "file": "src/Markets.tsx",
+      "line": 196,
+      "finding": "Hot detail query has no production stream lifecycle."
+    }
+  ],
+  "localReadOnlyAccountEvidence": {
+    "provider": "alpaca",
+    "paperRecordCount": 2,
+    "connectedRecordCount": 1,
+    "retainedConnectedHealth": "ONLINE / VALID / CONFIGURED / privateStream CONNECTED / reconciliation CURRENT; execution BLOCKED",
+    "scope": "SQLite retained state only; no Keychain lookup/provider call; no feed entitlement inferred"
+  },
+  "openQuestions": [
+    "Current SIP CTA/UTP quotes use exact shares after2025-11-03 per official changelog; unit semantics for other feeds must still be established before BASE depth eligibility.",
+    "Listing venue, bid/ask venues and consolidated versus single-venue coverage must remain distinct."
+  ],
+  "spec": "https://github.com/kaiqiangh/tradex/issues/115",
+  "approval": "Historical planning checkpoint before publication. Superseded by implementation #116 carrying forward the existing user-confirmed single-ticket/seam convention. See ../s28-source-progress for current worktree-only configuration evidence.",
+  "officialSizeContract": {
+    "url": "https://docs.alpaca.markets/us/changelog/marketdata-bid-and-ask-size-display-change",
+    "published": "2025-10-30",
+    "effective": "2025-11-03",
+    "scope": "CTA/UTP US stocks",
+    "units": "SHARES",
+    "normalization": "Keep exact count as BASE shares; do not multiply by100; no extrapolation to IEX or historical feed data."
+  },
+  "contractFollowupObservedAt": "2026-09-30T18:30:19.561165+00:00",
+  "existingTimestampBinding": {
+    "risk": "src-tauri/src/risk.rs:2533",
+    "review": "src-tauri/src/lib.rs:2088",
+    "rule": "Provider and receipt timestamps remain material after canonicalization. Reads reuse original receipt time; new event timestamp/config generation invalidates consent."
+  },
+  "streamProtocol": {
+    "url": "https://docs.alpaca.markets/us/docs/streaming-market-data",
+    "authDeadlineSeconds": 10,
+    "readiness": "Authenticated plus requested-symbol subscription acknowledgements, then valid provider observations; connected alone is insufficient.",
+    "errors": {
+      "402": "auth failed",
+      "403": "already authenticated, not HTTP forbidden",
+      "404": "auth timeout",
+      "405": "symbol limit",
+      "406": "connection limit",
+      "407": "slow client",
+      "409": "insufficient subscription"
+    },
+    "testStream": "No production entitlement or Live readiness from FAKEPACA."
+  }
+}

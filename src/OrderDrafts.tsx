@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AccountConnection,
+  AlpacaQuoteEvidence,
   ExecutionContext,
   MarketTier,
   OrderDraft,
@@ -65,6 +66,18 @@ function capacityRemediationText(value?: CapacityRemediation | null) {
   if (value === 'REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT') return 'Reduce the request or review the workspace reserved-capital limit.';
   if (value === 'REDUCE_REQUEST_OR_WAIT_FOR_RESERVATIONS') return 'Reduce the request or wait for earlier reservations to reconcile or complete.';
   return 'Refresh account evidence and review the request again.';
+}
+
+function AlpacaQuoteProvenanceFields({ evidence }: { evidence: AlpacaQuoteEvidence }) {
+  return <>
+    <div><dt>Feed / coverage</dt><dd>{evidence.feed === 'delayed_sip' ? 'Delayed SIP' : evidence.feed.toUpperCase()} · {evidence.coverage}</dd></div>
+    <div><dt>Listing venue / provider symbol</dt><dd>{evidence.listingVenue} · {evidence.providerSymbol}</dd></div>
+    <div><dt>Bid exchange</dt><dd>{evidence.bidExchange} · {evidence.bidExchangeName}</dd></div>
+    <div><dt>Ask exchange</dt><dd>{evidence.askExchange} · {evidence.askExchangeName}</dd></div>
+    <div><dt>Tape / quote conditions</dt><dd>{evidence.tape} · {evidence.conditions.map(condition => `${condition.code} · ${condition.name}`).join('; ')}</dd></div>
+    <div><dt>Source version</dt><dd className="identity">{evidence.sourceVersion}</dd></div>
+    <div><dt>Connection generation</dt><dd className="identity">{evidence.connectionGeneration}</dd></div>
+  </>;
 }
 
 function LiveCapacitySummary({ capacity, label }: { capacity?: CapacityProjection | null; label: string }) {
@@ -137,7 +150,7 @@ type DraftForm = {
   clientLabel: string;
 };
 type DraftField = keyof DraftForm;
-type LiveArmReview = { proposal: OrderProposal; account: AccountConnection; eligibility?: LiveArmingEligibility };
+type LiveArmReview = { proposal: OrderProposal; account: AccountConnection; eligibility?: LiveArmingEligibility; quoteReview?: ApprovalReview; quoteError?: string };
 type PaperConfirmation = 'submit' | 'cancel' | 'alpaca-submit' | 'alpaca-cancel' | 'trading212-submit' | 'trading212-cancel' | 'binance-testnet-submit' | 'binance-testnet-cancel' | 'bitget-demo-submit';
 
 function sameLiveProposal(current: OrderProposal, expected: OrderProposal) {
@@ -638,12 +651,26 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         return;
       }
       if (account.health.arming === 'DISARMED') {
+        let quoteReview: ApprovalReview | undefined;
+        let quoteError: string | undefined;
+        try {
+          quoteReview = await request('trade.request_approval', { workspaceId, proposalId: currentProposal.proposalId });
+        } catch (cause) { quoteError = explainError(cause); }
+        if (quoteReview && (!sameLiveProposal(quoteReview.proposal, currentProposal)
+          || quoteReview.account?.connectionId !== account.connectionId
+          || quoteReview.account.health.arming !== 'DISARMED')) {
+          setNotice('The proposal or account changed. Reload and start a new Live review.');
+          confirmationTriggerRef.current = null;
+          return;
+        }
         setApprovalReview(undefined);
         setLiveArmError('');
         setLiveArmReview({
           proposal: currentProposal,
           account,
           eligibility: currentAccounts.liveArmingEligibility.find(item => item.connectionId === account.connectionId),
+          quoteReview,
+          quoteError,
         });
         return;
       }
@@ -1427,6 +1454,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     : [...(approvalHistory.data?.approvals ?? [])].reverse().find(approval => approval.operation === 'PLACE_ORDER'
       && approval.proposalId === selectedProposalId && approval.status === 'ISSUED' && Date.parse(approval.expiresAt) > Date.now());
 
+  const approvalQuoteEvidence = approvalReview?.market.snapshot?.provenance.alpaca;
+  const preArmQuote = liveArmReview?.quoteReview?.market.snapshot;
+  const preArmQuoteEvidence = preArmQuote?.provenance.alpaca;
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
   if (library.isError) return <div className="error-banner" role="alert"><div><strong>Order drafts are unavailable.</strong><p>{explainError(library.error)}</p></div><button type="button" onClick={() => void library.refetch()}>Reload drafts</button></div>;
   return <>
@@ -1763,6 +1793,20 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <p role={liveArmError || !liveArmReview.eligibility?.canArm ? 'alert' : 'status'}>{liveArmError || (!liveArmReview.account.data?.remoteAccountId
         ? 'Provider account identity is unavailable. Reload account state before arming.'
         : liveArmReview.eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.')}</p>
+      <section aria-label="Quote evidence before arming">
+        <h3>Quote evidence before arming</h3>
+        <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
+        {preArmQuote ? <dl className="proposal-fields approval-review-fields">
+          <div><dt>Snapshot / source</dt><dd className="identity">{preArmQuote.provenance.marketSnapshotId} · {preArmQuote.provenance.source}</dd></div>
+          <div><dt>Provider timestamp</dt><dd>{preArmQuote.provenance.providerTimestamp}</dd></div>
+          <div><dt>Received / coverage</dt><dd>{preArmQuote.provenance.receivedTimestamp} · {preArmQuote.provenance.venue ?? 'Unavailable'}</dd></div>
+          <div><dt>Entitlement / freshness</dt><dd>{preArmQuote.provenance.entitlement} · {preArmQuote.provenance.freshness}</dd></div>
+          <div><dt>Bid / ask</dt><dd>{preArmQuote.bid ?? 'Unavailable'} / {preArmQuote.ask ?? 'Unavailable'}</dd></div>
+          <div><dt>Displayed bid / ask size</dt><dd>{preArmQuote.bidSize ?? 'Unavailable'} / {preArmQuote.askSize ?? 'Unavailable'} · {preArmQuoteEvidence && preArmQuoteEvidence.depthUnit !== 'BASE' ? 'Depth unit unavailable' : 'BASE'}</dd></div>
+          {preArmQuoteEvidence && <AlpacaQuoteProvenanceFields evidence={preArmQuoteEvidence} />}
+        </dl> : <p role="status">Quote evidence is unavailable. {liveArmReview.quoteError ?? liveArmReview.quoteReview?.market.availabilityReason ?? 'No validated source observation was returned.'}</p>}
+        {liveArmReview.quoteReview && !liveArmReview.quoteReview.eligible && <p role="status">Approval remains blocked: {liveArmReview.quoteReview.blockers.join(' · ') || 'current evidence is not eligible'}.</p>}
+      </section>
       <div className="picker-dialog-actions">
         <button type="button" data-safe-default onClick={() => { setLiveArmReview(undefined); setLiveArmError(''); }} disabled={approvalBusy}>Keep reviewing</button>
         <button type="button" className="primary" onClick={() => void armLiveAccountAndReview()} disabled={approvalBusy || Boolean(liveArmError) || !liveArmReview.eligibility?.canArm || !liveArmReview.account.data?.remoteAccountId}>{approvalBusy ? 'Arming…' : 'Arm this Live account'}</button>
@@ -1793,7 +1837,8 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           <div><dt>Received / venue</dt><dd>{approvalReview.market.snapshot.provenance.receivedTimestamp} · {approvalReview.market.snapshot.provenance.venue ?? 'Unavailable'}</dd></div>
           <div><dt>Entitlement / freshness</dt><dd>{approvalReview.market.snapshot.provenance.entitlement} · {approvalReview.market.snapshot.provenance.freshness}</dd></div>
           <div><dt>Bid / ask / spread</dt><dd>{approvalReview.market.snapshot.bid ?? 'Unavailable'} / {approvalReview.market.snapshot.ask ?? 'Unavailable'} / {approvalReview.spread ?? 'Unavailable'}</dd></div>
-          <div><dt>Displayed bid / ask size</dt><dd>{approvalReview.market.snapshot.bidSize ?? 'Unavailable'} / {approvalReview.market.snapshot.askSize ?? 'Unavailable'} BASE</dd></div>
+          <div><dt>Displayed bid / ask size</dt><dd>{approvalReview.market.snapshot.bidSize ?? 'Unavailable'} / {approvalReview.market.snapshot.askSize ?? 'Unavailable'} · {approvalQuoteEvidence && approvalQuoteEvidence.depthUnit !== 'BASE' ? 'Depth unit unavailable' : 'BASE'}</dd></div>
+          {approvalQuoteEvidence && <AlpacaQuoteProvenanceFields evidence={approvalQuoteEvidence} />}
           <div><dt>Quote age</dt><dd>{approvalReview.quoteAgeMs == null ? 'Unavailable' : `${approvalReview.quoteAgeMs} ms`}</dd></div>
           <div><dt>Estimated fees</dt><dd>{approvalReview.estimatedFees ? `${approvalReview.estimatedFees.amount} ${approvalReview.estimatedFees.currency}` : 'Unavailable'}</dd></div>
           <div><dt>Estimated slippage</dt><dd>{approvalReview.estimatedSlippagePercent == null ? 'Unavailable' : `Approximately ${approvalReview.estimatedSlippagePercent}% against the quote midpoint; displayed depth only, no fill guarantee.`}</dd></div>

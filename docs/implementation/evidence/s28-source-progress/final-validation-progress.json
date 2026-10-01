@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-01T09:13:42.911500+00:00",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "status": "VALIDATION_IN_PROGRESS",
+  "passed": {
+    "npmCheck": {
+      "node": 17,
+      "rust": 340,
+      "ignored": 36,
+      "planningTrace": "203 requirements; evidence pointers only"
+    },
+    "integrationProduct": {
+      "rust": 369,
+      "ignored": 36
+    }
+  },
+  "failuresRetained": [
+    "Initial complete run: schema-v8 artifact fixture retained new v32 tables; reproduced and fixed fixture construction, targeted and complete default gate green",
+    "Additional integration-test + order-gateway-runtime whole-workspace run: two ordinary-client no-write route assertions contradict enabled isolated-Gateway feature; not reported PASS. Product-specific gates used instead."
+  ],
+  "pending": [
+    "Pinned ordinary desktop build and final integration binary",
+    "Fresh final public UI flow and independent serial Standards -> Spec review"
+  ],
+  "limits": [
+    "Ignored tests are unverified",
+    "No source tick hosted acceptance or issued financial approval/Prepare/dispatch proof; original gates open"
+  ]
+}

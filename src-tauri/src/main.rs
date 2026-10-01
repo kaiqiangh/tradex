@@ -25,7 +25,7 @@ use tradex::binance_stream::{BinancePrivateStreamSupervisor, mark_connected_acco
 #[cfg(unix)]
 use tradex::order_gateway::OrderGatewayHost;
 use tradex::{
-    BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
+    BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -199,6 +199,7 @@ async fn control(
     events: Channel<DomainEvent>,
     window: tauri::WebviewWindow,
     service: tauri::State<'_, Service>,
+    hot: tauri::State<'_, tradex::quote_source::hot::QuoteHotSupervisor>,
 ) -> Result<Value, ()> {
     let consumer = window.label().to_owned();
     let trusted = window.url().is_ok_and(|url| {
@@ -212,6 +213,7 @@ async fn control(
     if consumer != "main" || !trusted {
         return Ok(failed(&request, "IPC_ACCESS_DENIED"));
     }
+    let hot = hot.inner().clone();
     let engine = service.0.clone();
     let gateway = service.1.clone();
     let supervisor = service.2.clone();
@@ -238,20 +240,49 @@ async fn control(
                 Err(code) => return failed(&request, code),
             }
         }
+        #[cfg(target_os = "macos")]
+        if matches!(
+            request.get("command").and_then(Value::as_str),
+            Some("data.source.configure" | "data.source.disconnect" | "data.source.cleanup")
+        ) {
+            return tradex::quote_source::execute_configuration(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                || tradex::native_credentials::capture_source(window.app_handle()),
+            );
+        }
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
-            let job = match engine.lock() {
-                Ok(mut engine) => match engine.prepare_data_source_probe(&request) {
-                    Ok(Some(job)) => job,
-                    Ok(None) => return failed(&request, "IPC_COMMAND_UNKNOWN"),
-                    Err(error) => return failed(&request, &error.code),
-                },
-                Err(_) => return failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
-            };
-            let outcome = data_sources::probe(&job.input.source_id, job.source.clone());
-            return match engine.lock() {
-                Ok(mut engine) => engine.complete_data_source_probe(&job, outcome),
-                Err(_) => failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
-            };
+            return tradex::quote_source::execute_probe(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
+        }
+        if matches!(
+            request.get("command").and_then(Value::as_str),
+            Some("market.hot.acquire" | "market.hot.release")
+        ) {
+            return hot.dispatch_with(
+                &engine,
+                &request,
+                &consumer,
+                Arc::new(NativeVault),
+                Arc::new(BrokerHttp::default()),
+                tradex::quote_source::hot::StockStreamConnector::default(),
+            );
+        }
+        if request.get("command").and_then(Value::as_str) == Some("market.get") {
+            return tradex::quote_source::execute_market(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
         }
         let model_job = match engine.lock() {
             Ok(mut engine) => match engine.prepare_model(&request) {
@@ -747,6 +778,7 @@ fn main() {
                 Arc::new(Mutex::new(host))
             };
             let exiting = Arc::new(AtomicBool::new(false));
+            app.manage(tradex::quote_source::hot::QuoteHotSupervisor::new());
             #[cfg(target_os = "macos")]
             register_live_safety_observers(engine.clone());
             #[cfg(target_os = "macos")]
@@ -882,6 +914,8 @@ fn main() {
                 }
             }
             if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<tradex::quote_source::hot::QuoteHotSupervisor>()
+                    .stop_all();
                 app.state::<Service>().2.stop_all();
                 app.state::<Service>().3.stop_all();
                 app.state::<Service>().4.stop_all();

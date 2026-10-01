@@ -1,0 +1,2 @@
+# Preserve verbatim tool output in this ticket's evidence logs.
+docs/implementation/evidence/s28-source-progress/*.txt -whitespace

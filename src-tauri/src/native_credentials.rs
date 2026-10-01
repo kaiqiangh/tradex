@@ -22,6 +22,29 @@ impl Drop for EntryGuard {
 }
 
 pub fn capture(app: &tauri::AppHandle, definition: &ProviderDefinition) -> Result<Credentials> {
+    capture_entry(app, definition, false)
+}
+
+pub fn capture_source(app: &tauri::AppHandle) -> Result<Credentials> {
+    let mut definition = crate::providers::definition("alpaca", "PAPER")?;
+    definition.display_name = "Alpaca market data".into();
+    for field in &mut definition.fields {
+        field.label = if field.id == "apiKey" {
+            "Market-data API key"
+        } else {
+            "Market-data API secret"
+        }
+        .into();
+        field.help_text = "Enter the Alpaca key used for the selected market-data feed. This does not connect a brokerage account.".into();
+    }
+    capture_entry(app, &definition, true)
+}
+
+fn capture_entry(
+    app: &tauri::AppHandle,
+    definition: &ProviderDefinition,
+    source: bool,
+) -> Result<Credentials> {
     if ENTRY_OPEN
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
         .is_err()
@@ -32,7 +55,7 @@ pub fn capture(app: &tauri::AppHandle, definition: &ProviderDefinition) -> Resul
     let (send, receive) = mpsc::sync_channel(1);
     let definition = definition.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(show(&definition));
+        let _ = send.send(show(&definition, source));
     })
     .map_err(|_| TradeXError::new("PROVIDER_NATIVE_ENTRY_REQUIRED"))?;
     receive
@@ -40,7 +63,7 @@ pub fn capture(app: &tauri::AppHandle, definition: &ProviderDefinition) -> Resul
         .map_err(|_| TradeXError::new("PROVIDER_ENTRY_CANCELLED"))?
 }
 
-fn show(definition: &ProviderDefinition) -> Result<Credentials> {
+fn show(definition: &ProviderDefinition, source: bool) -> Result<Credentials> {
     let mtm = MainThreadMarker::new()
         .ok_or_else(|| TradeXError::new("PROVIDER_NATIVE_ENTRY_REQUIRED"))?;
     let alert = NSAlert::new(mtm);
@@ -48,8 +71,16 @@ fn show(definition: &ProviderDefinition) -> Result<Credentials> {
         "Connect {}",
         definition.display_name
     )));
-    alert.setInformativeText(&NSString::from_str("Credentials go directly to macOS Keychain. TradeX will only read this account during connection testing. You will review permissions before confirming. Press Command-Return to test, or Escape to cancel."));
-    let submit = alert.addButtonWithTitle(&NSString::from_str("Test Connection"));
+    alert.setInformativeText(&NSString::from_str(if source {
+        "This key is saved directly in macOS Keychain for market-data access only. No brokerage account is created. Feed access must be verified separately. Press Command-Return to save, or Escape to cancel."
+    } else {
+        "Credentials go directly to macOS Keychain. TradeX will only read this account during connection testing. You will review permissions before confirming. Press Command-Return to test, or Escape to cancel."
+    }));
+    let submit = alert.addButtonWithTitle(&NSString::from_str(if source {
+        "Save Data Key"
+    } else {
+        "Test Connection"
+    }));
     submit.setKeyEquivalent(&NSString::from_str("\r"));
     submit.setKeyEquivalentModifierMask(NSEventModifierFlags::Command);
     let cancel = alert.addButtonWithTitle(&NSString::from_str("Cancel"));
@@ -98,7 +129,11 @@ fn show(definition: &ProviderDefinition) -> Result<Credentials> {
             .collect();
         match Credentials::new(values) {
             Ok(credentials)=>break Ok(credentials),
-            Err(_)=>alert.setInformativeText(&NSString::from_str("Each required field must contain 1–512 printable characters without spaces. Correct the secure fields or cancel. No credential has been saved. Command-Return tests; Escape cancels.")),
+            Err(_)=>alert.setInformativeText(&NSString::from_str(if source {
+                "Each required field must contain 1–512 printable characters without spaces. No credential has been saved. Command-Return saves the data key; Escape cancels."
+            } else {
+                "Each required field must contain 1–512 printable characters without spaces. Correct the secure fields or cancel. No credential has been saved. Command-Return tests; Escape cancels."
+            })),
         }
     };
     for field in fields {

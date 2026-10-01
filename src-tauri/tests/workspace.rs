@@ -307,7 +307,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
     );
     drop(control);
     let future = rusqlite::Connection::open(path).unwrap();
-    future.pragma_update(None, "user_version", 32).unwrap();
+    future.pragma_update(None, "user_version", 33).unwrap();
     let mut control = ControlPlane::new(directory.path().to_path_buf());
     assert_eq!(
         command(&mut control, "workspace.open", json!({}))["error"]["code"],
@@ -317,7 +317,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
         future
             .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
-        32
+        33
     );
 }
 
@@ -353,6 +353,8 @@ fn schema_30_migrates_execution_attempt_history_without_losing_foreign_keys() {
             DROP TABLE execution_attempts;
             ALTER TABLE execution_attempts_v30 RENAME TO execution_attempts;
             CREATE INDEX execution_attempts_account_state ON execution_attempts(account_id,state);
+            DROP TABLE quote_source_config;
+            DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials;
             PRAGMA user_version=30;
             PRAGMA foreign_keys=ON;",
         )
@@ -362,7 +364,7 @@ fn schema_30_migrates_execution_attempt_history_without_losing_foreign_keys() {
     let mut migrated = ControlPlane::new(directory.path().to_path_buf());
     let reopened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
-    assert_eq!(reopened["data"]["storageSchemaVersion"], 31);
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 32);
     drop(migrated);
 
     let database = rusqlite::Connection::open(database_path).unwrap();

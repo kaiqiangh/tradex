@@ -229,6 +229,15 @@
     "contextCatalog": {
       "$ref": "#/$defs/WorkspaceQuery"
     },
+    "dataSourceConfigure": {
+      "$ref": "#/$defs/DataSourceConfigure"
+    },
+    "dataSourceConnection": {
+      "$ref": "#/$defs/DataSourceConnection"
+    },
+    "dataSourceMutation": {
+      "$ref": "#/$defs/DataSourceMutation"
+    },
     "dataSourceProbe": {
       "$ref": "#/$defs/DataSourceProbe"
     },
@@ -273,6 +282,18 @@
     },
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
+    },
+    "hotQuoteAcquire": {
+      "$ref": "#/$defs/HotQuoteAcquire"
+    },
+    "hotQuoteProjection": {
+      "$ref": "#/$defs/HotQuoteProjection"
+    },
+    "hotQuoteQuery": {
+      "$ref": "#/$defs/HotQuoteQuery"
+    },
+    "hotQuoteRelease": {
+      "$ref": "#/$defs/HotQuoteRelease"
     },
     "liveOrderRefreshRequest": {
       "$ref": "#/$defs/LiveOrderRefreshRequest"
@@ -561,8 +582,15 @@
     "researchResult",
     "dataSourceQuery",
     "dataSourceProbe",
+    "dataSourceConnection",
+    "dataSourceConfigure",
+    "dataSourceMutation",
     "marketCatalogQuery",
     "marketGetQuery",
+    "hotQuoteAcquire",
+    "hotQuoteQuery",
+    "hotQuoteProjection",
+    "hotQuoteRelease",
     "screenerRequest",
     "screenerSave",
     "screenerUpdate",
@@ -1046,6 +1074,14 @@
       "required": [
         "aggregateType",
         "aggregateId"
+      ]
+    },
+    "AlpacaFeed": {
+      "type": "string",
+      "enum": [
+        "iex",
+        "sip",
+        "delayed_sip"
       ]
     },
     "AlpacaPaperCancelState": {
@@ -1716,6 +1752,90 @@
         "proposalHash",
         "idempotencyKey",
         "confirmedPaperOrder"
+      ]
+    },
+    "AlpacaQuoteEvidence": {
+      "type": "object",
+      "properties": {
+        "askExchange": {
+          "type": "string",
+          "pattern": "^[A-Z]$"
+        },
+        "askExchangeName": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bidExchange": {
+          "type": "string",
+          "pattern": "^[A-Z]$"
+        },
+        "bidExchangeName": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QuoteCondition"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "coverage": {
+          "$ref": "#/$defs/QuoteCoverage"
+        },
+        "depthUnit": {
+          "$ref": "#/$defs/QuoteDepthUnit"
+        },
+        "feed": {
+          "$ref": "#/$defs/AlpacaFeed"
+        },
+        "listingVenue": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "regularConditions": {
+          "type": "boolean"
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "tape": {
+          "type": "string",
+          "pattern": "^[ABC]$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "feed",
+        "coverage",
+        "providerSymbol",
+        "listingVenue",
+        "bidExchange",
+        "askExchange",
+        "bidExchangeName",
+        "askExchangeName",
+        "tape",
+        "conditions",
+        "regularConditions",
+        "depthUnit",
+        "sourceVersion",
+        "connectionGeneration"
       ]
     },
     "ApprovalAction": {
@@ -5813,6 +5933,26 @@
         "DELISTING"
       ]
     },
+    "DataSourceAccountChoice": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "displayName"
+      ]
+    },
     "DataSourceCatalog": {
       "type": "object",
       "properties": {
@@ -5840,6 +5980,158 @@
         "workspaceId",
         "stateVersion",
         "sources"
+      ]
+    },
+    "DataSourceConfigure": {
+      "type": "object",
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/DataSourceCredential"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "feed": {
+          "$ref": "#/$defs/AlpacaFeed"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "feed",
+        "credential"
+      ]
+    },
+    "DataSourceConnection": {
+      "description": "Source configuration is separate from account connectivity and quote readiness.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "cleanupPending": {
+          "type": "boolean"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "credentialKind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceCredentialKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eligibleAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceAccountChoice"
+          },
+          "maxItems": 256
+        },
+        "feed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaFeed"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "stateVersion",
+        "configured",
+        "status",
+        "availabilityReason",
+        "eligibleAccounts",
+        "cleanupPending"
+      ]
+    },
+    "DataSourceCredential": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "DEDICATED"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "connectionId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "kind": {
+              "type": "string",
+              "const": "EXISTING_ACCOUNT"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "connectionId"
+          ]
+        }
+      ]
+    },
+    "DataSourceCredentialKind": {
+      "type": "string",
+      "enum": [
+        "EXISTING_ACCOUNT",
+        "DEDICATED"
       ]
     },
     "DataSourceEntry": {
@@ -5961,6 +6253,26 @@
         "status",
         "configured",
         "availabilityReason"
+      ]
+    },
+    "DataSourceMutation": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
       ]
     },
     "DataSourceProbe": {
@@ -7291,6 +7603,198 @@
       "required": [
         "id",
         "description"
+      ]
+    },
+    "HotQuoteAcquire": {
+      "type": "object",
+      "properties": {
+        "expectedSourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "instrumentId",
+        "expectedSourceVersion"
+      ]
+    },
+    "HotQuoteProjection": {
+      "type": "object",
+      "properties": {
+        "authenticated": {
+          "type": "boolean"
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "reconnectAttempt": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 3,
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/HotQuoteStatus"
+        },
+        "subscribed": {
+          "type": "boolean"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "instrumentId",
+        "leaseId",
+        "generation",
+        "connectionGeneration",
+        "reconnectAttempt",
+        "sourceVersion",
+        "sequence",
+        "status",
+        "authenticated",
+        "subscribed",
+        "reason"
+      ]
+    },
+    "HotQuoteQuery": {
+      "type": "object",
+      "properties": {
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "leaseId",
+        "generation"
+      ]
+    },
+    "HotQuoteRelease": {
+      "type": "object",
+      "properties": {
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "released": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/HotQuoteStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "leaseId",
+        "generation",
+        "released",
+        "status"
+      ]
+    },
+    "HotQuoteStatus": {
+      "type": "string",
+      "enum": [
+        "CONNECTING",
+        "RECONNECTING",
+        "AUTHENTICATING",
+        "SUBSCRIBING",
+        "AWAITING_QUOTE",
+        "STREAMING",
+        "STALE",
+        "FAILED",
+        "CLOSED"
       ]
     },
     "Instrument": {
@@ -8792,6 +9296,16 @@
     "MarketSnapshotProvenance": {
       "type": "object",
       "properties": {
+        "alpaca": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaQuoteEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "entitlement": {
           "$ref": "#/$defs/MarketEntitlement"
         },
@@ -11077,6 +11591,40 @@
         "environment"
       ]
     },
+    "QuoteCondition": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 4,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "name"
+      ]
+    },
+    "QuoteCoverage": {
+      "type": "string",
+      "enum": [
+        "US_SIP",
+        "IEX"
+      ]
+    },
+    "QuoteDepthUnit": {
+      "type": "string",
+      "enum": [
+        "BASE",
+        "UNAVAILABLE"
+      ]
+    },
     "RankSpec": {
       "type": "object",
       "properties": {
@@ -11176,10 +11724,19 @@
           "$ref": "#/$defs/DataSourceCatalog"
         },
         {
+          "$ref": "#/$defs/DataSourceConnection"
+        },
+        {
           "$ref": "#/$defs/MarketCatalog"
         },
         {
           "$ref": "#/$defs/MarketDetail"
+        },
+        {
+          "$ref": "#/$defs/HotQuoteProjection"
+        },
+        {
+          "$ref": "#/$defs/HotQuoteRelease"
         },
         {
           "$ref": "#/$defs/PortfolioSnapshot"
@@ -16390,7 +16947,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 31,
+          "maximum": 32,
           "minimum": 1
         },
         "workspaceId": {

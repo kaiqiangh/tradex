@@ -88,6 +88,21 @@ export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" 
 export type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "QuoteCoverage".
+ */
+export type QuoteCoverage = "US_SIP" | "IEX";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "QuoteDepthUnit".
+ */
+export type QuoteDepthUnit = "BASE" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaFeed".
+ */
+export type AlpacaFeed = "iex" | "sip" | "delayed_sip";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketEntitlement".
  */
 export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
@@ -378,6 +393,28 @@ export type CapacityLimitSource = "BROKER_AVAILABLE" | "WORKSPACE_RESERVED_CAPIT
 export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceCredential".
+ */
+export type DataSourceCredential =
+  | {
+      kind: "DEDICATED";
+    }
+  | {
+      connectionId: string;
+      kind: "EXISTING_ACCOUNT";
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceCredentialKind".
+ */
+export type DataSourceCredentialKind = "EXISTING_ACCOUNT" | "DEDICATED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
 export type DomainProjection =
@@ -505,11 +542,6 @@ export type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
 export type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceStatus".
- */
-export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ResearchFocus".
  */
 export type ResearchFocus = "GENERAL" | "EQUITY" | "CRYPTO_SPOT";
@@ -578,6 +610,20 @@ export type Trading212DemoOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRAD
 export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteStatus".
+ */
+export type HotQuoteStatus =
+  | "CONNECTING"
+  | "RECONNECTING"
+  | "AUTHENTICATING"
+  | "SUBSCRIBING"
+  | "AWAITING_QUOTE"
+  | "STREAMING"
+  | "STALE"
+  | "FAILED"
+  | "CLOSED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LocalPaperEventKind".
  */
 export type LocalPaperEventKind =
@@ -643,8 +689,11 @@ export type ReplyData =
   | CapabilityDecision
   | ContextCatalog
   | DataSourceCatalog
+  | DataSourceConnection
   | MarketCatalog
   | MarketDetail
+  | HotQuoteProjection
+  | HotQuoteRelease
   | PortfolioSnapshot
   | LocalPaperState
   | Watchlist
@@ -879,6 +928,9 @@ export interface IpcSchema {
   completeOnboarding: CompleteOnboarding;
   configureDeepseek: ConfigureDeepseek;
   contextCatalog: WorkspaceQuery;
+  dataSourceConfigure: DataSourceConfigure;
+  dataSourceConnection: DataSourceConnection;
+  dataSourceMutation: DataSourceMutation;
   dataSourceProbe: DataSourceProbe;
   dataSourceQuery: DataSourceQuery;
   empty: EmptyPayload;
@@ -894,6 +946,10 @@ export interface IpcSchema {
   financialApprovalHistory: FinancialApprovalHistory;
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
   gatewayMutation: GatewayMutation;
+  hotQuoteAcquire: HotQuoteAcquire;
+  hotQuoteProjection: HotQuoteProjection;
+  hotQuoteQuery: HotQuoteQuery;
+  hotQuoteRelease: HotQuoteRelease;
   liveOrderRefreshRequest: LiveOrderRefreshRequest;
   localPaperState: LocalPaperState;
   manualResolutionRequest: ManualResolutionRequest;
@@ -1722,6 +1778,7 @@ export interface MarketSnapshot {
  * via the `definition` "MarketSnapshotProvenance".
  */
 export interface MarketSnapshotProvenance {
+  alpaca?: AlpacaQuoteEvidence | null;
   entitlement: MarketEntitlement;
   freshness: MarketFreshness;
   marketSnapshotId: string;
@@ -1729,6 +1786,171 @@ export interface MarketSnapshotProvenance {
   receivedTimestamp: string;
   source: string;
   venue?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaQuoteEvidence".
+ */
+export interface AlpacaQuoteEvidence {
+  askExchange: string;
+  askExchangeName: string;
+  bidExchange: string;
+  bidExchangeName: string;
+  /**
+   * @minItems 1
+   * @maxItems 16
+   */
+  conditions:
+    | [QuoteCondition]
+    | [QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ];
+  connectionGeneration: string;
+  coverage: QuoteCoverage;
+  depthUnit: QuoteDepthUnit;
+  feed: AlpacaFeed;
+  listingVenue: string;
+  providerSymbol: string;
+  regularConditions: boolean;
+  sourceVersion: string;
+  tape: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "QuoteCondition".
+ */
+export interface QuoteCondition {
+  code: string;
+  name: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2685,6 +2907,54 @@ export interface ConfigureDeepseek {
  * via the `definition` "WorkspaceQuery".
  */
 export interface WorkspaceQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceConfigure".
+ */
+export interface DataSourceConfigure {
+  credential: DataSourceCredential;
+  expectedStateVersion: string;
+  feed: AlpacaFeed;
+  workspaceId: string;
+}
+/**
+ * Source configuration is separate from account connectivity and quote readiness.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceConnection".
+ */
+export interface DataSourceConnection {
+  accountId?: string | null;
+  availabilityReason: string;
+  cleanupPending: boolean;
+  configured: boolean;
+  credentialKind?: DataSourceCredentialKind | null;
+  /**
+   * @maxItems 256
+   */
+  eligibleAccounts: DataSourceAccountChoice[];
+  feed?: AlpacaFeed | null;
+  sourceId: string;
+  stateVersion: string;
+  status: DataSourceStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceAccountChoice".
+ */
+export interface DataSourceAccountChoice {
+  connectionId: string;
+  displayName: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceMutation".
+ */
+export interface DataSourceMutation {
+  expectedStateVersion: string;
   workspaceId: string;
 }
 /**
@@ -3754,6 +4024,55 @@ export interface FinancialApprovalHistoryQuery {
 export interface GatewayMutation {
   action: GatewayAction;
   expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteAcquire".
+ */
+export interface HotQuoteAcquire {
+  expectedSourceVersion: string;
+  instrumentId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteProjection".
+ */
+export interface HotQuoteProjection {
+  authenticated: boolean;
+  connectionGeneration: string;
+  detail?: MarketDetail | null;
+  generation: string;
+  instrumentId: string;
+  leaseId: string;
+  reason: string;
+  reconnectAttempt: number;
+  sequence: number;
+  sourceId: string;
+  sourceVersion: string;
+  status: HotQuoteStatus;
+  subscribed: boolean;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteQuery".
+ */
+export interface HotQuoteQuery {
+  generation: string;
+  leaseId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteRelease".
+ */
+export interface HotQuoteRelease {
+  generation: string;
+  leaseId: string;
+  released: boolean;
+  status: HotQuoteStatus;
   workspaceId: string;
 }
 /**

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AdjustmentStatus, CorporateAction, FilterSpec, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState, RankSpec, ScreenerAttachment, ScreenerDefinition, ScreenerDirection, ScreenerFeature, ScreenerFeatureField, ScreenerLibrary, ScreenerOperator, ScreenerPredicateField, ScreenerResult, ScreenerResultState, ScreenerUniverse, ThreadContextRef } from '../shared/ipc-types.ts';
+import type { HotQuoteProjection, HotQuoteQuery, AdjustmentStatus, CorporateAction, FilterSpec, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState, RankSpec, ScreenerAttachment, ScreenerDefinition, ScreenerDirection, ScreenerFeature, ScreenerFeatureField, ScreenerLibrary, ScreenerOperator, ScreenerPredicateField, ScreenerResult, ScreenerResultState, ScreenerUniverse, ThreadContextRef } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
 import { ErrorRecoveryPanel } from './ErrorRecoveryPanel.tsx';
 
@@ -55,13 +55,96 @@ function MarketStatePanel({ state, adjustmentStatus, actions, onOpenDataSources 
 
 function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; onBack: () => void; onOpenDataSources: () => void }) {
   const { instrument } = detail;
+  const quote = detail.snapshot;
+  const evidence = quote?.provenance.alpaca;
   return <section className="card market-detail" aria-labelledby="market-detail-title">
     <div className="market-detail-heading"><div><p className="eyebrow">Instrument detail</p><h2 id="market-detail-title">{instrument.displayName}</h2><p className="identity">{instrument.instrumentId}</p></div><button type="button" onClick={onBack}>Back to results</button></div>
     <dl className="market-identity"><div><dt>Symbol</dt><dd>{instrument.symbol}</dd></div><div><dt>Asset class</dt><dd>{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</dd></div><div><dt>Venue</dt><dd>{instrument.exchange ?? 'Provider venue selected at fetch'}</dd></div><div><dt>Currency</dt><dd>{instrument.currency}</dd></div><div><dt>Access tier</dt><dd>{detail.tier}</dd></div></dl>
     <div className={`market-status market-status-${detail.status.toLowerCase()}`} role="status"><strong>{statusLabel[detail.status]}</strong><p>{detail.availabilityReason}</p><small>Source: {detail.sourceId ?? 'No source selected'}</small></div>
     <MarketStatePanel state={detail.marketState} adjustmentStatus={detail.adjustmentStatus} actions={detail.corporateActions} onOpenDataSources={onOpenDataSources} />
-    {detail.snapshot ? <section className="market-quote" aria-label="Market quote"><h3>Quote</h3><p className="market-price">{detail.snapshot.lastPrice ?? 'No last price'}</p><p className="muted">{detail.snapshot.provenance.entitlement} · {detail.snapshot.provenance.freshness}</p><dl className="market-provenance"><div><dt>Provider time</dt><dd>{detail.snapshot.provenance.providerTimestamp}</dd></div><div><dt>Received</dt><dd>{detail.snapshot.provenance.receivedTimestamp}</dd></div><div><dt>Venue</dt><dd>{detail.snapshot.provenance.venue ?? 'Not supplied'}</dd></div></dl></section> : <div className="market-unavailable"><p className="muted">No quote or chart is shown until the selected source is entitled and the adapter returns a validated snapshot.</p><button type="button" onClick={onOpenDataSources}>Open Data &amp; Storage settings</button></div>}
+    {quote ? <section className="market-quote" aria-label="Market quote">
+      <h3>Bid / ask quote</h3>
+      <p className="muted">{quote.provenance.entitlement} · {quote.provenance.freshness}</p>
+      <dl className="market-provenance">
+        <div><dt>Bid</dt><dd>{quote.bid ?? 'Unavailable'}</dd></div>
+        <div><dt>Ask</dt><dd>{quote.ask ?? 'Unavailable'}</dd></div>
+        <div><dt>Bid size (BASE)</dt><dd>{quote.bidSize ?? 'Unavailable'}</dd></div>
+        <div><dt>Ask size (BASE)</dt><dd>{quote.askSize ?? 'Unavailable'}</dd></div>
+        <div><dt>Last trade</dt><dd>{quote.lastPrice ?? 'Not supplied by quote endpoint'}</dd></div>
+        <div><dt>Source</dt><dd>{quote.provenance.source}</dd></div>
+        <div><dt>Provider time</dt><dd>{quote.provenance.providerTimestamp}</dd></div>
+        <div><dt>Received</dt><dd>{quote.provenance.receivedTimestamp}</dd></div>
+        <div><dt>Quote coverage</dt><dd>{quote.provenance.venue ?? 'Not supplied'}</dd></div>
+        {evidence && <>
+          <div><dt>Feed</dt><dd>{evidence.feed === 'delayed_sip' ? 'Delayed SIP' : evidence.feed.toUpperCase()}</dd></div>
+          <div><dt>Listing venue</dt><dd>{evidence.listingVenue}</dd></div>
+          <div><dt>Provider symbol</dt><dd>{evidence.providerSymbol}</dd></div>
+          <div><dt>Bid exchange</dt><dd>{evidence.bidExchange} · {evidence.bidExchangeName}</dd></div>
+          <div><dt>Ask exchange</dt><dd>{evidence.askExchange} · {evidence.askExchangeName}</dd></div>
+          <div><dt>Tape</dt><dd>{evidence.tape}</dd></div>
+          <div><dt>Quote conditions</dt><dd>{evidence.conditions.map(condition => `${condition.code} · ${condition.name}`).join('; ')}</dd></div>
+          <div><dt>Depth unit</dt><dd>{evidence.depthUnit === 'BASE' ? 'BASE — shares' : 'Unavailable'}</dd></div>
+          <div><dt>Source version</dt><dd>{evidence.sourceVersion}</dd></div>
+          <div><dt>Connection generation</dt><dd>{evidence.connectionGeneration}</dd></div>
+        </>}
+        <div><dt>Snapshot ID</dt><dd>{quote.provenance.marketSnapshotId}</dd></div>
+      </dl>
+    </section> : <div className="market-unavailable"><p className="muted">No quote or chart is shown until the selected source is entitled and the adapter returns a validated snapshot.</p><button type="button" onClick={onOpenDataSources}>Open Data &amp; Storage settings</button></div>}
   </section>;
+}
+
+// A view owns its quote lease. Cleanup also covers acquire completing after navigation.
+function InstrumentDetail({ workspaceId, instrumentId, onBack, onOpenDataSources }: { workspaceId: string; instrumentId: string; onBack: () => void; onOpenDataSources: () => void }) {
+  const source = useQuery({ queryKey: ['data-source-connection', workspaceId], queryFn: () => request('data.source.connection', { workspaceId }), enabled: instrumentId.startsWith('equity:'), retry: false });
+  const configured = instrumentId.startsWith('equity:') && Boolean(source.data?.feed && source.data?.credentialKind);
+  const [hot, setHot] = useState<HotQuoteProjection>();
+  const [hotError, setHotError] = useState<unknown>();
+  const [revision, setRevision] = useState(0);
+  const [visible, setVisible] = useState(document.visibilityState !== 'hidden');
+  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && (!instrumentId.startsWith('equity:') || source.isSuccess), retry: false });
+  useEffect(() => {
+    const changed = () => setVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', changed);
+    return () => document.removeEventListener('visibilitychange', changed);
+  }, []);
+  useEffect(() => {
+    setHot(undefined); setHotError(undefined);
+    if (!configured || !visible || !source.data) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let lease: HotQuoteQuery | undefined;
+    const release = () => { if (lease) void request('market.hot.release', lease).catch(() => {}); };
+    const poll = async () => {
+      if (cancelled || !lease) return;
+      try {
+        const current = await request('market.hot.get', lease);
+        if (cancelled) return;
+        setHot(current);
+        if (!['CLOSED', 'FAILED', 'STALE'].includes(current.status)) timer = setTimeout(() => void poll(), 500);
+      } catch (error) { if (!cancelled) { setHotError(error); release(); } }
+    };
+    void request('market.hot.acquire', { workspaceId, instrumentId, expectedSourceVersion: source.data.stateVersion }).then(current => {
+      lease = { workspaceId, leaseId: current.leaseId, generation: current.generation };
+      if (cancelled) { release(); return; }
+      setHot(current); void poll();
+    }).catch(error => { if (!cancelled) setHotError(error); });
+    return () => { cancelled = true; if (timer) clearTimeout(timer); release(); };
+  }, [workspaceId, instrumentId, configured, source.data?.stateVersion, visible, revision]);
+  const error = source.error ?? hotError ?? detail.error;
+  const retry = () => { void source.refetch(); if (configured) setRevision(value => value + 1); else void detail.refetch(); };
+  if (error) return <div className="error-banner" role="alert"><p>{explainError(error)}</p><button type="button" onClick={retry}>Retry instrument data</button><button type="button" onClick={onOpenDataSources}>Review quote source</button></div>;
+  const current = configured ? hot?.detail : detail.data;
+  return <div className="market-detail-container">
+    {configured && <section className="card hot-quote-status" aria-label="Hot quote subscription">
+      <h3>Hot quote subscription</h3><strong>{hot?.status ?? (visible ? 'CONNECTING' : 'PAUSED')}</strong>
+      <p>{hot?.reason ?? (visible ? 'Acquiring a quote subscription for this instrument.' : 'This hidden view has released its quote subscription.')}</p>
+      <p className="muted">Feed {source.data?.feed?.toUpperCase()} · Authentication {hot?.authenticated ? 'confirmed' : 'pending'} · Subscription {hot?.subscribed ? 'confirmed' : 'pending'}. Quote freshness and trading eligibility are evaluated separately.</p>
+      {hot && <p className="identity">Connection generation {hot.connectionGeneration} · Sequence {hot.sequence}</p>}
+      {hot && hot.reconnectAttempt > 0 && <p>Automatic reconnect {hot.reconnectAttempt} of 3.</p>}
+      {hot && ['FAILED', 'STALE', 'CLOSED'].includes(hot.status) && <button type="button" onClick={retry}>Retry selected feed</button>}
+    </section>}
+    {current ? <Detail detail={current} onBack={onBack} onOpenDataSources={onOpenDataSources} /> : <p role="status">Loading {instrumentId}…</p>}
+  </div>;
 }
 
 const screenerFieldLabels: Record<ScreenerPredicateField, string> = {
@@ -193,13 +276,12 @@ export function Markets({ workspaceId, onOpenDataSources, onAttachContexts, hasC
   const [selectedId, setSelectedId] = useState<string>();
   const [screenerOpen, setScreenerOpen] = useState(false);
   const catalog = useQuery({ queryKey: ['market-catalog', workspaceId, query], queryFn: () => request('market.catalog', { workspaceId, query, tier: 'CENSUS' }) });
-  const detail = useQuery({ queryKey: ['market-detail', workspaceId, selectedId], queryFn: () => request('market.get', { workspaceId, instrumentId: selectedId!, tier: 'HOT' }), enabled: Boolean(selectedId) });
   useEffect(() => {
     if (selectedId && catalog.data?.instruments.every(instrument => instrument.instrumentId !== selectedId)) setSelectedId(undefined);
   }, [catalog.data?.instruments, selectedId]);
   const submit = (event: FormEvent) => { event.preventDefault(); setQuery(term.trim()); };
-  const error = catalog.error ?? detail.error;
-  if (error) return <div className="error-banner" role="alert"><div><strong>Market catalog needs attention</strong><p>{explainError(error)}</p></div><button type="button" onClick={() => { void catalog.refetch(); if (selectedId) void detail.refetch(); }}>Reload markets</button></div>;
+  const error = catalog.error;
+  if (error) return <div className="error-banner" role="alert"><div><strong>Market catalog needs attention</strong><p>{explainError(error)}</p></div><button type="button" onClick={() => { void catalog.refetch(); }}>Reload markets</button></div>;
   const instruments = catalog.data?.instruments ?? [];
   const assetFacets = [...new Set(instruments.map(instrument => instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'))];
   const venueFacets = [...new Set(instruments.map(instrument => instrument.exchange ?? 'Provider venue'))];
@@ -210,7 +292,7 @@ export function Markets({ workspaceId, onOpenDataSources, onAttachContexts, hasC
     <section className="card market-explorer" aria-labelledby="market-explorer-title">
       <div className="market-explorer-heading"><div><h2 id="market-explorer-title">Market Explorer</h2><p className="muted">Census search is coarse and on demand. Select a result to use the Hot detail path.</p></div>{catalog.data && <span className={`badge market-status-badge market-status-${catalog.data.status.toLowerCase()}`}>{statusLabel[catalog.data.status]}</span>}</div>
       <form className="market-search" onSubmit={submit}><label htmlFor="market-search-input">Search instruments</label><div><input id="market-search-input" value={term} onChange={event => setTerm(event.target.value)} placeholder="AAPL, BTC/USDT or company name" maxLength={120} /><button className="primary" type="submit">Search</button></div></form>
-      {catalog.isPending ? <p role="status">Loading market catalog…</p> : <><div className="market-facets" aria-label="Market facets"><span className="market-facet-label">Asset class</span>{assetFacets.map(facet => <span className="badge" key={facet}>{facet}</span>)}<span className="market-facet-label">Venue</span>{venueFacets.map(facet => <span className="badge" key={facet}>{facet}</span>)}</div><p className="market-result-count" role="status">{instruments.length} {instruments.length === 1 ? 'instrument' : 'instruments'} found</p><div className="market-explorer-body"><div className="market-results" role="list" aria-label="Market results">{instruments.length ? instruments.map(instrument => <InstrumentRow key={instrument.instrumentId} instrument={instrument} selected={instrument.instrumentId === selectedId} onSelect={() => setSelectedId(instrument.instrumentId)} />) : <p className="muted">No canonical instruments match this search.</p>}</div>{selectedId && detail.isPending && <p role="status">Loading {selectedId}…</p>}{selectedId && detail.data && <Detail detail={detail.data} onBack={() => setSelectedId(undefined)} onOpenDataSources={onOpenDataSources} />}</div></>}
+      {catalog.isPending ? <p role="status">Loading market catalog…</p> : <><div className="market-facets" aria-label="Market facets"><span className="market-facet-label">Asset class</span>{assetFacets.map(facet => <span className="badge" key={facet}>{facet}</span>)}<span className="market-facet-label">Venue</span>{venueFacets.map(facet => <span className="badge" key={facet}>{facet}</span>)}</div><p className="market-result-count" role="status">{instruments.length} {instruments.length === 1 ? 'instrument' : 'instruments'} found</p><div className="market-explorer-body"><div className="market-results" role="list" aria-label="Market results">{instruments.length ? instruments.map(instrument => <InstrumentRow key={instrument.instrumentId} instrument={instrument} selected={instrument.instrumentId === selectedId} onSelect={() => setSelectedId(instrument.instrumentId)} />) : <p className="muted">No canonical instruments match this search.</p>}</div>{selectedId && <InstrumentDetail key={`${workspaceId}:${selectedId}`} workspaceId={workspaceId} instrumentId={selectedId} onBack={() => setSelectedId(undefined)} onOpenDataSources={onOpenDataSources} />}</div></>}
     </section>
     </>}
   </>;

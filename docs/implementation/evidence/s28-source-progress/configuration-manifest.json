@@ -1,0 +1,58 @@
+{
+  "observedAt": "2026-09-30T19:42:17.796529+00:00",
+  "status": "CONFIGURATION_STAGE_LOCAL_PASS_ONLY",
+  "startCommit": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "implementationIssue": "https://github.com/kaiqiangh/tradex/issues/116",
+  "delivery": "Uncommitted worktree progress; no ticket/parent/map completion or producer/readiness claim.",
+  "checks": {
+    "nodeProjectionTests": 13,
+    "rustSourceWorkspaceWatchlistTests": 14,
+    "publicUIObservations": 3,
+    "widths": [
+      390,
+      768,
+      1280
+    ],
+    "schemaTypeFmtDiff": "PASS"
+  },
+  "tddFailures": [
+    "data.source.connection initially IPC_COMMAND_UNKNOWN",
+    "data.source.configure initially IPC_COMMAND_UNKNOWN",
+    "data.source.disconnect initially IPC_COMMAND_UNKNOWN",
+    "Public UI saved notice lost to version effect; fixed and rerun",
+    "390px intrinsic feed selector overflow; fixed and rerun",
+    "Schema32 future-version and older-schema fixture setup updated; final related tests pass"
+  ],
+  "remaining": [
+    "Dedicated native data credentials/ownership and cleanup",
+    "Fixed read-only quote/metadata adapter and actual feed verification",
+    "Production quote cache, provenance/coverage/depth and trusted-time validation",
+    "Hot managed connection, subscriptions/generations and typed ephemeral updates",
+    "Risk/approval/Prepare/dispatch quote integration and representative failure cases",
+    "Final full suite, desktop build and serial independent Standards/Spec review",
+    "Actual read-only provider evidence separate from fixtures"
+  ],
+  "sourceSha256": {
+    "src-tauri/src/quote_source.rs": "7a6024aad46dd85926c4fad58b0ad99da82671973eb26d2b4f19e20ba6600b0e",
+    "src-tauri/src/lib.rs": "5814785196b02ebd4ffded6096c2483f6fe2eca05737ec051c199fe0f667f9a2",
+    "src-tauri/src/storage.rs": "cf592bc01faf2c1bc8c6cbc1f92890adb5a51301b5a51546dc2f214370eddc3f",
+    "src-tauri/src/protocol.rs": "980a99d7e2ed63074448875897c09589385a57fbade8f752dd8e4f9a238b7263",
+    "src-tauri/tests/data_sources.rs": "1cbbe22c83e383370edb8cdb0ac77ee2a476cd6912cb295daafb38ccf2993266",
+    "src-tauri/tests/watchlists.rs": "69a53c291d02df87a9310c88739498b862c4a5633033acf4090895a93e8190ce",
+    "src-tauri/tests/workspace.rs": "8910987e200912a71c373c1484253478608b4b5632ec536a2ad2bb65450f932e",
+    "src/DataSources.tsx": "bff9229f24d39054aed94049ecbacdec8cbc14dc118712c6d2d40166bb496d7a",
+    "src/client.ts": "f0d76e9dc8481fb5c8972976b1871b95f62ae5c377a5055cd5dc5d4ca0194a78",
+    "src/styles.css": "208fcf3e212328ac44bf87aa847655118f067907e255ca4666b16a4cc4cbda61",
+    "tests/quote-source-ui.mjs": "e33e03fcab19fdccfc361837526492544916d9f7136e40bef32015b3df28757d",
+    "tests/projection.test.ts": "4f27acb8fbf8c3062b30cbda92a8b62ffa72eecb5444abb09f1ca753218ae00b",
+    "shared/ipc-v1.schema.json": "21c0a130c1c22be1ec447f425158078237b53229077cc357eba64bf0e1a78d03",
+    "shared/ipc-types.ts": "bc1a5c22e869143c9013cbfdda866e045e164ecbee370439b69c771f0f2a5f6a",
+    "shared/ipc-validators.js": "5c7f8ce73716ee8ca42ba0f8e3b3f7a632df2c7fa7425b6d40300a8fb2d3f3f2",
+    "shared/ipc-validators.d.ts": "59adcf29379761b5b26bbf67a2f6f4a5c76266bd8482192e052859f4edb764ed"
+  },
+  "evidenceSha256": {
+    "configuration-ui.json": "34cd1981cee9874bd6391666df771b02d0358d89e463ef292bd0b15557def58a",
+    "configuration-check.txt": "c3afdce330472afa4bf768233fabfeb603df2bc44b941d34c2a0599def12e601",
+    "configuration-ui.png": "a3a7d5337f27071bce0a780f06b899b90a09ac7d8e495ad97c26c8b9e121d21e"
+  }
+}

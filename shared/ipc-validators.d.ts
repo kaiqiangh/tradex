@@ -11,6 +11,7 @@ declare const validators: {
   AdjustmentStatus: (value: unknown) => boolean;
   AgentMode: (value: unknown) => boolean;
   Aggregate: (value: unknown) => boolean;
+  AlpacaFeed: (value: unknown) => boolean;
   AlpacaPaperCancelState: (value: unknown) => boolean;
   AlpacaPaperFill: (value: unknown) => boolean;
   AlpacaPaperFillSource: (value: unknown) => boolean;
@@ -29,6 +30,7 @@ declare const validators: {
   AlpacaPaperOrderReconcile: (value: unknown) => boolean;
   AlpacaPaperOrderReview: (value: unknown) => boolean;
   AlpacaPaperOrderSubmit: (value: unknown) => boolean;
+  AlpacaQuoteEvidence: (value: unknown) => boolean;
   ApprovalAction: (value: unknown) => boolean;
   ApprovalRejection: (value: unknown) => boolean;
   ApprovalRejectionReason: (value: unknown) => boolean;
@@ -127,8 +129,14 @@ declare const validators: {
   ContextCatalogEntry: (value: unknown) => boolean;
   CorporateAction: (value: unknown) => boolean;
   CorporateActionType: (value: unknown) => boolean;
+  DataSourceAccountChoice: (value: unknown) => boolean;
   DataSourceCatalog: (value: unknown) => boolean;
+  DataSourceConfigure: (value: unknown) => boolean;
+  DataSourceConnection: (value: unknown) => boolean;
+  DataSourceCredential: (value: unknown) => boolean;
+  DataSourceCredentialKind: (value: unknown) => boolean;
   DataSourceEntry: (value: unknown) => boolean;
+  DataSourceMutation: (value: unknown) => boolean;
   DataSourceProbe: (value: unknown) => boolean;
   DataSourceProbeKind: (value: unknown) => boolean;
   DataSourceQuery: (value: unknown) => boolean;
@@ -164,6 +172,11 @@ declare const validators: {
   GatewayState: (value: unknown) => boolean;
   GatewayStatus: (value: unknown) => boolean;
   HardSafetyRule: (value: unknown) => boolean;
+  HotQuoteAcquire: (value: unknown) => boolean;
+  HotQuoteProjection: (value: unknown) => boolean;
+  HotQuoteQuery: (value: unknown) => boolean;
+  HotQuoteRelease: (value: unknown) => boolean;
+  HotQuoteStatus: (value: unknown) => boolean;
   Instrument: (value: unknown) => boolean;
   InstrumentProviderMapping: (value: unknown) => boolean;
   InstrumentTradingObservation: (value: unknown) => boolean;
@@ -261,6 +274,9 @@ declare const validators: {
   ProviderField: (value: unknown) => boolean;
   ProviderOrderCandidate: (value: unknown) => boolean;
   ProviderSelection: (value: unknown) => boolean;
+  QuoteCondition: (value: unknown) => boolean;
+  QuoteCoverage: (value: unknown) => boolean;
+  QuoteDepthUnit: (value: unknown) => boolean;
   RankSpec: (value: unknown) => boolean;
   Remediation: (value: unknown) => boolean;
   ReplyData: (value: unknown) => boolean;

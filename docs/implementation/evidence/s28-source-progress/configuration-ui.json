@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-09-30T19:37:01.693Z",
+  "scope": "Configuration only; synthetic account/credentials, actual Rust/SQLite public UI. No production quotes, feed verification or real provider calls.",
+  "results": [
+    "Explicit saved-reference selection and delayed_sip feed are saved through native-trusted Rust IPC; data access remains unverified.",
+    "Saved selection survives navigation/remount; source controls have no horizontal overflow at390/768/1280px.",
+    "Source disconnect removes source selection while the synthetic broker account remains CONNECTED; no password renderer or browser error."
+  ]
+}

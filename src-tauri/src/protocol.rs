@@ -183,8 +183,11 @@ pub enum ReplyData {
     Capability(CapabilityDecision),
     ContextCatalog(ContextCatalog),
     DataSourceCatalog(DataSourceCatalog),
+    DataSourceConnection(DataSourceConnection),
     MarketCatalog(MarketCatalog),
     MarketDetail(Box<MarketDetail>),
+    HotQuoteProjection(Box<HotQuoteProjection>),
+    HotQuoteRelease(HotQuoteRelease),
     Portfolio(Box<PortfolioSnapshot>),
     Paper(Box<LocalPaperState>),
     Watchlist(Box<Watchlist>),
@@ -304,8 +307,15 @@ pub struct IpcSchema {
     pub research_result: ResearchToolResult,
     pub data_source_query: DataSourceQuery,
     pub data_source_probe: DataSourceProbe,
+    pub data_source_connection: DataSourceConnection,
+    pub data_source_configure: DataSourceConfigure,
+    pub data_source_mutation: DataSourceMutation,
     pub market_catalog_query: MarketCatalogQuery,
     pub market_get_query: MarketGetQuery,
+    pub hot_quote_acquire: HotQuoteAcquire,
+    pub hot_quote_query: HotQuoteQuery,
+    pub hot_quote_projection: HotQuoteProjection,
+    pub hot_quote_release: HotQuoteRelease,
     pub screener_request: ScreenerRequest,
     pub screener_save: ScreenerSave,
     pub screener_update: ScreenerUpdate,
@@ -449,7 +459,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 31))]
+    #[schemars(range(min = 1, max = 32))]
     pub storage_schema_version: u32,
 }
 
@@ -1761,6 +1771,87 @@ pub struct DataSourceCatalog {
     pub sources: Vec<DataSourceEntry>,
 }
 
+/// Source configuration is separate from account connectivity and quote readiness.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub eligible_accounts: Vec<DataSourceAccountChoice>,
+    pub cleanup_pending: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_kind: Option<DataSourceCredentialKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feed: Option<AlpacaFeed>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceAccountChoice {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub display_name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AlpacaFeed {
+    Iex,
+    Sip,
+    DelayedSip,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE", deny_unknown_fields)]
+pub enum DataSourceCredential {
+    Dedicated {},
+    ExistingAccount {
+        #[serde(rename = "connectionId")]
+        #[schemars(length(min = 1, max = 128))]
+        connection_id: String,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DataSourceCredentialKind {
+    ExistingAccount,
+    Dedicated,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub feed: AlpacaFeed,
+    pub credential: DataSourceCredential,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceMutation {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarketTier {
@@ -1871,6 +1962,8 @@ pub struct Instrument {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketSnapshotProvenance {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alpaca: Option<AlpacaQuoteEvidence>,
     #[schemars(length(min = 1, max = 128))]
     pub market_snapshot_id: String,
     #[schemars(length(min = 1, max = 32))]
@@ -1884,6 +1977,58 @@ pub struct MarketSnapshotProvenance {
     pub received_timestamp: String,
     pub entitlement: MarketEntitlement,
     pub freshness: MarketFreshness,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum QuoteCoverage {
+    UsSip,
+    Iex,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum QuoteDepthUnit {
+    Base,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuoteCondition {
+    #[schemars(length(min = 1, max = 4))]
+    pub code: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaQuoteEvidence {
+    pub feed: AlpacaFeed,
+    pub coverage: QuoteCoverage,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub listing_venue: String,
+    #[schemars(regex(pattern = "^[A-Z]$"))]
+    pub bid_exchange: String,
+    #[schemars(regex(pattern = "^[A-Z]$"))]
+    pub ask_exchange: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub bid_exchange_name: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub ask_exchange_name: String,
+    #[schemars(regex(pattern = "^[ABC]$"))]
+    pub tape: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub conditions: Vec<QuoteCondition>,
+    pub regular_conditions: bool,
+    pub depth_unit: QuoteDepthUnit,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_generation: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1907,6 +2052,85 @@ pub struct MarketSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub ask_size: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HotQuoteStatus {
+    Connecting,
+    Reconnecting,
+    Authenticating,
+    Subscribing,
+    AwaitingQuote,
+    Streaming,
+    Stale,
+    Failed,
+    Closed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteAcquire {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_source_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub generation: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteProjection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub generation: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_generation: String,
+    #[schemars(range(min = 0, max = 3))]
+    pub reconnect_attempt: u32,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(range(min = 0, max = 9007199254740991u64))]
+    pub sequence: u64,
+    pub status: HotQuoteStatus,
+    pub authenticated: bool,
+    pub subscribed: bool,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<MarketDetail>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteRelease {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub generation: String,
+    pub released: bool,
+    pub status: HotQuoteStatus,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -5480,6 +5704,11 @@ impl TradeXError {
                 "retry_request",
                 "Retry probe",
             ),
+            "DATA_SOURCE_FEED_DENIED" => (
+                "Alpaca denied access to the selected feed. Review its entitlement or explicitly choose another feed; no automatic fallback occurred.",
+                "configure_data_source",
+                "Review quote source",
+            ),
             "MARKET_INSTRUMENT_INVALID" => (
                 "That instrument identifier is not a supported canonical TradeX ID.",
                 "reload_snapshot",
@@ -5849,6 +6078,11 @@ impl TradeXError {
                 "Local access is stopped, but Keychain cleanup needs another attempt.",
                 "disconnect_provider",
                 "Retry Disconnect",
+            ),
+            "CREDENTIAL_CLEANUP_REQUIRED" => (
+                "Pending data-key cleanup must finish before another dedicated key can be saved.",
+                "cleanup_data_keys",
+                "Retry data-key cleanup",
             ),
             code if code.starts_with("GATEWAY_") => (
                 "The model gateway needs attention. Check its status before retrying.",

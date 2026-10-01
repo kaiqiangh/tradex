@@ -1,0 +1,13 @@
+{
+  "scope": "Current integration binary with synthetic native-vault boundary, public Settings through real Rust and temporary SQLite; not actual Keychain UI or provider-hosted acceptance",
+  "reuseObservations": [
+    "Explicit saved-reference selection and delayed_sip feed are saved through native-trusted Rust IPC; data access remains unverified.",
+    "Saved selection survives navigation/remount; source controls have no horizontal overflow at390/768/1280px.",
+    "Source disconnect removes source selection while the synthetic broker account remains CONNECTED; no password renderer or browser error."
+  ],
+  "dedicatedObservations": [
+    "Dedicated source credentials are captured outside the renderer, with explicit SIP selection and unverified access.",
+    "Dedicated selection survives page reload without horizontal overflow at 390/768/1280px.",
+    "Disconnect removes only the dedicated data key and source selection; no renderer secrets or browser errors."
+  ]
+}

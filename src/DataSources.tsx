@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import type { DataSourceEntry, DataSourceStatus } from '../shared/ipc-types.ts';
+import type { AlpacaFeed, DataSourceCredentialKind, DataSourceEntry, DataSourceStatus } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
 
 const statusLabels: Record<DataSourceStatus, string> = {
@@ -44,7 +44,102 @@ function SourceCard({ source, stale, busy, onProbe, error }: { source: DataSourc
   </article>;
 }
 
+function QuoteSourceSettings({ workspaceId, onSourceChange }: { workspaceId: string; onSourceChange: () => void }) {
+  const queryClient = useQueryClient();
+  const connection = useQuery({ queryKey: ['quote-source-connection', workspaceId], queryFn: () => request('data.source.connection', { workspaceId }), retry: false });
+  const [accountId, setAccountId] = useState('');
+  const [credentialKind, setCredentialKind] = useState<DataSourceCredentialKind>('EXISTING_ACCOUNT');
+  const [feed, setFeed] = useState<AlpacaFeed>('iex');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
+  useEffect(() => {
+    setAccountId(connection.data?.accountId ?? '');
+    setCredentialKind(connection.data?.credentialKind ?? 'EXISTING_ACCOUNT');
+    setFeed(connection.data?.feed ?? 'iex');
+  }, [connection.data?.stateVersion, workspaceId]);
+  const reloadSelection = async () => {
+    const result = await connection.refetch();
+    if (result.data) {
+      setAccountId(result.data.accountId ?? '');
+      setCredentialKind(result.data.credentialKind ?? 'EXISTING_ACCOUNT');
+      setFeed(result.data.feed ?? 'iex');
+    }
+    onSourceChange();
+    await queryClient.invalidateQueries({ queryKey: ['data-source-catalog', workspaceId] });
+  };
+  const save = async () => {
+    if (!connection.data || (credentialKind === 'EXISTING_ACCOUNT' && !accountId) || busy) return;
+    setBusy(true); setError(undefined); setNotice(undefined);
+    try {
+      await request('data.source.configure', { workspaceId, expectedStateVersion: connection.data.stateVersion, feed,
+        credential: credentialKind === 'DEDICATED' ? { kind: 'DEDICATED' } : { kind: 'EXISTING_ACCOUNT', connectionId: accountId } });
+      await reloadSelection();
+      setNotice('Source selection saved. Data access has not been verified.');
+    } catch (cause) { setError(explainError(cause)); await reloadSelection(); } finally { setBusy(false); }
+  };
+  const disconnect = async () => {
+    if (!connection.data || busy) return;
+    setBusy(true); setError(undefined); setNotice(undefined);
+    try {
+      const result = await request('data.source.disconnect', { workspaceId, expectedStateVersion: connection.data.stateVersion });
+      await reloadSelection();
+      setNotice(connection.data.credentialKind === 'DEDICATED'
+        ? result.cleanupPending ? 'Quote source disconnected. Data-key cleanup needs another attempt.' : 'Quote source disconnected. Its dedicated data key was removed.'
+        : 'Quote source disconnected. Your Alpaca account and its saved key were kept.');
+    } catch (cause) { setError(explainError(cause)); } finally { setBusy(false); }
+  };
+  const cleanup = async () => {
+    if (busy) return;
+    setBusy(true); setError(undefined); setNotice(undefined);
+    try {
+      const result = await request('data.source.cleanup', { workspaceId });
+      await reloadSelection();
+      setNotice(result.cleanupPending ? 'Data-key cleanup needs another attempt.' : 'Pending data-key cleanup completed.');
+    } catch (cause) { setError(explainError(cause)); } finally { setBusy(false); }
+  };
+  const verify = async () => {
+    if (!connection.data?.configured || busy) return;
+    setBusy(true); setError(undefined); setNotice(undefined);
+    try {
+      const catalog = await request('data.source.catalog', { workspaceId });
+      const result = await request('data.source.probe', { workspaceId, sourceId: 'OD-001', expectedStateVersion: catalog.stateVersion });
+      await reloadSelection();
+      const source = result.sources.find(source => source.sourceId === 'OD-001');
+      if (source?.status === 'AVAILABLE') setNotice('Selected feed technical access verified. Quote freshness and trading eligibility remain separate.');
+      else setError(source?.availabilityReason ?? 'Selected feed access could not be verified.');
+    } catch (cause) { setError(explainError(cause)); await reloadSelection(); } finally { setBusy(false); }
+  };
+  if (connection.isPending) return <p role="status">Loading quote source…</p>;
+  if (connection.isError) return <div role="alert"><p>{explainError(connection.error)}</p><button type="button" onClick={() => void reloadSelection()}>Reload quote source</button></div>;
+  return <section className="card quote-source-settings" aria-labelledby="quote-source-heading">
+    <h3 id="quote-source-heading">Alpaca quote source</h3>
+    <p>Use an existing saved Alpaca key or enter a dedicated data key in the native secure window. Choose the feed explicitly; saving a key does not verify data access.</p>
+    <label>Data credentials<select aria-label="Data credentials" value={credentialKind} onChange={event => setCredentialKind(event.target.value as DataSourceCredentialKind)} disabled={busy}>
+      <option value="EXISTING_ACCOUNT">Use a saved Alpaca account key</option><option value="DEDICATED">Dedicated market-data key</option>
+    </select></label>
+    {credentialKind === 'EXISTING_ACCOUNT' && <label>Saved Alpaca account<select aria-label="Saved Alpaca account" value={accountId} onChange={event => setAccountId(event.target.value)} disabled={busy}>
+      <option value="">Choose an account</option>
+      {connection.data.eligibleAccounts.map(account => <option key={account.connectionId} value={account.connectionId}>{account.displayName}</option>)}
+      {connection.data.accountId && !connection.data.eligibleAccounts.some(account => account.connectionId === connection.data.accountId) && <option value={connection.data.accountId}>Saved account — reconnect to change selection</option>}
+    </select></label>}
+    {credentialKind === 'DEDICATED' && <p className="form-hint">Saving opens native secure entry for a new key. Disconnect removes only this source's dedicated key; brokerage account keys are kept.</p>}
+    <label>Market-data feed<select aria-label="Market-data feed" value={feed} onChange={event => setFeed(event.target.value as AlpacaFeed)} disabled={busy}>
+      <option value="iex">IEX — single-venue realtime</option><option value="sip">SIP — consolidated realtime, entitlement required</option><option value="delayed_sip">Delayed SIP — consolidated delayed</option>
+    </select></label>
+    <p className="form-hint">A denied feed stays denied. Coverage, freshness and licensing remain separate from connectivity.</p>
+    <p role="status">{connection.data.availabilityReason}</p>
+    {notice && <p className="success-text" role="status">{notice}</p>}
+    {error && <div role="alert"><p className="error-text">{error}</p><button type="button" onClick={() => void reloadSelection()} disabled={busy}>Reload quote source</button></div>}
+    {connection.data.cleanupPending && <div role="status"><p>Access to discarded data keys has stopped. Their Keychain cleanup is still pending.</p><button type="button" onClick={() => void cleanup()} disabled={busy}>Retry data-key cleanup</button></div>}
+    <button type="button" onClick={() => void save()} disabled={busy || (credentialKind === 'EXISTING_ACCOUNT' && !connection.data.eligibleAccounts.some(account => account.connectionId === accountId))}>{busy ? 'Working…' : credentialKind === 'DEDICATED' ? 'Save data key securely' : 'Save quote source'}</button>
+    <button type="button" onClick={() => void verify()} disabled={busy || !connection.data.configured || feed !== connection.data.feed || credentialKind !== connection.data.credentialKind || (credentialKind === 'EXISTING_ACCOUNT' && accountId !== connection.data.accountId)}>Verify selected feed</button>
+    {connection.data.configured && <button type="button" onClick={() => void disconnect()} disabled={busy}>Disconnect quote source</button>}
+  </section>;
+}
+
 export function DataSources({ workspaceId }: { workspaceId: string }) {
+  const queryClient = useQueryClient();
   const catalog = useQuery({ queryKey: ['data-source-catalog', workspaceId], queryFn: () => request('data.source.catalog', { workspaceId }), retry: false });
   const [probing, setProbing] = useState<string>();
   const [probeErrors, setProbeErrors] = useState<Record<string, string>>({});
@@ -59,6 +154,7 @@ export function DataSources({ workspaceId }: { workspaceId: string }) {
     setProbeErrors(current => ({ ...current, [source.sourceId]: '' }));
     try {
       const result = await request('data.source.probe', { workspaceId, sourceId: source.sourceId, expectedStateVersion: catalog.data.stateVersion });
+      if (source.sourceId === 'OD-001') await queryClient.invalidateQueries({ queryKey: ['quote-source-connection', workspaceId] });
       const updated = result.sources.find(item => item.sourceId === source.sourceId);
       if (updated) {
         const stale = updated.status === 'UNAVAILABLE' && previous.status === 'AVAILABLE' && Boolean(previous.observedAt);
@@ -77,6 +173,11 @@ export function DataSources({ workspaceId }: { workspaceId: string }) {
     <h3 id="data-sources-title">Data sources</h3>
     <p className="muted">These are read-only source gates. Provider account links do not grant market-data entitlement, and no secrets are entered here.</p>
     <p className="form-hint">A public endpoint check proves reachability only. Coverage, freshness, terms and commercial use remain visible with the result.</p>
+    <QuoteSourceSettings key={workspaceId} workspaceId={workspaceId} onSourceChange={() => {
+      setOverrides(current => { const next={...current}; delete next['OD-001']; return next; });
+      setStaleSources(current => ({ ...current, 'OD-001': false }));
+      setProbeErrors(current => ({ ...current, 'OD-001': '' }));
+    }} />
     <div className="data-source-grid">{catalog.data.sources.map(source => { const current = overrides[source.sourceId] ?? source; const stale = staleSources[source.sourceId] === true || sourceIsStale(current); return <SourceCard key={source.sourceId} source={current} stale={stale} busy={probing !== undefined} onProbe={() => void probe(current)} error={probeErrors[source.sourceId] || undefined} />; })}</div>
   </section>;
 }

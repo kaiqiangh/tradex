@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.49s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-9a7f23d69169535c)
+
+running 1 test
+test quote_http_auth_denial_and_quota_retire_evidence_without_fallback_or_cooldown_storm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 1.33s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.72s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-2f2c973c55b89344)
+
+running 1 test
+test feed_authentication_and_connection_limits_are_terminal_and_cannot_become_acknowledgements ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.37s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.88s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-2f2c973c55b89344)
+
+running 1 test
+test slow_client_errors_stop_after_three_retries_without_feed_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 3.61s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.32s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-2f2c973c55b89344)
+
+running 1 test
+test identical_stream_events_keep_first_receipt_and_unordered_conflicts_retire_current_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.17s
+

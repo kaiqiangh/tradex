@@ -1,0 +1,45 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0425]: cannot find value `now` in this scope
+   --> src-tauri/src/quote_source.rs:680:16
+    |
+680 |         parse(&now.wall_clock),
+    |                ^^^ not found in this scope
+    |
+note: function `crate::data_sources::now` exists but is inaccessible
+   --> src-tauri/src/data_sources.rs:559:1
+    |
+559 | fn now() -> Result<String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^ not accessible
+
+error[E0425]: cannot find value `now` in this scope
+   --> src-tauri/src/quote_source.rs:697:15
+    |
+697 |     } else if now.confidence != TimeConfidence::Trusted {
+    |               ^^^ not found in this scope
+    |
+note: function `crate::data_sources::now` exists but is inaccessible
+   --> src-tauri/src/data_sources.rs:559:1
+    |
+559 | fn now() -> Result<String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^ not accessible
+
+error[E0425]: cannot find value `receipt` in this scope
+    --> src-tauri/src/quote_source.rs:1268:43
+     |
+1268 |     let received = OffsetDateTime::parse(&receipt.wall_clock, &Rfc3339)
+     |                                           ^^^^^^^ not found in this scope
+
+error[E0425]: cannot find value `receipt` in this scope
+    --> src-tauri/src/quote_source.rs:1316:33
+     |
+1316 |     let snapshot_id = identity(&receipt.wall_clock)?;
+     |                                 ^^^^^^^ not found in this scope
+
+error[E0425]: cannot find value `receipt` in this scope
+    --> src-tauri/src/quote_source.rs:1332:33
+     |
+1332 |             received_timestamp: receipt.wall_clock.clone(),
+     |                                 ^^^^^^^ not found in this scope
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `tradex` (lib) due to 5 previous errors

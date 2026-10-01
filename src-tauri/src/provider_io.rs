@@ -292,6 +292,7 @@ impl CredentialVault for NativeVault {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderEndpoint {
     AlpacaPaper,
+    AlpacaMarketData,
     Trading212Demo,
     Trading212Live,
     BinanceTestnet,
@@ -302,7 +303,7 @@ pub enum ProviderEndpoint {
 impl ProviderEndpoint {
     fn scheduler_provider(self) -> &'static str {
         match self {
-            Self::AlpacaPaper => "alpaca",
+            Self::AlpacaPaper | Self::AlpacaMarketData => "alpaca",
             Self::Trading212Demo | Self::Trading212Live => "trading212",
             Self::BinanceTestnet | Self::BinanceLive => "binance",
             Self::BitgetDemo | Self::BitgetLive => "bitget",
@@ -312,6 +313,7 @@ impl ProviderEndpoint {
     pub fn base_url(self) -> &'static str {
         match self {
             Self::AlpacaPaper => "https://paper-api.alpaca.markets",
+            Self::AlpacaMarketData => "https://data.alpaca.markets",
             Self::Trading212Demo => "https://demo.trading212.com",
             Self::Trading212Live => "https://live.trading212.com",
             Self::BinanceTestnet => "https://testnet.binance.vision",
@@ -328,6 +330,7 @@ impl ProviderEndpoint {
     fn allows(self, path: &str) -> bool {
         match self {
             Self::AlpacaPaper => allowed_path(path),
+            Self::AlpacaMarketData => crate::quote_source::allowed_latest_path(path),
             Self::BitgetDemo => bitget::allows(path),
             Self::BitgetLive => {
                 bitget::allows(path)
@@ -973,6 +976,14 @@ pub fn p1_provider_http<'a, H: ProviderHttp>(
     account_id: &'a str,
 ) -> impl ProviderHttp + 'a {
     prioritized_provider_http(inner, current, account_id, ProviderPriority::P1)
+}
+
+pub(crate) fn p3_provider_http<'a, H: ProviderHttp>(
+    inner: &'a H,
+    current: &'a dyn Fn() -> bool,
+    account_id: &'a str,
+) -> impl ProviderHttp + 'a {
+    prioritized_provider_http(inner, current, account_id, ProviderPriority::P3)
 }
 
 fn prioritized_provider_http<'a, H: ProviderHttp>(
@@ -1678,7 +1689,7 @@ fn body_ticker_for_live_proposal(proposal: &OrderProposal) -> Result<String> {
 }
 
 pub struct BrokerHttp {
-    client: std::cell::OnceCell<Result<Client>>,
+    client: OnceLock<Result<Client>>,
     #[cfg(feature = "integration-test")]
     local_test_base_url: Option<String>,
 }
@@ -1713,7 +1724,7 @@ impl BrokerHttp {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         Ok(Self {
-            client: std::cell::OnceCell::new(),
+            client: OnceLock::new(),
             local_test_base_url: Some(base_url.trim_end_matches('/').to_owned()),
         })
     }
@@ -1733,6 +1744,7 @@ impl BrokerHttp {
         let base = if matches!(
             endpoint,
             ProviderEndpoint::Trading212Live
+                | ProviderEndpoint::AlpacaMarketData
                 | ProviderEndpoint::BinanceLive
                 | ProviderEndpoint::BitgetLive
         ) {
@@ -1748,7 +1760,7 @@ impl BrokerHttp {
 impl Default for BrokerHttp {
     fn default() -> Self {
         Self {
-            client: std::cell::OnceCell::new(),
+            client: OnceLock::new(),
             #[cfg(feature = "integration-test")]
             local_test_base_url: None,
         }

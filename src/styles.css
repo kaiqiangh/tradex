@@ -640,3 +640,11 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .strategy-result dt { color: var(--muted); font-size: 10px; }
 .strategy-result dd { margin: 2px 0 0; overflow-wrap: anywhere; font-size: 11px; }
 @media (max-width: 760px) { .strategy-grid, .strategy-result dl { grid-template-columns: minmax(0, 1fr); } }
+
+.quote-source-settings { min-width: 0; }
+.quote-source-settings label { display: grid; gap: 6px; margin-block: 12px; min-width: 0; }
+.quote-source-settings select { width: 100%; max-width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+.quote-source-settings > button + button { margin-left: 8px; }
+
+.market-detail-container { min-width: 0; display: grid; gap: 1rem; }
+.hot-quote-status { overflow-wrap: anywhere; }

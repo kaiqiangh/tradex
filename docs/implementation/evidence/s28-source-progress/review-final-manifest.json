@@ -1,0 +1,89 @@
+{
+  "checkedAt": "2026-10-01T13:07:49.063166+00:00",
+  "branch": "dev",
+  "baseline": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "status": "LOCAL_VALIDATION_PASS_WHOLE_TICKET_NOT_PASS",
+  "checks": {
+    "default": "17 Node/341 Rust passed;36 existing ignored; schema/build and planning trace pass",
+    "integration": "372 Rust passed;36 existing ignored",
+    "gateway": "23 passed at actual --test order_gateway with integration-test/order-gateway-runtime",
+    "ordinaryDesktopBuild": "PASS; separate pinned Gateway; ordinary desktop has no integration feature; build not native/runtime/signing acceptance",
+    "pureIntegrationIPCBuild": "PASS; used in final public UI",
+    "publicUI": "6 fresh observations; keyboard and390/768/1280px no overflow/errors; adapter-derived quote, blocked read-only review and explicit source replacement with same immutable proposal",
+    "formatDiff": "PASS"
+  },
+  "reviews": {
+    "Standards": "PASS after serial remediation recheck; no remaining concrete findings",
+    "Spec": "Two implementation defects corrected; no remaining concrete source defect; whole-ticket NOT PASS because criterion4 positive issued approval/Prepare/dispatch remains unverified; final local gates now complete"
+  },
+  "limits": [
+    "36 ignored tests remain unverified",
+    "No positive financial authority injected or broker mutation; independent permission/arming/time/calendar/tradability/FX/Gateway guards preserved",
+    "Current release not launched through normal native Keychain; hosted technical access proof is separately historical; actual hosted Hot ticks remain unverified",
+    "Original S28 and S17/physical S27 acceptance remain unverified; all relevant issues stay OPEN",
+    "No commit/main PR; user sequencing clarification pending for financial prerequisite dependency work"
+  ],
+  "excludedExternalFiles": [
+    "docs/implementation/workload-dashboard.html",
+    "docs/implementation/workload-data.json"
+  ],
+  "sourceSha256": {
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "f4650ae8eb8f37cc0bd48439e8ce005221ea32a746b0a15e1f69eaac96bf7863",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "6771c5165ba60a11f844a1e1ec29e38cee038529e23a3a46cbf0ac075bb9ff31",
+    "docs/TradeX_PRD_v1.0_RevC.md": "dd0a7737604ce0bdc39dde33c52a7ca760483b84567267ed00ff0a2a65169cea",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "100efa85818952d0bc8b4caa04b23d3ce71c4affe3158b1f16e9532c93f666ec",
+    "docs/implementation/requirements.csv": "5eb8db75b733da70d285d28358b223dd3a32e433b1d85c3047bb7fd6711cafc3",
+    "docs/implementation/s28-alpaca-production-quotes.md": "b24707d9e993cb89924877c5b7fd78dc7f0bbabb8ab6681bedd20f308179378b",
+    "docs/implementation/s28-alpaca-production-quotes_zh.md": "b4ff9e24e40a56a6d61a2e29af5f1219f646c218754c756c4a226d99d05c53bb",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "8151f777dcf0da23cf8f7e8eeffeba476ef9685c0d8349566fdb0d45b377126b",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "f33a8b7646997058f5a5999c4a59b618b9102f72dc01eb8775c37849275b6d2a",
+    "docs/zh/TradeX_PRD_v1.0_RevC_zh.md": "32cf80c6bca84df0f68eb68da704aab158c980dbea978019f7eaf92e44ac6e11",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "8f65ee14170e9b0bfabb237d7f70a8ec7b3f6c31cb622e709659d32c42f59b24",
+    "shared/ipc-types.ts": "c931b89934bd48aa3735f9882fd5fe01923bbcaf27dea142ee34a7ab8b5fae48",
+    "shared/ipc-v1.schema.json": "0ac8962f93e576fe5ad32c2cc73531cfa0f4d80db467efcf9423649ed4e41e8e",
+    "shared/ipc-validators.d.ts": "4fd1bbe53c34397a641d0adadac419e032d601b1c4b58be577abeea676472aae",
+    "shared/ipc-validators.js": "f49324816b4a9b47c49d80c61c59cb0aaa7d2818568aed4a063aa8264677ba9f",
+    "src-tauri/src/bin/ipc.rs": "6e5ab2e77ef6856a4c829194c98aa47abd92ae6bb746220128013368b362e378",
+    "src-tauri/src/lib.rs": "e5c61f8dc318f6a21fb10513667e189d494f7ae5985d4c73576f149c38ee4d47",
+    "src-tauri/src/main.rs": "2a8be8e34253e98c1b28dcf6654efd6f5f89bdd830ecbdc43f9b705930d26e11",
+    "src-tauri/src/market.rs": "127748cdd2aa2c691fdf33ddd812bd28696d4cd6d640efdaaf172d919577fe8a",
+    "src-tauri/src/native_credentials.rs": "8bd043dc3638692b98a972ccee480ee482c9e56edce9af91f8b7b707befc57bc",
+    "src-tauri/src/protocol.rs": "73f067530b60a24b1de09fe462b2339bad24d8b1e1fd0793a25fdfba9f23fa27",
+    "src-tauri/src/provider_io.rs": "54d8f5a8a57a41f0e086c3bcdb77bea23ad19114f502959972baa48a47641673",
+    "src-tauri/src/quote_source.rs": "9fc92c1f19f9cda67d1fd510ba2c4d4fc3883099da8b8cb0e8b2677c754fab86",
+    "src-tauri/src/quote_source/hot.rs": "ddc77d9f9c09d3d8b680d1046e426dd8edc342bcfd03c695468052da8c0616f4",
+    "src-tauri/src/risk.rs": "65737e728df33743e2438b35710aff5ce24543f9303e399495b48f38681bfb14",
+    "src-tauri/src/storage.rs": "72d6c6ea94f57e05c251ecfd13bc663aac105ef9e1df3b520a617a87c1c79e59",
+    "src-tauri/tests/data_sources.rs": "249d67dd27005573d2052663e2055e3687a67296cbbead304dedc3809b4153c9",
+    "src-tauri/tests/quote_hot.rs": "db0593a6574450946301fbc360390af9e3f3bf2a0eb47a6a12dc1e9795793613",
+    "src-tauri/tests/support/provider_fixtures.rs": "a275513ee0b6f364505dbfdc421895c9ad8fb3074391ae2e16c4300c86a5044a",
+    "src-tauri/tests/support/provider_http.rs": "2517b4ecbbace4d2b24eceb4367476b5cd92ecd9024cff9d7de788990fbf4e1d",
+    "src-tauri/tests/support/quote_stream_fixture.rs": "bcfbaa24c199d1ad7fa87bc10c922de283be482a4f21243d9add92b2329966df",
+    "src-tauri/tests/watchlists.rs": "db654e23b3dd081e433e421e9116db41e6f8f6007b760311356a14e1dae73460",
+    "src-tauri/tests/workspace.rs": "d43816e69bbf0fcf9bf0a39c3b73cdf4d4166d487493edb585bfc117c2b2dde0",
+    "src/App.tsx": "8af63f5434604968b1e0e279abe7c1aa4abbfd8ef1316cc5f598049c67c6900e",
+    "src/DataSources.tsx": "191247e6633a148186063c906a7930cb48a1ed926b53d99230984e9d3605f995",
+    "src/Markets.tsx": "2ba91ede989ab37a2d6bf933c9cc5cc7178517b662bb2aa313fe2b75db3b96d1",
+    "src/OrderDrafts.tsx": "bf1eed6a6631b092e591126cb88fffefc1311c7f10bfee25796a08b892dd03bb",
+    "src/client.ts": "cbda61675df2144bcb4811cb30daeb390ca1e1327b5a7616e139d33a9bf5d9a7",
+    "src/styles.css": "916609fc46811bb828aec37d6f8185a9d738dfc807ae887d064d1e5bcaea6ebb",
+    "tests/projection.test.ts": "4298d88c677620557a7d9f93040beb116e58dbbc0c5bc1034d5052e820070985",
+    "tests/quote-source-ui.mjs": "0e87d403bf2f5bc3284f5d17eed1e3114f60e960df22f45e252d210e120d4664"
+  },
+  "runtimeSha256": {
+    "target/release/tradex": "972d0d7f6dff9ec0fd73ec2eb0784d214827b8a8bbdf8f1917bfd32b0b8de11c",
+    "target/release/tradex-order-gateway": "047afc9c74864487e54bc6b23de762da6a762726270b93af074b302c289125fb",
+    "target/debug/tradex-ipc": "261704916934035128c64ed630443b29535edf9a36e3e45b9ddeace1f2269b31"
+  },
+  "evidenceSha256": {
+    "docs/implementation/evidence/s28-source-progress/review-final-products-check.txt": "af5b63755304cc65781527a8d609c6c35436692113e833a6a47e7f53b5d2a845",
+    "docs/implementation/evidence/s28-source-progress/review-final-products-results.json": "516c4e2c7b435db35c064385fc25fd6b2b2d962ae5027b1815bfd2a21cf355a5",
+    "docs/implementation/evidence/s28-source-progress/review-final-ui.json": "127f526d8dd8f4cbfdce6e7bdbd6bf494108e6866037c4b8499e25dc8723397d",
+    "docs/implementation/evidence/s28-source-progress/review-final-prearm-ui.png": "16397cc4888696b2dff0cbd42e990137ab8cf76f9761d8d076ed9b24ffc92732",
+    "docs/implementation/evidence/s28-source-progress/review-final-unavailable-ui.png": "a87bcd81bf2719dfbfa41791acb439da24034d339531c70566acd7f7628e0de8",
+    "docs/implementation/evidence/s28-source-progress/review-fixes-check.txt": "48b25f2d3167123c698d2de2b1f403bf4fddca29d7e0f6872d3bf4d44229e07d",
+    "docs/implementation/evidence/s28-source-progress/review-fixes-manifest.json": "911066e4ecae0db15dd1bcac6924641884702a92842d1d1b4847ad080d16a3cd",
+    "docs/implementation/evidence/s28-source-progress/serial-spec-review.md": "1372b852d71323fab44fa029413fe826377fcba65b1c5d9dc3b26d75661250bd",
+    "docs/implementation/evidence/s28-source-progress/serial-review-followup.md": "6231bdce8b00a5974fb72b8cfcf16c4c28a8d9f15b6b5f4eb9fca6ff19db8b32"
+  }
+}

@@ -1,0 +1,22 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.71s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-72ed569b5fe0a82e)
+
+running 1 test
+test malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence ... FAILED
+
+failures:
+
+---- malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence stdout ----
+
+thread 'malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence' (1566355) panicked at src-tauri/tests/quote_hot.rs:1572:13:
+Invalid quote became stream evidence (mixed-control-quote): {"data":{"authenticated":true,"connectionGeneration":"cc5a5b98-5951-479c-a923-2753541296b8","detail":{"adjustmentStatus":"UNAVAILABLE","availabilityReason":"Quote received; synchronize TimeService before freshness can be trusted.","corporateActions":[],"instrument":{"assetClass":"EQUITY","currency":"USD","displayName":"Apple Inc.","exchange":"XNAS","instrumentId":"equity:US:AAPL","providers":[{"providerId":"alpaca","providerSymbol":"AAPL"},{"providerId":"trading212","providerSymbol":"AAPL_US_EQ"}],"symbol":"AAPL"},"marketState":{"observedAt":"2026-10-01T08:25:40.275Z","reason":"Calendar and corporate-action credentials/coverage are not configured or freshly verified.","session":"UNKNOWN","sourceId":"OD-005","sourceStatus":"BLOCKED_EXTERNAL","timeConfidence":"CLOCK_UNCERTAIN","venue":"XNAS"},"snapshot":{"ask":"250.2","askSize":"310","bid":"250.1","bidSize":"205","instrumentId":"equity:US:AAPL","provenance":{"alpaca":{"askExchange":"Q","askExchangeName":"Nasdaq","bidExchange":"P","bidExchangeName":"NYSE Arca","conditions":[{"code":"R","name":"Regular"}],"connectionGeneration":"cc5a5b98-5951-479c-a923-2753541296b8","coverage":"US_SIP","depthUnit":"BASE","feed":"sip","listingVenue":"XNAS","providerSymbol":"AAPL","regularConditions":true,"sourceVersion":"data:92d59a5d-a208-490e-ae36-0641bf1606da:1","tape":"C"},"entitlement":"REALTIME","freshness":"CLOCK_UNCERTAIN","marketSnapshotId":"alpaca:7a653b3838d25beafc6e52ff30c2b80295e0b2538e8c5f33a62645392c17e2f9","providerTimestamp":"2026-09-30T14:10:00.123456789Z","receivedTimestamp":"2026-10-01T08:25:37.274Z","source":"OD-001","venue":"US_SIP"}},"sourceId":"OD-001","status":"UNAVAILABLE","tier":"HOT","workspaceId":"92d59a5d-a208-490e-ae36-0641bf1606da"},"generation":"cc5a5b98-5951-479c-a923-2753541296b8","instrumentId":"equity:US:AAPL","leaseId":"1ef49320-4ed4-4b78-82b5-5a39e4f9d5d1","reason":"Actual quote received on the authenticated, confirmed subscription.","reconnectAttempt":0,"sequence":4,"sourceId":"OD-001","sourceVersion":"data:92d59a5d-a208-490e-ae36-0641bf1606da:1","status":"STREAMING","subscribed":true,"workspaceId":"92d59a5d-a208-490e-ae36-0641bf1606da"},"ok":true,"requestId":"hot-test","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13 filtered out; finished in 3.56s
+
+error: test failed, to rerun pass `-p tradex --test quote_hot`

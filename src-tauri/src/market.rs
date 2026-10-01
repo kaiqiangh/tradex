@@ -840,6 +840,7 @@ pub(crate) fn live_approval_fixture_detail(
     detail.snapshot = Some(MarketSnapshot {
         instrument_id: detail.instrument.instrument_id.clone(),
         provenance: MarketSnapshotProvenance {
+            alpaca: None,
             market_snapshot_id: "synthetic-live-approval-v1".into(),
             source: SOURCE.into(),
             venue: Some(venue.into()),

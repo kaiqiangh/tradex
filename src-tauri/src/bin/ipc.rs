@@ -15,14 +15,81 @@ mod fake_live_provider;
 #[path = "../../tests/support/provider_fixtures.rs"]
 mod fixtures;
 
+#[cfg(feature = "integration-test")]
+#[path = "../../tests/support/quote_stream_fixture.rs"]
+mod quote_stream_fixture;
+#[cfg(feature = "integration-test")]
+#[derive(Default)]
+struct SharedVault(Mutex<fixtures::Vault>);
+#[cfg(feature = "integration-test")]
+impl tradex::provider_io::CredentialVault for SharedVault {
+    fn put(&self, r: &str, c: &tradex::provider_io::Credentials) -> tradex::protocol::Result<()> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))?
+            .put(r, c)
+    }
+    fn get(&self, r: &str) -> tradex::protocol::Result<tradex::provider_io::Credentials> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))?
+            .get(r)
+    }
+    fn remove(&self, r: &str) -> tradex::protocol::Result<()> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))?
+            .remove(r)
+    }
+}
+#[cfg(feature = "integration-test")]
+#[derive(Default)]
+struct QuoteHttp(Mutex<fixtures::Http>);
+#[cfg(feature = "integration-test")]
+impl tradex::provider_io::ProviderHttp for QuoteHttp {
+    fn get(
+        &self,
+        e: tradex::provider_io::ProviderEndpoint,
+        p: &str,
+        h: reqwest::header::HeaderMap,
+    ) -> tradex::protocol::Result<Vec<u8>> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("PROVIDER_UNAVAILABLE"))?
+            .get(e, p, h)
+    }
+    fn request(
+        &self,
+        e: tradex::provider_io::ProviderEndpoint,
+        m: tradex::provider_io::ProviderHttpMethod,
+        p: &str,
+        h: reqwest::header::HeaderMap,
+        b: Option<&Value>,
+    ) -> tradex::protocol::Result<tradex::provider_io::ProviderHttpResponse> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("PROVIDER_UNAVAILABLE"))?
+            .request(e, m, p, h, b)
+    }
+}
 fn main() -> io::Result<()> {
     #[cfg(feature = "integration-test")]
-    let (vault, http) = (fixtures::Vault::default(), fixtures::Http::default());
+    let (vault, http) = (Arc::new(SharedVault::default()), fixtures::Http::default());
     let Some(path) = std::env::args_os().nth(1) else {
         eprintln!("Usage: tradex-ipc <isolated-workspace-directory>");
         std::process::exit(2);
     };
     let control = Arc::new(Mutex::new(ControlPlane::new(PathBuf::from(path))));
+    #[cfg(feature = "integration-test")]
+    let quote_hot = tradex::quote_source::hot::QuoteHotSupervisor::new();
+    #[cfg(feature = "integration-test")]
+    let quote_http = Arc::new(QuoteHttp::default());
+    #[cfg(feature = "integration-test")]
+    let quote_connector = if std::env::var_os("TRADEX_QUOTE_STREAM_FIXTURE").is_some() {
+        Some(quote_stream_fixture::start()?)
+    } else {
+        None
+    };
     let supervisor = RuntimeSupervisor::new();
     let strategy_supervisor = StrategySupervisor::new();
     let backtest_supervisor = BacktestSupervisor::new();
@@ -631,7 +698,13 @@ fn main() -> io::Result<()> {
                             label,
                         ) {
                             Ok(account) => {
-                                vault.present.borrow_mut().insert(account.credential_ref());
+                                vault
+                                    .0
+                                    .lock()
+                                    .unwrap()
+                                    .present
+                                    .borrow_mut()
+                                    .insert(account.credential_ref());
                                 json!({
                                     "requestId":request["requestId"],"schemaVersion":1,"ok":true,
                                     "data":account
@@ -669,7 +742,13 @@ fn main() -> io::Result<()> {
                             match control.seed_live_arming_fixture(workspace_id, provider_id, label)
                             {
                                 Ok(account) => {
-                                    vault.present.borrow_mut().insert(account.credential_ref());
+                                    vault
+                                        .0
+                                        .lock()
+                                        .unwrap()
+                                        .present
+                                        .borrow_mut()
+                                        .insert(account.credential_ref());
                                     if account.provider_id == "trading212"
                                         && account.environment == "LIVE"
                                         && let Some(remote_id) =
@@ -762,7 +841,13 @@ fn main() -> io::Result<()> {
                             label,
                         ) {
                             Ok(account) => {
-                                vault.present.borrow_mut().insert(account.credential_ref());
+                                vault
+                                    .0
+                                    .lock()
+                                    .unwrap()
+                                    .present
+                                    .borrow_mut()
+                                    .insert(account.credential_ref());
                                 if provider_id == "binance" {
                                     http.binance_uid.set(9_007_199_254_740_993);
                                 }
@@ -1117,34 +1202,100 @@ fn main() -> io::Result<()> {
                 oversized = false;
                 continue;
             }
+            #[cfg(feature = "integration-test")]
+            if matches!(command, Some("market.hot.acquire" | "market.hot.release")) {
+                let result = if let Some(connector) = quote_connector.as_ref() {
+                    quote_hot.dispatch_with(
+                        &control,
+                        &request,
+                        "stdio",
+                        vault.clone(),
+                        quote_http.clone(),
+                        connector.clone(),
+                    )
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("market.get") {
+                let result = tradex::quote_source::execute_market(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
             if command == Some("data.source.probe") {
-                let prepared = match control.lock() {
-                    Ok(mut control) => control.prepare_data_source_probe(&request),
-                    Err(_) => Err(tradex::protocol::TradeXError::new(
-                        "IPC_CONTROL_PLANE_UNAVAILABLE",
-                    )),
-                };
-                let result = match prepared {
-                    Ok(Some(job)) => {
-                        let outcome =
-                            tradex::data_sources::probe(&job.input.source_id, job.source.clone());
-                        match control.lock() {
-                            Ok(mut control) => control.complete_data_source_probe(&job, outcome),
-                            Err(_) => json!({
-                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
-                            }),
+                #[cfg(feature = "integration-test")]
+                let result = tradex::quote_source::execute_probe(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                #[cfg(not(feature = "integration-test"))]
+                let result = {
+                    let prepared = match control.lock() {
+                        Ok(mut control) => control.prepare_data_source_probe(&request),
+                        Err(_) => Err(tradex::protocol::TradeXError::new(
+                            "IPC_CONTROL_PLANE_UNAVAILABLE",
+                        )),
+                    };
+                    let result = match prepared {
+                        Ok(Some(job)) => {
+                            let outcome = tradex::data_sources::probe(
+                                &job.input.source_id,
+                                job.source.clone(),
+                            );
+                            match control.lock() {
+                                Ok(mut control) => {
+                                    control.complete_data_source_probe(&job, outcome)
+                                }
+                                Err(_) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                                }),
+                            }
                         }
-                    }
-                    Ok(None) => json!({
-                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                        "error":tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")
-                    }),
-                    Err(error) => json!({
-                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                        "error":error
-                    }),
+                        Ok(None) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")
+                        }),
+                        Err(error) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":error
+                        }),
+                    };
+                    result
                 };
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if matches!(
+                command,
+                Some("data.source.configure" | "data.source.disconnect" | "data.source.cleanup")
+            ) {
+                let result = tradex::quote_source::execute_configuration(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    fixtures::credentials,
+                );
                 write_frame(&output, &json!({"kind":"result", "result":result}))?;
                 frame.clear();
                 oversized = false;
@@ -1161,7 +1312,7 @@ fn main() -> io::Result<()> {
             let result = match prepared {
                 Ok(Some(job)) => {
                     let outcome = job.run(
-                        &vault,
+                        vault.as_ref(),
                         |definition| {
                             if definition.provider_id == "bitget" {
                                 fixtures::bitget::credentials()
@@ -1179,7 +1330,9 @@ fn main() -> io::Result<()> {
                     match control.lock() {
                         Ok(mut control) => {
                             let reply = control.complete_provider(&job, outcome);
-                            if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
+                            if let Some(cleanup) =
+                                job.cleanup_after_failed_commit(&reply, vault.as_ref())
+                            {
                                 control.record_credential_cleanup(&job, cleanup);
                             }
                             reply
@@ -1286,6 +1439,8 @@ fn main() -> io::Result<()> {
     if gateway.stop() {
         let _ = std::fs::remove_dir_all(runtime_path);
     }
+    #[cfg(feature = "integration-test")]
+    quote_hot.stop_all();
     Ok(())
 }
 

@@ -63,7 +63,7 @@ use crate::providers::{
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 31;
+pub(crate) const SCHEMA_VERSION: u32 = 32;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -949,6 +949,26 @@ impl Store {
                 CREATE UNIQUE INDEX execution_attempts_one_place_per_intent ON execution_attempts(workspace_id,intent_id) WHERE operation='PLACE_ORDER';
                 PRAGMA user_version=31;").map_err(storage_error)?;
             }
+            if version < 32 {
+                tx.execute_batch(
+                    "CREATE TABLE quote_source_config (
+                    singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                    generation INTEGER NOT NULL CHECK(generation > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE TABLE quote_source_config_audit (
+                    generation INTEGER PRIMARY KEY CHECK(generation > 0),
+                    occurred_at TEXT NOT NULL,
+                    projection TEXT NOT NULL
+                );
+                CREATE TABLE quote_source_owned_credentials (
+                    reference TEXT PRIMARY KEY,
+                    status TEXT NOT NULL CHECK(status IN ('PENDING','ACTIVE','DELETE_PENDING'))
+                );
+                PRAGMA user_version=32;",
+                )
+                .map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         connection
@@ -979,6 +999,8 @@ impl Store {
             _lock: lock,
             path,
         };
+        // PENDING entries belong to a process that no longer holds this workspace.
+        store.connection.execute("UPDATE quote_source_owned_credentials SET status='DELETE_PENDING' WHERE status='PENDING'", []).map_err(storage_error)?;
         store.recover_interrupted_trading212_demo_attempts()?;
         store.recover_interrupted_trading212_demo_cancels()?;
         store.recover_interrupted_alpaca_paper_attempts()?;
@@ -988,6 +1010,131 @@ impl Store {
         store.recover_interrupted_alpaca_paper_cancels()?;
         store.recover_interrupted_live_execution_attempts()?;
         Ok(store)
+    }
+
+    pub fn quote_source(&self) -> Result<crate::quote_source::SavedQuoteSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM quote_source_config WHERE singleton=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::quote_source::SavedQuoteSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        if generation <= 0
+            || saved.generation != generation as u64
+            || saved.generation > MAX_SEQUENCE
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        saved.validate(&self.workspace_id()?)?;
+        if let Some(reference) = saved.owned_reference() {
+            let active: bool = self.connection.query_row("SELECT EXISTS(SELECT 1 FROM quote_source_owned_credentials WHERE reference=?1 AND status='ACTIVE')", [reference], |row| row.get(0)).map_err(storage_error)?;
+            if !active {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        Ok(saved)
+    }
+
+    pub fn register_quote_source_credential(&mut self, reference: &str) -> Result<()> {
+        if !crate::quote_source::owned_reference_matches(reference, &self.workspace_id()?) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let count: i64 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM quote_source_owned_credentials",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if count >= 32 {
+            return Err(TradeXError::new("CREDENTIAL_CLEANUP_REQUIRED"));
+        }
+        self.connection
+            .execute(
+                "INSERT INTO quote_source_owned_credentials VALUES(?1,'PENDING')",
+                [reference],
+            )
+            .map_err(storage_error)?;
+        Ok(())
+    }
+
+    pub fn queue_quote_source_credential_cleanup(&mut self, reference: &str) -> Result<()> {
+        if !crate::quote_source::owned_reference_matches(reference, &self.workspace_id()?) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        self.connection.execute("UPDATE quote_source_owned_credentials SET status='DELETE_PENDING' WHERE reference=?1 AND status='PENDING'", [reference]).map_err(storage_error)?;
+        Ok(())
+    }
+
+    pub fn quote_source_pending_cleanup(&self) -> Result<Vec<String>> {
+        let mut query = self.connection.prepare("SELECT reference FROM quote_source_owned_credentials WHERE status='DELETE_PENDING' ORDER BY reference LIMIT 32").map_err(storage_error)?;
+        let references = query
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        let workspace_id = self.workspace_id()?;
+        if references.iter().any(|reference| {
+            !crate::quote_source::owned_reference_matches(reference, &workspace_id)
+        }) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(references)
+    }
+
+    pub fn acknowledge_quote_source_cleanup(&mut self, reference: &str) -> Result<()> {
+        if !crate::quote_source::owned_reference_matches(reference, &self.workspace_id()?) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        self.connection.execute("DELETE FROM quote_source_owned_credentials WHERE reference=?1 AND status='DELETE_PENDING'", [reference]).map_err(storage_error)?;
+        Ok(())
+    }
+
+    pub fn save_quote_source(
+        &mut self,
+        mut saved: crate::quote_source::SavedQuoteSource,
+    ) -> Result<()> {
+        let prior = self.quote_source()?;
+        if saved.generation != prior.generation || prior.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.validate(&self.workspace_id()?)?;
+        let previous_owned = prior.owned_reference().map(str::to_owned);
+        let next_owned = saved.owned_reference().map(str::to_owned);
+        saved.generation += 1;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        if let Some(reference) = &next_owned {
+            let updated = tx.execute("UPDATE quote_source_owned_credentials SET status='ACTIVE' WHERE reference=?1 AND status='PENDING'", [reference]).map_err(storage_error)?;
+            if updated != 1 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        if let Some(reference) = &previous_owned {
+            let updated = tx.execute("UPDATE quote_source_owned_credentials SET status='DELETE_PENDING' WHERE reference=?1 AND status='ACTIVE'", [reference]).map_err(storage_error)?;
+            if updated != 1 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        tx.execute("INSERT INTO quote_source_config VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,projection=excluded.projection", params![saved.generation as i64, encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO quote_source_config_audit VALUES(?1,?2,?3)",
+            params![saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 
     fn recover_interrupted_live_execution_attempts(&mut self) -> Result<()> {

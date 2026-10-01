@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-01T08:25:17.636601+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "scope": "Uncommitted #116 missing-quote presentation; public isolated Rust/provider/socket/UI seam",
+  "checks": {
+    "defaultRust": "22 passed",
+    "integrationRust": "26 passed (12 source, 14 Hot)",
+    "desktopCheckFmtDiffJsSyntaxFinalIntegrationBuild": "PASS",
+    "publicUI": "2 observations; keyboard; 390/768/1280px; no overflow/errors"
+  },
+  "red": "Confirmed subscription had no quote but Market detail still gave the source-unverified/legacy adapter reason",
+  "checkHistory": "Initial closed-lease regression expected UNVERIFIED; corrected to the explicit no-observation UNAVAILABLE contract and all related tests rerun. Log retains the failure.",
+  "limits": [
+    "UI provider/vault bytes are external synthetic; no hosted quote/frame or financial acceptance claim",
+    "Ordinary native evidence is separately bound to its historical build in native-read-manifest.json",
+    "Remaining acceptance, final whole-ticket suite/native build and serial reviewers pending; #116 and parents open"
+  ],
+  "sha256": {
+    "src-tauri/src/quote_source.rs": "34c6ad7853a1f3a67064ed109bf3d0447ea4babcb370510e180b1524090103f7",
+    "src-tauri/src/quote_source/hot.rs": "683186d9f0bda10e2660b70df60551741a32c1fdfefa01bf7c1d350341165117",
+    "src-tauri/tests/quote_hot.rs": "0ead2178c53520a650c697b8cf1ac2d62fabfb785152d11bd548654257e9e84c",
+    "src-tauri/tests/support/quote_stream_fixture.rs": "bcfbaa24c199d1ad7fa87bc10c922de283be482a4f21243d9add92b2329966df",
+    "tests/quote-source-ui.mjs": "e1af35a01a10c9853b9812657e9bc8ce27cc78ff98c43c68a57691bb69e29112",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "fcee36aa2fa9aea70977a6a7581df7b4b412cc22a47fe1d2a374309443c60702",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "86ced7677a654c7d7ec37f1e8d1c270e9347bb9e222a79fc113ee047fb4dffbb",
+    "docs/implementation/evidence/s28-source-progress/hot-pending-green.txt": "51595b91d5b4128260cefab38f8a8fddcdcba787ef47c8c7dd6862dce74d40c1",
+    "docs/implementation/evidence/s28-source-progress/hot-pending-ui.png": "41524fd5209d5eae399660a7cb696fe9b865423a31b9f214d9ffa98bd76bb8dc",
+    "docs/implementation/evidence/s28-source-progress/hot-pending-check.txt": "fdfe07adcba7db53659eb6a29b8ce8ca70a5c730eb9e084aeb4b8a1baf345ef5",
+    "docs/implementation/evidence/s28-source-progress/hot-pending-red.txt": "a4256d224950cf2e4ca329141e8df7abbd81cce4cd9b3e90d04ac78d558c8188",
+    "docs/implementation/evidence/s28-source-progress/hot-pending-ui.json": "c640557e5585ff2b47093ffa817907914703f673b082e126294567f8f6545954"
+  }
+}

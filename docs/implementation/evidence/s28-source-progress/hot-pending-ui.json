@@ -1,0 +1,8 @@
+{
+  "checkedAt": "2026-10-01T08:22:18.535Z",
+  "observations": [
+    "Actual socket authentication and subscription without a quote keep Hot AWAITING_QUOTE; no invented snapshot.",
+    "Detail explains waiting for a provider quote without the legacy unconfigured-adapter message; keyboard navigation and 390/768/1280px have no overflow or browser error."
+  ],
+  "mode": "isolated disposable Rust workspace; external fake vault/HTTP; actual loopback WebSocket subscription without quote frames"
+}

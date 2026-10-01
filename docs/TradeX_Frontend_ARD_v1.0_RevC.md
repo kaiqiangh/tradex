@@ -1132,3 +1132,17 @@ Primary requirement groups implemented by this ARD:
 The backend remains the authority for risk, reservations, broker state, approval validity, reconciliation, credential handling, and execution.
 
 ---
+
+## Configured production quotes (S28 #116)
+
+Consume Backend §41.37 source configuration and authoritative quote projections through generated IPC; renderer/Agent cannot supply entitlement, quote observations, arbitrary URLs or credentials. Use the Settings and Market Explorer interaction target in UI §14.21, release active Hot leases on navigation/workspace changes, and display honest feed/coverage/depth/time/failure status. Cached rendering never updates provider/receipt freshness or restores Live authority. Preserve immutable evidence/consent bindings and every other financial gate. This implementation target remains pending runtime verification.
+
+Settings renders the generated credentialKind and cleanupPending fields. Dedicated secure entry is invoked with metadata only; it never places a password field or Keychain reference in the renderer. Failed/cancelled saves reload the authoritative selection and cleanup status; pending owned-key deletion is a separate explicit retry action. Reused broker keys remain owned by the account lifecycle.
+
+Quote-only adapters do not provide a last trade. Render their exact bid/ask, verified BASE depth and generated `alpaca` provenance rather than substituting an inferred last price. Preserve provider/receipt timestamps and snapshot identity across cached navigation. The HTTP initial observation does not attest an active Hot stream; present that distinction and quote/time failures visibly.
+
+#### Configured equity Hot view lifecycle
+
+The configured OD-001 equity detail owns one ephemeral `market.hot.acquire` lease, bound to workspace, canonical instrument and the source connection's `stateVersion`. It renders `market.hot.get` projections without fetching provider quotes from the renderer. Local projection refresh may run every 500 ms with at most one request in flight; it is not a substitute for the backend WebSocket producer. Authentication/subscription flags and stream status are shown separately from `MarketDetail.status` and quote freshness. Navigation, instrument replacement, opening the screener, workspace changes, unmount and document hiding release the lease; an acquire that resolves after cleanup must also release its returned lease. A failed/stale projection provides an explicit selected-feed retry. Late responses from an old effect cannot overwrite the new view. Unconfigured equities and other asset classes retain their existing guarded detail path. An HTTP refresh alone cannot be presented as a Hot subscription update.
+
+During automatic reconnect, the view keeps using its `leaseId` / lease `generation` to read and release; it separately displays the rotated `connectionGeneration` and `reconnectAttempt` (0–3). `RECONNECTING` clears authentication/subscription flags and makes retained quotes non-current. The view must not acquire a second connection or treat acknowledgements as recovered quotes.

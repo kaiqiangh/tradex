@@ -1895,6 +1895,17 @@ pub(crate) fn evaluate(
             RiskCheckOutcome::Pass,
             RiskDecisionReasonCode::NotApplicable,
         )
+    } else if market.is_some_and(|market| {
+        market
+            .snapshot
+            .as_ref()
+            .is_some_and(|snapshot| snapshot.provenance.alpaca.is_some())
+            && !execution_quote_matches(proposal, market)
+    }) {
+        (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceUntrusted,
+        )
     } else {
         market_freshness(market, time_status, stale_quote_threshold)
     };
@@ -2272,11 +2283,7 @@ pub(crate) fn market_order_slippage(
             return None;
         }
     }
-    if market.workspace_id != proposal.workspace_id
-        || market.instrument.instrument_id != proposal.fields.instrument_id
-        || snapshot.instrument_id != proposal.fields.instrument_id
-        || snapshot.provenance.venue.as_deref() != Some(proposal.fields.venue.as_str())
-    {
+    if !execution_quote_matches(proposal, market) {
         return None;
     }
     let bid = snapshot.bid.as_deref()?;
@@ -2308,6 +2315,78 @@ pub(crate) fn market_order_slippage(
         crate::portfolio::decimal_mul("100", &spread).ok()?,
         crate::portfolio::decimal_add(ask, bid).ok()?,
     ))
+}
+
+fn execution_quote_matches(
+    proposal: &crate::protocol::OrderProposal,
+    market: &crate::protocol::MarketDetail,
+) -> bool {
+    let Some(snapshot) = market.snapshot.as_ref() else {
+        return false;
+    };
+    if market.workspace_id != proposal.workspace_id
+        || market.instrument.instrument_id != proposal.fields.instrument_id
+        || snapshot.instrument_id != proposal.fields.instrument_id
+    {
+        return false;
+    }
+    if let Some(evidence) = snapshot.provenance.alpaca.as_ref() {
+        verified_sip_quote(market, snapshot) && proposal.fields.venue == evidence.listing_venue
+    } else {
+        snapshot.provenance.venue.as_deref() == Some(proposal.fields.venue.as_str())
+    }
+}
+
+fn verified_sip_quote(
+    market: &crate::protocol::MarketDetail,
+    snapshot: &crate::protocol::MarketSnapshot,
+) -> bool {
+    use crate::protocol::{AlpacaFeed, AssetClass, QuoteCoverage, QuoteDepthUnit};
+    use std::cmp::Ordering;
+    let Some(evidence) = snapshot.provenance.alpaca.as_ref() else {
+        return false;
+    };
+    let positive = |value: Option<&str>| {
+        value.is_some_and(|value| {
+            value.len() <= 64
+                && crate::provider_io::decimal_cmp(value, "0").ok() == Some(Ordering::Greater)
+        })
+    };
+    market.instrument.asset_class == AssetClass::Equity
+        && matches!(
+            market.instrument.instrument_id.as_str(),
+            "equity:US:AAPL" | "equity:US:MSFT"
+        )
+        && market.instrument.currency == "USD"
+        && market.instrument.exchange.as_deref() == Some(evidence.listing_venue.as_str())
+        && evidence.listing_venue == "XNAS"
+        && market.instrument.providers.iter().any(|mapping| {
+            mapping.provider_id == "alpaca" && mapping.provider_symbol == evidence.provider_symbol
+        })
+        && snapshot.instrument_id == market.instrument.instrument_id
+        && snapshot.provenance.source == "OD-001"
+        && snapshot.provenance.venue.as_deref() == Some("US_SIP")
+        && evidence.feed == AlpacaFeed::Sip
+        && evidence.coverage == QuoteCoverage::UsSip
+        && evidence.tape == "C"
+        && evidence.regular_conditions
+        && !evidence.conditions.is_empty()
+        && evidence.conditions.len() <= 16
+        && evidence
+            .conditions
+            .iter()
+            .all(|condition| condition.name == "Regular")
+        && evidence.depth_unit == QuoteDepthUnit::Base
+        && positive(snapshot.bid.as_deref())
+        && positive(snapshot.ask.as_deref())
+        && snapshot
+            .bid
+            .as_deref()
+            .zip(snapshot.ask.as_deref())
+            .is_some_and(|(bid, ask)| {
+                crate::provider_io::decimal_cmp(bid, ask)
+                    .is_ok_and(|order| order != Ordering::Greater)
+            })
 }
 
 fn market_freshness(
@@ -2344,7 +2423,11 @@ fn market_freshness(
     };
     if snapshot.provenance.entitlement != MarketEntitlement::Realtime
         || snapshot.provenance.freshness != MarketFreshness::Healthy
-        || snapshot.last_price.is_none()
+        || if snapshot.provenance.alpaca.is_some() {
+            !verified_sip_quote(market, snapshot)
+        } else {
+            snapshot.last_price.is_none()
+        }
     {
         return (
             RiskCheckOutcome::Unavailable,

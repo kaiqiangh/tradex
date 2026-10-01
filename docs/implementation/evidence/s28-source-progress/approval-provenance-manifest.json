@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-10-01T08:34:04.741362+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "scope": "Uncommitted #116 read-only provenance fields in existing approval dialog",
+  "checks": {
+    "typecheckDiff": "PASS"
+  },
+  "limits": [
+    "Source/type evidence only; no configured-producer approval-dialog browser proof",
+    "Independent arming prerequisites block positive consent at the agreed external provider boundary; no guard/fixture privilege bypass",
+    "No financial acceptance or final whole-ticket PASS; #116 and parents remain open"
+  ],
+  "sha256": {
+    "src/OrderDrafts.tsx": "30e4d26ebd36d2c9765f401aeded43ca54af5a253413358d0ca0241102c74620",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "a1551de0db40d1ad1d5c217ee0b57c90c6212e22dac25a72c20e28f95237ba91",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "44e591654853d971be879da27f50379301ba863ac2bf09b90f668e0728cba552"
+  }
+}

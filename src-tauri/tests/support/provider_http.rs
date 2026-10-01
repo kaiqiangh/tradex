@@ -99,7 +99,7 @@ impl HttpsFixture {
             .build()
             .unwrap();
         BrokerHttp {
-            client: std::cell::OnceCell::from(Ok(client)),
+            client: std::sync::OnceLock::from(Ok(client)),
             #[cfg(feature = "integration-test")]
             local_test_base_url: None,
         }

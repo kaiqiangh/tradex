@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-10-01T12:45:03.405163+00:00",
+  "baseline": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "status": "TWO_SPEC_DEFECTS_FIXED_REVIEW_PENDING",
+  "changes": [
+    "Authoritative adapter receipt sampled before enrichment; freshness samples current time separately",
+    "Snapshot identity includes first receipt; identical events retain original ID/receipt and unordered conflicts fail closed",
+    "One 4-second total DNS/TCP/TLS/upgrade deadline with scoped cancellation interrupt; stale/released handshake closes underlying TCP"
+  ],
+  "checks": {
+    "receiptRed": "Public HTTP metadata-delay regression reproduced receipt after enrichment",
+    "receiptGreen": "HTTP healthy and future-on-arrival scenarios passed after correction; initial compile typo retained separately",
+    "handshakeRed": "Actual TCP released connection closed after 3.660 seconds, exceeding 500ms bound",
+    "handshakeGreen": "Actual trickling TCP release below500ms and total attempt below5seconds passed",
+    "relatedPublicBoundaries": "14 data-source tests and19 Hot tests passed",
+    "formatDiff": "PASS"
+  },
+  "limits": [
+    "Independent re-review, final whole-product suite/build/current UI pending",
+    "Spec acceptance criterion4 positive issued approval/Prepare/dispatch remains unverified; gates preserved",
+    "No hosted tick or original S28 financial acceptance; no commit, closure or main PR"
+  ],
+  "sha256": {
+    "src-tauri/src/quote_source.rs": "9fc92c1f19f9cda67d1fd510ba2c4d4fc3883099da8b8cb0e8b2677c754fab86",
+    "src-tauri/src/quote_source/hot.rs": "ddc77d9f9c09d3d8b680d1046e426dd8edc342bcfd03c695468052da8c0616f4",
+    "src-tauri/tests/data_sources.rs": "249d67dd27005573d2052663e2055e3687a67296cbbead304dedc3809b4153c9",
+    "src-tauri/tests/quote_hot.rs": "db0593a6574450946301fbc360390af9e3f3bf2a0eb47a6a12dc1e9795793613",
+    "docs/implementation/evidence/s28-source-progress/review-receipt-regressions.txt": "e8725493284cd3de51b82c79031d1550164f40815b2f0d884f5646835218928c",
+    "docs/implementation/evidence/s28-source-progress/review-receipt-green.txt": "6402d148a5cf73ace4a23d3ba3cc2271064d9d0850ab0f86cacdd231668e9e4c",
+    "docs/implementation/evidence/s28-source-progress/review-receipt-red.txt": "a7372a65a6fbc7c4b823af06b6d9770858397619dc125d7427f89b46f227e513",
+    "docs/implementation/evidence/s28-source-progress/review-receipt-green-rerun.txt": "b556a85760feaf3ff7357f39d632d3e864b6d255bf0d0282eb284f1f8dabb587",
+    "docs/implementation/evidence/s28-source-progress/review-handshake-red.txt": "d4bc84ad88819cc03851f4982fca3a0191048927525a3f34ead93e19e24ab733",
+    "docs/implementation/evidence/s28-source-progress/review-handshake-green.txt": "8b8d26c6165f714dbe2ff0ec772c3792e838491a59ef8f49fc6fae90dc5bb80d",
+    "docs/implementation/evidence/s28-source-progress/review-fixes-check.txt": "48b25f2d3167123c698d2de2b1f403bf4fddca29d7e0f6872d3bf4d44229e07d",
+    "docs/implementation/evidence/s28-source-progress/serial-spec-review.md": "1372b852d71323fab44fa029413fe826377fcba65b1c5d9dc3b26d75661250bd"
+  }
+}

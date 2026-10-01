@@ -2943,6 +2943,22 @@ UI 对 Trading 212 和 Binance Live 将 `recentOrders` 与 `openOrders` 分开�
 
 `MarketSnapshot` 可携带可选的精确 BASE `bidSize`/`askSize`，由报价 producer 提供，与价格共用标的、venue、来源、时间戳及 entitlement。BUY 使用 ask/askSize，SELL 使用 bid/bidSize；全部 BASE 数量须不超过对应方向的完整显示深度。来源/时间不受信、字段缺失、非正数、格式错误、交叉报价、标的/venue 不匹配或数量超过深度均为 unavailable，不推断更深档位。估算基准是同一报价的 bid/ask 中点，逆向价格距离百分比为 `100 × (ask − bid) / (ask + bid)`；风险使用精确十进制交叉相乘比较配置上限，不用舍入后的商授权。审阅百分比只是显示深度内的近似估算，不保证券商成交。价格、深度和溯源通过既有 proposal/账户/provider 绑定及 digest 在审批、原子 Prepare、dispatch 重新校验；深度变化使原同意失效。普通桌面缺少生产报价 producer 时仍阻止执行；合成深度只能来自 test/integration producer，不能推断 OD-001 的凭据或 entitlement。
 
+### 41.37 已配置 Alpaca 数据源与生产报价目标（S28 #116）
+
+这是实现目标，不是 provider-hosted 验收。OD-001 配置与 Alpaca Paper 账户独立。`data.source.connection {workspaceId}` 返回 `DataSourceConnection`：`workspaceId`、`sourceId: "OD-001"`、`stateVersion`、`configured`、`status`、`availabilityReason`、`eligibleAccounts: {connectionId, displayName}[]`、必需的 `cleanupPending`，及可选的显式 `feed`（`iex | sip | delayed_sip`）、`credentialKind`（`EXISTING_ACCOUNT | DEDICATED`）和选定 `accountId`（仅已有引用选择）。数据源版本为 `data:{workspaceId}:{generation}`，独立于 workspace/account 版本。可信原生 Settings 发送 `data.source.configure {workspaceId, expectedStateVersion, feed, credential}`，其中 credential 为 `{kind: "EXISTING_ACCOUNT", connectionId}` 或 `{kind: "DEDICATED"}`。前者显式复用符合条件的已保存 Alpaca 引用，不复制 key；后者在 Control Plane 锁外打开原生安全输入，只保存数据源独占的 Keychain 项，不创建券商账户。两者都不证明 entitlement。`data.source.disconnect {workspaceId, expectedStateVersion}` 移除选择并停止访问，保留复用的券商 key，仅把独占数据 key 加入清理队列。`data.source.cleanup {workspaceId}` 重试该独占清理，不改变数据源选择/版本。删除失败通过 `cleanupPending` 保持可见；secret 或 vault reference 不进入 renderer/Agent。安全输入前先持久登记独占引用，将其激活与选择原子提交；重启把中断写入恢复为待清理。取消或陈旧完成保留当前选择，仅清理本次新建的独占项。重开保留选择，但清除验证与行情就绪。配置 generation 与脱敏审计/清理元数据持久化在 SQLite，quote tick 只保存在有界内存。
+
+Provider 只读 I/O 在 Control Plane 锁外执行，受共享 provider 预算限制。只允许固定 `https://data.alpaca.markets` latest-quote/metadata 路径和 `wss://stream.data.alpaca.markets/v2/{feed}`，显式 feed/canonical symbol/USD，禁用重定向，限制时限/body/frame，错误脱敏。HTTP 认证/entitlement/限流结果与 stream 协议错误分开。Hot 必须先取得 authenticated 和完整所请求 symbol 的 subscription acknowledgement，再收到实际 quote；upgrade 或公共 test feed 不足以证明就绪。单个受管理的数据源连接服务有界 active subscription，在导航/关闭/断开时释放，拒绝旧 generation/更早或顺序不明的 frame，在重连或失败时把原报价标记 stale。Stream 402/404 是认证失败/超时，405 是 symbol 上限，406 是连接上限，407 是慢客户端，409 是 entitlement；stream 403 表示已认证。Typed ephemeral subscription generation/sequence 不得伪造持久领域 replay。
+
+Coverage 遵循 PRD §33：SIP 是美国合并证据（`US_SIP`），不是单个上市 venue 的订单簿。保留实际 bid/ask exchange code、feed/coverage、condition/tape 证据及 source/connection generation，同时保留既有 canonical provider/receipt 时间戳绑定。仅受支持的 canonical 美国上市标的、且 Proposal 上市映射匹配时，才可使用有效实时 SIP 报价覆盖。IEX、延迟/未知/不匹配 coverage 不能用于该执行检查。普通 condition 必须由认证后的 provider metadata 解析；不支持/未知的 condition、映射或数量单位保持 unavailable。2025-11-03 起当前 CTA/UTP SIP quote size 是股票数量（BASE），不是 round lot 数；不得乘100或外推至 IEX/历史路径。精确 slippage/depth 比较、quote age/future/time 检查及其他全部金融守卫保持有效。相同 provider event 保留原始接收时间；新时间戳/material/source generation 使旧同意失效。
+
+`MarketSnapshotProvenance.alpaca` 对历史/其他 producer 可选，对此 producer 必须提供：显式 `feed`、`coverage`（`US_SIP | IEX`）、规范 `providerSymbol`、`listingVenue`、实际 `bidExchange`/`askExchange` 及经认证的 `bidExchangeName`/`askExchangeName`、`tape`、有界 `conditions: {code, name}[]`、`regularConditions`、`depthUnit`（`BASE | UNAVAILABLE`）、`sourceVersion` 与临时 `connectionGeneration`。仅支持经认证 quote metadata 名称恰为 `Regular` 的条件代码；未知/非普通条件不能提供执行证据。只有 provider event 在 2025-11-03 及之后的当前 SIP size 使用 BASE。纯报价读取提供 bid/ask，不能伪造 `lastPrice` 或成交。相同材料的缓存读取保持首次接收时间与 snapshot ID；数据源变更和 workspace 重开清除此内存。每次读取均由 source 有效性、TimeService confidence 及两个时间戳的年龄确定当前/陈旧状态。技术验证以已选 feed 认证读取 AAPL/USD latest quote，不证明报价年龄、broker health 或权限。较新验证结果优先于迟到响应；同一 workspace 重开也清除验证。
+
+验证/报价同时绑定所复用账户版本、数据源版本及 workspace epoch。账户更新后不保留已验证状态；取得新的读取时轮换临时 connection generation，旧 key observation 与报价同意不得跨越此更新。
+
+Hot lease wire 目标为 `market.hot.acquire {workspaceId, instrumentId, expectedSourceVersion}`、`market.hot.get {workspaceId, leaseId, generation}`，及使用相同 lease query 的可信 `market.hot.release`。Acquire 仅选择已保存 feed 和 canonical symbol。`HotQuoteProjection` 包含 workspace/source/instrument ID、source version、临时 lease ID/lease generation、connectionGeneration、reconnectAttempt 和 sequence、状态（`CONNECTING | RECONNECTING | AUTHENTICATING | SUBSCRIBING | AWAITING_QUOTE | STREAMING | STALE | FAILED | CLOSED`）、authenticated/subscribed 标志、脱敏原因及可选的共享 Market detail。STREAMING 要求两项 acknowledgement 后实际接受的报价，不证明金融 freshness。Release 返回含 `released` 的 CLOSED receipt；被替代 lease 的迟到 release 幂等，不得停止新 lease。单个受管理 worker 拥有 source socket，先关闭旧连接再打开新连接，并在导航/source/workspace 变化时使旧 generation 失效。不持久化或 replay 临时 sequence/quote tick。
+
+实现/本地 fixture 验证与实际认证读取和当前 feed 证据分开。FR-016/AC-010 与原 S28 权限/日历/公司行为/可交易性/FX/真实订单门禁，须各自验收后才能验证。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
@@ -3220,3 +3236,23 @@ Tauri desktop 与 bundled/managed sidecar 进入可重复的 signed release pipe
 - **UX:** 为 UX-001–010 提供后端 enforcement。
 
 前端消费并展示这些决策，但不取代后端 authority。
+
+#### Hot 租约与重连代次
+
+`HotQuoteProjection.generation` 绑定视图持有的 lease，自动重连期间保持稳定；只读 `connectionGeneration` 绑定实际网络连接尝试，每次重连生成新值，并进入 `AlpacaQuoteEvidence.connectionGeneration` 和 snapshot digest。`reconnectAttempt` 为 0–3；`RECONNECTING` 不证明认证、订阅或报价。相同 lease 的每次暂时性 transport/internal-error/slow-client 故障先关闭旧 socket，再使旧报价失效并轮换 connection generation，清除认证/订阅标志，最多自动重试 3 次（等待 500/1000/2000 ms，等待可由 release、stop 或来源变化取消）。每次尝试重新读取绑定凭据、完成认证与准确订阅、取得实际报价后才恢复 STREAMING；仅 ACK 不恢复报价 freshness。认证失败、feed entitlement、connection/symbol limit、协议不合法或 HTTP quota/cooldown 不自动改变 feed 或立即重试；保持 FAILED，提供用户重试路径。旧 lease 的 release 不影响新 lease；当前视图 lease 的 release 结束其所有连接尝试。相同报价 material 在新 connection generation 下是新证据，不能延用旧 consent。
+
+既有 OS_SLEEP、SESSION_INACTIVE 与 SESSION_RESUMED 安全入口同时轮换报价连接代次、使保留报价非 current，并清除来源验证。选择与凭据所有权保留。旧回调或迟到认证不可恢复旧 stream；须显式重新 acquire 并以新的实际提供方读取验证来源。公开 handler 测试与实际 macOS Sleep/Wake 事件证据分别记录。
+
+#### Hot 关闭、完整订阅与心跳
+
+显式停止 supervisor 为终态，即使尚未首次 acquire；后续 acquire 在改变当前公开 lease 前被拒绝。释放中间 supervisor 句柄保留共享连接；最后一个 owner 释放后停止 worker 并关闭提供方 socket。活动或排队中的当前 lease 退役为 CLOSED，并清除 ACK 标志。关闭不生成报价、不改变来源选择、不删除凭据。订阅确认只能含请求的单个报价符号及已知的其他空频道；未知频道或未请求符号为无效确认。WebSocket Ping 每 20 秒使用新的有界随机标识，只有 10 秒内具有相同 payload 的 Pong 才确认该 Ping（[RFC 6455 §5.5.3](https://datatracker.ietf.org/doc/html/rfc6455#section-5.5.3)）。主动发送或不匹配的 Pong 不延长 deadline，不刷新报价时间戳。超时通过同一有界重连路径退役连接尝试。跨 lease 尝试最多保留一个未完成 OS 主机名解析线程，包括超过调用者四秒 deadline 的 OS resolver；测试用字面 loopback IP 不需要 DNS。主机名 resolver 饱和会明确失败，不排队创建无界解析线程，也不改变 feed。
+
+#### 风险与审批中的仅报价来源证据
+
+显式选择并配置的 Alpaca quote producer 为风险评估、approval review/issue、Prepare 与 dispatch 复验提供同一已接受的内存 Market observation；历史测试 fixture 不得覆盖该显式选择。其报价 freshness 使用有效 bid/ask、时间戳与 entitlement 证据，不虚构 `lastPrice`；依赖 last-trade 的价格偏离仍为 unavailable。仅当受支持 canonical 股票已核验上市映射匹配 Proposal venue、provider symbol 一致、普通 conditions 已知且 BASE 数量有文档依据时，合并实时 SIP 才满足 execution-coverage 检查。单个 bid/ask exchange 不重标为执行 venue。IEX、延迟、未知或不匹配证据不满足该检查。既有精确 depth/slippage 算术及权限/市场时段/公司行为/可交易性/FX/arming 守卫保持独立。
+
+#### 已配置数据源尚无观察
+
+已配置数据源没有已接受报价时，Market 详情投影为 UNAVAILABLE。匹配的 Hot 租约通过有限生命周期原因解释缺少观察（连接、认证、等待订阅或等待实际报价）。成功的认证报价访问探测或订阅确认不会制造 snapshot。没有匹配租约时，数据源验证或失败原因仍然可见；可用数据源尚无报价则提示按需刷新。旧的适配器未配置原因不用于描述已明确配置的生产数据源。
+
+控制消息格式遵循[官方股票流契约](https://docs.alpaca.markets/us/docs/streaming-market-data)：success/error/subscription 消息使用单元素数组。控制消息与报价或其他控制消息混合时，在应用任何确认或观察前拒绝整条消息。有限的多报价数据数组仍然允许。提供方元数据读取也在 Control Plane 锁外执行；等待读取期间切换数据源或 feed 会使旧结果及 socket 失效。

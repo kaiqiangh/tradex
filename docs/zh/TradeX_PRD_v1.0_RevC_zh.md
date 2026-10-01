@@ -1791,6 +1791,10 @@ data quality / freshness state
 
 UI 不得将延迟数据当作实时数据呈现。
 
+对已选定的 Alpaca 美国股票数据源，feed coverage 与 bid/ask venue 必须和标的上市/执行目标分开。显式 `iex` 是单 venue 实时数据，`delayed_sip` 是合并延迟数据，有 entitlement 的 `sip` 是美国市场合并实时覆盖；被拒绝的 feed 不得静默回退。合并报价标识为 `US_SIP`，并单独保留 provider 的 bid/ask exchange code，不得重标为 XNAS 订单簿。仅当 canonical 美国上市标的受支持、Proposal venue 匹配已核验的上市映射，且普通报价 condition、可信当前时间与有文档依据的 BASE 数量均有效时，才能满足报价覆盖检查。IEX、延迟、未知或不匹配 coverage 不能满足该执行检查。此检查不授予券商权限，不证明市场时段/公司行为/可交易性/FX，不 Arm 账户，也不批准执行。 对此仅供报价的 producer，报价 freshness 与显示深度下的市价单 slippage 检查使用其有效 bid/ask 和 coverage 证据，不要求或虚构 last trade。若已配置限价偏离检查但缺少所需 last-trade 参考，该检查仍为 unavailable。
+
+重复的相同 provider 证据保留最初的 TradeX 接收时间；读取缓存报价不得刷新其 freshness。Provider/receipt 时间戳及 source/connection generation 继续绑定不可变 observation 和审批 digest。数据源变更、重连及 observation 变化使旧同意失效。生产 producer 目标见 Backend §41.37；本地测试不证明实际 feed entitlement。
+
 ### 时间同步要求
 
 TradeX 维护 `TimeService` 用于 quote age、approval TTL、reconciliation window 与审计排序。它同时记录 wall-clock 与 monotonic time,检测显著时钟跳变,在可用时估计 provider/server offset,并在超出配置容差时暴露 `CLOCK_SKEW`/stale remediation。若时间不确定性使 freshness/TTL 判断不可信,Live 审批/执行必须 fail closed。
