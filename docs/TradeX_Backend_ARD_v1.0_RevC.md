@@ -2959,7 +2959,7 @@ The Hot lease wire target is `market.hot.acquire {workspaceId, instrumentId, exp
 
 Implementation/local fixture verification is separate from actual authenticated reads and current feed evidence. FR-016/AC-010 and the original S28 permission/calendar/action/tradability/FX/real-order gates remain unverified until their own acceptance.
 
-### 41.38 Read-only XNAS calendar prerequisite (S28 #118; implementation in progress)
+### 41.38 Read-only XNAS calendar prerequisite (S28 #118)
 
 This slice supplies calendar evidence only; it does not certify Trading 212 Live or close the quote acceptance ticket. Existing permission, quote/depth, corporate-action/tradability, FX, consent and Gateway guards remain independent.
 

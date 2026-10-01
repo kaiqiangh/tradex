@@ -1,0 +1,22 @@
+text MARKET SESSION
+heading Unknown, Value: 3
+text Unknown
+text TRUSTED
+text Calendar evidence is stale or its source/account/clock binding changed. Refresh before execution.
+description list
+text Venue
+text XNAS
+text Source status
+text Unavailable
+text Next open
+text Unavailable
+text Next close
+text Unavailable
+text Calendar version
+text fd79e1fc3033ca3c1adba6a83f9f5809fe7bc69ebe84b0beb61eb2a42945f0f9
+text Provider time
+text Unavailable
+text Observed
+text 2026-10-01T19:31:36.482Z
+button Review calendar source
+container History adjustment: Unavailable

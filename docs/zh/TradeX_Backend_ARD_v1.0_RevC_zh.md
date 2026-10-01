@@ -2959,7 +2959,7 @@ Hot lease wire 目标为 `market.hot.acquire {workspaceId, instrumentId, expecte
 
 实现/本地 fixture 验证与实际认证读取和当前 feed 证据分开。FR-016/AC-010 与原 S28 权限/日历/公司行为/可交易性/FX/真实订单门禁，须各自验收后才能验证。
 
-### 41.38 只读 XNAS 日历前置项（S28 #118；实现进行中）
+### 41.38 只读 XNAS 日历前置项（S28 #118）
 
 本切片只提供日历证据，不证明 Trading 212 Live 验收，不关闭当前报价验收票。权限、报价/depth、公司行为/tradability、FX、同意及 Gateway 门禁保持独立。
 

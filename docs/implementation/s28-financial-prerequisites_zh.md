@@ -58,4 +58,4 @@ FX 首先确定实际必需路径，不预设新建通用服务。ECB 日参考�
 
 本次仅公开文档读取和本地源码核对，没有读取 vault、刷新真实账户、Arm、审批、reservation、provider mutation 或金融执行；不宣称 runtime PASS。既有 S17 与真实 S27 延后项保持 OPEN。本次审计不构成完整 map 验收或 dev→main PR 条件。
 
-实现续项：已批准的日历子票 [#118](https://github.com/kaiqiangh/tradex/issues/118) 正在实施。生产者、界面与原生验证单独记录在[日历证据](s28-calendar-evidence_zh.md)；上面的仅审计边界描述初始调研，不描述后续实现。未批准金融权限契约变更。
+实现续项：已批准的日历子票 [#118](https://github.com/kaiqiangh/tradex/issues/118) 的有限生产者、界面与真实原生日历验证及最终 Standards/Spec 审查已通过；验证单独记录在[日历证据](s28-calendar-evidence_zh.md)；上面的仅审计边界描述初始调研，不描述后续实现。未批准金融权限契约变更。

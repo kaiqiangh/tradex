@@ -1,0 +1,80 @@
+{
+  "sampledAt": "2026-10-01T19:37:24.432533+00:00",
+  "build": "native-build.json; ordinary release, no integration-test feature",
+  "hostedProvider": "Alpaca Paper",
+  "readOnlyEndpoint": "GET https://paper-api.alpaca.markets/v3/calendar/XNAS?start=2026-09-30&end=2026-10-15&timezone=UTC",
+  "authenticatedCalendar": "AVAILABLE",
+  "requestedCoverage": [
+    "2026-09-30",
+    "2026-10-15"
+  ],
+  "calendarVersion": "fd79e1fc3033ca3c1adba6a83f9f5809fe7bc69ebe84b0beb61eb2a42945f0f9",
+  "currentMarket": {
+    "instrumentId": "equity:US:AAPL",
+    "venue": "XNAS",
+    "session": "OPEN",
+    "sourceStatus": "AVAILABLE",
+    "timeConfidence": "TRUSTED",
+    "observedAt": "2026-10-01T19:33:43.442Z",
+    "nextOpen": "2026-10-02T13:30:00Z",
+    "nextClose": "2026-10-01T20:00:00Z",
+    "providerTime": null,
+    "sourceEvidence": "native-current-final.txt and native-market-current.txt; same receipt/version"
+  },
+  "expiredObservation": {
+    "session": "UNKNOWN",
+    "sourceStatus": "UNAVAILABLE",
+    "observedAt": "2026-10-01T19:31:36.482Z",
+    "receiptUnchanged": true,
+    "sourceEvidence": "native-current.txt and native-market-expired.txt"
+  },
+  "screenshotObservation": {
+    "observedAt": "2026-10-01T19:35:25.599Z",
+    "file": "native-settings-current.png",
+    "marketCalendar": "AVAILABLE",
+    "corporateActions": "BLOCKED_EXTERNAL",
+    "halts": "BLOCKED_EXTERNAL",
+    "historicalAdjustment": "UNVERIFIED",
+    "combinedOD005": "UNVERIFIED"
+  },
+  "schema": 33,
+  "accountCount": 4,
+  "armingCounts": {
+    "NOT_APPLICABLE": 3,
+    "DISARMED": 1
+  },
+  "permissionScopeCounts": {
+    "VERIFIED": 1,
+    "UNVERIFIED": 3
+  },
+  "sourceGeneration": 1,
+  "selectionRetained": true,
+  "calendarAuditCount": 1,
+  "realFinancialActionPerformed": false,
+  "borrowedAccountOrKeyDeleted": false,
+  "toolingNote": "One return-link lookup assumed a link still existed after calendar became AVAILABLE; no UI action executed. Fresh AX navigation recovered via Settings. Market-context screenshot shows Hot IEX context, not calendar boundary proof.",
+  "externalAccountAuthority": [
+    {
+      "provider": "alpaca",
+      "environment": "PAPER",
+      "count": 2,
+      "permissionScopes": [
+        "UNVERIFIED"
+      ],
+      "armingStates": [
+        "NOT_APPLICABLE"
+      ]
+    },
+    {
+      "provider": "trading212",
+      "environment": "LIVE",
+      "count": 1,
+      "permissionScopes": [
+        "UNVERIFIED"
+      ],
+      "armingStates": [
+        "DISARMED"
+      ]
+    }
+  ]
+}

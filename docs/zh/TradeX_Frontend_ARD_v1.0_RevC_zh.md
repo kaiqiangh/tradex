@@ -698,7 +698,7 @@ workspace 打开后，恢复每个受支持 Live 账户的后端恢复状态和�
 
 同时展示 bid/ask 的 BASE 显示深度；滑点标明相对于报价中点、仅覆盖显示深度的近似估算，不保证成交。无受信深度或数量超过深度时保留 unavailable，审批继续禁用。
 
-### 13.23 XNAS 日历来源与独立能力状态（S28 #118；实现进行中）
+### 13.23 XNAS 日历来源与独立能力状态（S28 #118）
 
 使用 Backend §41.38 typed `data.calendar.*` 契约。Settings 明确选择合格的已有 Alpaca Paper 账户，保存 metadata，分别刷新/断开；不删除借用 key。分别显示 receipt/version/requested coverage 和 MARKET_CALENDAR/CORPORATE_ACTIONS/HALTS/HISTORICAL_ADJUSTMENT；日历成功不标记综合 OD-005 或 Live Ready。本地只读投影轮询可更新过期状态，但不能请求 provider 或延长接收时间。来源变化刷新 Settings/Markets 投影。市场详情保留 source/time/session 边界、缺失 provider timestamp 和其他独立门禁；保持键盘/错误处理及390/768/1280px 布局。此目标不证明原型行为或真实 provider 验收。
 
