@@ -1,7 +1,7 @@
 # S28 production financial prerequisites
 
 Date: 2026-10-01. Audit baseline: `aa43091ea2eef732b5865b163cbeee3cac3e03c9`.
-Status: **IMPLEMENTATION_IN_PROGRESS; calendar slice approved**.
+Status: **IMPLEMENTATION_IN_PROGRESS; calendar accepted, second prerequisite specified**.
 Specification: [补齐 S28 生产金融前置证据](https://github.com/kaiqiangh/tradex/issues/117).
 Chinese pair: [金融前置依赖](s28-financial-prerequisites_zh.md).
 
@@ -49,6 +49,8 @@ The producer must validate identity, interval completeness/order and coverage; p
 OD-005 capabilities must be independently typed and displayed: calendar availability cannot imply corporate-action, halt, adjustment or Live readiness. Inspect the current market-session risk consumer during this slice: it currently checks source/status/version/time confidence without an explicit receipt-age check. A short-lived producer must be coupled to fail-closed consumer freshness; periodically reprojecting a view must not renew receipt time.
 
 ## Subsequent decisions
+
+2026-10-03: the paired [company-event / exact broker metadata research](s28-actions-tradability-research.md) refreshes the complete official contracts. The [second prerequisite specification](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911) is published and the single [read-only implementation ticket](https://github.com/kaiqiangh/tradex/issues/119) is claimed. Date-only event semantics, pagination versus prospective completeness,10minute broker metadata quality, exact account bindings and listing versus broker execution venue remain distinct. This is implementation work still OPEN, not provider-hosted proof or a relaxation of the parent financial requirements. Required FX has not started.
 
 The [current Alpaca corporate-actions contract](https://docs.alpaca.markets/us/reference/corporateactions-1) warns of provider/processing delays. Its date filters use `process_date`, and default `complete` quality can include already-processed records that would otherwise be incomplete. An empty response is not a proof that no new action was announced. Subsequent event/tradability implementation must respect those limits and investigate the exact broker contract before claiming a positive gate.
 

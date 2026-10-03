@@ -1,7 +1,7 @@
 # S28 生产金融前置依赖
 
 日期：2026-10-01。审计基线：`aa43091ea2eef732b5865b163cbeee3cac3e03c9`。
-状态：**IMPLEMENTATION_IN_PROGRESS；日历切片已批准**。
+状态：**IMPLEMENTATION_IN_PROGRESS；日历已验收，第二项前置已形成规范**。
 规范：[补齐 S28 生产金融前置证据](https://github.com/kaiqiangh/tradex/issues/117)。
 英文配对：[Production financial prerequisites](s28-financial-prerequisites.md)。
 
@@ -47,6 +47,8 @@ producer 校验 identity、时段完整性/顺序及覆盖，保留首次接收�
 OD-005 能力必须分别提供 typed 状态和 UI：日历可用不表示公司行为、停牌、历史调整或 Live Ready。当前市场时段 risk consumer 只检查 source/status/version/time confidence，没有显式 receipt-age 检查；首票必须将短时 producer 与失败关闭的新鲜度消费一并实现，读取投影不能延长接收时间。
 
 ## 后续决策
+
+2026-10-03：[公司行为 / 精确 broker 元数据中英文研究](s28-actions-tradability-research_zh.md)重新核对完整官方契约。[第二项前置规范](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911)已发布，单张[只读实现票](https://github.com/kaiqiangh/tradex/issues/119)已认领。日期精度、分页完成与未来完整性、10分钟 broker 元数据质量、精确账户绑定及上市/实际 broker 执行 venue 分别保留。这是仍 OPEN 的实现工作，不是 hosted 验证，也不放宽父级完整金融要求。必需 FX 尚未开始。
 
 [Alpaca 当前公司行为契约](https://docs.alpaca.markets/us/reference/corporateactions-1)警告 provider/处理延迟；日期过滤按 `process_date`，默认 `complete` 也可能包含已经处理但字段不完整的事件。空响应不能证明没有新公告。后续事件/可交易实现须保留这些限制，研究精确 broker 契约后才能声称正向门禁通过。
 

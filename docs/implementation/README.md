@@ -181,6 +181,8 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 
 ## 6. 完成判定与交接
 
+2026-10-03 已串行完成公司行为 / Trading 212 精确账户元数据的[官方契约研究](s28-actions-tradability-research.md) / [中文](s28-actions-tradability-research_zh.md)，[第二项前置规范](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911)已发布，单票[读取已知公司行为与精确账户标的证据](https://github.com/kaiqiangh/tradex/issues/119)已认领并进入实现。事件处理延迟、日期精度、目录10分钟质量及缺少当前账户无限制可交易证明均保留；上市 XNAS 不冒充 broker execution venue。实现与正向金融验收分开，原父级保持 OPEN，必需 FX 尚未开始。
+
 已完成串行前置项 [接入 Alpaca XNAS 日历与可信时段](https://github.com/kaiqiangh/tradex/issues/118)，见 [日历实施证据](s28-calendar-evidence.md) / [中文](s28-calendar-evidence_zh.md)。生产者、公开 Rust/UI、全套检查及普通桌面构建已验证；原生工作区迁移及已有账户选择已验证，真实只读 XNAS 日历、Market 同 receipt/边界及实际过期已验证；Standards PASS，最终 Spec 复验 PASS；首次等待认证的 NOT PASS 记录保留，最终证据已在 `55f75dac4dfc49b154de972ec8bb3e2cc228a3a8` 提交/推送，子票于2026-10-03关闭。下一项为公司行为与 Trading 212 精确标的证据。原报价正向审批/Prepare/派发仍 OPEN。金融前置依赖与外部权限缺口见 [审计](s28-financial-prerequisites.md) / [中文](s28-financial-prerequisites_zh.md)。
 
 此前 S28 集成检查点见 [Trading 212 Live 证据](s28-trading212-live-evidence.md) / [中文](s28-trading212-live-evidence_zh.md)：共享市价额度请求修正、显示深度滑点估算与公开 Market 审批/预留/单次假提供方派发已通过本地检查；该历史检查点当时仍缺生产报价 producer 与已验证 entitlement；后续生产报价实现与当前前置门禁分别记录在其后续证据中。单张实现票已完成本地验收，Standards/Spec 串行复审均 PASS / 0 发现；实现提交 `b0fec527c892e3a99d760db94526fdaa785efd06`，全套检查、23 项 Gateway、2 项 Market UI、15 项共享审批 UI 与普通桌面构建通过。S28 父级保持 OPEN，不以 fixture 关闭真实权限/行情/交易 gate。
