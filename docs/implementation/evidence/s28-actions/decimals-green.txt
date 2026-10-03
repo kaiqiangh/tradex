@@ -1,0 +1,12 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.99s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 5 tests
+test known_event_query_keeps_date_precision_and_never_certifies_complete_coverage ... ok
+test every_official_company_event_category_is_preserved_without_legacy_reclassification ... ok
+test provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query ... ok
+test malformed_or_ambiguous_query_completion_retires_the_previous_snapshot ... ok
+test source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s

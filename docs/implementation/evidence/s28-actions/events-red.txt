@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.16s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test known_event_query_keeps_date_precision_and_never_certifies_complete_coverage ... FAILED
+
+failures:
+
+---- known_event_query_keeps_date_precision_and_never_certifies_complete_coverage stdout ----
+
+thread 'known_event_query_keeps_date_precision_and_never_certifies_complete_coverage' (2367255) panicked at src-tauri/tests/financial_sources.rs:190:5:
+assertion `left == right` failed: Known-event refresh is not implemented: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"known-events","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    known_event_query_keeps_date_precision_and_never_certifies_complete_coverage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

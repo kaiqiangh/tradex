@@ -1,0 +1,9 @@
+{
+  "gatewayCurrent": "6d035a5a6a559b4d32532dd82571494ea6cdab007765981ddfa3a81eaea67ed2",
+  "pinsFoundInDesktop": [
+    {
+      "buildOutput": "target/release/build/tradex-9a7b70fd7e306fc9/output",
+      "compiledPin": "6118be1f8bd898acc658c45f1d3e62fdf8759e76e14021d848ec4ad3345a20b7"
+    }
+  ]
+}

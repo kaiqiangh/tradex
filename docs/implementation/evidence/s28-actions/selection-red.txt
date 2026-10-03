@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key ... FAILED
+
+failures:
+
+---- source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key stdout ----
+
+thread 'source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key' (2361128) panicked at src-tauri/tests/financial_sources.rs:52:5:
+assertion `left == right` failed: Known-event source selection is unavailable: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"financial-source","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

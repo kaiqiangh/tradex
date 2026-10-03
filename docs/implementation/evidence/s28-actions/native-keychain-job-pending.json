@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-10-03T16:10:56.743Z",
+  "ui": "tauri://localhost",
+  "companyRefreshStillWorking": true,
+  "receiptStillNotChecked": true,
+  "refreshFollowedTrustedTime": "2026-10-03T16:01:57.002Z",
+  "elapsedOverSixtySeconds": true,
+  "credentialsArchived": false,
+  "privateAccountValuesArchived": false,
+  "financialMutation": false
+}

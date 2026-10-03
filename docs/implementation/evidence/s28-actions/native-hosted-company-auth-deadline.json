@@ -1,0 +1,29 @@
+{
+  "ordinaryApp": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-actions-auth-deadline-native-ckritrb7/TradeX.app",
+  "historicalExpiredRead": {
+    "firstReceiptDisplay": "2026-10-03T17:05:13.18Z",
+    "materialVersion": "545da179a66e20afb01d9b0a84deefa6328b79bd4b4c37d77d914151f4e87fc1",
+    "providerQuality": "Delayed process-date query. A recent receipt does not improve provider quality.",
+    "sourceUnavailable": true,
+    "queryExhausted": true,
+    "knownEventCount": 1,
+    "dateOnlyPrecision": true
+  },
+  "currentRead": {
+    "firstReceiptDisplay": "2026-10-03T17:07:42.283Z",
+    "materialVersion": "01d247114384fc6fff0ad7502acae418f9c822af4ab238c20f403943d146d612",
+    "providerQuality": "Delayed process-date query. A recent receipt does not improve provider quality.",
+    "sourceUnavailable": false,
+    "queryExhausted": true,
+    "knownEventCount": 1,
+    "dateOnlyPrecision": true,
+    "observedAt": "2026-10-03T17:08:02.246Z",
+    "sourceAvailable": true,
+    "completeCoverageStillUnsupported": true,
+    "historyAdjustmentUnavailable": true
+  },
+  "credentialsArchived": false,
+  "eventBodiesArchived": false,
+  "privateAccountValuesArchived": false,
+  "financialMutation": false
+}

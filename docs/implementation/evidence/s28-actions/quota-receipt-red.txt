@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `account` is never read
+    --> src-tauri/tests/financial_sources.rs:1008:5
+     |
+1003 | struct ActionScenario {
+     |        -------------- field in this struct
+...
+1008 |     account: Value,
+     |     ^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "financial_sources") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.04s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test metadata_quota_does_not_open_early_after_a_slow_identity_read ... FAILED
+
+failures:
+
+---- metadata_quota_does_not_open_early_after_a_slow_identity_read stdout ----
+
+thread 'metadata_quota_does_not_open_early_after_a_slow_identity_read' (2453997) panicked at src-tauri/tests/financial_sources.rs:1205:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity.","capabilityStatuses":[{"capability":"BROKER_ACCOUNT_IDENTITY","reason":"The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity.","status":"AVAILABLE"},{"capability":"BROKER_INSTRUMENT_METADATA","reason":"The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity.","status":"AVAILABLE"},{"capability":"EXCHANGE_HALTS","reason":"Static exchange schedules do not supply current exchange halt evidence.","status":"BLOCKED_EXTERNAL"},{"capability":"ACCOUNT_TRADABILITY","reason":"Instrument directory membership and quantity caps do not establish current unrestricted account tradability.","status":"BLOCKED_EXTERNAL"}],"configured":true,"connectionId":"9cc36dfc-db08-4fe8-8785-4a86f9289b8e","eligibleAccounts":[{"connectionId":"9cc36dfc-db08-4fe8-8785-4a86f9289b8e","displayName":"Read-only source"}],"environment":"LIVE","evidence":{"accountCurrency":"GBP","binding":{"accountVersion":"9cc36dfc-db08-4fe8-8785-4a86f9289b8e:3","bindingVersion":"8e871550999e1485765dc1cb6ba1e128126e95644a961267bd4f2a2b9e31127f","connectionId":"9cc36dfc-db08-4fe8-8785-4a86f9289b8e","sourceVersion":"BROKER_INSTRUMENTS:25113104-e871-40a1-9854-c6a585cf1453:1"},"instruments":[{"canonicalSecurityIdentity":"UNVERIFIED","currency":"USD","displayName":"Apple","exchangeName":"NASDAQ","instrumentId":"equity:US:AAPL","isin":"US0378331005","providerSymbol":"AAPL_US_EQ","scheduleEvents":[{"date":"2026-10-05T13:30:00Z","eventType":"OPEN"}],"workingScheduleId":101},{"canonicalSecurityIdentity":"UNVERIFIED","currency":"USD","displayName":"Microsoft","exchangeName":"NASDAQ","instrumentId":"equity:US:MSFT","isin":"US5949181045","providerSymbol":"MSFT_US_EQ","scheduleEvents":[{"date":"2026-10-05T13:30:00Z","eventType":"OPEN"}],"workingScheduleId":101}],"kind":"BROKER_INSTRUMENTS","materialVersion":"509084f2d84f05df8c81c1d642a2a6d23aa0884c1dac248f34f2afb1e7341ba6","observedAt":"2026-10-03T08:15:30.327Z","providerQuality":"TEN_MINUTE_METADATA"},"kind":"BROKER_INSTRUMENTS","observedAt":"2026-10-03T08:15:30.327Z","stateVersion":"BROKER_INSTRUMENTS:25113104-e871-40a1-9854-c6a585cf1453:1","status":"AVAILABLE","workspaceId":"25113104-e871-40a1-9854-c6a585cf1453"},"ok":true,"requestId":"slow-metadata","schemaVersion":1}
+  left: String("AVAILABLE")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    metadata_quota_does_not_open_early_after_a_slow_identity_read
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 56.23s
+
+error: test failed, to rerun pass `--test financial_sources`

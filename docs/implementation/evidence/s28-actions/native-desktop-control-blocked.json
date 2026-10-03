@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-03T19:33:47.882726+00:00",
+  "ordinaryApp": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-actions-auth-deadline-native-ckritrb7/TradeX.app",
+  "runtimeInputsStillMatchBuild": true,
+  "newOrdinaryParentAndGatewayObserved": true,
+  "axReadAvailable": true,
+  "connectionPopupClick": "ScreenCaptureKit.SCStreamErrorDomain -3811 capture failure",
+  "exposedExpandActionChangedInterface": false,
+  "userDesktopHandoffRequested": true,
+  "privateAccountValuesArchived": false,
+  "credentialsArchived": false,
+  "financialMutation": false
+}

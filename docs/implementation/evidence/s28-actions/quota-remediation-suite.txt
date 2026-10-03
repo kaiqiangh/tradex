@@ -1,0 +1,32 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.34s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-4c98a3a0735e964e)
+
+running 25 tests
+test a_late_vault_read_cannot_start_http_without_the_full_timeout_budget ... ignored, Uses 49 seconds of real elapsed time to verify the HTTP timeout reserve
+test company_query_reaches_market_with_its_original_binding_without_adjustment_authority ... ok
+test company_event_forbidden_response_is_an_access_failure_without_an_alternate_read ... ok
+test every_official_company_event_category_is_preserved_without_legacy_reclassification ... ok
+test company_query_expires_without_renewing_its_first_receipt_or_material_version ... ok
+test known_event_query_keeps_date_precision_and_never_certifies_complete_coverage ... ok
+test known_events_do_not_satisfy_independent_equity_approval_guards ... ok
+test metadata_quota_does_not_open_early_after_a_slow_identity_read ... ignored, Real monotonic quota boundary; execute explicitly when changing quota accounting
+test malformed_or_ambiguous_query_completion_retires_the_previous_snapshot ... ok
+test company_pagination_enforces_bounds_without_truncating_or_publishing_partial_queries ... ok
+test legacy_opt_ins_cannot_replace_a_selected_or_disconnected_company_source ... ok
+test provider_echoed_company_event_credentials_retire_the_previous_query ... ok
+test provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query ... ok
+test public_source_account_workspace_and_clock_changes_discard_late_company_result ... ok
+test revised_and_removed_events_replace_current_material_without_certifying_complete_coverage ... ok
+test exact_live_account_metadata_is_readable_without_current_tradability_authority ... ok
+test source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key ... ok
+test uuid_case_aliases_cannot_duplicate_a_company_action ... ok
+test metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it ... ok
+test malformed_broker_identity_or_schedule_is_unavailable_without_panicking ... ok
+test broker_read_boundaries_stop_late_results_and_remaining_metadata_requests ... ok
+test source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body ... ok
+test ordinary_account_summary_holds_metadata_quota_before_the_first_metadata_read ... ok
+test actual_http_adapter_retires_company_evidence_on_redirect_timeout_and_oversize ... ok
+test ordinary_summary_completion_preserves_exhausted_headers_and_transport_cooldown ... ok
+
+test result: ok. 23 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 38.35s

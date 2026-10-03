@@ -1,0 +1,18 @@
+{
+  "builtAt": "2026-10-03T15:02:52.909800+00:00",
+  "app": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-actions-remediated-native-ntwlcget/TradeX.app",
+  "baseline": "2f42df60407ef695f6393c84bc24dcaff7e83332",
+  "integrationFeature": false,
+  "ordinaryReleaseSha256": "1dacc479ca8438eabda4c0e6e159617c4ae66c0b37e36bcf5593db2e6da45cf2",
+  "signedBinarySha256": "dfbe1b16e34cfd3dec7a3cd865804ab2f3f04e5ec2fc0258da2ecde80b82abe3",
+  "gatewaySha256": "8bc5b8ff1735eac911018ac1fe1f0fc56195136f1dc8917d9e1bda9b245a5691",
+  "gatewayCopySha256": "8bc5b8ff1735eac911018ac1fe1f0fc56195136f1dc8917d9e1bda9b245a5691",
+  "sourceHashes": {
+    "src-tauri/src/financial_sources.rs": "e8c844ed85216510133c2f0c05d369f2093cbd7d90a76b52133e0d2326db9017",
+    "src-tauri/src/provider_io.rs": "5b5a5e991b3e01a3f3598608225d509cf660eca1a9d58828507d6c398a05f95d",
+    "src-tauri/src/lib.rs": "e0e7f2a8516abb18baa96b62024f774c967cf5ce3a3cc474b3e3d13307a40eeb",
+    "src/FinancialEvidencePanel.tsx": "1642f3e155a76f389cc4930a3c7efa053cd5eb4cd4eb261f618eecd2a40ad34b",
+    "src/OrderDrafts.tsx": "6fc5ee22fbc89f051e42730f83ae5e20b73b7e03eeb6b9fcb996fc805f53d2f7"
+  },
+  "signing": "Local ad-hoc validation bundle; gateway bytes retain the compiled pin; not distribution signing"
+}

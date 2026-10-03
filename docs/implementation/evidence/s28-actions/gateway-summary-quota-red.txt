@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.31s
+     Running tests/order_gateway.rs (target/debug/deps/order_gateway-0d98c4b21dec228b)
+
+running 1 test
+
+thread 'local_provider_tests::real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement' (3627871) panicked at src-tauri/tests/order_gateway.rs:1147:9:
+assertion `left == right` failed
+  left: Some("PROVIDER_UNAVAILABLE")
+ right: Some("PROVIDER_RATE_LIMITED")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test local_provider_tests::real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement ... FAILED
+
+failures:
+
+failures:
+    local_provider_tests::real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 22 filtered out; finished in 3.91s
+
+error: test failed, to rerun pass `--test order_gateway`

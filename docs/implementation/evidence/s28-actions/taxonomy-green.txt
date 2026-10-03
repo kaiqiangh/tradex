@@ -1,0 +1,10 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.11s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 3 tests
+test known_event_query_keeps_date_precision_and_never_certifies_complete_coverage ... ok
+test every_official_company_event_category_is_preserved_without_legacy_reclassification ... ok
+test source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s

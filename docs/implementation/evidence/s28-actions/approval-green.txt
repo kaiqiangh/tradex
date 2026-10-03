@@ -1,0 +1,20 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `account` is never read
+    --> src-tauri/tests/financial_sources.rs:1008:5
+     |
+1003 | struct ActionScenario {
+     |        -------------- field in this struct
+...
+1008 |     account: Value,
+     |     ^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "financial_sources") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.76s
+     Running tests/financial_sources.rs (/Users/kai/Desktop/my-repo/tradex/target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test known_events_do_not_satisfy_independent_equity_approval_guards ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.10s

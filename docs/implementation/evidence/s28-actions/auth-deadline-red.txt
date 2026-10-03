@@ -1,0 +1,20 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.15s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test protected_authentication_returns_by_the_job_deadline_and_discards_late_credentials has been running for over 60 seconds
+
+thread 'protected_authentication_returns_by_the_job_deadline_and_discards_late_credentials' (3801806) panicked at src-tauri/tests/financial_sources.rs:2412:5:
+Refresh waited beyond its60-second job deadline: 63.00624225s
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test protected_authentication_returns_by_the_job_deadline_and_discards_late_credentials ... FAILED
+
+failures:
+
+failures:
+    protected_authentication_returns_by_the_job_deadline_and_discards_late_credentials
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 23 filtered out; finished in 63.08s
+
+error: test failed, to rerun pass `--test financial_sources`

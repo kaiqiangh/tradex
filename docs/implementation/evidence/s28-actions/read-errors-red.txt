@@ -1,0 +1,34 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `account` is never read
+    --> src-tauri/tests/financial_sources.rs:1008:5
+     |
+1003 | struct ActionScenario {
+     |        -------------- field in this struct
+...
+1008 |     account: Value,
+     |     ^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "financial_sources") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.20s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body ... FAILED
+
+failures:
+
+---- source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body stdout ----
+
+thread 'source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body' (2479238) panicked at src-tauri/tests/financial_sources.rs:1379:9:
+The source should explain its actual read failure: {"data":{"availabilityReason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","capabilityStatuses":[{"capability":"BROKER_ACCOUNT_IDENTITY","reason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","status":"UNAVAILABLE"},{"capability":"BROKER_INSTRUMENT_METADATA","reason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","status":"UNAVAILABLE"},{"capability":"EXCHANGE_HALTS","reason":"Static exchange schedules do not supply current exchange halt evidence.","status":"BLOCKED_EXTERNAL"},{"capability":"ACCOUNT_TRADABILITY","reason":"Instrument directory membership and quantity caps do not establish current unrestricted account tradability.","status":"BLOCKED_EXTERNAL"}],"configured":true,"connectionId":"2701eb6a-7bd5-4b46-89e8-3b8ca6d0631f","eligibleAccounts":[{"connectionId":"2701eb6a-7bd5-4b46-89e8-3b8ca6d0631f","displayName":"Read-only source"}],"environment":"LIVE","kind":"BROKER_INSTRUMENTS","stateVersion":"BROKER_INSTRUMENTS:6c901750-907a-427f-9bae-4f77c29da1c9:1","status":"UNAVAILABLE","workspaceId":"6c901750-907a-427f-9bae-4f77c29da1c9"},"ok":true,"requestId":"rejected-metadata","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 12 filtered out; finished in 5.30s
+
+error: test failed, to rerun pass `--test financial_sources`

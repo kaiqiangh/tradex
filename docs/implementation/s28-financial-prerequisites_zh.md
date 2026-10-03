@@ -1,7 +1,7 @@
 # S28 生产金融前置依赖
 
 日期：2026-10-01。审计基线：`aa43091ea2eef732b5865b163cbeee3cac3e03c9`。
-状态：**IMPLEMENTATION_IN_PROGRESS；日历已验收，第二项前置已形成规范**。
+状态：**IMPLEMENTATION_IN_PROGRESS；日历已验收，第二项前置已实现并待审查**。
 规范：[补齐 S28 生产金融前置证据](https://github.com/kaiqiangh/tradex/issues/117)。
 英文配对：[Production financial prerequisites](s28-financial-prerequisites.md)。
 
@@ -61,3 +61,5 @@ FX 首先确定实际必需路径，不预设新建通用服务。ECB 日参考�
 本次仅公开文档读取和本地源码核对，没有读取 vault、刷新真实账户、Arm、审批、reservation、provider mutation 或金融执行；不宣称 runtime PASS。既有 S17 与真实 S27 延后项保持 OPEN。本次审计不构成完整 map 验收或 dev→main PR 条件。
 
 实现续项：已批准的日历子票 [#118](https://github.com/kaiqiangh/tradex/issues/118) 的有限生产者、界面与真实原生日历验证及最终 Standards/Spec 审查已通过；验证单独记录在[日历证据](s28-calendar-evidence_zh.md)；上面的仅审计边界描述初始调研，不描述后续实现。未批准金融权限契约变更。
+
+2026-10-03 实现检查点：公司行为/精确账户元数据已通过自动检查、真实 Rust UI、使用已保存 Alpaca Paper / Trading 212 Live 凭据的普通原生真实读取。自然过期保留原始时间/材料版本；完整覆盖、复权、权威身份、当前可交易性/停牌及权限仍不受支持或未验证。独立审查与最终 dev 交付待完成；子票119和全部验收父级保持 OPEN。见[双语实现证据](s28-actions-evidence_zh.md)。必需 FX 尚未开始。

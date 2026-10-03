@@ -1,0 +1,33 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `account` is never read
+    --> src-tauri/tests/financial_sources.rs:1008:5
+     |
+1003 | struct ActionScenario {
+     |        -------------- field in this struct
+...
+1008 |     account: Value,
+     |     ^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "financial_sources") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.45s
+     Running tests/financial_sources.rs (/Users/kai/Desktop/my-repo/tradex/target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 14 tests
+test company_event_forbidden_response_is_an_access_failure_without_an_alternate_read ... ok
+test company_query_reaches_market_with_its_original_binding_without_adjustment_authority ... ok
+test every_official_company_event_category_is_preserved_without_legacy_reclassification ... ok
+test exact_live_account_metadata_is_readable_without_current_tradability_authority ... ok
+test known_event_query_keeps_date_precision_and_never_certifies_complete_coverage ... ok
+test known_events_do_not_satisfy_independent_equity_approval_guards ... ok
+test malformed_broker_identity_or_schedule_is_unavailable_without_panicking ... ok
+test malformed_or_ambiguous_query_completion_retires_the_previous_snapshot ... ok
+test metadata_quota_does_not_open_early_after_a_slow_identity_read ... ignored, Real monotonic quota boundary; execute explicitly when changing quota accounting
+test metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it ... ok
+test provider_echoed_company_event_credentials_retire_the_previous_query ... ok
+test provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query ... ok
+test source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body ... ok
+test source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key ... ok
+
+test result: ok. 13 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 22.10s

@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `account` is never read
+    --> src-tauri/tests/financial_sources.rs:1008:5
+     |
+1003 | struct ActionScenario {
+     |        -------------- field in this struct
+...
+1008 |     account: Value,
+     |     ^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "financial_sources") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.91s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test company_query_reaches_market_with_its_original_binding_without_adjustment_authority ... FAILED
+
+failures:
+
+---- company_query_reaches_market_with_its_original_binding_without_adjustment_authority stdout ----
+
+thread 'company_query_reaches_market_with_its_original_binding_without_adjustment_authority' (2447594) panicked at src-tauri/tests/financial_sources.rs:1101:5:
+assertion `left == right` failed: Markets must consume the original producer evidence, not mint a receipt or substitute a fixture
+  left: Null
+ right: Object {"actions": Array [Object {"actionId": String("01234567-89ab-4cde-8f01-234567890123"), "category": String("CASH_DIVIDEND"), "dates": Array [Object {"name": String("ex_date"), "value": String("2026-10-03")}], "foreign": Bool(false), "instrumentIds": Array [String("equity:US:AAPL")], "partial": Bool(false), "processDate": String("2026-10-03"), "securities": Array [Object {"cusip": String("037833100"), "role": String("SUBJECT"), "symbol": String("AAPL")}], "special": Bool(false), "stockMovements": Array [], "subType": String("REGULAR"), "terms": Array [Object {"name": String("rate"), "value": String("0.25")}]}], "binding": Object {"accountVersion": String("12f38337-53ab-4ffb-a4bc-68a31b696c49:3"), "bindingVersion": String("ee131fe171109f8f42e72583f23105bbbc3bd662aacb1f07b4b7972157e44fed"), "connectionId": String("12f38337-53ab-4ffb-a4bc-68a31b696c49"), "sourceVersion": String("CORPORATE_ACTIONS:e43879c7-ff04-462e-8fc6-c99e404a7b3c:1")}, "coverageEnd": String("2026-11-02"), "coverageStart": String("2026-09-03"), "kind": String("CORPORATE_ACTIONS"), "materialVersion": String("604929690527c2a5ca85eff19efb431a601c7808e454ca1558c0d667234be648"), "observedAt": String("2026-10-03T08:09:35.217Z"), "providerQuality": String("DELAYED_PROCESS_DATE_QUERY"), "queryComplete": Bool(true)}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    company_query_reaches_market_with_its_original_binding_without_adjustment_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `--test financial_sources`

@@ -1,7 +1,7 @@
 # S28 production financial prerequisites
 
 Date: 2026-10-01. Audit baseline: `aa43091ea2eef732b5865b163cbeee3cac3e03c9`.
-Status: **IMPLEMENTATION_IN_PROGRESS; calendar accepted, second prerequisite specified**.
+Status: **IMPLEMENTATION_IN_PROGRESS; calendar accepted, second prerequisite implemented and awaiting review**.
 Specification: [补齐 S28 生产金融前置证据](https://github.com/kaiqiangh/tradex/issues/117).
 Chinese pair: [金融前置依赖](s28-financial-prerequisites_zh.md).
 
@@ -63,3 +63,5 @@ The proposed sequence is calendar → corporate-action/exact broker tradability 
 This audit performed public documentation reads and local source inspection only. No vault read, real account refresh, Arm, approval, reservation, provider mutation or financial execution was performed. No runtime PASS is claimed. Existing S17 and physical S27 deferrals remain OPEN. Final map completion and dev→main PR are not authorized by this audit result.
 
 Implementation follow-up: approved calendar child [#118](https://github.com/kaiqiangh/tradex/issues/118) has passed its bounded producer/UI/native calendar verification and final Standards/Spec reviews. Its verification is recorded separately in [calendar evidence](s28-calendar-evidence.md); the audit-only boundary above describes the initial research, not subsequent implementation work. No financial permission-contract revision is approved.
+
+2026-10-03 implementation checkpoint: the company-event/exact-account metadata slice has passed automated checks, Rust-backed UI and ordinary hosted reads with saved Alpaca Paper / Trading 212 Live credentials. Natural expiry preserves original receipts/material versions; complete coverage, adjustment, canonical identity, current tradability/halts and permissions remain unsupported/unverified. Independent review and final dev delivery are pending; child119 and all acceptance parents remain OPEN. See [paired implementation evidence](s28-actions-evidence.md). Required FX has not started.

@@ -1,0 +1,55 @@
+{
+  "scope": "ordinary production desktop; existing saved credentials; sanitized UI observations only",
+  "corporateActions": {
+    "observedAt": "2026-10-03T10:42:01.706Z",
+    "status": "AVAILABLE",
+    "materialVersion": "b79291c189dd5c09e417f5ce561487dc505a0ccc585330198227d89031db7bdc",
+    "knownEvents": 1,
+    "example": "MSFT cash dividend, process 2026-09-10, ex/record 2026-08-20, payable 2026-09-10, rate exact 0.91; currency and provider observation timestamp not supplied",
+    "requestedProcessDates": [
+      "2026-09-03",
+      "2026-11-02"
+    ],
+    "queryComplete": true,
+    "completeActionCoverage": "BLOCKED_EXTERNAL",
+    "historicalAdjustment": "UNVERIFIED",
+    "expiry": {
+      "status": "UNAVAILABLE",
+      "firstReceiptUnchanged": true,
+      "materialVersionUnchanged": true,
+      "method": "natural elapsed time; no fixture clock"
+    }
+  },
+  "brokerInstruments": {
+    "status": "AVAILABLE",
+    "firstReceipt": "2026-10-03T10:43:57.066Z",
+    "materialVersion": "90589c48c05c207cdd760e47f3c3048d0703e2a37b24106e770a40ba0cfb4aff",
+    "accountIdentity": "same selected saved Live credential and remote identity/currency matched; identifiers redacted",
+    "accountCurrency": "EUR",
+    "instruments": [
+      "AAPL_US_EQ",
+      "MSFT_US_EQ"
+    ],
+    "instrumentCurrency": "USD",
+    "providerQuality": "TEN_MINUTE_METADATA",
+    "providerTimestamp": "NOT_SUPPLIED",
+    "scheduleEventCountPerInstrument": 126,
+    "canonicalIdentity": "UNVERIFIED",
+    "halts": "BLOCKED_EXTERNAL",
+    "currentTradability": "BLOCKED_EXTERNAL",
+    "permissionScope": "UNVERIFIED",
+    "arming": "DISARMED",
+    "initialAccountRecovery": "public Refresh account recovered UNCHECKED/FAILED to authenticated ONLINE; existing unverified-scope acknowledgment retained no permission authority",
+    "expiry": {
+      "status": "UNAVAILABLE",
+      "firstReceiptUnchanged": true,
+      "materialVersionUnchanged": true,
+      "method": "natural elapsed time; no fixture clock"
+    }
+  },
+  "financialMutation": "none",
+  "nativeMarketAttempt": {
+    "status": "NOT_VERIFIED",
+    "reason": "Native background Hot view displayed PAUSED/loading; no Market success inferred. Returned to Settings and ended detail subscription. Rust-backed browser Market verification is separate."
+  }
+}

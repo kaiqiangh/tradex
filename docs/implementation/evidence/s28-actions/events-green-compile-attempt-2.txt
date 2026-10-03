@@ -1,0 +1,20 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0382]: borrow of moved value: `status`
+   --> src-tauri/src/financial_sources.rs:275:50
+    |
+232 |     let status = if saved.connection_id.is_none() {
+    |         ------ move occurs because `status` has type `DataSourceStatus`, which does not implement the `Copy` trait
+...
+261 |         status,
+    |         ------ value moved here
+...
+275 |             capability(Capability::KnownActions, status.clone(), reason),
+    |                                                  ^^^^^^ value borrowed here after move
+    |
+help: consider cloning the value if the performance cost is acceptable
+    |
+261 |         status: status.clone(),
+    |               ++++++++++++++++
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `tradex` (lib) due to 1 previous error

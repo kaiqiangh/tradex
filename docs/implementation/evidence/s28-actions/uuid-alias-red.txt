@@ -1,0 +1,23 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test uuid_case_aliases_cannot_duplicate_a_company_action ... FAILED
+
+failures:
+
+---- uuid_case_aliases_cannot_duplicate_a_company_action stdout ----
+
+thread 'uuid_case_aliases_cannot_duplicate_a_company_action' (2558778) panicked at src-tauri/tests/financial_sources.rs:1676:5:
+assertion `left == right` failed: UUID aliases must not create two known actions: {"data":{"availabilityReason":"Authenticated known events are current as a bounded process-date query only. Complete prospective action coverage and historical adjustment remain unsupported.","capabilityStatuses":[{"capability":"KNOWN_ACTIONS","reason":"Authenticated known events are current as a bounded process-date query only. Complete prospective action coverage and historical adjustment remain unsupported.","status":"AVAILABLE"},{"capability":"ACTION_QUERY_COMPLETION","reason":"Pagination exhaustion applies only to the returned processing-date query, not prospective event completeness.","status":"AVAILABLE"},{"capability":"COMPLETE_ACTION_COVERAGE","reason":"The provider documents processing delays and no immediate-announcement completeness guarantee. An empty query cannot certify no pending action or complete delisting coverage.","status":"BLOCKED_EXTERNAL"},{"capability":"HISTORICAL_ADJUSTMENT","reason":"Known events do not prove historical prices were adjusted; actual history provenance is still required.","status":"UNVERIFIED"}],"configured":true,"connectionId":"94b940e4-7260-4f3a-a036-7b9ace82f8a3","eligibleAccounts":[{"connectionId":"94b940e4-7260-4f3a-a036-7b9ace82f8a3","displayName":"Read-only source"}],"environment":"PAPER","evidence":{"actions":[{"actionId":"01234567-89AB-4CDE-8F01-234567890123","category":"CASH_DIVIDEND","dates":[{"name":"ex_date","value":"2026-10-03"}],"foreign":false,"instrumentIds":["equity:US:AAPL"],"partial":false,"processDate":"2026-10-03","securities":[{"cusip":"037833100","role":"SUBJECT","symbol":"AAPL"}],"special":false,"stockMovements":[],"subType":"REGULAR","terms":[{"name":"rate","value":"0.25"}]},{"actionId":"01234567-89ab-4cde-8f01-234567890123","category":"CASH_DIVIDEND","dates":[{"name":"ex_date","value":"2026-10-03"}],"foreign":false,"instrumentIds":["equity:US:AAPL"],"partial":false,"processDate":"2026-10-03","securities":[{"cusip":"037833100","role":"SUBJECT","symbol":"AAPL"}],"special":false,"stockMovements":[],"subType":"REGULAR","terms":[{"name":"rate","value":"0.25"}]}],"binding":{"accountVersion":"94b940e4-7260-4f3a-a036-7b9ace82f8a3:3","bindingVersion":"ddc886bd6b61bb1f3281ee079f60164eb1dbbf6f49f1692cd3446307207b8421","connectionId":"94b940e4-7260-4f3a-a036-7b9ace82f8a3","sourceVersion":"CORPORATE_ACTIONS:b9f213be-bacf-4957-87c5-d6c361bc2b5a:1"},"coverageEnd":"2026-11-02","coverageStart":"2026-09-03","kind":"CORPORATE_ACTIONS","materialVersion":"6e0b791fe7721ad1c4b29faf06cafe14c280feef345083b0ab14cdc191f5ad8b","observedAt":"2026-10-03T09:58:57.711Z","providerQuality":"DELAYED_PROCESS_DATE_QUERY","queryComplete":true},"kind":"CORPORATE_ACTIONS","observedAt":"2026-10-03T09:58:57.711Z","stateVersion":"CORPORATE_ACTIONS:b9f213be-bacf-4957-87c5-d6c361bc2b5a:1","status":"AVAILABLE","workspaceId":"b9f213be-bacf-4957-87c5-d6c361bc2b5a"},"ok":true,"requestId":"company-observation","schemaVersion":1}
+  left: String("AVAILABLE")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    uuid_case_aliases_cannot_duplicate_a_company_action
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

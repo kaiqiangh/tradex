@@ -1,0 +1,44 @@
+{
+  "source": "https://docs.trading212.com/api/instruments/exchanges",
+  "schemaResource": "https://docs.trading212.com/page-data/shared/api-docs-api.json.json",
+  "observedOn": "2026-10-03",
+  "resourceSha256": "faf9d48170634fd516f3305832c0681206d9cee9a75b30c1dcedee3dded1a1e9",
+  "timeEvent": {
+    "properties": {
+      "date": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "type": {
+        "enum": [
+          "OPEN",
+          "CLOSE",
+          "BREAK_START",
+          "BREAK_END",
+          "PRE_MARKET_OPEN",
+          "AFTER_HOURS_OPEN",
+          "AFTER_HOURS_CLOSE",
+          "OVERNIGHT_OPEN"
+        ],
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "workingSchedule": {
+    "properties": {
+      "id": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "timeEvents": {
+        "items": {
+          "$ref": "#/components/schemas/TimeEvent"
+        },
+        "type": "array"
+      }
+    },
+    "type": "object"
+  },
+  "boundary": "Official schema lists shapes and eight event types; local coherence validation does not certify current venue state or complete calendar coverage."
+}
