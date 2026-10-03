@@ -1,6 +1,6 @@
 {
- "generated": "2026-10-01 10:02 +0100",
- "commit": "dc4c350",
+ "generated": "2026-10-03 11:31 +0100",
+ "commit": "946a6d0",
  "branch": "dev",
  "ahead": 0,
  "req_total": 203,
@@ -18,15 +18,17 @@
   "IMPLEMENTED_UNVERIFIED": 39,
   "NOT_STARTED": 29
  },
- "issue_total": 115,
- "issue_open": 6,
+ "issue_total": 118,
+ "issue_open": 8,
  "open_issues": [
   1,
   56,
   107,
   113,
   115,
-  116
+  116,
+  117,
+  119
  ],
  "slice_closed": 25,
  "slice_inprog": 3,
@@ -635,10 +637,13 @@
     113,
     114,
     115,
-    116
+    116,
+    117,
+    118,
+    119
    ],
-   "issues_closed": 1,
-   "issues_open": 3,
+   "issues_closed": 2,
+   "issues_open": 5,
    "total": 2,
    "not_started": 0,
    "in_progress": 1,
@@ -1326,9 +1331,9 @@
  "owners": [
   {
    "id": "kaiqiangh",
-   "total": 101,
-   "open": 5,
-   "closed": 96
+   "total": 104,
+   "open": 7,
+   "closed": 97
   },
   {
    "id": "unassigned",
