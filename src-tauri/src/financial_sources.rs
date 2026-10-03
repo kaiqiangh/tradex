@@ -1246,7 +1246,13 @@ fn validate_schedule_events(events: &[(OffsetDateTime, BrokerScheduleEvent)]) ->
                 paused = Some(false);
             }
             Event::PreMarketOpen | Event::AfterHoursOpen | Event::OvernightOpen => {
-                if regular == Some(true) || last_session == Some(event.event_type) {
+                // AFTER_HOURS_OPEN is a regular-to-after-hours phase transition;
+                // the provider need not emit a separate CLOSE. Retain the actual
+                // events without fabricating an end time or current venue state.
+                if (regular == Some(true) && event.event_type != Event::AfterHoursOpen)
+                    || (event.event_type == Event::AfterHoursOpen && paused == Some(true))
+                    || last_session == Some(event.event_type)
+                {
                     return Err(invalid());
                 }
                 regular = Some(false);

@@ -21,8 +21,8 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 1001 | `90442f1a3b5c33347de05ab241eb00480614ada6ee11e0a8b0448d3848d803f7` |
 | `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1160 | `1a0c3e0fde414dff4b26f4dacbecb344261fb4ec0d1c4cb726ab1b451b2eb01d` |
 | `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1158 | `e83b6fac45d0a62f7d37c1b68f9e8112d3db127c2099b2fa7df2cf01570c610e` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3308 | `d80af543c3e2878a5c70f3d2515d6f58b8e6a0ac6b1b740dfb728687c8eded9b` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3306 | `a9795d50301219d7914d9f60540c99a6c177a937d9ae7ac50802e8b3fea53557` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3308 | `e48de7bda6fdbc4f4232e20dab7950c756bbbf764fa7889085a75761d6ca9658` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3306 | `e5c2da9ac7a10d8d98bd7ca1c66e01e109cd6c5c263de4b833c7cc5d1409242b` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 214 | `3dcf4b201c135468a113c760d02e51ffac0268daaeca5595f09f08a281463f7c` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 214 | `e9080e0dc8189d39815b1ac78518dad93f3319190a5783978e30cca7620049b8` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 188 | `5d1b2619f2fbe829a17684e1b2d32ca54c496386e5c32932d8c90c168178bc73` |

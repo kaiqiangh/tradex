@@ -1039,6 +1039,9 @@ fn malformed_broker_identity_or_schedule_is_unavailable_without_panicking() {
         vec!["PRE_MARKET_OPEN", "BREAK_END"],
         vec!["OVERNIGHT_OPEN", "BREAK_START"],
         vec!["AFTER_HOURS_CLOSE", "CLOSE"],
+        vec!["OPEN", "BREAK_START", "AFTER_HOURS_OPEN"],
+        vec!["OPEN", "AFTER_HOURS_OPEN", "AFTER_HOURS_OPEN"],
+        vec!["OPEN", "AFTER_HOURS_OPEN", "BREAK_START"],
     ] {
         let mut conflicting = BrokerResponses::default();
         conflicting.exchanges[0]["workingSchedules"][0]["timeEvents"] = json!(event_types.into_iter().enumerate().map(|(minute, kind)| json!({"date":format!("2026-10-05T13:{:02}:00Z",30+minute),"type":kind})).collect::<Vec<_>>());
@@ -1214,6 +1217,92 @@ fn coherent_broker_schedule_keeps_all_event_types_and_truncated_window_edges() {
             "UNVERIFIED"
         );
     }
+}
+
+#[test]
+fn after_hours_open_transitions_from_regular_hours_without_fabricating_a_close() {
+    let directory = tempfile::tempdir().unwrap();
+    let vault = provider_fixtures::Vault::default();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account_http = provider_fixtures::Http::default();
+    let identity = 9007199254741999u64;
+    account_http.trading212_identity.set(identity);
+    let account = connect_using(
+        &mut control,
+        &workspace,
+        "trading212",
+        "LIVE",
+        &vault,
+        &account_http,
+    );
+    command(
+        &mut control,
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let source = command(
+        &mut control,
+        "data.instrument.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.instrument.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    let mut metadata = BrokerResponses::default();
+    metadata.account["id"] = json!(identity);
+    // Production metadata uses an after-hours opening as the phase transition,
+    // without a separate CLOSE. These are external fixture dates, not venue authority.
+    let events = json!([
+        {"date":"2026-10-05T08:00:00Z","type":"PRE_MARKET_OPEN"},
+        {"date":"2026-10-05T13:30:00Z","type":"OPEN"},
+        {"date":"2026-10-05T20:00:00Z","type":"AFTER_HOURS_OPEN"},
+        {"date":"2026-10-06T00:00:00Z","type":"AFTER_HOURS_CLOSE"},
+        {"date":"2026-10-06T00:01:00Z","type":"OVERNIGHT_OPEN"},
+        {"date":"2026-10-06T08:00:00Z","type":"PRE_MARKET_OPEN"},
+        {"date":"2026-10-06T13:30:00Z","type":"OPEN"},
+        {"date":"2026-10-06T20:00:00Z","type":"AFTER_HOURS_OPEN"}
+    ]);
+    metadata.exchanges[0]["workingSchedules"][0]["timeEvents"] = events.clone();
+    let control = std::sync::Arc::new(std::sync::Mutex::new(control));
+    std::thread::sleep(std::time::Duration::from_millis(5100));
+    let read = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"after-hours-phase","schemaVersion":1,"command":"data.instrument.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &metadata,
+    );
+    assert_eq!(
+        read["data"]["status"], "AVAILABLE",
+        "Actual regular-to-after-hours transitions must remain usable as metadata: {read}"
+    );
+    let evidence = &read["data"]["evidence"];
+    assert_eq!(evidence["providerQuality"], "TEN_MINUTE_METADATA");
+    let returned = &evidence["instruments"][0]["scheduleEvents"];
+    assert_eq!(
+        returned.as_array().unwrap().len(),
+        8,
+        "Do not fabricate a CLOSE"
+    );
+    assert_eq!(returned[2]["eventType"], "AFTER_HOURS_OPEN");
+    assert_eq!(returned[2]["date"], "2026-10-05T20:00:00Z");
+    assert_eq!(
+        evidence["instruments"][0]["canonicalSecurityIdentity"],
+        "UNVERIFIED"
+    );
+    assert!(evidence["instruments"][0]["tradable"].is_null());
+    let account_now = command(
+        &mut control.lock().unwrap(),
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(account_now["data"]["permissions"]["scope"], "UNVERIFIED");
+    assert_eq!(account_now["data"]["health"]["arming"], "DISARMED");
 }
 
 #[test]
