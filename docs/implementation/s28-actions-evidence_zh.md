@@ -1,6 +1,6 @@
 # S28 已知公司行为与精确账户标的元数据 — 验证证据
 
-日期：2026-10-03。[实现票](https://github.com/kaiqiangh/tradex/issues/119)，[完整原始规范](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911)。状态：**已实现；独立审查和交付待完成**。[英文权威版本](s28-actions-evidence.md)。
+日期：2026-10-03。[实现票](https://github.com/kaiqiangh/tradex/issues/119)，[完整原始规范](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911)。状态：**已实现；串行实现复审 PASS；最终 hosted 验收待完成**。[英文权威版本](s28-actions-evidence.md)。
 
 Settings 两个独立版本化来源复用已保存且符合条件的 Alpaca Paper、Trading 212 Live 密钥。Save 只持久化引用与审计元数据；Refresh 在控制面锁外执行固定认证 GET；Disconnect 保留借用账户和密钥。schema34 只迁移元数据。30秒进程观察绑定 workspace、来源/账户版本、凭据引用、进程会话、时钟代次和请求序列。失败、绑定变化或过期都会撤销当前证据资格，不更新原始读取时间或材料版本。
 
@@ -19,7 +19,7 @@ Alpaca 返回有限 AAPL/MSFT 处理日期查询，不代表完整前瞻公司�
 | [分页边界](evidence/s28-actions/pagination-bounds-characterization.txt) | 验证10页/1000条；单页或总分页溢出原子失败。 |
 | [慢响应后配额](evidence/s28-actions/quota-receipt-green.txt)、[总期限余量](evidence/s28-actions/deadline-budget-green.txt) | 两项默认忽略的慢测试已单独执行并 PASS；49秒 vault 等待后不得在60秒任务内再启动12秒 HTTP。另36项 ignored 仍未验证。 |
 | [公开 UI](evidence/s28-actions/ui-workflow-green-final.txt)、[启用前上下文](evidence/s28-actions/ui-trade-review.txt) | 真实 Rust：保存/CAS、26条按25+1分页、部分记录和精确小数、明确键盘动作、未保存禁止刷新、配额错误/Reload、过期、重开及断开保留密钥。Settings/Markets/Trade 在390/768/1280px 验证；启用前审阅保留原始时间/材料及独立阻塞，审批数为0。 |
-| [普通原生真实读取](evidence/s28-actions/native-hosted.json)、[来源截图](evidence/s28-actions/native-metadata.png) | 已有密钥成功读取实际 Alpaca 生产数据及 Trading 212 Live；自然过期保留原始时间/版本。只证明实际响应能力；未归档私有余额、持仓、订单、远端账户 ID 或凭据。 |
+| [普通原生真实读取](evidence/s28-actions/native-hosted.json) | 已有密钥成功读取实际 Alpaca 生产数据及 Trading 212 Live；自然过期保留原始时间/版本。只证明实际响应能力；未归档私有余额、持仓、订单、远端账户 ID 或凭据。 |
 
 Alpaca 首次读取 `2026-10-03T10:42:01.706Z`，处理日期范围2026-09-03至2026-11-02内有一条已知 MSFT 现金分红。Trading 212 首次读取 `2026-10-03T10:43:57.066Z`，与选定 EUR 账户身份一致，返回 AAPL/MSFT USD 元数据及各126条日程事件。两者自然过期后为 UNAVAILABLE，原始时间与材料哈希不变；provider 观察时间仍缺失。原生后台 Hot Market 显示 PAUSED/加载中，此尝试不证明原生详情；已返回 Settings 并结束详情订阅，真实 Rust 浏览器 Market 检查单独记载。既有 Live 账户刷新恢复认证读取，但未知权限确认没有将 scope 提升至 VERIFIED，也未启用交易。
 
@@ -42,7 +42,7 @@ Gateway 修复后的完整检查首次仅在未修改的 Thread reopen 用例失
 
 ## 验收与交付边界
 
-上述记录覆盖 AC1–AC11 的实现与可取得本地/原生观察。AC12 串行独立 Standards、Spec 审查、最终来源绑定、提交和正常 dev push 尚待完成，本检查点不宣称关票。
+上述记录覆盖 AC1–AC11 的实现与可取得本地/原生观察。AC12 串行实现审查、源码提交和精确构建输入绑定已完成；正常 dev push 回执在证据交付后记入实现票。AC11 最终 hosted 当前/过期观察仍待人工认证后验证，本检查点不宣称关票。
 
 OD-005 整体、完整前瞻行为覆盖、历史复权、权威证券身份、当前账户可交易性/停牌、完整权限、合格 SIP 报价/深度及执行级 FX 保持独立门禁。报价 #116、Trading 212 #113、前置规范 #117、map #1 保持 OPEN。本票审查交付后才进入下一个 FX 前置项。S17 真实 Paper 和 S27 实际睡眠唤醒仍为用户跳过/未验证。此切片没有 Arm、已签发审批、reservation、下单/撤单写操作、main PR 或 main merge。
 
@@ -57,3 +57,17 @@ OD-005 整体、完整前瞻行为覆盖、历史复权、权威证券身份、�
 用户已完成 Keychain 认证。相同普通二进制上的明确公司重读成功：新鲜 AVAILABLE 有界查询保留1条已知事件、原始接收时间、material identity 和仅日期精度，完整覆盖/历史调整仍不支持；前一查询自然过期。native-hosted-company-auth-deadline.json 只归档经过清理的数量/quality/接收时间/hash，不归档事件正文。已有 Trading212 Live 重测进入 REVIEW_REQUIRED，没有输入新 key 或提升权限范围。随后普通进程重开，观察按契约撤销；源码输入仍匹配构建，但桌面点击发生屏幕捕获 -3811 错误，公开 Expand 动作也未改变 popup。真实 Live 元数据仍待桌面控制恢复与连接确认，这只是工具/原生验证限制，不代表来源 PASS 或产品失败。
 
 最终独立 Standards → Spec 串行实现复审均 PASS：每轴0项可操作发现；Standards 保留1项非阻断重复代码建议。两轴审查前后185项哈希全部匹配，报告及冻结快照保存在 review-*-remediation-3.md 与 review-remediation-3-snapshot.json。实现提交 `32c2a0b99e52b7f7c6e2da667141fa1b62d64eb6` 的36项源码/测试/产品契约字节匹配该快照和普通构建输入。当前 Live 元数据仍待验证；#119及所有验收父票保持 OPEN。随后提交证据并正常推送 dev，不代表关闭或主分支交付。
+
+桌面控制已恢复。已保存的 Trading212 Live 凭据只读重测与连接确认成功，权限仍为 UNVERIFIED、账户仍为 DISARMED。同步 TRUSTED 时间后，当前普通构建的精确标的 Refresh 返回 PROVIDER_RESPONSE_INVALID，旧观察撤销且没有首个 receipt。脱敏记录见 evidence/s28-actions/native-live-metadata-validation-failure.json。尚未确定是实际响应异常还是解析器兼容性问题；#119 保持 OPEN，下一张 FX 票尚未开始。
+
+Hosted 诊断确认实际受支持的时段转换为 PRE_MARKET_OPEN → OPEN → AFTER_HOURS_OPEN，盘后开启位于 OPEN 后6.5小时，该有界日程没有显式 CLOSE。native-schedule-validation-diagnostic.json 仅保留事件类别、相对间隔/数量和是否选中日程的布尔值，不保留时间戳、响应正文或账户数值。公开 seam 回归实际复现 UNAVAILABLE（RED）。最小解析修正接受未休市的普通会话直接进入 AFTER_HOURS_OPEN，保留原始事件且不补造 CLOSE。定向 GREEN 通过，TEN_MINUTE_METADATA、canonical identity UNVERIFIED 与权限 UNVERIFIED/DISARMED 均保留。矛盾的 phase/break 转换仍拒绝。此次解析器变化使之前的实现复审检查点成为历史证据；验收前需完成全量检查、最终源码普通构建原生重读与独立串行复审。
+
+盘后转换修正后的首次默认检查通过370 Rust/17 Node/39ignored、schema/type/build 与追踪检查。Integration 随后在 risk-policy 重开和 S27 model-recovery 重开场景失败。保留的风险策略回复明确为 WORKSPACE_BUSY；S27 当时仅有 ok=false，因此其精确原因尚未独立确认。新增确定性公开 workspace/真实 SQLite/外部子进程测试，在无关子进程等待 fork 与 exec 时实际复现父进程释放后锁仍被持有（RED）。WorkspaceLock 现在在 SQLite 关闭后显式 unlock，包括错误清理；未取得锁的读取不会释放其他所有者的锁。定向 GREEN 与全部8项 workspace 测试通过，仍保留真实所有者存活时的排他性和释放后工作区身份。未删除 lockfile、植入权限种子或改变权限。S27 断言现在保留公开重开错误以便后续诊断。修改 storage 源码后，最终 default/integration/Gateway/build/native 检查与串行复审仍待完成。
+
+修正锁后的最终默认检查通过371 Rust/17 Node/39ignored；完整 integration 通过408/39ignored，包括 risk-policy 与 S27 model-recovery 重开场景；实际 Gateway suite 通过23。format 与 diff 检查通过。确定性锁 RED/GREEN 明确识别继承描述符导致的释放缺陷；原始 S27 和更早的 Thread 失败没有捕获该错误，仍保留且不宣称其精确原因已独立证明。普通原生构建的 runtime 输入已冻结；最终 hosted 元数据与独立串行复审仍待完成。
+
+历史证据清理：native-hosted.json 不再保留选定 hosted 公司事件的日期/经济条款 example；包含这些展示字段的 native-metadata 截图已从当前树移除。经过清理的数量、查询完成/范围、quality、原始接收时间和 material identity 保留；历史观察仍不验证最终修改后的二进制。首轮盘后/锁修正 Standards 审查确认204个冻结哈希，0条文档规范违反、1条 Basic-auth 重复启发式建议；证据清理和最终原生观察需要新的冻结串行审查检查点。
+
+最终普通盘后/锁修正构建：22个冻结 runtime 输入哈希仍一致。明确执行的 Trading212、Alpaca 来源 Refresh 均结束为 UNAVAILABLE，未发布 first receipt，Refresh 重新可用。读取期间的进程采样仍观察到受保护 Keychain 访问和拥有的 vault worker，未归档完整栈。终态 UI 采样晚于各自期限，不能独立测得45/60秒；公开 fake-vault 测试提供计时证明。最终 hosted 当前/过期元数据仍待人工认证后再次明确成功读取。这些阻塞尝试不构成原生来源 PASS、不关闭当前票，也不启动下一 FX 工作。
+
+最终串行实现复审：先 Standards PASS（0条文档规范违反、1条重复代码启发式建议），再 Spec PASS（0条可操作实现缺陷）。两者独立确认205个冻结哈希前后无变化，并核对22个普通构建 runtime 输入。报告与 review-after-hours-final-snapshot.json 保留。原子源码提交52071e18b1ee6a7f51b47a03afbddd99b6e473c3（持有的工作区锁释放）、de215daf1c059cf0dc641737255ee86c644b2454（实际盘后 phase 及双语契约）与审查字节一致；after-hours-source-delivery.json 绑定检查/构建源码。复审后的证据/报告/状态汇总不修改 runtime 输入；证据提交后将在实现票记录正常 dev push 回执。AC11 最终 hosted 当前/过期观察仍待完成，119保持 OPEN。不宣称 workflow/CI PASS。

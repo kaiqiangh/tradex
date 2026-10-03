@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.98s
+     Running tests/workspace.rs (target/debug/deps/workspace-6266169fd3e638a2)
+
+running 1 test
+test released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec ... FAILED
+
+failures:
+
+---- released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec stdout ----
+
+thread 'released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec' (4705915) panicked at src-tauri/tests/workspace.rs:96:5:
+assertion `left == right` failed: Released ownership must not be kept alive by an unrelated child: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"WORKSPACE_BUSY","message":"This workspace is open in another process.","remediationActions":[{"id":"retry_workspace","label":"Retry opening"}],"retryable":true},"ok":false,"requestId":"integration-request","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--test workspace`

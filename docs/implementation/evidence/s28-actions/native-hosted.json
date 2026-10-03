@@ -5,7 +5,6 @@
     "status": "AVAILABLE",
     "materialVersion": "b79291c189dd5c09e417f5ce561487dc505a0ccc585330198227d89031db7bdc",
     "knownEvents": 1,
-    "example": "MSFT cash dividend, process 2026-09-10, ex/record 2026-08-20, payable 2026-09-10, rate exact 0.91; currency and provider observation timestamp not supplied",
     "requestedProcessDates": [
       "2026-09-03",
       "2026-11-02"
@@ -18,7 +17,9 @@
       "firstReceiptUnchanged": true,
       "materialVersionUnchanged": true,
       "method": "natural elapsed time; no fixture clock"
-    }
+    },
+    "eventTermsArchived": false,
+    "historicalEvidenceRedaction": "Selected hosted event dates and economic terms removed; counts, status, query bounds, quality, receipt and material identity retained."
   },
   "brokerInstruments": {
     "status": "AVAILABLE",
