@@ -1,6 +1,6 @@
 # S28 经认证的 XNAS 日历 — 实施证据
 
-日期：2026-10-01。子票 [#118](https://github.com/kaiqiangh/tradex/issues/118)，前置规范 [#117](https://github.com/kaiqiangh/tradex/issues/117)。固定审查基线：dev@`aa43091ea2eef732b5865b163cbeee3cac3e03c9`。状态：**VERIFIED — 日历切片；关闭子票须先提交/推送最终证据**。[英文配对](s28-calendar-evidence.md)。
+日期：2026-10-01。子票 [#118](https://github.com/kaiqiangh/tradex/issues/118)，前置规范 [#117](https://github.com/kaiqiangh/tradex/issues/117)。固定审查基线：dev@`aa43091ea2eef732b5865b163cbeee3cac3e03c9`。状态：**VERIFIED — 日历切片；2026-10-03已关闭子票，最终证据已正常推送**。[英文配对](s28-calendar-evidence.md)。
 
 用户显式选择符合条件、已安全保存的 Alpaca Paper 密钥引用，向固定 Paper 主机 GET `/v3/calendar/XNAS`，范围为昨天至今天+14天，参数 `timezone=UTC`。schema33 以 CAS 持久化选择/审计元数据；日历 SQLite 元数据和公开投影都不包含凭据或 vault reference。断开源保留账户/密钥。只有市场日历能力可以 AVAILABLE；OD-005 综合门禁仍为 UNVERIFIED，公司行为、停牌、历史调整各自保留状态。
 
@@ -28,3 +28,5 @@ Standards 独立串行审查 PASS（0项硬性违规，2项非阻断维护建议
 实现检查点 `5f723411442cdbfcaa49e42290e8cd323dd47183` 已正常推送至 dev，本地/远端 SHA 一致。随后认证恢复，普通构建实际读取已选 Alpaca Paper 的固定 v3 XNAS UTC 日历，未使用 integration-test feature 或替代账户/key/host。公开 Settings 显示 AVAILABLE；Market 的 AAPL/XNAS 为 OPEN/TRUSTED，使用同一 receipt `2026-10-01T19:33:43.442Z` 与版本，nextOpen `2026-10-02T13:30:00Z`、nextClose `2026-10-01T20:00:00Z`。此前 receipt `2026-10-01T19:31:36.482Z` 过期时，Market 自动 UNKNOWN/UNAVAILABLE，receipt 未改写。缺失 provider timestamp 仍为缺失。
 
 [脱敏真实结果](evidence/s28-calendar/native-hosted-result.json)、[当前来源](evidence/s28-calendar/native-current-final.txt)、[当前 Market](evidence/s28-calendar/native-market-current.txt)、[实际过期](evidence/s28-calendar/native-market-expired.txt)、[真实可用截图](evidence/s28-calendar/native-settings-current.png)。4个账户保留；外部账户均 UNVERIFIED，Live DISARMED、Paper NOT_APPLICABLE。只有日历 AVAILABLE；公司行为/停牌 blocked、历史调整 unverified、OD-005 综合仍 unverified。Settings 源选择保留，验证结束已离开 Hot 详情，停止此次详情订阅。一个返回链接查找因来源已可用而找不到链接，没有执行 UI 动作；通过新 AX 的 Settings 导航恢复，未计为产品失败。Market context 截图只证明原生 IEX 上下文，日历边界以明确的 AX 当前/过期记录证明。首次等待认证的审查 NOT PASS 保留；[最终独立 Spec 复验](evidence/s28-calendar/spec-review-final.txt) PASS（0项行为缺陷，0项剩余规范阻断）。审查核对22项源、3项运行时及61项检查点证据哈希。关闭子票前仍须提交/正常推送此最终证据，父级与报价正向金融验收继续 OPEN。
+
+关闭记录：2026-10-03重新核对 dev/远端 `55f75dac4dfc49b154de972ec8bb3e2cc228a3a8` 一致、35项源/71项归档证据及保留的原生签名二进制与 pinned Gateway 一致后，8项AC全部勾选并关闭[日历子票](https://github.com/kaiqiangh/tradex/issues/118#issuecomment-5966326594)。未签名 target/release 临时输出当前缺失，历史构建日志及原生验证包保留；这里不声称当前30秒数据仍有效，不是分发签名验收。父级/报价正向验收仍OPEN。
