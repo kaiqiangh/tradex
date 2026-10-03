@@ -10,6 +10,7 @@ pub mod calendar_source;
 pub mod capability;
 pub mod codex_runtime;
 pub mod data_sources;
+pub mod financial_sources;
 pub mod gateway;
 #[cfg(target_os = "macos")]
 pub mod gateway_process;
@@ -2373,6 +2374,7 @@ pub struct ControlPlane {
     calendar_observation: Option<calendar_source::CalendarObservation>,
     calendar_failure: Option<String>,
     calendar_request_sequence: u64,
+    financial_source_runtime: financial_sources::FinancialSourceRuntime,
     quote_source_epoch: String,
     quote_connection_generation: String,
     quote_source_probe_sequence: u64,
@@ -2400,6 +2402,7 @@ impl ControlPlane {
             calendar_observation: None,
             calendar_failure: None,
             calendar_request_sequence: 0,
+            financial_source_runtime: Default::default(),
             quote_source_epoch: uuid::Uuid::new_v4().to_string(),
             quote_connection_generation: uuid::Uuid::new_v4().to_string(),
             quote_source_probe_sequence: 0,
@@ -3402,6 +3405,7 @@ impl ControlPlane {
                     self.calendar_observation = None;
                     self.calendar_failure = None;
                     self.calendar_request_sequence = 0;
+                    self.financial_source_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -3454,6 +3458,7 @@ impl ControlPlane {
                     self.calendar_observation = None;
                     self.calendar_failure = None;
                     self.calendar_request_sequence = 0;
+                    self.financial_source_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -4515,6 +4520,12 @@ impl ControlPlane {
             "data.calendar.connection" | "data.calendar.configure" | "data.calendar.disconnect" => {
                 calendar_source::metadata(self, request, consumer)
             }
+            "data.actions.connection"
+            | "data.actions.configure"
+            | "data.actions.disconnect"
+            | "data.instrument.connection"
+            | "data.instrument.configure"
+            | "data.instrument.disconnect" => financial_sources::metadata(self, request, consumer),
             "data.source.connection" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -7471,7 +7482,7 @@ impl ControlPlane {
                     .cloned()
                     .unwrap_or(source);
                 if source.source_id == "OD-005" {
-                    calendar_source::catalog_entry(self, workspace_id, source)
+                    financial_sources::catalog_entry(self, calendar_source::catalog_entry(self, workspace_id, source))
                 } else {
                     source
                 }
@@ -7584,17 +7595,20 @@ impl ControlPlane {
                 .calendar_source()?
                 .connection_id
                 .is_some();
+        let financial_selected =
+            input.instrument_id.starts_with("equity:") && financial_sources::selected_once(self)?;
         let mut detail = market::detail_with_fixture(
             &input,
             source,
             calendar_source,
             &time_status,
-            fixture && !configured && !calendar_configured,
+            fixture && !configured && !calendar_configured && !financial_selected,
         )?;
         if configured {
             quote_source::project_quote(self, &time_status, &mut detail);
         }
         calendar_source::project(self, &time_status, &mut detail);
+        financial_sources::project(self, &mut detail)?;
         Ok(detail)
     }
 
@@ -7611,6 +7625,8 @@ impl ControlPlane {
                 tier: MarketTier::Census,
             };
             if live_provider_id(&proposal.fields.environment).is_some()
+                && !(input.instrument_id.starts_with("equity:")
+                    && financial_sources::selected_once(self)?)
                 && self
                     .store
                     .as_ref()
@@ -12400,7 +12416,7 @@ mod thread_tests {
         drop(control);
         let mut reopened = ControlPlane::new(workspace_path);
         let reopened_workspace = reopened.dispatch(request("workspace.open", json!({})));
-        assert_eq!(reopened_workspace["ok"], true);
+        assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
         let listed_again = reopened.dispatch(request(
             "thread.list",
             json!({ "workspaceId": workspace_id }),
@@ -13482,7 +13498,7 @@ mod thread_tests {
             .unwrap();
         migration_database
             .execute_batch(
-                "DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit;",
+                "DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit;",
             )
             .unwrap();
         migration_database
@@ -16056,6 +16072,9 @@ mod live_approval_tests {
         .into_iter()
         .enumerate()
         {
+            // Each page re-authenticates this same fixture account. Observe the
+            // real shared summary interval; financial test time cannot reset it.
+            std::thread::sleep(std::time::Duration::from_millis(5100));
             let attempt = control
                 .store
                 .as_ref()
@@ -21253,6 +21272,9 @@ mod cancellation_approval_tests {
             .unwrap();
 
         let http = SyntheticTrading212Http::default();
+        // The startup/read fixtures share an external account identity. Honor
+        // the actual summary cooldown before the first exact-order refresh.
+        std::thread::sleep(std::time::Duration::from_millis(5100));
         let partial = refresh_trading212_live_order(
             &mut control,
             &workspace_id,
@@ -21280,6 +21302,7 @@ mod cancellation_approval_tests {
         );
         assert_eq!(partial_observation.source, "trading212.live.order-detail");
 
+        std::thread::sleep(std::time::Duration::from_millis(5100));
         let result = refresh_trading212_live_order(
             &mut control,
             &workspace_id,
@@ -25627,7 +25650,7 @@ mod risk_tests {
         drop(control);
         let mut reopened = ControlPlane::new(path.clone());
         let reopened_workspace = command(&mut reopened, "workspace.open", json!({}));
-        assert_eq!(reopened_workspace["ok"], true);
+        assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
         let reopened_risk = command(
             &mut reopened,
             "risk.get_policy",
@@ -25866,10 +25889,8 @@ mod risk_tests {
         drop(control);
 
         let mut reopened = ControlPlane::new(path);
-        assert_eq!(
-            command(&mut reopened, "workspace.open", json!({}))["ok"],
-            true
-        );
+        let opened = command(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
         let restored = command(
             &mut reopened,
             "risk.get_policy",

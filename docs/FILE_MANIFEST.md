@@ -1,10 +1,10 @@
 # TradeX v1.0 RevC — File Manifest / 文件清单
 
-**Generated / 生成日期:** 2026-10-01
+**Generated / 生成日期:** 2026-10-03
 
-Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, S19 Binance Spot Testnet submission/recovery/private-stream/cancellation contracts, the 2026-09-25 account-interface scope update retiring dedicated Binance Testnet and Bitget Demo acceptance, S21 #82 workspace risk-policy change effects, S25.1–S25.4 Live reconciliation contracts, S26.2 #104 Trading 212 Live cancellation-history/fill-race contracts, and S27.1 #108 Live startup-recovery contracts, and the S28 #118 authenticated XNAS calendar contract, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
+Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, S19 Binance Spot Testnet submission/recovery/private-stream/cancellation contracts, the 2026-09-25 account-interface scope update retiring dedicated Binance Testnet and Bitget Demo acceptance, S21 #82 workspace risk-policy change effects, S25.1–S25.4 Live reconciliation contracts, S26.2 #104 Trading 212 Live cancellation-history/fill-race contracts, and S27.1 #108 Live startup-recovery contracts, the S28 #118 authenticated XNAS calendar contract and S28 #119 known-event/exact-account metadata contract, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
-以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约、S19 Binance Spot Testnet 提交/恢复/私有流/撤单契约，以及 2026-09-25 将专用 Binance Testnet 和 Bitget Demo 验收改为普通账户接口范围、S21 #82 工作区风险策略变更影响、S25.1–S25.4 Live 对账契约、S26.2 #104 Trading 212 Live 撤单历史/成交竞态契约及 S27.1 #108 Live 启动恢复契约以及 S28 #118 经认证的 XNAS 日历契约后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
+以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约、S19 Binance Spot Testnet 提交/恢复/私有流/撤单契约，以及 2026-09-25 将专用 Binance Testnet 和 Bitget Demo 验收改为普通账户接口范围、S21 #82 工作区风险策略变更影响、S25.1–S25.4 Live 对账契约、S26.2 #104 Trading 212 Live 撤单历史/成交竞态契约及 S27.1 #108 Live 启动恢复契约以及 S28 #118 经认证的 XNAS 日历契约和 S28 #119 已知事件/精确账户元数据契约后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
 
 This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. The root README.md describes the application build; docs/implementation tracks delivery separately from this product-document manifest.
 
@@ -17,12 +17,12 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `docs/zh/README.md` | 中文文档目录 | 55 | `9f9a910f5ccc884da1b2fe3f3f659fc51d8dfee3b872e246b0ca2929c548b77b` |
 | `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3669 | `dd0a7737604ce0bdc39dde33c52a7ca760483b84567267ed00ff0a2a65169cea` |
 | `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3661 | `32cf80c6bca84df0f68eb68da704aab158c980dbea978019f7eaf92e44ac6e11` |
-| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1278 | `695de304123b5811e90267451b5d14f74c186840e56481468aeeed575481a1bf` |
-| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 993 | `7a780228e1c165da9b2fbeab88eb112890dca62c7b0959ca873950378808d9d1` |
-| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1152 | `c633961e67111cad6b89b3494cf15ff11815fd8ba1af2a9c4c4d4bcb854e74e7` |
-| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1150 | `2ef8453359c2d4a864f24684c373a019a5c43e5cd720fc2fa81acf406ff0b00d` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3281 | `abc6c92af7a10d28b17e0b0d07c2be3bbbfeaae6eb1d54ebc4c9aa2980657f56` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3279 | `7fa3aa40c606414fee9e06845d0c712bf67a85f4d5be181b0806507fe66ee78b` |
+| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1286 | `4ae2ba83e3acb3b73b094befb99df31adb767c35b3fe2e40dd8a832f5710b2da` |
+| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 1001 | `90442f1a3b5c33347de05ab241eb00480614ada6ee11e0a8b0448d3848d803f7` |
+| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1160 | `1a0c3e0fde414dff4b26f4dacbecb344261fb4ec0d1c4cb726ab1b451b2eb01d` |
+| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1158 | `e83b6fac45d0a62f7d37c1b68f9e8112d3db127c2099b2fa7df2cf01570c610e` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3308 | `d80af543c3e2878a5c70f3d2515d6f58b8e6a0ac6b1b740dfb728687c8eded9b` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3306 | `a9795d50301219d7914d9f60540c99a6c177a937d9ae7ac50802e8b3fea53557` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 214 | `3dcf4b201c135468a113c760d02e51ffac0268daaeca5595f09f08a281463f7c` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 214 | `e9080e0dc8189d39815b1ac78518dad93f3319190a5783978e30cca7620049b8` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 188 | `5d1b2619f2fbe829a17684e1b2d32ca54c496386e5c32932d8c90c168178bc73` |

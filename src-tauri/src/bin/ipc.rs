@@ -19,8 +19,8 @@ mod fixtures;
 #[path = "../../tests/support/quote_stream_fixture.rs"]
 mod quote_stream_fixture;
 #[cfg(feature = "integration-test")]
-#[derive(Default)]
-struct SharedVault(Mutex<fixtures::Vault>);
+#[derive(Clone, Default)]
+struct SharedVault(Arc<Mutex<fixtures::Vault>>);
 #[cfg(feature = "integration-test")]
 impl tradex::provider_io::CredentialVault for SharedVault {
     fn put(&self, r: &str, c: &tradex::provider_io::Credentials) -> tradex::protocol::Result<()> {
@@ -1224,6 +1224,23 @@ fn main() -> io::Result<()> {
             #[cfg(feature = "integration-test")]
             if command == Some("market.get") {
                 let result = tradex::quote_source::execute_market(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if matches!(
+                command,
+                Some("data.actions.refresh" | "data.instrument.refresh")
+            ) {
+                let result = tradex::financial_sources::execute_refresh(
                     &control,
                     &request,
                     "stdio",

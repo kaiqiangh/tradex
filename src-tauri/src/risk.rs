@@ -780,6 +780,8 @@ pub enum RiskCheckId {
     QuoteFreshness,
     MarketSession,
     InstrumentRules,
+    CorporateActionCoverage,
+    HistoricalAdjustment,
     LiveInactivity,
     CancellationOrder,
     CancellationCapability,
@@ -810,6 +812,8 @@ pub enum RiskDecisionReasonCode {
     MarketClosed,
     MarketHalted,
     InstrumentRulesUnavailable,
+    CorporateActionCoverageUnavailable,
+    HistoricalAdjustmentUnavailable,
     CounterUnavailable,
     ReservationUnavailable,
     CalendarUnavailable,
@@ -2020,6 +2024,71 @@ pub(crate) fn evaluate(
             "Price deviation percent",
         );
     }
+    let external_equity = !local_simulation && proposal.fields.instrument_id.starts_with("equity:");
+    // Preserve only the existing, explicitly identified contract-test producer. Ordinary builds
+    // cannot create it, and selecting a production financial source shields it at the producer.
+    let synthetic_contract = cfg!(any(test, feature = "integration-test"))
+        && market.is_some_and(|market| {
+            market.financial_evidence.is_none()
+                && market
+                    .instrument_state
+                    .as_ref()
+                    .is_some_and(|state| state.source == "SYNTHETIC_INTEGRATION_FIXTURE")
+        });
+    let financial_required = external_equity && !synthetic_contract;
+    for (check_id, reason_code, reason) in [
+        (
+            RiskCheckId::CorporateActionCoverage,
+            RiskDecisionReasonCode::CorporateActionCoverageUnavailable,
+            "Complete current corporate-action coverage is unavailable. A completed processing-date query, including an empty result, does not establish it.",
+        ),
+        (
+            RiskCheckId::HistoricalAdjustment,
+            RiskDecisionReasonCode::HistoricalAdjustmentUnavailable,
+            "Historical price adjustment provenance is unavailable. Reading known company events does not establish historical adjustment.",
+        ),
+    ] {
+        push!(
+            check_id,
+            if financial_required {
+                RiskCheckOutcome::Unavailable
+            } else {
+                RiskCheckOutcome::Pass
+            },
+            if financial_required {
+                reason_code
+            } else {
+                RiskDecisionReasonCode::NotApplicable
+            },
+            if financial_required {
+                reason
+            } else if synthetic_contract {
+                "Synthetic contract test only: this prerequisite is not production financial evidence."
+            } else {
+                "This corporate-action prerequisite applies to external equity placement, not this execution context."
+            }
+        );
+    }
+    let exact_instrument_binding = !external_equity || synthetic_contract || market.zip(account).is_some_and(|(market, account)| {
+        market.financial_evidence.as_ref().is_some_and(|context| {
+            let source = &context.broker_instruments;
+            source.status == crate::protocol::DataSourceStatus::Available
+                && source.connection_id.as_deref() == Some(account.connection_id.as_str())
+                && source.capability_statuses.iter().any(|capability| {
+                    capability.capability == crate::protocol::FinancialEvidenceCapability::AccountTradability
+                        && capability.status == crate::protocol::DataSourceStatus::Available
+                })
+                && matches!(&source.evidence,
+                    Some(crate::protocol::FinancialSourceEvidence::BrokerInstruments(evidence))
+                        if evidence.binding.connection_id == account.connection_id
+                            && evidence.binding.account_version == account.state_version
+                            && evidence.binding.source_version == source.state_version
+                            && evidence.instruments.iter().any(|instrument| {
+                                instrument.instrument_id == proposal.fields.instrument_id
+                                    && instrument.canonical_security_identity == crate::protocol::DataSourceStatus::Available
+                            }))
+        })
+    });
     let instrument_state = market.and_then(|market| market.instrument_state.as_ref());
     let provider_mapping = market.and_then(|market| {
         market.instrument.providers.iter().find(|mapping| {
@@ -2032,7 +2101,8 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::NotApplicable,
         ),
         (Some(state), Some(mapping), Some(market), Some(account))
-            if state.status == crate::protocol::InstrumentTradingStatus::Tradable
+            if exact_instrument_binding
+                && state.status == crate::protocol::InstrumentTradingStatus::Tradable
                 && state.provider_id == account.provider_id
                 && state.provider_symbol == mapping.provider_symbol
                 && state.venue == proposal.fields.venue

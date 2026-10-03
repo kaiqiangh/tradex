@@ -1,3 +1,4 @@
+import { MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -62,6 +63,7 @@ function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; o
     <dl className="market-identity"><div><dt>Symbol</dt><dd>{instrument.symbol}</dd></div><div><dt>Asset class</dt><dd>{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</dd></div><div><dt>Venue</dt><dd>{instrument.exchange ?? 'Provider venue selected at fetch'}</dd></div><div><dt>Currency</dt><dd>{instrument.currency}</dd></div><div><dt>Access tier</dt><dd>{detail.tier}</dd></div></dl>
     <div className={`market-status market-status-${detail.status.toLowerCase()}`} role="status"><strong>{statusLabel[detail.status]}</strong><p>{detail.availabilityReason}</p><small>Source: {detail.sourceId ?? 'No source selected'}</small></div>
     <MarketStatePanel state={detail.marketState} adjustmentStatus={detail.adjustmentStatus} actions={detail.corporateActions} onOpenDataSources={onOpenDataSources} />
+    {detail.financialEvidence && <MarketFinancialEvidencePanel evidence={detail.financialEvidence} instrumentId={instrument.instrumentId} />}
     {quote ? <section className="market-quote" aria-label="Market quote">
       <h3>Bid / ask quote</h3>
       <p className="muted">{quote.provenance.entitlement} · {quote.provenance.freshness}</p>
@@ -96,13 +98,12 @@ function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; o
 // A view owns its quote lease. Cleanup also covers acquire completing after navigation.
 function InstrumentDetail({ workspaceId, instrumentId, onBack, onOpenDataSources }: { workspaceId: string; instrumentId: string; onBack: () => void; onOpenDataSources: () => void }) {
   const source = useQuery({ queryKey: ['data-source-connection', workspaceId], queryFn: () => request('data.source.connection', { workspaceId }), enabled: instrumentId.startsWith('equity:'), retry: false });
-  const calendar = useQuery({ queryKey: ['calendar-source', workspaceId], queryFn: () => request('data.calendar.connection', { workspaceId }), enabled: instrumentId.startsWith('equity:'), retry: false, refetchInterval: 1000 });
   const configured = instrumentId.startsWith('equity:') && Boolean(source.data?.feed && source.data?.credentialKind);
   const [hot, setHot] = useState<HotQuoteProjection>();
   const [hotError, setHotError] = useState<unknown>();
   const [revision, setRevision] = useState(0);
   const [visible, setVisible] = useState(document.visibilityState !== 'hidden');
-  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && (!instrumentId.startsWith('equity:') || source.isSuccess), retry: false, refetchInterval: calendar.data?.configured ? 1000 : false });
+  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && (!instrumentId.startsWith('equity:') || source.isSuccess), retry: false, refetchInterval: instrumentId.startsWith('equity:') ? 1000 : false });
   useEffect(() => {
     const changed = () => setVisible(document.visibilityState !== 'hidden');
     document.addEventListener('visibilitychange', changed);

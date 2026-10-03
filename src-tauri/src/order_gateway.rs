@@ -320,10 +320,63 @@ impl OrderGatewayHost {
                 return Ok(());
             }
         };
+        // The isolated child shares the parent's account/endpoint budget. Hold
+        // admission before handing over the grant, through the actual read.
+        let mut summary_reservation = if provider == "trading212" {
+            let remote = package.account.data.as_ref().ok_or("GATEWAY_AUTH_FAILED")?;
+            match crate::financial_sources::reserve_tracked_summary(&remote.remote_account_id) {
+                Ok(reservation) => Some(reservation),
+                Err(error) => {
+                    let code = safe_gateway_error(&error.code);
+                    stop_before_dispatch(attempt_id, code);
+                    send_authenticated(channel, session, "deny", json!({"errorCode":code}))?;
+                    return Ok(());
+                }
+            }
+        } else {
+            None
+        };
         let grant_id = package.grant.grant_id.clone();
         send_authenticated(channel, session, "grant", json!({"package":package}))?;
 
-        let ready = read_authenticated(channel, session)?;
+        let mut ready = read_authenticated(channel, session)?;
+        let mut summary_completed = false;
+        if request_kind(&ready) == Some("summary_read_completed") {
+            let reservation = summary_reservation
+                .as_mut()
+                .ok_or("GATEWAY_PROTOCOL_INVALID")?;
+            if exact_keys(
+                &ready,
+                &[
+                    "kind",
+                    "attemptId",
+                    "grantId",
+                    "status",
+                    "remaining",
+                    "resetAt",
+                    "retryAfterSeconds",
+                ],
+            )
+            .is_err()
+                || ready.get("attemptId").and_then(Value::as_str) != Some(attempt_id)
+                || ready.get("grantId").and_then(Value::as_str) != Some(grant_id.as_str())
+            {
+                stop_before_dispatch(attempt_id, "GATEWAY_PROTOCOL_INVALID");
+                return Err("GATEWAY_PROTOCOL_INVALID");
+            }
+            let (status, limit) = gateway_summary_completion(&ready)?;
+            reservation
+                .complete("/api/v0/equity/account/summary", status, Some(&limit))
+                .map_err(|_| "GATEWAY_PROTOCOL_INVALID")?;
+            summary_completed = true;
+            send_authenticated(
+                channel,
+                session,
+                "summary_read_recorded",
+                json!({"attemptId":attempt_id,"grantId":grant_id}),
+            )?;
+            ready = read_authenticated(channel, session)?;
+        }
         if request_kind(&ready) == Some("pre_dispatch_failure") {
             if exact_keys(
                 &ready,
@@ -352,7 +405,8 @@ impl OrderGatewayHost {
             send_authenticated(channel, session, "stopped", json!({"state":"INVALIDATED"}))?;
             return Ok(());
         }
-        if request_kind(&ready) != Some("begin_request")
+        if (provider == "trading212" && !summary_completed)
+            || request_kind(&ready) != Some("begin_request")
             || exact_keys(&ready, &["kind", "attemptId", "grantId"]).is_err()
             || ready.get("attemptId").and_then(Value::as_str) != Some(attempt_id)
             || ready.get("grantId").and_then(Value::as_str) != Some(grant_id.as_str())
@@ -617,6 +671,40 @@ fn valid_identity(value: &str, max: usize) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+// Only bounded rate metadata crosses this authenticated private channel;
+// account bodies, remote identity and credentials never travel in a receipt.
+fn gateway_summary_completion(
+    message: &Value,
+) -> Result<(u16, crate::provider_io::ProviderRateLimit), &'static str> {
+    let status = message
+        .get("status")
+        .and_then(Value::as_u64)
+        .filter(|value| *value == 0 || (100..=599).contains(value))
+        .ok_or("GATEWAY_PROTOCOL_INVALID")? as u16;
+    let optional_number = |key: &str| match message.get(key) {
+        Some(Value::Null) => Ok(None),
+        Some(value) => value.as_u64().map(Some).ok_or("GATEWAY_PROTOCOL_INVALID"),
+        None => Err("GATEWAY_PROTOCOL_INVALID"),
+    };
+    let reset_at = match message.get("resetAt") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) if value.len() <= 64 && value.is_ascii() => {
+            time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339)
+                .map_err(|_| "GATEWAY_PROTOCOL_INVALID")?;
+            Some(value.clone())
+        }
+        _ => return Err("GATEWAY_PROTOCOL_INVALID"),
+    };
+    Ok((
+        status,
+        crate::provider_io::ProviderRateLimit {
+            remaining: optional_number("remaining")?,
+            reset_at,
+            retry_after_seconds: optional_number("retryAfterSeconds")?,
+        },
+    ))
 }
 
 fn apply_gateway_cooldown(

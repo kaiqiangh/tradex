@@ -253,6 +253,18 @@ async fn control(
                 || tradex::native_credentials::capture_source(window.app_handle()),
             );
         }
+        if matches!(
+            request.get("command").and_then(Value::as_str),
+            Some("data.actions.refresh" | "data.instrument.refresh")
+        ) {
+            return tradex::financial_sources::execute_refresh(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
+        }
         if request.get("command").and_then(Value::as_str) == Some("data.calendar.refresh") {
             return tradex::calendar_source::execute_refresh(
                 &engine,

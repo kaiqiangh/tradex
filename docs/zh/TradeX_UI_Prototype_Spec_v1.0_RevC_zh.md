@@ -991,3 +991,11 @@ Live 审批的报价来源部分在精确观察标识及时间戳旁保留同一
 ## 14.22 日历前置项保持独立（S28 #118）
 
 Settings → Data & Storage 提供独立 Alpaca XNAS calendar 区域：合格已有 Paper 账户选择、Save calendar source、Refresh selected calendar、Disconnect calendar source 和明确 reload/error 控件。流程不包含 renderer 秘密输入、host 回退或金融动作；有未保存账户选择时禁用刷新。显示不可延长的首次接收时间、calendar version、requested coverage 和四项独立能力。Markets 的 regular/extended/closed 边界来自认证 UTC 日历；缺少 provider observation time 时保持 unavailable。30秒执行过期、clock/source/account 改变及读取失败必须撤销资格，不能延长上次状态。日历刷新不 Arm、不审批；Trading 212 UNVERIFIED 权限、公司行为/tradability、quote/FX 及其他阻塞保持可见。Backend §41.38 拥有 wire/lifecycle 契约。按已确认公开 seam 验证键盘、live status/errors 和390/768/1280px；此目标不是 runtime 验收，不修复点击原型。
+
+## 14.23 已知公司行为与账户标的证据（S28 #119）
+
+Settings → Data & Storage 分别提供“Alpaca known company events”和“Trading 212 account instruments”。选择合格已有 Paper/Live 账户，明确 Save、分别 Refresh，并在 Disconnect 时保留借用账户/key。未保存选择不能刷新。提供键盘操作、脱敏失败/额度消息和 Reload。30秒过期由 backend 决定；投影轮询不能延长 receipt 或提升 quality。Reload/reopen 只恢复选择，进程证据保持 unverified。
+
+显示首次 receipt、provider quality、缺失 provider time、source/account/material version 及独立能力。已知事件保留全部16类别、date-only 日期、精确 terms、securities/movements、可选属性和 partial。每页25条访问最多1000条；查询穷尽/空结果不能证明没有待处理事件、完整覆盖或历史调整。Broker metadata 显示精确 AAPL/MSFT ticker/ISIN/currency/schedule join、十分钟质量和 unverified 规范身份；目录成员或 quantity/extended-hours 元数据不能证明当前可交易性、停牌或执行 venue。Markets 和金融 review 显示原始证据及独立阻塞，过期保留内容明确不可用。流程不包含权威性提升、回退、Arm 或金融修改。保留390/768/1280px 布局及所有既有门禁。Backend §41.39 拥有 wire/lifecycle 语义；此目标不修复点击原型，也不证明真实 provider 验收。
+
+冻结的审批及 pre-arm 金融证据必须显示“捕获时状态”和 review 捕获时间，并说明不可变 review 不报告当前资格。过期后保留原始 receipt/material；重新打开获取新的后端评估，受保护操作重新核验当前证据。

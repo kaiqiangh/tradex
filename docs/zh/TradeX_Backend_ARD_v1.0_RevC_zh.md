@@ -2980,6 +2980,33 @@ Hot lease wire 目标为 `market.hot.acquire {workspaceId, instrumentId, expecte
 
 同一 producer 投影用于 market detail、risk/approval review、消费及 dispatch 重新校验，只能满足匹配的日历检查。CLOSED/EXTENDED/stale/UNKNOWN 阻止执行；来源设置/读取不授予 Arm、审批或 reservation。明确配置日历后同样绕过历史 synthetic market/Live-approval fixture。测试沿用已确认的公开 UI/真实 Rust/隔离存储/外部 provider seam；真实 provider 只读证据与正向金融验收分开。
 
+### 41.39 已知公司行为与精确账户元数据（S28 #119）
+
+本只读前置项提供有界观测，不代表金融正向验收。日历、已处理公司行为、完整未来行为覆盖、历史调整、交易所停牌、精确账户可交易性、报价质量和 key 权限相互独立。读取成功不能将 Trading 212 权限范围从 `UNVERIFIED` 提升，也不能启用 Arm、审批、Prepare 或 Gateway 派发。
+
+| 命令 | Payload | 成功数据 |
+|---|---|---|
+| data.actions.connection / data.instrument.connection | `{workspaceId}` | `FinancialSourceConnection` |
+| data.actions.configure / data.instrument.configure | `{workspaceId, expectedStateVersion, connectionId}` | `FinancialSourceConnection`；明确选择已有账户 |
+| data.actions.disconnect / data.instrument.disconnect | `{workspaceId, expectedStateVersion}` | `FinancialSourceConnection`；保留借用账户/key |
+| data.actions.refresh / data.instrument.refresh | `{workspaceId, expectedStateVersion}` | `FinancialSourceConnection`；在 Control Plane 锁外读取固定 host 的认证接口 |
+
+输入拒绝未知字段，不允许凭证、私有 vault 引用、host、调用方观测或权限断言。公司行为来源借用合格且已连接的 Alpaca `PAPER` 账户；标的来源借用合格且已连接的 Trading 212 `LIVE` 账户。凭证状态 `CONFIGURED` 或 `UNCHECKED` 允许选择，但不证明访问。SQLite schema34 只持久化每种来源的 generation、账户选择及配置审计。CAS 保存/断开撤销旧证据。重新打开只恢复 metadata 并撤销进程证据；重复投影不会延长首次接收时间。
+
+`FinancialSourceConnection` 包含 workspaceId、kind（`CORPORATE_ACTIONS` / `BROKER_INSTRUMENTS`）、stateVersion、configured、可选 connectionId、固定 environment、status、availabilityReason、eligibleAccounts、可选 observedAt/evidence 和 capabilityStatuses。分别类型化八项能力：`KNOWN_ACTIONS`、`ACTION_QUERY_COMPLETION`、`COMPLETE_ACTION_COVERAGE`、`HISTORICAL_ADJUSTMENT`、`BROKER_ACCOUNT_IDENTITY`、`BROKER_INSTRUMENT_METADATA`、`EXCHANGE_HALTS`、`ACCOUNT_TRADABILITY`；每种来源投影自己的四项结果。选择来源后，综合 OD-005 始终保持 `UNVERIFIED`，包括断开后；历史 fixture 或 entitlement probe 不能补齐权威性。
+
+证据绑定 workspace/session/runtime epoch、kind/source generation、精确账户/version/私有引用、可信 clock generation 和刷新序号。公开 binding 含 connectionId/accountVersion/sourceVersion/bindingVersion，不暴露私有引用。解析前保留首次认证响应的 wall/monotonic 接收读数。material version 包含原始接收时间、quality、校验后内容及 binding。wall 与 monotonic 年龄均最多30可信秒；账户/来源/时钟/session 变化或刷新失败撤销当前资格。当前进程可显示明确不可用的过期观测。晚到/取消读取不能发布。受保护 vault 访问及有界 P3 HTTP 在 Control Plane 锁外执行；调度准入在 broker45秒或公司查询60秒的任务截止前，预留完整12秒 HTTP timeout。系统认证出现时仍需用户完成。 即使系统认证仍在等待，凭据获取也须在任务截止时返回经过清理的来源不可用结果。未结束的来源 vault 读取在进程内最多32项，同一私有引用最多一项，直到实际完成才释放。vault worker 只获取凭据；已超时的接收方丢弃会清零的凭据，不执行 HTTP 或发布观测。同一引用仍在等待时，重试返回背压；不绕过或取消系统认证。
+
+公司行为只使用 `GET https://data.alpaca.markets/v1/corporate-actions?symbols=AAPL,MSFT&region=us&data_quality=all&start=<UTC今天减30天>&end=<UTC今天加30天>&limit=100`，后续页只使用校验和编码后的 provider token。在10页/1000条、每页512KiB、总计4MiB、token2048字符限制内原子穷尽分页。token 循环、重复逻辑 UUID、未知 schema/group、无效日期/小数或资源超限均不得发布部分查询，也不得保留上次当前权威性。只替换有界当前查询，不归档原始响应、不修改历史、不导出。
+
+`CORPORATE_ACTIONS` evidence 含 binding/materialVersion/providerQuality=`DELAYED_PROCESS_DATE_QUERY`、observedAt、可选 providerObservedAt、coverageStart/coverageEnd、queryComplete 和最多1000条 typed actions。每条保留稳定规范 UUID、规范 AAPL/MSFT instrumentIds、category、原始 processDate、可选 date-only dates、security roles/ISIN/CUSIP、精确小数 terms/stock movements、可选 currency/special/foreign/subType/lotteryType 和 partial。16类别为 forward/reverse/unit split、cash/stock dividend、spin-off、cash/stock/stock-and-cash merger、redemption、name change、worthless removal、rights distribution、partial call、reorganization、capital gains distribution。不得把名称变化改为代码变化、无价值移除改为退市证据、仅日期值改为 timestamp，或缺失数值改为零。分页完成/空结果只证明返回的 process-date 查询已穷尽，不能证明没有待处理事件、完整未来覆盖或历史已调整。
+
+Broker metadata 在固定 Trading 212 Live host 使用同一已有 Live 凭证：先 summary（`/api/v0/equity/account/summary`），再 `/api/v0/equity/metadata/instruments` 与 `/api/v0/equity/metadata/exchanges`。目录读取前要求精确正数 remote account id 和已保存 currency 一致；不得修改账户 health、余额或 permission review。限制25000标的/8MiB、1000交易所/2MiB；ticker/exchange/schedule 身份唯一，AAPL_US_EQ/MSFT_US_EQ 精确唯一且为 `STOCK`/USD，ISIN checksum 有效，schedule join 一致。Schedule 限制每交易所1000、总计10000、每 schedule4000事件、总计100000；只接受官方8类 time event。不使用 Demo、key/host 回退、订单/Pie 探测或绕过重试。额度按实际 remote account+endpoint 跨 workspace/key/source generation 共享；从实际操作结束预留/延长 summary5秒、instruments50秒、exchanges30秒，并遵守 provider429/exhausted/reset/Retry-After。每个已知账户 summary 消费者都原子预留共享端点额度，包括首次元数据刷新前。 隔离 Gateway 同样在发送 grant 前使用主进程持有的预留。summary 读取后，子进程发送一次认证且绑定 attempt/grant 的私有 `summary_read_completed` frame，仅含 status、remaining、resetAt、retryAfterSeconds；主进程验证有界额度元数据，记录实际完成并确认 `summary_read_recorded` 后才接受 begin_request。此回执不传 provider body、credential 或 renderer authority。子进程/传输丢失或未使用预留在结束时保守释放；这些 frame 不能授权 mutation 或绕过持久化 SUBMITTING。进行中占用不会过期；释放和最小/provider header 冷却期以实际完成为准，即使传输失败、取消或 workspace/clock 变化也一样。未执行的已预留元数据端点保守应用最小冷却期。首次认证在首个响应前不能推断未知 remote identity。连贯日程拒绝矛盾的重复会话/休市转换和零时长普通交易转换，同时允许有界窗口初始会话状态未知和末尾尚未结束；这不证明日历覆盖或当前 venue 状态。
+
+`BROKER_INSTRUMENTS` evidence 含原始 binding/materialVersion/observedAt、可选 providerObservedAt、providerQuality=`TEN_MINUTE_METADATA`、accountCurrency 和恰好两条 typed instrument。每条保留规范 instrumentId、providerSymbol、ISIN、currency、displayName、workingScheduleId、exchangeName、scheduleEvents、可选精确 maxOpenQuantity/extendedHours 和 canonicalSecurityIdentity。有效 checksum 与目录成员身份不提供权威规范 ISIN 注册表，canonicalSecurityIdentity 保持 `UNVERIFIED`。静态 schedule 不证明当前停牌/可交易性、执行 MIC 或 provider observation time。不得将数量上限/extendedHours 当作账户无限制权限，也不得因本地刚接收就提升十分钟质量。格式错误/歧义/不完整、反射秘密、未授权或超限响应撤销当前证据，只显示脱敏错误。
+
+`MarketDetail.financialEvidence` 可选包含 companyEvents/brokerInstruments 来源投影。选用生产来源后屏蔽历史金融 fixture，包括断开后；清除旧 timestamped actions 与标的 readiness，adjustment 保持不可用。普通外部股票 PLACE 增加独立 `CORPORATE_ACTION_COVERAGE`、`HISTORICAL_ADJUSTMENT` 不可用检查。精确账户可交易性要求所选账户/version/source/instrument 匹配，并有真实可用 capability/identity evidence；当前 provider metadata 不能补齐这些检查。保留 Local Paper、非股票、保护性 CANCEL 和其他门禁。既有明确标识的 synthetic contract producer 只属于测试，不是生产证据；不增加正向权威性 seed。Risk/approval/Prepare/dispatch 使用同一不可变证据并重新校验 binding/age/material/quality；轮询不能续期 consent。公开 UI/真实 Rust/临时存储/外部 HTTP-vault 测试与普通原生真实读取证据分开记录；父票 #117/#116/#113 在各自验收前保持 OPEN。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

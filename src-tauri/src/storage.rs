@@ -63,7 +63,7 @@ use crate::providers::{
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 33;
+pub(crate) const SCHEMA_VERSION: u32 = 34;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -972,6 +972,9 @@ impl Store {
             if version < 33 {
                 tx.execute_batch("CREATE TABLE calendar_source_config (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE calendar_source_config_audit (generation INTEGER PRIMARY KEY CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL); PRAGMA user_version=33;").map_err(storage_error)?;
             }
+            if version < 34 {
+                tx.execute_batch("CREATE TABLE financial_source_config (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE financial_source_config_audit (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation)); PRAGMA user_version=34;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         connection
@@ -1013,6 +1016,56 @@ impl Store {
         store.recover_interrupted_alpaca_paper_cancels()?;
         store.recover_interrupted_live_execution_attempts()?;
         Ok(store)
+    }
+
+    pub(crate) fn financial_source(
+        &self,
+        kind: crate::protocol::FinancialSourceKind,
+    ) -> Result<crate::financial_sources::SavedFinancialSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM financial_source_config WHERE kind=?1",
+                [kind.key()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::financial_sources::SavedFinancialSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        saved.validate()?;
+        if generation <= 0 || saved.generation != generation as u64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(saved)
+    }
+
+    pub(crate) fn save_financial_source(
+        &mut self,
+        kind: crate::protocol::FinancialSourceKind,
+        mut saved: crate::financial_sources::SavedFinancialSource,
+    ) -> Result<()> {
+        let prior = self.financial_source(kind)?;
+        saved.validate()?;
+        if saved.generation != prior.generation || prior.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.generation += 1;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        tx.execute("INSERT INTO financial_source_config VALUES(?1,?2,?3) ON CONFLICT(kind) DO UPDATE SET generation=excluded.generation,projection=excluded.projection",params![kind.key(),saved.generation as i64,encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO financial_source_config_audit VALUES(?1,?2,?3,?4)",
+            params![kind.key(), saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 
     pub fn calendar_source(&self) -> Result<crate::calendar_source::SavedCalendarSource> {

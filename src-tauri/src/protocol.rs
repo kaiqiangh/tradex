@@ -185,6 +185,7 @@ pub enum ReplyData {
     DataSourceCatalog(DataSourceCatalog),
     DataSourceConnection(DataSourceConnection),
     CalendarConnection(CalendarConnection),
+    FinancialSourceConnection(FinancialSourceConnection),
     MarketCatalog(MarketCatalog),
     MarketDetail(Box<MarketDetail>),
     HotQuoteProjection(Box<HotQuoteProjection>),
@@ -311,6 +312,8 @@ pub struct IpcSchema {
     pub data_source_connection: DataSourceConnection,
     pub calendar_connection: CalendarConnection,
     pub calendar_configure: CalendarConfigure,
+    pub financial_source_connection: FinancialSourceConnection,
+    pub financial_source_configure: FinancialSourceConfigure,
     pub data_source_configure: DataSourceConfigure,
     pub data_source_mutation: DataSourceMutation,
     pub market_catalog_query: MarketCatalogQuery,
@@ -462,7 +465,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 33))]
+    #[schemars(range(min = 1, max = 34))]
     pub storage_schema_version: u32,
 }
 
@@ -1839,6 +1842,313 @@ pub struct CalendarConfigure {
     pub connection_id: String,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialSourceKind {
+    CorporateActions,
+    BrokerInstruments,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialSourceConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub kind: FinancialSourceKind,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub connection_id: Option<String>,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub eligible_accounts: Vec<DataSourceAccountChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<FinancialSourceEvidence>,
+    #[schemars(length(min = 4, max = 8))]
+    pub capability_statuses: Vec<FinancialEvidenceCapabilityResult>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialSourceConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialEvidenceCapability {
+    KnownActions,
+    ActionQueryCompletion,
+    CompleteActionCoverage,
+    HistoricalAdjustment,
+    BrokerAccountIdentity,
+    BrokerInstrumentMetadata,
+    ExchangeHalts,
+    AccountTradability,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialEvidenceQuality {
+    DelayedProcessDateQuery,
+    TenMinuteMetadata,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialEvidenceCapabilityResult {
+    pub capability: FinancialEvidenceCapability,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialEvidenceBinding {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub account_version: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub binding_version: String,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CompanyEventCategory {
+    NameChange,
+    CashDividend,
+    ForwardSplit,
+    ReverseSplit,
+    UnitSplit,
+    StockDividend,
+    SpinOff,
+    CashMerger,
+    StockMerger,
+    StockAndCashMerger,
+    Redemption,
+    WorthlessRemoval,
+    RightsDistribution,
+    PartialCall,
+    Reorganization,
+    CapitalGainsDistribution,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompanyEventTermName {
+    Rate,
+    OldRate,
+    NewRate,
+    AlternateRate,
+    SourceRate,
+    AcquireeRate,
+    AcquirerRate,
+    CashRate,
+    DividendRate,
+    Price,
+    LongTermRate,
+    ShortTermRate,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompanyEventDateName {
+    ExDate,
+    EffectiveDate,
+    PayableDate,
+    RecordDate,
+    DueBillOnDate,
+    DueBillOffDate,
+    DueBillRedemptionDate,
+    ExpirationDate,
+    LotteryDate,
+    ResultsPublicationDate,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CompanyEventSecurityRole {
+    Subject,
+    Old,
+    New,
+    Alternate,
+    Source,
+    Acquiree,
+    Acquirer,
+    Movement,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyEventTerm {
+    pub name: CompanyEventTermName,
+    #[schemars(length(min = 1, max = 64), regex(pattern = "^-?[0-9]+(\\.[0-9]+)?$"))]
+    pub value: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyEventDate {
+    pub name: CompanyEventDateName,
+    #[schemars(length(min = 10, max = 10))]
+    pub value: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyEventSecurity {
+    pub role: CompanyEventSecurityRole,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 12, max = 12))]
+    pub isin: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 9, max = 9))]
+    pub cusip: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyStockMovement {
+    pub security: CompanyEventSecurity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub new_rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub source_rate: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct KnownCompanyEvent {
+    #[schemars(length(min = 36, max = 36))]
+    pub action_id: String,
+    #[schemars(length(min = 1, max = 2))]
+    pub instrument_ids: Vec<String>,
+    pub category: CompanyEventCategory,
+    #[schemars(length(min = 10, max = 10))]
+    pub process_date: String,
+    #[schemars(length(max = 16))]
+    pub dates: Vec<CompanyEventDate>,
+    #[schemars(length(min = 1, max = 16))]
+    pub securities: Vec<CompanyEventSecurity>,
+    #[schemars(length(max = 32))]
+    pub terms: Vec<CompanyEventTerm>,
+    #[schemars(length(max = 16))]
+    pub stock_movements: Vec<CompanyStockMovement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 3, max = 3))]
+    pub currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub special: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreign: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub sub_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub lottery_type: Option<String>,
+    pub partial: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CorporateActionEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    #[schemars(length(min = 10, max = 10))]
+    pub coverage_start: String,
+    #[schemars(length(min = 10, max = 10))]
+    pub coverage_end: String,
+    pub query_complete: bool,
+    #[schemars(length(max = 1000))]
+    pub actions: Vec<KnownCompanyEvent>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialSourceEvidence {
+    CorporateActions(CorporateActionEvidence),
+    BrokerInstruments(BrokerInstrumentEvidence),
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BrokerScheduleEventType {
+    Open,
+    Close,
+    BreakStart,
+    BreakEnd,
+    PreMarketOpen,
+    AfterHoursOpen,
+    AfterHoursClose,
+    OvernightOpen,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrokerScheduleEvent {
+    #[schemars(length(min = 1, max = 64))]
+    pub date: String,
+    pub event_type: BrokerScheduleEventType,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrokerInstrumentMetadata {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 12, max = 12))]
+    pub isin: String,
+    #[schemars(length(min = 3, max = 3))]
+    pub currency: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub display_name: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub working_schedule_id: u64,
+    #[schemars(length(min = 1, max = 160))]
+    pub exchange_name: String,
+    #[schemars(length(max = 4000))]
+    pub schedule_events: Vec<BrokerScheduleEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub max_open_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extended_hours: Option<bool>,
+    pub canonical_security_identity: DataSourceStatus,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrokerInstrumentEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 3, max = 3))]
+    pub account_currency: String,
+    #[schemars(length(min = 2, max = 2))]
+    pub instruments: Vec<BrokerInstrumentMetadata>,
+}
+
 /// Source configuration is separate from account connectivity and quote readiness.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -2314,6 +2624,15 @@ pub struct MarketDetail {
     #[schemars(length(max = 16))]
     pub corporate_actions: Vec<CorporateAction>,
     pub adjustment_status: AdjustmentStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub financial_evidence: Option<MarketFinancialEvidence>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketFinancialEvidence {
+    pub company_events: FinancialSourceConnection,
+    pub broker_instruments: FinancialSourceConnection,
 }
 
 #[derive(Deserialize, JsonSchema)]

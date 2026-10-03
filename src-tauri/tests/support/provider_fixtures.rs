@@ -17,7 +17,7 @@ use tradex::{
 pub const KEY: &str = "S02-FAKE-KEY-594791453";
 pub const SECRET: &str = "S02-FAKE-SECRET-704556921";
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Vault {
     pub present: RefCell<HashSet<String>>,
     pub fail_remove: Cell<bool>,
@@ -319,6 +319,32 @@ impl ProviderHttp for Http {
         if endpoint == ProviderEndpoint::AlpacaMarketData {
             if method != ProviderHttpMethod::Get || body.is_some() {
                 return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            if let Some(query) = path.strip_prefix("/v1/corporate-actions?") {
+                assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+                assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+                self.calls
+                    .borrow_mut()
+                    .push(format!("{}{path}", endpoint.base_url()));
+                let start = query
+                    .split('&')
+                    .find_map(|part| part.strip_prefix("start="))
+                    .unwrap();
+                let format =
+                    time::format_description::parse_borrowed::<2>("[year]-[month]-[day]").unwrap();
+                let today = time::Date::parse(start, &format).unwrap() + time::Duration::days(30);
+                let second = query
+                    .split('&')
+                    .any(|part| part == "page_token=ui-next-page");
+                // Official-shaped external response only, including more than one UI page.
+                let rows = (if second { 20..26 } else { 0..20 }).map(|index| json!({
+                    "id":format!("5bf09d38-114c-4db7-84b0-b07f25ff{:04}", index + 200),
+                    "symbol":"AAPL","cusip":"037833100","isin":"US0378331005",
+                    "process_date":today.to_string(),"ex_date":if index == 25 { None } else { Some(today.to_string()) },
+                    "rate":"0.1234567890123456789","special":false,"foreign":false
+                })).collect::<Vec<_>>();
+                return Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&json!({"corporate_actions":{"cash_dividends":rows},"next_page_token":if second { None } else { Some("ui-next-page") }})).unwrap() });
             }
             assert_eq!(headers["APCA-API-KEY-ID"], KEY);
             assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
@@ -1020,6 +1046,13 @@ impl ProviderHttp for Http {
                     serde_json::to_vec(&summary).unwrap()
                 }
                 "/api/v0/equity/positions" => br#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#.to_vec(),
+                "/api/v0/equity/metadata/instruments" => serde_json::to_vec(&json!([
+                    {"ticker":"AAPL_US_EQ","type":"STOCK","isin":"US0378331005","currencyCode":"USD","name":"Apple","shortName":"Apple","workingScheduleId":101,"maxOpenQuantity":0,"extendedHours":false},
+                    {"ticker":"MSFT_US_EQ","type":"STOCK","isin":"US5949181045","currencyCode":"USD","name":"Microsoft","shortName":"Microsoft","workingScheduleId":101,"maxOpenQuantity":10,"extendedHours":true}
+                ])).unwrap(),
+                "/api/v0/equity/metadata/exchanges" => serde_json::to_vec(&json!([
+                    {"id":1,"name":"NASDAQ","workingSchedules":[{"id":101,"timeEvents":[{"date":"2026-10-05T13:30:00Z","type":"OPEN"},{"date":"2026-10-05T20:00:00Z","type":"CLOSE"}]}]}
+                ])).unwrap(),
                 "/api/v0/equity/orders" => br#"[{"id":9007199254740995,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23}]"#.to_vec(),
                 _ => panic!("Unexpected Trading 212 operation"),
             });

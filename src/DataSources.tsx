@@ -1,3 +1,4 @@
+import { FinancialSourceSettings } from './FinancialSourceSettings.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { AlpacaFeed, DataSourceCredentialKind, DataSourceEntry, DataSourceStatus } from '../shared/ipc-types.ts';
@@ -184,6 +185,11 @@ export function DataSources({ workspaceId }: { workspaceId: string }) {
       setStaleSources(current => ({ ...current, 'OD-005': false }));
       setProbeErrors(current => ({ ...current, 'OD-005': '' }));
     }} />
+    {(['actions', 'instrument'] as const).map(kind => <FinancialSourceSettings key={`${kind}-${workspaceId}`} workspaceId={workspaceId} kind={kind} onSourceChange={() => {
+      setOverrides(current => { const next = { ...current }; delete next['OD-005']; return next; });
+      setStaleSources(current => ({ ...current, 'OD-005': false }));
+      setProbeErrors(current => ({ ...current, 'OD-005': '' }));
+    }} />)}
     <div className="data-source-grid">{catalog.data.sources.map(source => { const current = overrides[source.sourceId] ?? source; const stale = staleSources[source.sourceId] === true || sourceIsStale(current); return <SourceCard key={source.sourceId} source={current} stale={stale} busy={probing !== undefined} onProbe={() => void probe(current)} error={probeErrors[source.sourceId] || undefined} />; })}</div>
   </section>;
 }

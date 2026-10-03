@@ -286,6 +286,12 @@
     "financialApprovalHistoryQuery": {
       "$ref": "#/$defs/FinancialApprovalHistoryQuery"
     },
+    "financialSourceConfigure": {
+      "$ref": "#/$defs/FinancialSourceConfigure"
+    },
+    "financialSourceConnection": {
+      "$ref": "#/$defs/FinancialSourceConnection"
+    },
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
     },
@@ -591,6 +597,8 @@
     "dataSourceConnection",
     "calendarConnection",
     "calendarConfigure",
+    "financialSourceConnection",
+    "financialSourceConfigure",
     "dataSourceConfigure",
     "dataSourceMutation",
     "marketCatalogQuery",
@@ -4876,6 +4884,111 @@
         "observedAt"
       ]
     },
+    "BrokerInstrumentMetadata": {
+      "type": "object",
+      "properties": {
+        "canonicalSecurityIdentity": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 3,
+          "minLength": 3
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "exchangeName": {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        "extendedHours": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "isin": {
+          "type": "string",
+          "maxLength": 12,
+          "minLength": 12
+        },
+        "maxOpenQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "scheduleEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BrokerScheduleEvent"
+          },
+          "maxItems": 4000
+        },
+        "workingScheduleId": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instrumentId",
+        "providerSymbol",
+        "isin",
+        "currency",
+        "displayName",
+        "workingScheduleId",
+        "exchangeName",
+        "scheduleEvents",
+        "canonicalSecurityIdentity"
+      ]
+    },
+    "BrokerScheduleEvent": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "eventType": {
+          "$ref": "#/$defs/BrokerScheduleEventType"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "eventType"
+      ]
+    },
+    "BrokerScheduleEventType": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "CLOSE",
+        "BREAK_START",
+        "BREAK_END",
+        "PRE_MARKET_OPEN",
+        "AFTER_HOURS_OPEN",
+        "AFTER_HOURS_CLOSE",
+        "OVERNIGHT_OPEN"
+      ]
+    },
     "CalendarCapability": {
       "type": "string",
       "enum": [
@@ -5822,6 +5935,158 @@
         "schemaVersion",
         "command",
         "payload"
+      ]
+    },
+    "CompanyEventCategory": {
+      "type": "string",
+      "enum": [
+        "NAME_CHANGE",
+        "CASH_DIVIDEND",
+        "FORWARD_SPLIT",
+        "REVERSE_SPLIT",
+        "UNIT_SPLIT",
+        "STOCK_DIVIDEND",
+        "SPIN_OFF",
+        "CASH_MERGER",
+        "STOCK_MERGER",
+        "STOCK_AND_CASH_MERGER",
+        "REDEMPTION",
+        "WORTHLESS_REMOVAL",
+        "RIGHTS_DISTRIBUTION",
+        "PARTIAL_CALL",
+        "REORGANIZATION",
+        "CAPITAL_GAINS_DISTRIBUTION"
+      ]
+    },
+    "CompanyEventDate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CompanyEventDateName"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "CompanyEventDateName": {
+      "type": "string",
+      "enum": [
+        "ex_date",
+        "effective_date",
+        "payable_date",
+        "record_date",
+        "due_bill_on_date",
+        "due_bill_off_date",
+        "due_bill_redemption_date",
+        "expiration_date",
+        "lottery_date",
+        "results_publication_date"
+      ]
+    },
+    "CompanyEventSecurity": {
+      "type": "object",
+      "properties": {
+        "cusip": {
+          "type": "string",
+          "maxLength": 9,
+          "minLength": 9
+        },
+        "isin": {
+          "type": "string",
+          "maxLength": 12,
+          "minLength": 12
+        },
+        "role": {
+          "$ref": "#/$defs/CompanyEventSecurityRole"
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role"
+      ]
+    },
+    "CompanyEventSecurityRole": {
+      "type": "string",
+      "enum": [
+        "SUBJECT",
+        "OLD",
+        "NEW",
+        "ALTERNATE",
+        "SOURCE",
+        "ACQUIREE",
+        "ACQUIRER",
+        "MOVEMENT"
+      ]
+    },
+    "CompanyEventTerm": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CompanyEventTermName"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "CompanyEventTermName": {
+      "type": "string",
+      "enum": [
+        "rate",
+        "old_rate",
+        "new_rate",
+        "alternate_rate",
+        "source_rate",
+        "acquiree_rate",
+        "acquirer_rate",
+        "cash_rate",
+        "dividend_rate",
+        "price",
+        "long_term_rate",
+        "short_term_rate"
+      ]
+    },
+    "CompanyStockMovement": {
+      "type": "object",
+      "properties": {
+        "newRate": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "security": {
+          "$ref": "#/$defs/CompanyEventSecurity"
+        },
+        "sourceRate": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "security"
       ]
     },
     "CompleteOnboarding": {
@@ -7532,11 +7797,318 @@
         "CONSUMED"
       ]
     },
+    "FinancialEvidenceBinding": {
+      "type": "object",
+      "properties": {
+        "accountVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "accountVersion",
+        "sourceVersion",
+        "bindingVersion"
+      ]
+    },
+    "FinancialEvidenceCapability": {
+      "type": "string",
+      "enum": [
+        "KNOWN_ACTIONS",
+        "ACTION_QUERY_COMPLETION",
+        "COMPLETE_ACTION_COVERAGE",
+        "HISTORICAL_ADJUSTMENT",
+        "BROKER_ACCOUNT_IDENTITY",
+        "BROKER_INSTRUMENT_METADATA",
+        "EXCHANGE_HALTS",
+        "ACCOUNT_TRADABILITY"
+      ]
+    },
+    "FinancialEvidenceCapabilityResult": {
+      "type": "object",
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/FinancialEvidenceCapability"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "status",
+        "reason"
+      ]
+    },
+    "FinancialEvidenceQuality": {
+      "type": "string",
+      "enum": [
+        "DELAYED_PROCESS_DATE_QUERY",
+        "TEN_MINUTE_METADATA"
+      ]
+    },
     "FinancialOperation": {
       "type": "string",
       "enum": [
         "PLACE_ORDER",
         "CANCEL"
+      ]
+    },
+    "FinancialSourceConfigure": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "connectionId"
+      ]
+    },
+    "FinancialSourceConnection": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "capabilityStatuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FinancialEvidenceCapabilityResult"
+          },
+          "maxItems": 8,
+          "minItems": 4
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "eligibleAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceAccountChoice"
+          },
+          "maxItems": 256
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialSourceEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/FinancialSourceKind"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "kind",
+        "stateVersion",
+        "configured",
+        "environment",
+        "status",
+        "availabilityReason",
+        "eligibleAccounts",
+        "capabilityStatuses"
+      ]
+    },
+    "FinancialSourceEvidence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/KnownCompanyEvent"
+              },
+              "maxItems": 1000
+            },
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "coverageEnd": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10
+            },
+            "coverageStart": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10
+            },
+            "kind": {
+              "type": "string",
+              "const": "CORPORATE_ACTIONS"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            },
+            "queryComplete": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "providerQuality",
+            "observedAt",
+            "coverageStart",
+            "coverageEnd",
+            "queryComplete",
+            "actions"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountCurrency": {
+              "type": "string",
+              "maxLength": 3,
+              "minLength": 3
+            },
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "instruments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BrokerInstrumentMetadata"
+              },
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "kind": {
+              "type": "string",
+              "const": "BROKER_INSTRUMENTS"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "observedAt",
+            "providerQuality",
+            "accountCurrency",
+            "instruments"
+          ]
+        }
+      ]
+    },
+    "FinancialSourceKind": {
+      "type": "string",
+      "enum": [
+        "CORPORATE_ACTIONS",
+        "BROKER_INSTRUMENTS"
       ]
     },
     "FxFreshness": {
@@ -8084,6 +8656,103 @@
         "STREAMING",
         "COMPLETED",
         "FAILED"
+      ]
+    },
+    "KnownCompanyEvent": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 36
+        },
+        "category": {
+          "$ref": "#/$defs/CompanyEventCategory"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 3,
+          "minLength": 3
+        },
+        "dates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyEventDate"
+          },
+          "maxItems": 16
+        },
+        "foreign": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "instrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1
+        },
+        "lotteryType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "processDate": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "securities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyEventSecurity"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "special": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "stockMovements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyStockMovement"
+          },
+          "maxItems": 16
+        },
+        "subType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyEventTerm"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "instrumentIds",
+        "category",
+        "processDate",
+        "dates",
+        "securities",
+        "terms",
+        "stockMovements",
+        "partial"
       ]
     },
     "LiveArmingEligibility": {
@@ -9294,6 +9963,16 @@
           },
           "maxItems": 16
         },
+        "financialEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketFinancialEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "instrument": {
           "$ref": "#/$defs/Instrument"
         },
@@ -9355,6 +10034,22 @@
         "REALTIME",
         "DELAYED",
         "UNKNOWN"
+      ]
+    },
+    "MarketFinancialEvidence": {
+      "type": "object",
+      "properties": {
+        "brokerInstruments": {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        },
+        "companyEvents": {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "companyEvents",
+        "brokerInstruments"
       ]
     },
     "MarketFreshness": {
@@ -11882,6 +12577,9 @@
           "$ref": "#/$defs/CalendarConnection"
         },
         {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        },
+        {
           "$ref": "#/$defs/MarketCatalog"
         },
         {
@@ -12912,6 +13610,8 @@
         "QUOTE_FRESHNESS",
         "MARKET_SESSION",
         "INSTRUMENT_RULES",
+        "CORPORATE_ACTION_COVERAGE",
+        "HISTORICAL_ADJUSTMENT",
         "LIVE_INACTIVITY",
         "CANCELLATION_ORDER",
         "CANCELLATION_CAPABILITY",
@@ -13174,6 +13874,8 @@
         "MARKET_CLOSED",
         "MARKET_HALTED",
         "INSTRUMENT_RULES_UNAVAILABLE",
+        "CORPORATE_ACTION_COVERAGE_UNAVAILABLE",
+        "HISTORICAL_ADJUSTMENT_UNAVAILABLE",
         "COUNTER_UNAVAILABLE",
         "RESERVATION_UNAVAILABLE",
         "CALENDAR_UNAVAILABLE",
@@ -17102,7 +17804,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 33,
+          "maximum": 34,
           "minimum": 1
         },
         "workspaceId": {

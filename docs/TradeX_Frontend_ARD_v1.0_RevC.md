@@ -702,6 +702,14 @@ Display bid/ask depth in BASE units. Label slippage as an approximate quote-midp
 
 Use Backend §41.38 typed `data.calendar.*` contracts. Settings explicitly selects an eligible saved Alpaca Paper account, saves metadata, refreshes separately and disconnects without deleting the borrowed key. Display receipt/version/requested coverage and each of MARKET_CALENDAR/CORPORATE_ACTIONS/HALTS/HISTORICAL_ADJUSTMENT separately; calendar success does not label combined OD-005 or Live Ready. Read-only local projection polling may update expiry status; it must not fetch the provider or renew receipt. Source changes refresh Settings/Markets projections. Market detail retains source/time/session boundaries, unavailable provider timestamps and unrelated guards. Preserve keyboard/error handling and390/768/1280px layouts. Prototype behavior and provider acceptance remain unverified by this target.
 
+### 13.24 Known events and exact broker metadata (S28 #119)
+
+Consume Backend §41.39 generated `data.actions.*` / `data.instrument.*` commands and optional `MarketDetail.financialEvidence`. Separate source selection/CAS Save/Refresh/Disconnect in Settings; no renderer secrets or caller-supplied authority. Disable Refresh for unsaved selection, retain borrowed accounts/keys on Disconnect and expose sanitized access/quota/error/reload states. Local projection polling updates expiry without provider reads or renewed receipts. Workspace reopen keeps selection and removes process evidence; show unverified until a new read.
+
+Display original receipt, provider quality, absent provider timestamp, exact account/source/material binding and all eight independent capability results. Company events retain the16 typed categories, date-only process/optional dates, security identities/roles, exact decimals, optional attributes and partial status. Offer25-row navigation over the entire bounded query, not a16-row ingestion cutoff; an empty exhausted query cannot imply no pending event or adjusted history. Broker rows preserve exact ticker/ISIN/currency/schedule joins and bounded schedule navigation; ten-minute metadata, unverified canonical identity, absent halt/tradability and execution-venue uncertainty remain visible. Markets and approval review consume the original backend evidence; unavailable retained context never becomes readiness. Preserve Local Paper/CANCEL and every existing guard, keyboard controls, errors and390/768/1280px layouts. This is a target contract, not prototype or provider-hosted PASS.
+
+Frozen approval and pre-arm panels label financial statuses and reasons as captured, display the review capture time, and warn that the immutable review does not report current eligibility. Do not poll into or mutate that capture. Reopening obtains a new backend assessment; protected actions independently revalidate current evidence.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

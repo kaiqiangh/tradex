@@ -1,3 +1,4 @@
+import { MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -1796,6 +1797,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <section aria-label="Quote evidence before arming">
         <h3>Quote evidence before arming</h3>
         <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
+        {liveArmReview.quoteReview?.market.financialEvidence && <MarketFinancialEvidencePanel evidence={liveArmReview.quoteReview.market.financialEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {preArmQuote ? <dl className="proposal-fields approval-review-fields">
           <div><dt>Snapshot / source</dt><dd className="identity">{preArmQuote.provenance.marketSnapshotId} · {preArmQuote.provenance.source}</dd></div>
           <div><dt>Provider timestamp</dt><dd>{preArmQuote.provenance.providerTimestamp}</dd></div>
@@ -1830,6 +1832,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </dl>
       {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
+      {approvalReview.market.financialEvidence && <MarketFinancialEvidencePanel evidence={approvalReview.market.financialEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       <section aria-labelledby="approval-quote-title"><h3 id="approval-quote-title">Quote provenance</h3>
         {approvalReview.market.snapshot ? <dl className="proposal-fields approval-review-fields">
           <div><dt>Snapshot / source</dt><dd>{approvalReview.market.snapshot.provenance.marketSnapshotId} · {approvalReview.market.snapshot.provenance.source}</dd></div>

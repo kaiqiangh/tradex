@@ -260,6 +260,7 @@ pub trait CredentialVault {
     fn remove(&self, reference: &str) -> Result<()>;
 }
 
+#[derive(Clone, Copy)]
 pub struct NativeVault;
 
 #[cfg(target_os = "macos")]
@@ -330,7 +331,10 @@ impl ProviderEndpoint {
     fn allows(self, path: &str) -> bool {
         match self {
             Self::AlpacaPaper => allowed_path(path),
-            Self::AlpacaMarketData => crate::quote_source::allowed_latest_path(path),
+            Self::AlpacaMarketData => {
+                crate::quote_source::allowed_latest_path(path)
+                    || crate::financial_sources::allowed_actions_path(path)
+            }
             Self::BitgetDemo => bitget::allows(path),
             Self::BitgetLive => {
                 bitget::allows(path)
@@ -353,6 +357,8 @@ impl ProviderEndpoint {
                     "/api/v0/equity/account/summary"
                         | "/api/v0/equity/positions"
                         | "/api/v0/equity/orders"
+                        | "/api/v0/equity/metadata/instruments"
+                        | "/api/v0/equity/metadata/exchanges"
                 ) || valid_t212_order_detail_path(path)
                     || valid_t212_history_path(path)
             }
@@ -1857,9 +1863,20 @@ impl ProviderHttp for BrokerHttp {
         let response = request
             .send()
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+        let response_limit = match (endpoint, path) {
+            (ProviderEndpoint::Trading212Live, "/api/v0/equity/metadata/instruments") => {
+                8 * 1024 * 1024
+            }
+            (ProviderEndpoint::AlpacaMarketData, path)
+                if crate::financial_sources::allowed_actions_path(path) =>
+            {
+                512 * 1024
+            }
+            _ => MAX_RESPONSE,
+        };
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_RESPONSE)
+            .is_some_and(|length| length > response_limit)
         {
             return Err(invalid());
         }
@@ -1870,10 +1887,10 @@ impl ProviderHttp for BrokerHttp {
         }
         let mut bytes = Vec::new();
         response
-            .take(MAX_RESPONSE + 1)
+            .take(response_limit + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        if bytes.len() as u64 > MAX_RESPONSE {
+        if bytes.len() as u64 > response_limit {
             return Err(invalid());
         }
         Ok((
@@ -2214,7 +2231,21 @@ impl ProviderJob {
                 if !current() {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
-                let bytes = http.get(endpoint, path, auth.clone())?;
+                let bytes = if endpoint == ProviderEndpoint::Trading212Live
+                    && path == "/api/v0/equity/account/summary"
+                {
+                    let response = read_live_summary(
+                        &http,
+                        self.account
+                            .data
+                            .as_ref()
+                            .map(|data| data.remote_account_id.as_str()),
+                        auth.clone(),
+                    )?;
+                    classify_get_response(endpoint, response.status, response.body)?
+                } else {
+                    http.get(endpoint, path, auth.clone())?
+                };
                 if bytes.len() as u64 > MAX_RESPONSE {
                     return Err(invalid());
                 }
@@ -2795,13 +2826,24 @@ impl ProviderJob {
                 if !current() {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
-                let response = http.request(
-                    ProviderEndpoint::Trading212Live,
-                    ProviderHttpMethod::Get,
-                    path,
-                    auth.clone(),
-                    None,
-                )?;
+                let response = if path == "/api/v0/equity/account/summary" {
+                    read_live_summary(
+                        http,
+                        self.account
+                            .data
+                            .as_ref()
+                            .map(|data| data.remote_account_id.as_str()),
+                        auth.clone(),
+                    )?
+                } else {
+                    http.request(
+                        ProviderEndpoint::Trading212Live,
+                        ProviderHttpMethod::Get,
+                        path,
+                        auth.clone(),
+                        None,
+                    )?
+                };
                 if response.status != 200 {
                     return Err(trading212_order_read_error(
                         response.status,
@@ -5034,6 +5076,50 @@ fn incomplete() -> TradeXError {
     TradeXError::new("PROVIDER_RESPONSE_INCOMPLETE")
 }
 
+fn read_live_summary(
+    http: &impl ProviderHttp,
+    remote: Option<&str>,
+    headers: HeaderMap,
+) -> Result<ProviderHttpResponse> {
+    let mut reservation = remote
+        .map(crate::financial_sources::reserve_tracked_summary)
+        .transpose()?;
+    let outcome = http.request_with_rate_limit(
+        ProviderEndpoint::Trading212Live,
+        ProviderHttpMethod::Get,
+        "/api/v0/equity/account/summary",
+        headers,
+        None,
+    );
+    if let Some(reservation) = reservation.as_mut() {
+        let (status, limit) = outcome
+            .as_ref()
+            .map(|(response, limit)| (response.status, limit.as_ref()))
+            .unwrap_or((0, None));
+        reservation.complete("/api/v0/equity/account/summary", status, limit)?;
+    }
+    outcome.map(|(response, _)| response)
+}
+
+pub(crate) fn trading212_source_headers(credentials: &Credentials) -> Result<HeaderMap> {
+    let values = credentials.values()?;
+    if values.len() != 2 {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    use base64::Engine;
+    let auth = Zeroizing::new(format!("{}:{}", values[0], values[1]));
+    let encoded = Zeroizing::new(format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD.encode(auth.as_bytes())
+    ));
+    let mut header =
+        HeaderValue::from_str(&encoded).map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+    header.set_sensitive(true);
+    let mut headers = HeaderMap::new();
+    headers.insert("Authorization", header);
+    Ok(headers)
+}
+
 pub(crate) fn alpaca_headers(values: &[String]) -> Result<HeaderMap> {
     if values.len() != 2 {
         return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
@@ -5777,7 +5863,7 @@ fn invalid() -> TradeXError {
     TradeXError::new("PROVIDER_RESPONSE_INVALID")
 }
 
-fn contains_secret(value: &Value, secrets: &[String]) -> bool {
+pub(crate) fn contains_secret(value: &Value, secrets: &[String]) -> bool {
     let contains = |text: &str| secrets.iter().any(|secret| text.contains(secret));
     match value {
         Value::String(text) => contains(text),

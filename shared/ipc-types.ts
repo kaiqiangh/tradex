@@ -62,6 +62,140 @@ export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILA
 export type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceCapability".
+ */
+export type FinancialEvidenceCapability =
+  | "KNOWN_ACTIONS"
+  | "ACTION_QUERY_COMPLETION"
+  | "COMPLETE_ACTION_COVERAGE"
+  | "HISTORICAL_ADJUSTMENT"
+  | "BROKER_ACCOUNT_IDENTITY"
+  | "BROKER_INSTRUMENT_METADATA"
+  | "EXCHANGE_HALTS"
+  | "ACCOUNT_TRADABILITY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceEvidence".
+ */
+export type FinancialSourceEvidence =
+  | {
+      /**
+       * @maxItems 1000
+       */
+      actions: KnownCompanyEvent[];
+      binding: FinancialEvidenceBinding;
+      coverageEnd: string;
+      coverageStart: string;
+      kind: "CORPORATE_ACTIONS";
+      materialVersion: string;
+      observedAt: string;
+      providerObservedAt?: string;
+      providerQuality: FinancialEvidenceQuality;
+      queryComplete: boolean;
+    }
+  | {
+      accountCurrency: string;
+      binding: FinancialEvidenceBinding;
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      instruments: [BrokerInstrumentMetadata, BrokerInstrumentMetadata];
+      kind: "BROKER_INSTRUMENTS";
+      materialVersion: string;
+      observedAt: string;
+      providerObservedAt?: string;
+      providerQuality: FinancialEvidenceQuality;
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventCategory".
+ */
+export type CompanyEventCategory =
+  | "NAME_CHANGE"
+  | "CASH_DIVIDEND"
+  | "FORWARD_SPLIT"
+  | "REVERSE_SPLIT"
+  | "UNIT_SPLIT"
+  | "STOCK_DIVIDEND"
+  | "SPIN_OFF"
+  | "CASH_MERGER"
+  | "STOCK_MERGER"
+  | "STOCK_AND_CASH_MERGER"
+  | "REDEMPTION"
+  | "WORTHLESS_REMOVAL"
+  | "RIGHTS_DISTRIBUTION"
+  | "PARTIAL_CALL"
+  | "REORGANIZATION"
+  | "CAPITAL_GAINS_DISTRIBUTION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventDateName".
+ */
+export type CompanyEventDateName =
+  | "ex_date"
+  | "effective_date"
+  | "payable_date"
+  | "record_date"
+  | "due_bill_on_date"
+  | "due_bill_off_date"
+  | "due_bill_redemption_date"
+  | "expiration_date"
+  | "lottery_date"
+  | "results_publication_date";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventSecurityRole".
+ */
+export type CompanyEventSecurityRole =
+  "SUBJECT" | "OLD" | "NEW" | "ALTERNATE" | "SOURCE" | "ACQUIREE" | "ACQUIRER" | "MOVEMENT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventTermName".
+ */
+export type CompanyEventTermName =
+  | "rate"
+  | "old_rate"
+  | "new_rate"
+  | "alternate_rate"
+  | "source_rate"
+  | "acquiree_rate"
+  | "acquirer_rate"
+  | "cash_rate"
+  | "dividend_rate"
+  | "price"
+  | "long_term_rate"
+  | "short_term_rate";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceQuality".
+ */
+export type FinancialEvidenceQuality = "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BrokerScheduleEventType".
+ */
+export type BrokerScheduleEventType =
+  | "OPEN"
+  | "CLOSE"
+  | "BREAK_START"
+  | "BREAK_END"
+  | "PRE_MARKET_OPEN"
+  | "AFTER_HOURS_OPEN"
+  | "AFTER_HOURS_CLOSE"
+  | "OVERNIGHT_OPEN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceKind".
+ */
+export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AssetClass".
  */
 export type AssetClass = "EQUITY" | "CRYPTO_SPOT";
@@ -199,6 +333,8 @@ export type RiskCheckId =
   | "QUOTE_FRESHNESS"
   | "MARKET_SESSION"
   | "INSTRUMENT_RULES"
+  | "CORPORATE_ACTION_COVERAGE"
+  | "HISTORICAL_ADJUSTMENT"
   | "LIVE_INACTIVITY"
   | "CANCELLATION_ORDER"
   | "CANCELLATION_CAPABILITY"
@@ -234,6 +370,8 @@ export type RiskDecisionReasonCode =
   | "MARKET_CLOSED"
   | "MARKET_HALTED"
   | "INSTRUMENT_RULES_UNAVAILABLE"
+  | "CORPORATE_ACTION_COVERAGE_UNAVAILABLE"
+  | "HISTORICAL_ADJUSTMENT_UNAVAILABLE"
   | "COUNTER_UNAVAILABLE"
   | "RESERVATION_UNAVAILABLE"
   | "CALENDAR_UNAVAILABLE"
@@ -322,11 +460,6 @@ export type BitgetDemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNO
  * via the `definition` "CalendarCapability".
  */
 export type CalendarCapability = "MARKET_CALENDAR" | "CORPORATE_ACTIONS" | "HALTS" | "HISTORICAL_ADJUSTMENT";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceStatus".
- */
-export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialApproval".
@@ -696,6 +829,7 @@ export type ReplyData =
   | DataSourceCatalog
   | DataSourceConnection
   | CalendarConnection
+  | FinancialSourceConnection
   | MarketCatalog
   | MarketDetail
   | HotQuoteProjection
@@ -953,6 +1087,8 @@ export interface IpcSchema {
   financialApproval: FinancialApproval;
   financialApprovalHistory: FinancialApprovalHistory;
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
+  financialSourceConfigure: FinancialSourceConfigure;
+  financialSourceConnection: FinancialSourceConnection;
   gatewayMutation: GatewayMutation;
   hotQuoteAcquire: HotQuoteAcquire;
   hotQuoteProjection: HotQuoteProjection;
@@ -1651,6 +1787,7 @@ export interface MarketDetail {
         CorporateAction,
         CorporateAction
       ];
+  financialEvidence?: MarketFinancialEvidence | null;
   instrument: Instrument;
   instrumentState?: InstrumentTradingObservation | null;
   marketState: MarketState;
@@ -1673,6 +1810,645 @@ export interface CorporateAction {
   effectiveAt: string;
   instrumentId: string;
   sourceId?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketFinancialEvidence".
+ */
+export interface MarketFinancialEvidence {
+  brokerInstruments: FinancialSourceConnection;
+  companyEvents: FinancialSourceConnection;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceConnection".
+ */
+export interface FinancialSourceConnection {
+  availabilityReason: string;
+  /**
+   * @minItems 4
+   * @maxItems 8
+   */
+  capabilityStatuses:
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ];
+  configured: boolean;
+  connectionId?: string;
+  /**
+   * @maxItems 256
+   */
+  eligibleAccounts: DataSourceAccountChoice[];
+  environment: string;
+  evidence?: FinancialSourceEvidence | null;
+  kind: FinancialSourceKind;
+  observedAt?: string;
+  stateVersion: string;
+  status: DataSourceStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceCapabilityResult".
+ */
+export interface FinancialEvidenceCapabilityResult {
+  capability: FinancialEvidenceCapability;
+  reason: string;
+  status: DataSourceStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceAccountChoice".
+ */
+export interface DataSourceAccountChoice {
+  connectionId: string;
+  displayName: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "KnownCompanyEvent".
+ */
+export interface KnownCompanyEvent {
+  actionId: string;
+  category: CompanyEventCategory;
+  currency?: string;
+  /**
+   * @maxItems 16
+   */
+  dates:
+    | []
+    | [CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ];
+  foreign?: boolean | null;
+  /**
+   * @minItems 1
+   * @maxItems 2
+   */
+  instrumentIds: [string] | [string, string];
+  lotteryType?: string;
+  partial: boolean;
+  processDate: string;
+  /**
+   * @minItems 1
+   * @maxItems 16
+   */
+  securities:
+    | [CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ];
+  special?: boolean | null;
+  /**
+   * @maxItems 16
+   */
+  stockMovements:
+    | []
+    | [CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement, CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement, CompanyStockMovement, CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement, CompanyStockMovement, CompanyStockMovement, CompanyStockMovement]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ];
+  subType?: string;
+  /**
+   * @maxItems 32
+   */
+  terms: CompanyEventTerm[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventDate".
+ */
+export interface CompanyEventDate {
+  name: CompanyEventDateName;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventSecurity".
+ */
+export interface CompanyEventSecurity {
+  cusip?: string;
+  isin?: string;
+  role: CompanyEventSecurityRole;
+  symbol?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyStockMovement".
+ */
+export interface CompanyStockMovement {
+  newRate?: string;
+  security: CompanyEventSecurity;
+  sourceRate?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventTerm".
+ */
+export interface CompanyEventTerm {
+  name: CompanyEventTermName;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceBinding".
+ */
+export interface FinancialEvidenceBinding {
+  accountVersion: string;
+  bindingVersion: string;
+  connectionId: string;
+  sourceVersion: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BrokerInstrumentMetadata".
+ */
+export interface BrokerInstrumentMetadata {
+  canonicalSecurityIdentity: DataSourceStatus;
+  currency: string;
+  displayName: string;
+  exchangeName: string;
+  extendedHours?: boolean | null;
+  instrumentId: string;
+  isin: string;
+  maxOpenQuantity?: string;
+  providerSymbol: string;
+  /**
+   * @maxItems 4000
+   */
+  scheduleEvents: BrokerScheduleEvent[];
+  workingScheduleId: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BrokerScheduleEvent".
+ */
+export interface BrokerScheduleEvent {
+  date: string;
+  eventType: BrokerScheduleEventType;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2758,14 +3534,6 @@ export interface CalendarCapabilityResult {
   capability: CalendarCapability;
   reason: string;
   status: DataSourceStatus;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceAccountChoice".
- */
-export interface DataSourceAccountChoice {
-  connectionId: string;
-  displayName: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -4073,6 +4841,15 @@ export interface FinancialApprovalHistory {
  */
 export interface FinancialApprovalHistoryQuery {
   proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceConfigure".
+ */
+export interface FinancialSourceConfigure {
+  connectionId: string;
+  expectedStateVersion: string;
   workspaceId: string;
 }
 /**

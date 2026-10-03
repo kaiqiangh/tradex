@@ -97,6 +97,9 @@ declare const validators: {
   BitgetSpotFill: (value: unknown) => boolean;
   BitgetSpotOrder: (value: unknown) => boolean;
   BitgetSpotOrderBook: (value: unknown) => boolean;
+  BrokerInstrumentMetadata: (value: unknown) => boolean;
+  BrokerScheduleEvent: (value: unknown) => boolean;
+  BrokerScheduleEventType: (value: unknown) => boolean;
   CalendarCapability: (value: unknown) => boolean;
   CalendarCapabilityResult: (value: unknown) => boolean;
   CalendarConfigure: (value: unknown) => boolean;
@@ -124,6 +127,14 @@ declare const validators: {
   ChatgptLogin: (value: unknown) => boolean;
   ChatgptLoginAction: (value: unknown) => boolean;
   CommandEnvelope: (value: unknown) => boolean;
+  CompanyEventCategory: (value: unknown) => boolean;
+  CompanyEventDate: (value: unknown) => boolean;
+  CompanyEventDateName: (value: unknown) => boolean;
+  CompanyEventSecurity: (value: unknown) => boolean;
+  CompanyEventSecurityRole: (value: unknown) => boolean;
+  CompanyEventTerm: (value: unknown) => boolean;
+  CompanyEventTermName: (value: unknown) => boolean;
+  CompanyStockMovement: (value: unknown) => boolean;
   CompleteOnboarding: (value: unknown) => boolean;
   ConfigureDeepseek: (value: unknown) => boolean;
   Connect: (value: unknown) => boolean;
@@ -167,7 +178,15 @@ declare const validators: {
   FinancialApprovalHistory: (value: unknown) => boolean;
   FinancialApprovalHistoryQuery: (value: unknown) => boolean;
   FinancialApprovalStatus: (value: unknown) => boolean;
+  FinancialEvidenceBinding: (value: unknown) => boolean;
+  FinancialEvidenceCapability: (value: unknown) => boolean;
+  FinancialEvidenceCapabilityResult: (value: unknown) => boolean;
+  FinancialEvidenceQuality: (value: unknown) => boolean;
   FinancialOperation: (value: unknown) => boolean;
+  FinancialSourceConfigure: (value: unknown) => boolean;
+  FinancialSourceConnection: (value: unknown) => boolean;
+  FinancialSourceEvidence: (value: unknown) => boolean;
+  FinancialSourceKind: (value: unknown) => boolean;
   FxFreshness: (value: unknown) => boolean;
   FxProvenance: (value: unknown) => boolean;
   FxQuality: (value: unknown) => boolean;
@@ -186,6 +205,7 @@ declare const validators: {
   InstrumentTradingObservation: (value: unknown) => boolean;
   InstrumentTradingStatus: (value: unknown) => boolean;
   ItemStatus: (value: unknown) => boolean;
+  KnownCompanyEvent: (value: unknown) => boolean;
   LiveArmingEligibility: (value: unknown) => boolean;
   LiveOrderDisposition: (value: unknown) => boolean;
   LiveOrderFee: (value: unknown) => boolean;
@@ -213,6 +233,7 @@ declare const validators: {
   MarketDataStatus: (value: unknown) => boolean;
   MarketDetail: (value: unknown) => boolean;
   MarketEntitlement: (value: unknown) => boolean;
+  MarketFinancialEvidence: (value: unknown) => boolean;
   MarketFreshness: (value: unknown) => boolean;
   MarketGetQuery: (value: unknown) => boolean;
   MarketSession: (value: unknown) => boolean;

@@ -31,9 +31,9 @@ test('the UI applies only contiguous supported events and ignores exact duplicat
 });
 
 test('workspace snapshots accept the current storage schema version', () => {
-  const current = { ...workspace, storageSchemaVersion: 33 };
-  assert.equal(fromSnapshot({ ...snapshot, projection: current }).snapshot.projection.storageSchemaVersion, 33);
-  assert.throws(() => fromSnapshot({ ...snapshot, projection: { ...current, storageSchemaVersion: 34 } }));
+  const current = { ...workspace, storageSchemaVersion: 34 };
+  assert.equal(fromSnapshot({ ...snapshot, projection: current }).snapshot.projection.storageSchemaVersion, 34);
+  assert.throws(() => fromSnapshot({ ...snapshot, projection: { ...current, storageSchemaVersion: 35 } }));
 });
 
 test('generated result schema rejects false success, mixed envelopes and foreign payloads', () => {

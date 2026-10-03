@@ -702,6 +702,14 @@ workspace 打开后，恢复每个受支持 Live 账户的后端恢复状态和�
 
 使用 Backend §41.38 typed `data.calendar.*` 契约。Settings 明确选择合格的已有 Alpaca Paper 账户，保存 metadata，分别刷新/断开；不删除借用 key。分别显示 receipt/version/requested coverage 和 MARKET_CALENDAR/CORPORATE_ACTIONS/HALTS/HISTORICAL_ADJUSTMENT；日历成功不标记综合 OD-005 或 Live Ready。本地只读投影轮询可更新过期状态，但不能请求 provider 或延长接收时间。来源变化刷新 Settings/Markets 投影。市场详情保留 source/time/session 边界、缺失 provider timestamp 和其他独立门禁；保持键盘/错误处理及390/768/1280px 布局。此目标不证明原型行为或真实 provider 验收。
 
+### 13.24 已知事件与精确 broker 元数据（S28 #119）
+
+使用 Backend §41.39 生成的 `data.actions.*` / `data.instrument.*` 命令及可选 `MarketDetail.financialEvidence`。Settings 分别提供账户选择/CAS Save/Refresh/Disconnect；不允许 renderer 秘密或调用方权限断言。未保存选择时禁用 Refresh；Disconnect 保留借用账户/key；显示脱敏访问/额度/错误/reload 状态。本地投影轮询只更新过期，不请求 provider、不延长 receipt。重开 workspace 保留选择并撤销进程证据，重新读取前显示 unverified。
+
+显示原始 receipt、provider quality、缺失 provider timestamp、精确账户/source/material binding 和八项独立能力。公司事件保留16类 typed category、date-only process/可选日期、security 身份/role、精确小数、可选属性及 partial 状态。每页25条访问完整有界查询，不使用16条摄取截断；空且穷尽的查询不能证明没有待处理事件或历史已调整。Broker 行保留精确 ticker/ISIN/currency/schedule join 和有界 schedule 翻页；十分钟元数据、unverified 规范身份、缺失停牌/可交易性及执行 venue 不确定性保持可见。Markets 和审批 review 使用原始 backend 证据；不可用的保留内容不能变成 readiness。保留 Local Paper/CANCEL 和所有既有门禁、键盘操作、错误及390/768/1280px 布局。此为目标契约，不是原型或 provider-hosted PASS。
+
+冻结的审批及 pre-arm 面板将金融状态/原因标为捕获值，显示 review 捕获时间，并说明不可变 review 不报告当前资格。不得用轮询覆盖或修改捕获内容。重新打开获取新的后端评估；受保护操作独立重新核验当前证据。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则
