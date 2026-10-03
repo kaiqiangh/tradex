@@ -227,9 +227,20 @@ fn candidate_matches_proposal_terms(
     }
 }
 
+struct WorkspaceLock(File);
+
+impl Drop for WorkspaceLock {
+    fn drop(&mut self) {
+        // An unrelated child may inherit this descriptor between fork and exec.
+        // Release ownership explicitly; close alone waits for inherited copies.
+        let _ = self.0.unlock();
+    }
+}
+
 pub struct Store {
+    // Field order closes SQLite before releasing workspace ownership.
     connection: Connection,
-    _lock: File,
+    _lock: WorkspaceLock,
     pub path: PathBuf,
 }
 
@@ -342,6 +353,7 @@ impl Store {
             .map_err(storage_error)?;
         lock.try_lock()
             .map_err(|_| TradeXError::new("WORKSPACE_BUSY"))?;
+        let lock = WorkspaceLock(lock);
         let existing = db_path.exists();
         let mut connection = Connection::open(&db_path).map_err(storage_error)?;
         connection

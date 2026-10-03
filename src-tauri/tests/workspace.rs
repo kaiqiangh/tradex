@@ -36,6 +36,73 @@ fn a_workspace_keeps_its_identity_and_events_after_process_state_is_dropped() {
     assert_eq!(snapshot["data"]["projection"], reopened["data"]);
 }
 
+#[cfg(unix)]
+#[test]
+fn released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec() {
+    use std::{
+        io::{Read, Write},
+        os::{
+            fd::AsRawFd,
+            unix::{net::UnixStream, process::CommandExt},
+        },
+        process::Command,
+    };
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut owner = ControlPlane::new(path.clone());
+    let opened = command(&mut owner, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let (mut signal_reader, signal_writer) = UnixStream::pair().unwrap();
+    let (mut gate_writer, gate_reader) = UnixStream::pair().unwrap();
+    signal_reader
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    gate_reader
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    let launch = std::thread::spawn(move || {
+        let signal_fd = signal_writer.as_raw_fd();
+        let gate_fd = gate_reader.as_raw_fd();
+        let mut child = Command::new("/usr/bin/true");
+        // Model an unrelated OS child between fork and exec. Only async-signal-
+        // safe syscalls run in the child; no application/vault/authority is mocked.
+        unsafe {
+            child.pre_exec(move || {
+                let mut byte = 1u8;
+                if libc::write(signal_fd, (&byte as *const u8).cast(), 1) != 1
+                    || libc::read(gate_fd, (&mut byte as *mut u8).cast(), 1) != 1
+                {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        let spawned = child.spawn();
+        drop((signal_writer, gate_reader));
+        spawned.unwrap().wait().unwrap()
+    });
+    let mut byte = [0u8];
+    signal_reader.read_exact(&mut byte).unwrap();
+    let mut contender = ControlPlane::new(path.clone());
+    let busy = command(&mut contender, "workspace.open", json!({}));
+    drop(contender);
+    drop(owner);
+    let mut reopened = ControlPlane::new(path);
+    let result = command(&mut reopened, "workspace.open", json!({}));
+    // Release and reap the external child before any assertion can unwind.
+    gate_writer.write_all(&[1]).unwrap();
+    assert!(launch.join().unwrap().success());
+    assert_eq!(
+        busy["error"]["code"], "WORKSPACE_BUSY",
+        "The active owner still excludes another writer"
+    );
+    assert_eq!(
+        result["ok"], true,
+        "Released ownership must not be kept alive by an unrelated child: {result}"
+    );
+    assert_eq!(result["data"]["workspaceId"], opened["data"]["workspaceId"]);
+}
+
 #[test]
 fn creation_settings_survive_reopen_and_invalid_requests_do_not_change_state() {
     let directory = tempfile::tempdir().unwrap();
