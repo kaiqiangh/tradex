@@ -1,6 +1,6 @@
 # S28 已知公司行为与精确账户标的元数据 — 验证证据
 
-日期：2026-10-03。[实现票](https://github.com/kaiqiangh/tradex/issues/119)，[完整原始规范](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911)。状态：**已实现；串行实现复审 PASS；最终 hosted 验收待完成**。[英文权威版本](s28-actions-evidence.md)。
+日期：2026-10-03。[实现票](https://github.com/kaiqiangh/tradex/issues/119)，[完整原始规范](https://github.com/kaiqiangh/tradex/issues/117#issuecomment-5966487911)。状态：**只读切片已验证；最终 dev 证据推送后记录关票回执**。[英文权威版本](s28-actions-evidence.md)。
 
 Settings 两个独立版本化来源复用已保存且符合条件的 Alpaca Paper、Trading 212 Live 密钥。Save 只持久化引用与审计元数据；Refresh 在控制面锁外执行固定认证 GET；Disconnect 保留借用账户和密钥。schema34 只迁移元数据。30秒进程观察绑定 workspace、来源/账户版本、凭据引用、进程会话、时钟代次和请求序列。失败、绑定变化或过期都会撤销当前证据资格，不更新原始读取时间或材料版本。
 
@@ -42,7 +42,7 @@ Gateway 修复后的完整检查首次仅在未修改的 Thread reopen 用例失
 
 ## 验收与交付边界
 
-上述记录覆盖 AC1–AC11 的实现与可取得本地/原生观察。AC12 串行实现审查、源码提交和精确构建输入绑定已完成；正常 dev push 回执在证据交付后记入实现票。AC11 最终 hosted 当前/过期观察仍待人工认证后验证，本检查点不宣称关票。
+上述记录覆盖 AC1–AC11 的实现与可取得本地/原生观察。下方2026-10-04观察已验证最终普通 hosted 当前/过期读取门禁。AC12 串行实现审查、源码提交和精确构建输入绑定已完成；补充证据验收、最终证据交付与正常 dev push 必须先于关票，本检查点不宣称关票。
 
 OD-005 整体、完整前瞻行为覆盖、历史复权、权威证券身份、当前账户可交易性/停牌、完整权限、合格 SIP 报价/深度及执行级 FX 保持独立门禁。报价 #116、Trading 212 #113、前置规范 #117、map #1 保持 OPEN。本票审查交付后才进入下一个 FX 前置项。S17 真实 Paper 和 S27 实际睡眠唤醒仍为用户跳过/未验证。此切片没有 Arm、已签发审批、reservation、下单/撤单写操作、main PR 或 main merge。
 
@@ -71,3 +71,15 @@ Hosted 诊断确认实际受支持的时段转换为 PRE_MARKET_OPEN → OPEN �
 最终普通盘后/锁修正构建：22个冻结 runtime 输入哈希仍一致。明确执行的 Trading212、Alpaca 来源 Refresh 均结束为 UNAVAILABLE，未发布 first receipt，Refresh 重新可用。读取期间的进程采样仍观察到受保护 Keychain 访问和拥有的 vault worker，未归档完整栈。终态 UI 采样晚于各自期限，不能独立测得45/60秒；公开 fake-vault 测试提供计时证明。最终 hosted 当前/过期元数据仍待人工认证后再次明确成功读取。这些阻塞尝试不构成原生来源 PASS、不关闭当前票，也不启动下一 FX 工作。
 
 最终串行实现复审：先 Standards PASS（0条文档规范违反、1条重复代码启发式建议），再 Spec PASS（0条可操作实现缺陷）。两者独立确认205个冻结哈希前后无变化，并核对22个普通构建 runtime 输入。报告与 review-after-hours-final-snapshot.json 保留。原子源码提交52071e18b1ee6a7f51b47a03afbddd99b6e473c3（持有的工作区锁释放）、de215daf1c059cf0dc641737255ee86c644b2454（实际盘后 phase 及双语契约）与审查字节一致；after-hours-source-delivery.json 绑定检查/构建源码。复审后的证据/报告/状态汇总不修改 runtime 输入；证据提交后将在实现票记录正常 dev push 回执。AC11 最终 hosted 当前/过期观察仍待完成，119保持 OPEN。不宣称 workflow/CI PASS。
+
+## 最终普通 hosted 观察 — 2026-10-04
+
+先前普通进程已退出。核对并重开相同签名 bundle 与 pinned Gateway 字节，22项 runtime 输入仍匹配已审查实现源码；实际 parent、Gateway child 映像及父子关系一致。没有新增构建、integration feature 或 authority fixture。最终经过清理的事实与精确构建/源码绑定见 [native-hosted-after-hours-final.json](evidence/s28-actions/native-hosted-after-hours-final.json)、[native-hosted-after-hours-final-build-binding.json](evidence/s28-actions/native-hosted-after-hours-final-build-binding.json)。
+
+普通公司查询 AVAILABLE，1条已知事件、返回分页已穷尽且保留仅日期精度。接收时间2026-10-03T23:01:35.28Z 与材料061e108a812b24c9ab5a23d9f709c60238f05a13508c7a10d0446a7cec061ce0 在自然经过时间后过期且不变；没有记录精确的当前快照捕获时间。处理日期查询仍为延迟质量，完整未来行为覆盖/历史调整不支持；未归档事件日期、经济条款或正文。
+
+已有 Live 连接为 FAILED，因此首次元数据尝试被账户资格门禁拒绝。同一保存凭据的只读重测达到 REVIEW_REQUIRED；按既有授权确认未知权限范围并本地确认后恢复 CONNECTED，保留 UNVERIFIED/DISARMED。一次元数据请求被共享额度拒绝，没有新增 receipt；遵守实际冷却，没有重置额度、换 host/key 或新建账号。最终当前元数据于2026-10-04T05:21:38.910Z 明确捕获为 AVAILABLE，receipt2026-10-04T05:21:38.16Z、material ab1ebec42d29d7bac0781de5c7cc323dede21e14d72b0aca47c3302f4a7a58be。相同选定账户身份及 AAPL_US_EQ/MSFT_US_EQ 元数据可用，各126条日程事件；仍是十分钟元数据，没有 provider observation time，规范身份佐证仍 UNVERIFIED。自然经过110.33秒后显示 UNAVAILABLE，receipt/material 不变，两次观察之间没有刷新或同步时间。停牌与当前账户可交易性仍 blocked external。随后选定 Live 详情实际确认 CONNECTED/UNVERIFIED/DISARMED，OD-005 仍 Not verified，没有金融写入。
+
+这只完成保留的最终普通当前/过期读取门禁。历史失败/阻塞及先前原生 Market 详情限制继续明确保留，真实 Rust 响应式 UI 证明单独记载。补充串行 Standards、Spec 复审、证据交付及正常 dev push 必须先于实现票关闭。报价/Trading212/前置规范/map 父级、未支持的正向金融能力与用户跳过 Paper/睡眠门禁保持开放。
+
+补充最终原生 Standards、Spec 按顺序复审均 PASS，0条可操作发现，Standards 保留1条重复代码启发式建议。两者独立确认211项冻结文件哈希、22项 runtime 输入、实际签名 desktop/Gateway 字节及 hosted 事实摘要一致。报告与 review-native-acceptance-snapshot.json 保留。Spec 明确接受保留的 AC11 普通当前/过期读取门禁；复审后只汇总文档证据/状态，不修改 runtime 或测试。最终证据提交、正常 dev push 核对与关票回执记入实现票。完成只适用于此有界只读切片，验收父级和未支持的金融权威保持开放。
