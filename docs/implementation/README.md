@@ -139,7 +139,7 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 | S26 | 刷新并审批撤单与处理成交竞态 | S22、S24、S25 | 精确不可变 CANCEL intent、Arm 后回到撤单且刷新、不同撤单资格、approval/reject/expire、CANCEL_PENDING→provider truth；ACK 不释放，部分成交/费用/剩余容量恰好一次处理；修改仅确认撤单后新 proposal。 |
 | S27 | 恢复崩溃、休眠、断流并中断未派发工作 | S24–S26 | 全 Live restart/sleep/lock/Disable All disarm，account fault 指定作用域、共享政策全部绑定账户；未知保留；P0/P1 优先于 research/backtest，bounded queues；模型故障下监控/撤单/对账仍有效。 |
 | S28 | 验证 Trading 212 Live 可信执行 | S06、S08、S18、S21–S27 | Live adapter 与 trusted chain 贯通、最新 entitlement/calendar/账户能力门槛、真实查询与明确用户交易授权的验收；没有实际授权不发 Live order，保留该验收阻塞。 |
-| S29 | 验证 Binance Spot Live 可信执行 | S06、S08、S19、S21–S27 | Live spot 单独连接、permissions/rules/time/FX、受信下单/撤单/对账全链，account-specific readiness；contract/fault 与授权外部验收分别记录。 |
+| S29 | 验证 Binance Spot Live 可信执行（父规范 #121；当前单票 #122） | S06、S08、S19、S21–S27 | Live spot 单独连接、permissions/rules/time/FX、受信下单/撤单/对账全链，account-specific readiness；contract/fault 与授权外部验收分别记录。 |
 | S30 | 验证 Bitget Spot Live 可信执行 | S06、S08、S20、S21–S27 | Live/Demo 绝不混路由，签名/身份/权限/成交/撤单证据与 trusted authority；只有该 provider 完整 gate 通过才开放对应能力。 |
 | S31 | 验证工作区备份、导入、迁移与保留 | S12、S15、S25、S27 | 非秘密 export manifest、路径/归档/schema 校验、恢复前备份、事务迁移/integrity、Keychain 引用检查、恢复全 Live disarmed/reconcile；未解决金融证据不可自动清理。 |
 | S32 | 完成设置、健康诊断与隐私控制 | S03、S27、S31 | Providers/Models/Risk/Data/Health/Appearance/About、版本来源/配额/日志/诊断、auto-update/crash-report 明确界面与 opt-in、默认无 telemetry；敏感字段序列化前脱敏。 |

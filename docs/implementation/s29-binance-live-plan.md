@@ -1,0 +1,18 @@
+# S29 — Binance Spot Live serial plan
+
+Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Current ticket: [Inspect Binance Live account trading state](https://github.com/kaiqiangh/tradex/issues/122). Start: dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9.
+
+The user selected S29 on 2026-10-07 while S28 acceptance remains open. This changes scheduling only. S17, physical S27 and all S28 financial gates remain unverified where previously recorded. The final outcome remains the complete RevC application, validated on dev, followed by a dev→main PR for human review only.
+
+The parent issue contains the full requirement list and implementation decisions. Reuse the accepted public UI → real typed Control Plane → temporary SQLite/outbox → external fake vault/HTTP/WS seam. No new financial positive path may use hidden authority seeds; later PLACE acceptance must use the real authenticated child Gateway and loopback fake provider. Existing lower-level synthetic lifecycle regression scaffolding is retained explicitly as synthetic; it is not S29 acceptance evidence.
+
+Work one complete implementation ticket at a time:
+
+1. **Account trading-state observation and safety consumption** (#122): public connect/probe/refresh → fixed ordinary Binance HTTP/signature/current-job adapter → typed persisted status → Accounts projection and Arm/PLACE health guard. No open technical blocker. Real-provider financial acceptance is outside this child and remains required by the parent.
+2. **Configured venue/rule/market evidence**: exact canonical BASE/QUOTE, status/permission sets/filters, authentic bid/ask and depth, timestamps/sequencing/freshness, source generations and explicit data rights. Reassess the next narrow complete slice after #122 review; do not infer current quotes from ticker/REST receipt times or invent a crypto equity calendar.
+3. **Live PLACE and private-stream lifecycle**: actual account capabilities, immediate preflight and genuinely needed execution FX, immutable financial intent/approval/capacity, authenticated Gateway, one mutation, exact client/order identity, query-first uncertainty, exact cancellation/fills/fees and recovery. Depends only on the evidence gates it actually consumes.
+4. **Ordinary-native and authorized external acceptance**: safe saved-key reads first; actual financial actions require a concrete separately approved transaction/cancel plan and human action. No Testnet or demo hosted substitute, access bypass or automatic main merge.
+
+Parent completion requires every user story and provider/financial/UX/architecture gate in the parent spec; a closed read-only prerequisite does not close S29.
+
+Primary API references checked 2026-10-07: [account trading status and API restrictions](https://developers.binance.com/en/docs/catalog/core-trading-wallet/api/rest-api/account), [system status](https://developers.binance.com/en/docs/catalog/core-trading-wallet/api/rest-api/others), [Spot rules](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/general), [Spot streams](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~). Further endpoint-specific research belongs to its owning slice. These references do not establish this user's licence, regional access or hosted readiness.
