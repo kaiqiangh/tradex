@@ -1,0 +1,64 @@
+{
+  "observedAt": "2026-10-07T15:59:32.800080+00:00",
+  "baseline": "88ff1a5b242fcf4ff62685f8075f05139934154a",
+  "sourceCommit": "953cbacc99d3f0662dba69ba1baf0cf14f8bef71",
+  "ordinaryBundle": "native-build.json same signed bundle; no rebuild",
+  "fixtureOnly": false,
+  "publicReadOnlyInstrument": "equity:US:AAPL",
+  "feed": "iex",
+  "sequence": [
+    {
+      "state": "PAUSED",
+      "reason": "This hidden view has released its quote subscription."
+    },
+    {
+      "state": "STALE",
+      "reason": "Source, workspace or account changed; reacquire the quote lease."
+    },
+    {
+      "action": "Public Back to results then select AAPL; no credential/feed replacement"
+    },
+    {
+      "state": "CONNECTING",
+      "authenticationConfirmed": false,
+      "subscriptionConfirmed": false
+    },
+    {
+      "state": "STREAMING",
+      "authenticationConfirmed": true,
+      "subscriptionConfirmed": true,
+      "reason": "Actual quote received on the authenticated, confirmed subscription.",
+      "sourceStatus": "Available Authenticated selected-feed quote available. Coverage, depth, calendar and all financial guards remain separate."
+    },
+    {
+      "state": "FAILED",
+      "reason": "Quote stream failed (PROVIDER_RESPONSE_INVALID); release and retry the selected feed.",
+      "retainedQuote": "REALTIME / STALE",
+      "providerTimestamp": "2026-10-07T15:50:35.186582129Z",
+      "receivedTimestamp": "2026-10-07T15:50:35.249Z",
+      "quoteCoverage": "IEX",
+      "listingVenue": "XNAS",
+      "bidAskVenue": "V / IEX"
+    }
+  ],
+  "focusAttempt": "Coordinate focus action reported noWindowsAvailable; same app inventory/process remained live and subsequent AX/navigation succeeded. No restart was commanded to recover this observation.",
+  "all75InputsMatch": true,
+  "signedBinaryAndGatewayHashesMatch": true,
+  "actualParentChildAtFollowupMatches": true,
+  "unverified": [
+    "cause of provider-response rejection; raw provider frames not archived",
+    "stable current Hot quote readiness",
+    "consolidated SIP coverage/depth/licence",
+    "original positive AC4 financial acceptance"
+  ],
+  "noPrivateAccountsPricesKeysBodiesOrScreenshotArchived": true,
+  "noFinancialAction": true,
+  "noTestsBuildOrHostedCiRerun": true,
+  "serialSchedulingChoiceStillPending": true,
+  "serialReviews": {
+    "standards": "PASS0defects0advisories",
+    "specAudit": "PASS0defects0scopeexpansion",
+    "specWholeTicket": "NOTPASS1positiveAC4gap",
+    "noAcceptanceGateWaiver": true
+  }
+}
