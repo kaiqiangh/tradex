@@ -3037,7 +3037,7 @@ FX 来源投影增加可选 fxRequirements 及四项独立 typed capabilities：
 
 `AccountConnection.binanceTradingStatus` 是绑定精确 Binance 普通 Spot Live 连接的可选、serde 默认观察字段。缺少该字段的历史账户仍可读取，但交易状态证据不可用。字段为 `systemStatus`（`NORMAL` 或 `MAINTENANCE`）、`apiTradingLocked`（布尔）、`providerUpdatedAt`（提供方交易锁更新时间，RFC3339）、`plannedRecoveryAt`（可空 RFC3339；提供方零值表示未提供）及 `observedAt`（首个系统状态响应在本地收到的 RFC3339 时间）。后续交易锁和历史读取不会推进这个保守接收时间。系统状态没有提供方时间戳；本地接收时间及旧交易锁更新时间均不是执行报价时间。稳定未锁定状态可以带有较早的提供方更新时间：新读取的时效不等于虚构新交易锁事件。
 
-普通 Test/Verify/Refresh 在固定 `https://api.binance.com` 主机读取无签名公共 GET `/sapi/v1/system/status` 及签名 GET `/sapi/v1/account/apiTradingStatus`，沿用调度器、服务端时间 HMAC、当前任务、身份、响应上限及秘密检查。独立于任意精度 `Value` 转换，在投影状态证据前校验原始 JSON 整数与布尔 token；数字对象哨兵、关键字段重复、错误类型、未知系统码、错误时间单位/范围及晚于当前提供方采样的锁更新时间均为无效响应。不持久化远程消息、触发条件正文或原始响应。精确 CANCEL 观察与未知 PLACE 对账保持各自门禁读取契约，不新增诊断依赖。
+普通 Test/Verify/Refresh 在固定 `https://api.binance.com` 主机读取无签名公共 GET `/sapi/v1/system/status` 及签名 GET `/sapi/v1/account/apiTradingStatus`，沿用调度器、服务端时间 HMAC、当前任务、身份、响应上限及秘密检查。独立于任意精度 `Value` 转换，在投影状态证据前校验原始 JSON 整数与布尔 token；数字对象哨兵、关键字段重复、错误类型、未知系统码、错误时间单位/范围及晚于当前提供方采样的锁更新时间均为无效响应。不持久化远程消息、触发条件正文或原始响应。精确 CANCEL 观察与未知 PLACE 对账保持各自门禁读取契约，不新增诊断依赖。成功的精确 Live 订单持久化保留既有身份、权限、凭据及真实健康降级检查，但不引入此新增诊断前提；该范围由可信已准备任务决定。普通账户持久化与 Arm/PLACE 继续消费交易状态证据。
 
 系统正常与 API 未锁定只是只读诊断，不等于完整权限、标的/规则/报价/FX/数据权利/私有流就绪。维护、锁定、缺失观察、无法解析/未来接收时间或接收时间超过 30 秒，阻断 Arm 与 PLACE 的账户健康判断。适用时沿用账户降级路径解除武装并使未消费权限失效；正常读取永不自动重新武装。失败或过时任务保留此前可信数据、状态及成功同步时间，但不得恢复当前健康。重开保留状态供参考，仍执行启动失效与解除武装/对账。S29 父项的普通数据源、Live PLACE/私有流及经授权外部生命周期验收保持开放；S28/S17/物理 S27 发布门禁不变。
 

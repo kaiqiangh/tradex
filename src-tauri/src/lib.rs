@@ -2366,6 +2366,12 @@ fn empty_binance_testnet_order_book(
     })
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AccountObservationScope {
+    Ordinary,
+    ExactLiveOrder,
+}
+
 pub struct ControlPlane {
     default_workspace: PathBuf,
     store: Option<Store>,
@@ -7249,7 +7255,9 @@ impl ControlPlane {
     }
 
     fn live_arming_blocker(&self, account: &AccountConnection) -> Option<&'static str> {
-        if let Some(code) = Self::live_account_health_blocker(account) {
+        if let Some(code) =
+            Self::live_account_health_blocker(account, AccountObservationScope::Ordinary)
+        {
             return Some(code);
         }
         if !self
@@ -7306,7 +7314,10 @@ impl ControlPlane {
             .collect()
     }
 
-    fn live_account_health_blocker(account: &AccountConnection) -> Option<&'static str> {
+    fn live_account_health_blocker(
+        account: &AccountConnection,
+        scope: AccountObservationScope,
+    ) -> Option<&'static str> {
         if account.environment != "LIVE" {
             return Some("LIVE_ACCOUNT_REQUIRED");
         }
@@ -7324,7 +7335,9 @@ impl ControlPlane {
         {
             return Some("ACCOUNT_UNHEALTHY");
         }
-        if !storage::timestamp().is_ok_and(|now| account.binance_trading_state_is_current(&now)) {
+        if scope == AccountObservationScope::Ordinary
+            && !storage::timestamp().is_ok_and(|now| account.binance_trading_state_is_current(&now))
+        {
             return Some("ACCOUNT_UNHEALTHY");
         }
         if !account.permissions.forbidden.is_empty()
@@ -7351,7 +7364,12 @@ impl ControlPlane {
     }
 
     fn persist_account(&mut self, account: AccountConnection) -> Result<AccountConnection> {
-        self.persist_account_with_live_order_settlements(account, Vec::new(), None)
+        self.persist_account_with_live_order_settlements(
+            account,
+            Vec::new(),
+            None,
+            AccountObservationScope::Ordinary,
+        )
     }
 
     fn persist_account_with_live_order_settlements(
@@ -7359,6 +7377,7 @@ impl ControlPlane {
         mut account: AccountConnection,
         settlements: Vec<provider_io::LiveOrderObservation>,
         live_cancel_order_observation: Option<(String, provider_io::LiveOrderObservation)>,
+        observation_scope: AccountObservationScope,
     ) -> Result<AccountConnection> {
         let previous = self
             .store
@@ -7373,7 +7392,7 @@ impl ControlPlane {
                     != account.data.as_ref().map(|data| &data.remote_account_id);
             let disarm_reason = if identity_or_permission_changed {
                 Some("CREDENTIAL_OR_PERMISSION_CHANGED")
-            } else if Self::live_account_health_blocker(&account).is_some() {
+            } else if Self::live_account_health_blocker(&account, observation_scope).is_some() {
                 Some("ACCOUNT_HEALTH_DEGRADED")
             } else {
                 None
@@ -11735,10 +11754,24 @@ impl ControlPlane {
             a.health.connection = "ONLINE".into();
             a.health.authentication = "VALID".into();
             a.health.reason = "Read-only account data loaded. Trading, private streams and reconciliation are not configured.".into();
+            // Successful exact Live order reads do not refresh account trading
+            // diagnostics. Keep their pre-existing protective CANCEL contract;
+            // identity, permission, authentication and other degradation checks
+            // remain active. The scope comes from the prepared job, not the UI.
+            let observation_scope = if a.environment == "LIVE"
+                && matches!(
+                    &job.kind,
+                    JobKind::CancellationIntentRefresh(_) | JobKind::LiveOrderRefresh { .. }
+                ) {
+                AccountObservationScope::ExactLiveOrder
+            } else {
+                AccountObservationScope::Ordinary
+            };
             self.persist_account_with_live_order_settlements(
                 a,
                 observed.live_order_settlements,
                 live_cancel_order_observation,
+                observation_scope,
             )
         })();
         match result {
@@ -22601,6 +22634,62 @@ mod cancellation_approval_tests {
             "previousIntentId":intent_id,
             "expectedStateVersion":account.state_version,
         })
+    }
+
+    #[test]
+    fn expired_binance_diagnostic_does_not_degrade_an_exact_cancel_observation() {
+        // Lower-level compatibility regression using the existing synthetic
+        // lifecycle fixture, not S29 public financial acceptance. No approval,
+        // preparation, Gateway dispatch or provider mutation is performed.
+        let (_folder, mut control, workspace_id, account) = fixture();
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({"workspaceId":workspace_id,"connectionId":account.connection_id,
+                "expectedStateVersion":account.state_version,"confirmed":true}),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(30_100));
+        assert!(!account.binance_trading_state_is_current(&storage::timestamp().unwrap()));
+        let clock = control.time.status(&workspace_id).unwrap();
+        control.time.set_test_time(
+            OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000 + 10_000,
+            clock.monotonic_ms.saturating_add(30_100),
+        );
+        let revalidated = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(revalidated["data"]["confidence"], "TRUSTED");
+        let review = request_review(
+            &mut control,
+            &workspace_id,
+            &account,
+            None,
+            "BTCUSDT:9007199254740995",
+        );
+        assert_eq!(review["account"]["health"]["arming"], "ARMED", "{review}");
+        assert_eq!(
+            review["account"]["binanceTradingStatus"],
+            serde_json::to_value(&account.binance_trading_status).unwrap()
+        );
+        // Ordinary account persistence still consumes the expired diagnostic.
+        let current = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let ordinary = control.persist_account(current).unwrap();
+        assert_eq!(ordinary.health.arming, "DISARMED");
+        assert_eq!(ordinary.health.arming_reason, "ACCOUNT_HEALTH_DEGRADED");
     }
 
     #[test]
