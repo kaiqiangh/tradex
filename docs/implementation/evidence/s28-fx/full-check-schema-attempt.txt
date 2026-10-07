@@ -1,0 +1,72 @@
+npm notice run tradex@0.1.0 check
+npm notice run npm run schema:check && npm run build && npm run test:unit && cargo test --workspace && python3 scripts/check_requirements.py
+npm notice run tradex@0.1.0 schema:check
+npm notice run node scripts/ipc-schema.mjs --check
+Rust / JSON Schema / TypeScript agree.
+npm notice run tradex@0.1.0 build
+npm notice run npm run typecheck && vite build
+npm notice run tradex@0.1.0 typecheck
+npm notice run tsc --noEmit
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 86 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.46 kB │ gzip:   0.29 kB
+dist/assets/index-tzeOr4dt.css     48.49 kB │ gzip:   8.91 kB
+dist/assets/index-Dtgi3X18.js   4,389.55 kB │ gzip: 440.58 kB
+
+✓ built in 567ms
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+npm notice run tradex@0.1.0 test:unit
+npm notice run node --test tests/*.test.ts
+✔ eight subscriptions share one SSE, survive a sibling close, and recover after disconnect (1.354708ms)
+✔ Live attempt status never describes acknowledgement as a fill or cancellation (0.526333ms)
+✔ Live attempt status only claims no dispatch with persisted stop evidence (0.107583ms)
+✔ the UI applies only contiguous supported events and ignores exact duplicates (6.770792ms)
+✖ workspace snapshots accept the current storage schema version (0.375417ms)
+✔ generated result schema rejects false success, mixed envelopes and foreign payloads (9.971208ms)
+✔ research venue schema keeps unavailable values nullable and rejects numeric zero (0.495042ms)
+✔ Bitget Spot order schema accepts external origins and plan trigger states (0.4695ms)
+✔ research payload schema rejects unbounded scenarios, artifact refs and venue rows (0.906334ms)
+✔ model projection accepts both provider event types and rejects foreign aggregates (0.475333ms)
+✔ thread projection preserves identity and contiguous event ordering (0.305916ms)
+✔ account projection applies durable Live arming transitions (0.258125ms)
+✔ Live settlement events preserve the exact attempt and reservation binding (0.493708ms)
+✔ Alpaca Paper attempts use their own aggregate identity and preserve order bindings (0.299875ms)
+✔ Trading 212 Demo attempts replay by attempt identity without inventing a client order ID (0.32975ms)
+✔ Trading 212 Demo order books replay exact cumulative observations under Demo account identity (0.963167ms)
+✔ managed Hot quote replies pass the public envelope and reject foreign lease fields (0.994375ms)
+✔ workspace wire contract accepts FX migration version and rejects a future schema (0.469167ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 17
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 140.41725
+
+✖ failing tests:
+
+test at tests/projection.test.ts:33:1
+✖ workspace snapshots accept the current storage schema version (0.375417ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///Users/kai/Desktop/my-repo/tradex/tests/projection.test.ts:36:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

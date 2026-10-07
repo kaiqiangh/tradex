@@ -1,0 +1,5 @@
+NOT PASS
+
+One P2: FX-only pre-arm omits review capture time. Frontend13.25/UI14.24 require both pre-arm and immutable approval to show captured currencyEvidence, capture time and captured statuses. CapturedCurrencyEvidence at src/FinancialEvidencePanel.tsx:122 passes reviewedAt into FinancialEvidencePanel only as a status-label flag; the timestamp itself is absent. With only FX selected, the separate market financial panel is absent, so pre-arm at OrderDrafts.tsx:1801 has no capture time. Render the original reviewedAt and verify it remains frozen after expiry.
+
+No other actionable Spec defect confirmed. Original token and monetary balance fixes match contracts; directions, unknown currencies, original times/asynchronous binding/conversion guards/consent/Prepare/dispatch/LocalPaper/CANCEL consistent. All35source/20runtime hashes matched. Recorded386Rust/425integration/23Gateway;39ignored unverified; native denial classification only, HTTP403 mapping inference. No tests/build/UI/provider operations or mutations by reviewer. AC12 delivery pending; no financial-parent/fullgoal/main acceptance.

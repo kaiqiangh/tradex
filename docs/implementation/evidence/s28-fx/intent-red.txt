@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.76s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test immutable_intent_adds_only_its_actual_funding_direction_to_fx_read ... FAILED
+
+failures:
+
+---- immutable_intent_adds_only_its_actual_funding_direction_to_fx_read stdout ----
+
+thread 'immutable_intent_adds_only_its_actual_funding_direction_to_fx_read' (5364982) panicked at src-tauri/tests/financial_sources.rs:3018:5:
+assertion `left == right` failed: Immutable intent-scoped FX read is unavailable: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_PAYLOAD_INVALID","message":"The request does not match the supported command schema.","remediationActions":[{"id":"retry_request","label":"Review and retry"}],"retryable":false},"ok":false,"requestId":"intent-fx","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    immutable_intent_adds_only_its_actual_funding_direction_to_fx_read
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

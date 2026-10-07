@@ -1,0 +1,56 @@
+{
+  "observedAt": "2026-10-04T09:50:38.625Z",
+  "observations": [
+    "Public connection UI retains UNVERIFIED permission scope and Live DISARMED.",
+    "Saved-key selection, unsaved refresh lock, independent provider mid and exact bid/ask decimals are displayed with conversion/cost blockers.",
+    "Portfolio displays actual currency routes; selection does not restore synthetic monetary authority.",
+    "Immutable proposal refresh obtains the reverse route. Disabled pre-arm review retains original evidence after expiry; current UI marks it unavailable. No Arm or approval action.",
+    "The external HTTP fixture denies the third actual read; the widget exposes a sanitized error and Reload without a financial action.",
+    "Reload retains saved selection only. Disconnect preserves both account records and borrowed credentials."
+  ],
+  "layouts": [
+    {
+      "requestedWidth": 390,
+      "scroll": 375,
+      "width": 375
+    },
+    {
+      "requestedWidth": 768,
+      "scroll": 753,
+      "width": 753
+    },
+    {
+      "requestedWidth": 1280,
+      "scroll": 1265,
+      "width": 1265
+    }
+  ],
+  "reviewLayouts": [
+    {
+      "requestedWidth": 390,
+      "left": 16,
+      "right": 359,
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "requestedWidth": 768,
+      "left": 56.5,
+      "right": 696.5,
+      "scroll": 753,
+      "width": 768
+    },
+    {
+      "requestedWidth": 1280,
+      "left": 312.5,
+      "right": 952.5,
+      "scroll": 1265,
+      "width": 1280
+    }
+  ],
+  "sourceKind": "FX",
+  "approvalCount": 0,
+  "providerMutation": false,
+  "consoleErrorsWarnings": 0,
+  "fixtureEvidenceOnly": true
+}

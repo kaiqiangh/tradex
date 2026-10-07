@@ -1,0 +1,14 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0382]: borrow of moved value: `input.workspace_id`
+    --> src-tauri/src/financial_sources.rs:2052:43
+     |
+2037 |             workspace: input.workspace_id,
+     |                        ------------------ value moved here
+...
+2052 |                             workspace_id: input.workspace_id.clone(),
+     |                                           ^^^^^^^^^^^^^^^^^^ value borrowed here after move
+     |
+     = note: move occurs because `input.workspace_id` has type `std::string::String`, which does not implement the `Copy` trait
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `tradex` (lib) due to 1 previous error

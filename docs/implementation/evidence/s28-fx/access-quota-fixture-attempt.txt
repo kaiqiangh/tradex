@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.21s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota ... FAILED
+
+failures:
+
+---- fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota stdout ----
+
+thread 'fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota' (5409112) panicked at src-tauri/tests/financial_sources.rs:3676:13:
+assertion `left == right` failed
+  left: Trading212Live
+ right: AlpacaMarketData
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

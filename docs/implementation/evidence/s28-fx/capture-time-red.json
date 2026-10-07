@@ -1,0 +1,5 @@
+{
+  "observedAt": "2026-10-05T08:56:26.186Z",
+  "result": "FAILED_EXPECTED",
+  "message": "Error: Error: Playwright selector deadline exceeded\nlocator.waitFor(visible) timed out for selector internal:role=dialog[name=\"Confirm Live arming\"s] >> internal:role=region[name=\"Captured currency evidence\"s] >> time\nLocator diagnostics: {\"kind\":\"no_matches\",\"action\":\"waitFor\",\"locator\":\"internal:role=dialog[name=\\\"Confirm Live arming\\\"s] >> internal:role=region[name=\\\"Captured currency evidence\\\"s] >> time\",\"matchCount\":0,\"matches\":[],\"visibleCount\":0,\"truncated\":false}"
+}

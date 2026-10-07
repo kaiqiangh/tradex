@@ -1,0 +1,41 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.36s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 34 tests
+test a_late_vault_read_cannot_start_http_without_the_full_timeout_budget ... ignored, Uses 49 seconds of real elapsed time to verify the HTTP timeout reserve
+test every_official_company_event_category_is_preserved_without_legacy_reclassification ... ok
+test company_query_reaches_market_with_its_original_binding_without_adjustment_authority ... ok
+test company_event_forbidden_response_is_an_access_failure_without_an_alternate_read ... ok
+test company_pagination_enforces_bounds_without_truncating_or_publishing_partial_queries ... ok
+test fx_requirements_distinguish_identity_from_actual_cross_currency_inputs ... ok
+test identity_currency_refresh_does_not_request_a_key_or_external_rate ... ok
+test fx_source_reuses_explicit_saved_key_and_reopens_without_authority ... ok
+test known_event_query_keeps_date_precision_and_never_certifies_complete_coverage ... ok
+test immutable_intent_adds_only_its_actual_funding_direction_to_fx_read ... ok
+test known_events_do_not_satisfy_independent_equity_approval_guards ... ok
+test malformed_or_ambiguous_query_completion_retires_the_previous_snapshot ... ok
+test metadata_quota_does_not_open_early_after_a_slow_identity_read ... ignored, Real monotonic quota boundary; execute explicitly when changing quota accounting
+test changed_fx_source_account_workspace_clock_or_sequence_discards_late_results ... ok
+test malformed_fx_or_old_provider_time_retires_current_read_without_authority ... ok
+test after_hours_open_transitions_from_regular_hours_without_fabricating_a_close ... ok
+test protected_authentication_returns_by_the_job_deadline_and_discards_late_credentials ... ignored, Uses63seconds of real elapsed time to verify protected authentication deadline
+test provider_echoed_company_event_credentials_retire_the_previous_query ... ok
+test provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query ... ok
+test exact_live_account_metadata_is_readable_without_current_tradability_authority ... ok
+test required_fx_read_preserves_exact_bid_ask_mid_and_separate_qualification ... ok
+test public_source_account_workspace_and_clock_changes_discard_late_company_result ... ok
+test revised_and_removed_events_replace_current_material_without_certifying_complete_coverage ... ok
+test selected_or_disconnected_fx_source_cannot_restore_synthetic_portfolio_authority ... ok
+test schema_34_source_selections_survive_fx_migration_and_metadata_reopen ... ok
+test coherent_broker_schedule_keeps_all_event_types_and_truncated_window_edges ... ok
+test source_selection_reopens_as_metadata_and_disconnect_keeps_the_account_key ... ok
+test uuid_case_aliases_cannot_duplicate_a_company_action ... ok
+test metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it ... ok
+test broker_read_boundaries_stop_late_results_and_remaining_metadata_requests ... ok
+test malformed_broker_identity_or_schedule_is_unavailable_without_panicking ... ok
+test source_read_errors_distinguish_auth_permission_and_quota_without_echoing_the_body ... ok
+test ordinary_account_summary_holds_metadata_quota_before_the_first_metadata_read ... ok
+test ordinary_summary_completion_preserves_exhausted_headers_and_transport_cooldown ... ok
+
+test result: ok. 31 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 40.41s
