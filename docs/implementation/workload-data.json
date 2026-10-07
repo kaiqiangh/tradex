@@ -1,6 +1,6 @@
 {
- "generated": "2026-10-05 10:00 +0100",
- "commit": "d7ea48d",
+ "generated": "2026-10-07 09:47 +0100",
+ "commit": "d4a943c",
  "branch": "dev",
  "ahead": 0,
  "req_total": 203,
@@ -19,7 +19,7 @@
   "NOT_STARTED": 29
  },
  "issue_total": 119,
- "issue_open": 8,
+ "issue_open": 7,
  "open_issues": [
   1,
   56,
@@ -27,8 +27,7 @@
   113,
   115,
   116,
-  117,
-  120
+  117
  ],
  "slice_closed": 25,
  "slice_inprog": 3,
@@ -643,8 +642,8 @@
     119,
     120
    ],
-   "issues_closed": 3,
-   "issues_open": 5,
+   "issues_closed": 4,
+   "issues_open": 4,
    "total": 2,
    "not_started": 0,
    "in_progress": 1,

@@ -4,7 +4,7 @@
 
 ## 交付边界
 
-本切片推导实际货币需求并提供有界只读 FX 上下文，不授予换汇或金融执行资格。当前实现/原生/UI 验证已完成，包括余额路由及原始捕获时间整改；独立串行 Standards PASS0硬违规/1非阻塞建议、Spec PASS0确认问题；dev 证据交付仍待完成。初始/token 整改证据保留为历史。[验收审计](evidence/s28-fx/acceptance-audit.md)映射全部12项验收条件；[源码检查点](evidence/s28-fx/implementation-checkpoint.json)记录精确文件哈希及当前限制。
+本切片推导实际货币需求并提供有界只读 FX 上下文，不授予换汇或金融执行资格。当前实现/原生/UI 验证已完成，包括余额路由及原始捕获时间整改；独立串行 Standards PASS0硬违规/1非阻塞建议、Spec PASS0确认问题；源码/证据已在 dev 验证交付，120票已关闭。初始/token 整改证据保留为历史。[验收审计](evidence/s28-fx/acceptance-audit.md)映射全部12项验收条件；[源码检查点](evidence/s28-fx/implementation-checkpoint.json)记录精确文件哈希及当前限制。
 
 显式选择已有 Alpaca PAPER 来源，提供版本化 Save/Refresh/Disconnect/reload 及仅恢复元数据的重开。Save 不请求提供方；断开保留借用的账户和密钥。工作区、精确账户、已观察余额单位、金额消费者与不可变意图决定实际路由。BALANCE_WORKSPACE 保留已知钱包单位，不推断未知账户主 fiat 币种；共用 Portfolio 的2–16位大写字母/数字验证，包括不支持的 USDT/OP/1INCH。同币无需汇率，未知币种保持未知，USDT 与 USD 独立。Spot BUY 仅从实际观察到的匹配 quote asset 确定资金单位；SELL 不附加 BUY 资金换汇路由。Local Paper 与保护性 CANCEL 保留既有语义。
 
@@ -24,3 +24,5 @@ Settings、Portfolio、Trade 展示当前需求、选定来源、原始汇率/�
 所需执行级 FX、允许用途/授权、精确券商费用与完整金额输入仍不可用。日历读取及已知公司行为/精确账户元数据读取不证明完整行为/历史调整、权威身份、当前停牌/可交易性、完整密钥权限、SIP 或执行场所。报价及 Trading212 验收父项保持 OPEN。用户跳过的 S17 真实 Paper 与 S27 实际 OS 睡眠唤醒仍未验证。本切片不提交/合并 main PR，也不完成整张 map。
 
 源码提交：`e82b65e396e91560debae914d407577b62a76db0`.
+
+已交付证据：`d4a943cba31a948fae54b365bce4e91697c358bf`。[关闭记录](evidence/s28-fx/closure-receipt.json)区分最终交付与冻结的交付前检查点。
