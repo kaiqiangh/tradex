@@ -1,11 +1,28 @@
 # S28 production financial prerequisites
 
 Date: 2026-10-01. Audit baseline: `aa43091ea2eef732b5865b163cbeee3cac3e03c9`.
-Status: **IMPLEMENTATION_IN_PROGRESS; calendar accepted, second prerequisite implemented and awaiting review**.
+Status: **READ_ONLY_CHILDREN_DELIVERED; positive financial acceptance remains unsupported/unverified**.
 Specification: [补齐 S28 生产金融前置证据](https://github.com/kaiqiangh/tradex/issues/117).
 Chinese pair: [金融前置依赖](s28-financial-prerequisites_zh.md).
 
 The user explicitly authorized keeping [接入已配置 Alpaca 报价与 Hot 订阅](https://github.com/kaiqiangh/tradex/issues/116) OPEN while completing financial prerequisites serially. This changes sequencing only. Its positive approval/Prepare/dispatch criterion and the [Trading 212 Live acceptance parent](https://github.com/kaiqiangh/tradex/issues/113) remain unfulfilled.
+
+## Current return-to-acceptance audit — 2026-10-07
+
+Current source baseline: `dev@64b21a3df0ae56a4410604902ff14b636f6837aa`. The calendar, known company events/exact-account metadata and required-route/read-only FX implementation children are CLOSED with their own reviewed evidence. This does not complete this prerequisite specification or the quote/Trading212 positive acceptance parents.
+
+| Current gate | Authoritative evidence / outcome | Required next evidence |
+|---|---|---|
+| Calendar | Calendar child118 delivered actual native read/expiry; current session requires explicit fresh refresh before consumption. | Current bound trusted coverage/session, not historical receipt. |
+| Known actions / exact-account directory | Child119 delivered bounded reads and expiry. Source capabilities keep complete action coverage, current halts/account tradability and historical adjustment separate. | Complete prospective actions/adjustment and exact current unrestricted execution-account tradability/identity, not query exhaustion or directory membership. |
+| Required FX | Child120 delivered actual balance/intent route derivation, exact original tokens/times and frozen consent. Current2026-10-07 native FX read returned the sanitized endpoint-denial reason, no rate or first receipt; HTTP403 is mapping inference. | Qualified permitted transaction use, explicit conservative direction/rounding, exact broker funding/costs and complete monetary inputs where actually required. Same-currency and protective CANCEL retain operation-specific semantics. |
+| Quote source | Current ordinary native explicitly selected IEX: authenticated technical quote access verified; Hot authentication and subscription acknowledged, no actual current quote observed at sampling. | Actual fresh eligible quote/coverage/depth, and any required SIP entitlement. Acknowledgements and IEX connectivity are insufficient. |
+| Trading212 account / permissions | The existing Live row was FAILED/STALE with UNVERIFIED scope and DISARMED. Explicit saved-key read-only Refresh is currently awaiting human macOS Keychain authentication. | Actual current account recovery; full authoritative permission evidence remains independently missing even if recovery succeeds. |
+| Positive issued approval / Prepare / dispatch | Still unverified. Current normative scope guard rejects non-VERIFIED permissions; ordinary risk reports unavailable complete-action and exact-tradability/identity inputs; required unqualified FX remains unavailable. | All applicable production prerequisites before positive issued-consent/Prepare/Gateway acceptance. A fixture or disabled read-only preview cannot stand in for it. |
+
+The complete Trading212 OpenAPI was freshly fetched2026-10-07:22operations/17paths, unchanged SHA256 `a272f70a713fa9f2f906e9b4be12136c9d5d63d7f9f48562e939aa35c4fc041d`; no full key/IP-scope introspection, current halt/tradability or FX quotation/conversion operation appears in that published contract. This is published-contract scope, not proof concerning undocumented interfaces. [Official API](https://docs.trading212.com/api) also retains primary-account-currency execution. [Alpaca corporate actions](https://docs.alpaca.markets/us/reference/corporateactions-1) still warns of upstream/processing delays and describes processing-date rather than prospective completeness. [Alpaca market-data plans](https://docs.alpaca.markets/us/docs/about-market-data-api) distinguish IEX coverage from all-US-exchange coverage.
+
+Current20 runtime-input hashes, signed main/Gateway bytes and actual parent-child ownership match the validated ordinary build; no new build or test rerun is claimed for this unchanged-code audit. No CI workflow exists in this checkout, and no hosted CI PASS is claimed. Only safe source status, schema operation metadata and build/session booleans are retained in [return evidence](evidence/s28-return/); no secrets, account identifiers, balances, holdings, quote prices or raw provider bodies are archived. Keychain completion and subsequent account read are pending. No Arm, financial approval, Prepare, provider mutation or main action was performed. Existing S17 and actual OS sleep/wake skips remain unverified. The inventory and dated notes below describe the original audit and historical checkpoints.
 
 ## Dependency inventory
 

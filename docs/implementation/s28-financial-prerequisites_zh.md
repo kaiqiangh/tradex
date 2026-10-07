@@ -1,11 +1,28 @@
 # S28 生产金融前置依赖
 
 日期：2026-10-01。审计基线：`aa43091ea2eef732b5865b163cbeee3cac3e03c9`。
-状态：**IMPLEMENTATION_IN_PROGRESS；日历已验收，第二项前置已实现并待审查**。
+状态：**READ_ONLY_CHILDREN_DELIVERED；正向金融验收仍不支持/未验证**。
 规范：[补齐 S28 生产金融前置证据](https://github.com/kaiqiangh/tradex/issues/117)。
 英文配对：[Production financial prerequisites](s28-financial-prerequisites.md)。
 
 用户明确授权在串行补齐金融前置依赖期间保持[接入已配置 Alpaca 报价与 Hot 订阅](https://github.com/kaiqiangh/tradex/issues/116) OPEN。本决定只调整执行顺序，不免除当前票正向审批/Prepare/dispatch 验收；[Trading 212 Live 父级验收](https://github.com/kaiqiangh/tradex/issues/113)同样尚未完成。
+
+## 当前返回验收审计 — 2026-10-07
+
+当前源码基线：`dev@64b21a3df0ae56a4410604902ff14b636f6837aa`。日历、已知公司行为/精确账户元数据、所需路由/只读 FX 三张实现子票均已带独立审查证据关闭；本前置规范及报价/Trading212 正向验收父项尚未完成。
+
+| 当前门禁 | 权威证据 / 结果 | 后续所需证据 |
+|---|---|---|
+| 日历 | 日历子票118已交付实际原生读取/过期证据；当前进程消费前仍需显式取得新观察。 | 当前绑定且可信的覆盖/时段，不能用历史 receipt。 |
+| 已知行为 / 精确账户目录 | 子票119已交付有界读取和过期；完整行为覆盖、当前停牌/账户可交易性及历史调整保持独立能力。 | 完整前瞻行为/调整与执行账户当前不受限可交易性/权威身份，不能用遍历完查询或目录成员资格代替。 |
+| 所需 FX | 子票120已交付实际余额/意图路由、原始精确数字/时间及冻结同意；2026-10-07原生FX读取返回脱敏端点拒绝原因，没有汇率或首次 receipt；HTTP403仅由映射推断。 | 实际需要时须有合格金融用途/授权、保守方向/舍入、精确券商资金/费用及完整金额输入；同币及保护性 CANCEL 保留操作级语义。 |
+| 报价来源 | 当前普通原生显式选择 IEX：经认证报价读取验证技术可达；Hot认证和订阅已确认，采样时尚未观察到实际当前报价。 | 实际新鲜且合格的报价/覆盖/深度及真正需要的 SIP 授权；确认消息和 IEX 连通性不足。 |
+| Trading212账户 / 权限 | 既有Live记录为FAILED/STALE，scope UNVERIFIED且DISARMED；已显式用已有密钥发起只读Refresh，当前等待本人macOS Keychain认证。 | 实际当前账户恢复；即使恢复成功，完整权威权限仍独立缺失。 |
+| 已签发审批 / Prepare / dispatch | 仍未验证；规范权限守卫拒绝非VERIFIED；普通风险对完整公司行为及精确可交易/权威身份输入报告不可用，所需未合格FX仍不可用。 | 所有适用生产前置条件先满足，再验证实际签发同意/Prepare/Gateway；fixture或禁用的只读预览不能替代。 |
+
+2026-10-07重新取得完整Trading212 OpenAPI：22操作/17路径，SHA256仍为 `a272f70a713fa9f2f906e9b4be12136c9d5d63d7f9f48562e939aa35c4fc041d`；公布的契约中没有完整key/IP scope、当前停牌/可交易性或FX报价/换汇操作。这是公开契约范围，不声称不存在未公开接口。[官方API](https://docs.trading212.com/api)仍限制主账户币种执行。[Alpaca公司行为](https://docs.alpaca.markets/us/reference/corporateactions-1)仍提醒上游/处理延迟，使用处理日期而非前瞻完整性。[Alpaca行情计划](https://docs.alpaca.markets/us/docs/about-market-data-api)区分IEX与美国全交易所覆盖。
+
+当前20项runtime输入、已签名主程序/Gateway字节及实际父子关系与已验证普通构建一致；本次源码未变，不声称重新构建或运行测试。当前checkout没有CI工作流，不声称上游CI通过。[返回证据](evidence/s28-return/)仅归档安全来源状态、schema操作元数据和构建/进程布尔值，不含密钥、账户标识、余额、持仓、报价价格或提供方原始正文。Keychain完成及后续账户读取仍待验证。没有执行Arm、金融审批、Prepare、提供方写入或main操作；S17及实际OS睡眠唤醒跳过项仍未验证。以下清单和带日期段落保留最初审计及历史检查点语义。
 
 ## 依赖清单
 

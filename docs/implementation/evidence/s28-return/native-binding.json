@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-10-07T08:59:24.796828+00:00",
+  "reviewBaseline": "64b21a3df0ae56a4410604902ff14b636f6837aa",
+  "runtimeSourceMatches": true,
+  "runtimeInputCount": 20,
+  "signedMainSha256": "0d4805a76c010b418de210b4914a05d3f4ba4da5969d642b38cc4dd330c933f8",
+  "gatewaySha256": "bb8b5df9e691fc0085351d7fbaee9b28ed0da97213f01a11e8a20b6633227742",
+  "parentImageMatches": true,
+  "gatewayImageMatches": true,
+  "parentChildOwnership": true,
+  "protectedKeychainRead": true,
+  "privateStackArchived": false,
+  "binaryHashesMatchValidatedBundle": true
+}

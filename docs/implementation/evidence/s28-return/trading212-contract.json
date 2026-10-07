@@ -1,0 +1,138 @@
+{
+  "sha256": "a272f70a713fa9f2f906e9b4be12136c9d5d63d7f9f48562e939aa35c4fc041d",
+  "url": "https://docs.trading212.com/_bundle/api.json?download=",
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/account/summary",
+      "operationId": "getAccountSummary",
+      "summary": "Get account summary"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/history/dividends",
+      "operationId": "dividends",
+      "summary": "Get paid out dividends"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/history/exports",
+      "operationId": "getReports",
+      "summary": "List generated reports"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/history/exports",
+      "operationId": "requestReport",
+      "summary": "Request a CSV report"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/history/orders",
+      "operationId": "orders_1",
+      "summary": "Get historical orders data"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/history/transactions",
+      "operationId": "transactions",
+      "summary": "Get transactions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/metadata/exchanges",
+      "operationId": "exchanges",
+      "summary": "Get exchanges metadata"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/metadata/instruments",
+      "operationId": "instruments",
+      "summary": "Get all available instruments"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/orders",
+      "operationId": "orders",
+      "summary": "Get all pending orders"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/orders/limit",
+      "operationId": "placeLimitOrder",
+      "summary": "Place a Limit order"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/orders/market",
+      "operationId": "placeMarketOrder",
+      "summary": "Place a Market order"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/orders/stop",
+      "operationId": "placeStopOrder_1",
+      "summary": "Place a Stop order"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/orders/stop_limit",
+      "operationId": "placeStopOrder",
+      "summary": "Place a StopLimit order"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v0/equity/orders/{id}",
+      "operationId": "cancelOrder",
+      "summary": "Cancel a pending order"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/orders/{id}",
+      "operationId": "orderById",
+      "summary": "Get a pending order by ID"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/pies",
+      "operationId": "getAll",
+      "summary": "Fetch all pies"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/pies",
+      "operationId": "create",
+      "summary": "Create pie"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v0/equity/pies/{id}",
+      "operationId": "delete",
+      "summary": "Delete pie"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/pies/{id}",
+      "operationId": "getDetailed",
+      "summary": "Fetch a pie"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/pies/{id}",
+      "operationId": "update",
+      "summary": "Update pie"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v0/equity/pies/{id}/duplicate",
+      "operationId": "duplicatePie",
+      "summary": "Duplicate pie"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v0/equity/positions",
+      "operationId": "getPositions",
+      "summary": "Fetch all open positions"
+    }
+  ]
+}
