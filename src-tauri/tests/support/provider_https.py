@@ -8,9 +8,11 @@ import time
 
 mode, directory = sys.argv[1], Path(sys.argv[2])
 host = sys.argv[3]
-assert host in {"paper-api.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision", "api.bitget.com"}
+assert host in {"paper-api.alpaca.markets", "data.alpaca.markets", "demo.trading212.com", "live.trading212.com", "api.binance.com", "testnet.binance.vision", "api.bitget.com"}
 path = "/v2/account" if host == "paper-api.alpaca.markets" else "/api/v0/equity/account/summary"
 method = "GET"
+if host == "data.alpaca.markets":
+    path = "/v1beta1/forex/latest/rates?currency_pairs=EURUSD"
 if mode == "order":
     assert host == "paper-api.alpaca.markets"
     path, method = "/v2/orders", "POST"
@@ -89,7 +91,7 @@ with socket.socket() as listener:
                     body = b'{"code":-1021,"msg":"untrusted diagnostic"}' if mode == "clock" else b'{"code":-1022,"msg":"untrusted diagnostic"}'
                     connection.sendall(b"HTTP/1.1 " + status + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
                 else:
-                    status = {"redirect": b"302 Found", "auth": b"401 Unauthorized", "rate": b"429 Too Many Requests", "ok": b"200 OK"}[mode]
+                    status = {"redirect": b"302 Found", "auth": b"401 Unauthorized", "forbidden": b"403 Forbidden", "rate": b"429 Too Many Requests", "ok": b"200 OK"}[mode]
                     location = b"Location: https://paper-api.alpaca.markets/v2/account\r\n" if mode == "redirect" else b""
                     connection.sendall(b"HTTP/1.1 " + status + b"\r\n" + location + b"Content-Length: 2\r\nConnection: close\r\n\r\n{}")
         except (ConnectionError, ssl.SSLError, TimeoutError):

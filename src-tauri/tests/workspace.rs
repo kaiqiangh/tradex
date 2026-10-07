@@ -374,7 +374,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
     );
     drop(control);
     let future = rusqlite::Connection::open(path).unwrap();
-    future.pragma_update(None, "user_version", 35).unwrap();
+    future.pragma_update(None, "user_version", 36).unwrap();
     let mut control = ControlPlane::new(directory.path().to_path_buf());
     assert_eq!(
         command(&mut control, "workspace.open", json!({}))["error"]["code"],
@@ -384,7 +384,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
         future
             .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
-        35
+        36
     );
 }
 
@@ -432,7 +432,7 @@ fn schema_30_migrates_execution_attempt_history_without_losing_foreign_keys() {
     let mut migrated = ControlPlane::new(directory.path().to_path_buf());
     let reopened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
-    assert_eq!(reopened["data"]["storageSchemaVersion"], 34);
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 35);
     drop(migrated);
 
     let database = rusqlite::Connection::open(database_path).unwrap();

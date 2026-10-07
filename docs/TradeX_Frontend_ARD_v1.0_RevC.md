@@ -710,6 +710,12 @@ Display original receipt, provider quality, absent provider timestamp, exact acc
 
 Frozen approval and pre-arm panels label financial statuses and reasons as captured, display the review capture time, and warn that the immutable review does not report current eligibility. Do not poll into or mutate that capture. Reopening obtains a new backend assessment; protected actions independently revalidate current evidence.
 
+### 13.25 Required currency context and read-only rates (S28 #120)
+
+Consume Backend §41.40 generated data.fx.* commands. Settings → Data & Storage provides “Alpaca currency rates” using an explicitly saved eligible Paper account; Save, Refresh, Disconnect and reload are separate. Unsaved choices cannot refresh, Save reads no provider, Disconnect retains the borrowed account/key, and reopen restores unverified metadata only. Renderer supplies no pair, endpoint, rates, quality or financial authority. Show sanitized entitlement, quota, missing/unsupported currency and no-required-rate reasons.
+
+Portfolio shows backend-derived monetary currency needs, including named BALANCE_WORKSPACE routes for actual balance units while unknown primary account currency remains separately unknown; Trade adds the selected immutable Proposal's policy/funding routes and an explicit “Refresh rates for this proposal” read. Label selected intent context separately from observed read context. Show original bid/ask/provider-mid, direction, each provider timestamp, first receipt/material/source binding, UNQUALIFIED_FX_RATE and separate transaction qualification, broker costs and monetary completeness blockers. Do not convert displayed context into portfolio authority, funding bounds or consent. Poll local projections for expiry only, never provider reads or renewed receipt. Retain expired evidence as unavailable. Both the pre-arm review and immutable approval window display only captured currencyEvidence, capture time and captured statuses; never poll into those captured reviews. Pre-arm evidence remains read-only and cannot approve the proposal. All existing guards, Local Paper and protective CANCEL remain unchanged. Verify keyboard/status/errors/reload and390/768/1280px with real Rust backing. This target contract is not runtime or prototype PASS.
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

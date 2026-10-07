@@ -4525,7 +4525,18 @@ impl ControlPlane {
             | "data.actions.disconnect"
             | "data.instrument.connection"
             | "data.instrument.configure"
-            | "data.instrument.disconnect" => financial_sources::metadata(self, request, consumer),
+            | "data.instrument.disconnect"
+            | "data.fx.connection"
+            | "data.fx.configure"
+            | "data.fx.disconnect" => financial_sources::metadata(self, request, consumer),
+            "data.fx.requirements" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::FxRequirementsQuery = payload(request.payload)?;
+                let requirements = financial_sources::fx_requirements(self, &input)?;
+                Ok((json!(requirements), None))
+            }
             "data.source.connection" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -7543,6 +7554,16 @@ impl ControlPlane {
         workspace_id: &str,
         fixture: bool,
     ) -> Result<protocol::PortfolioSnapshot> {
+        // An explicit source choice permanently retires the legacy portfolio fixture,
+        // including after disconnect. Source reads cannot manufacture monetary authority.
+        let fixture = fixture
+            && self
+                .store
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+                .financial_source(protocol::FinancialSourceKind::Fx)?
+                .generation
+                == 0;
         let time_status = self.time.status(workspace_id)?;
         let store = self
             .store
@@ -7716,7 +7737,7 @@ impl ControlPlane {
         policy: Option<risk::RiskPolicyState>,
     ) -> Result<risk::RiskDecision> {
         self.build_risk_evaluation(proposal, policy)
-            .map(|(decision, _, _, _)| decision)
+            .map(|(decision, _, _, _, _)| decision)
     }
 
     fn build_risk_evaluation(
@@ -7728,6 +7749,7 @@ impl ControlPlane {
         Option<AccountConnection>,
         Option<protocol::MarketDetail>,
         protocol::TimeStatus,
+        Option<protocol::FxReviewEvidence>,
     )> {
         let workspace_id = proposal.workspace_id.as_str();
         let unsupported_bitget_demo =
@@ -7789,7 +7811,7 @@ impl ControlPlane {
             .as_ref()
             .map(|market| market.instrument.instrument_id.clone())
             .unwrap_or_else(|| proposal.fields.instrument_id.clone());
-        let inputs = vec![
+        let mut inputs = vec![
             risk::input_reference(
                 risk::RiskDecisionInputKind::Policy,
                 policy.as_ref().map_or_else(
@@ -7839,7 +7861,16 @@ impl ControlPlane {
                 &active_reservations,
             )?,
         ];
-        let decision = risk::evaluate(
+        let currency_evidence = financial_sources::review_context(self, proposal)?;
+        if let Some(context) = &currency_evidence {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::CurrencyRates,
+                format!("currency-rates:{}", context.requirements.material_version),
+                context.source.observed_at.clone(),
+                context,
+            )?);
+        }
+        let mut decision = risk::evaluate(
             proposal,
             policy.as_ref(),
             account.as_ref(),
@@ -7850,7 +7881,16 @@ impl ControlPlane {
             existing_reserved_capital.as_deref(),
             storage::timestamp()?,
         );
-        Ok((decision, account, market, time_status))
+        if currency_evidence.is_some() {
+            decision.checks.push(risk::RiskCheckResult {
+                check_id: risk::RiskCheckId::CurrencyConversion,
+                outcome: risk::RiskCheckOutcome::Unavailable,
+                reason_code: risk::RiskDecisionReasonCode::CurrencyConversionUnavailable,
+                reason: "Required cross-currency or unknown monetary inputs lack qualified conversion, explicit directional rounding and exact broker funding/cost evidence. Read-only rates cannot authorize execution.".into(),
+            });
+            decision.status = risk::RiskDecisionStatus::from_checks(&decision.checks);
+        }
+        Ok((decision, account, market, time_status, currency_evidence))
     }
 
     fn build_cancellation_review(
@@ -8149,7 +8189,7 @@ impl ControlPlane {
             return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
         }
         let policy = self.store.as_ref().unwrap().risk_or_new()?;
-        let (current_decision, account, market, time_status) =
+        let (current_decision, account, market, time_status, currency_evidence) =
             self.build_risk_evaluation(proposal, policy.clone())?;
         let defer_reservation_recheck = bound_decision.is_some();
         let bound = bound_decision.unwrap_or_else(|| current_decision.clone());
@@ -8367,6 +8407,7 @@ impl ControlPlane {
             account: account.map(Box::new),
             market: Box::new(market.ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?),
             risk_decision: Box::new(decision_for_review),
+            currency_evidence,
             review_digest,
             eligible: blockers.is_empty()
                 && (defer_reservation_recheck

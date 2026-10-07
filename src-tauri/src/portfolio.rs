@@ -1136,7 +1136,7 @@ fn valid_workspace_id(value: &str) -> bool {
     !value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
 }
 
-fn valid_currency(value: &str) -> bool {
+pub(crate) fn valid_currency(value: &str) -> bool {
     (2..=16).contains(&value.len())
         && value
             .bytes()

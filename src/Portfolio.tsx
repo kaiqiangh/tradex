@@ -1,3 +1,4 @@
+import { FxSourceContext } from './FinancialEvidencePanel.tsx';
 import { useQuery } from '@tanstack/react-query';
 import type { AccountHealth, FxProvenance, PortfolioOrder, PortfolioSnapshot, PortfolioValue } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
@@ -66,6 +67,7 @@ export function Portfolio({ workspaceId }: { workspaceId: string }) {
       <p className="notice">Live risk: {snapshot.liveRisk.eligible ? 'Eligible' : 'Blocked'} — {snapshot.liveRisk.reason}</p>
     </div>
     <section className="card portfolio-section" aria-labelledby="portfolio-fx-title"><div className="section-heading"><div><p className="eyebrow">Provenance</p><h2 id="portfolio-fx-title">FX and stablecoin routes</h2></div><span className="badge">{snapshot.fxRoutes.length} routes</span></div>{snapshot.fxRoutes.length ? <ul className="portfolio-provenance">{snapshot.fxRoutes.map(provenance)}</ul> : <p className="muted">No conversion routes were required or observed.</p>}</section>
+    <FxSourceContext workspaceId={workspaceId} />
     <PortfolioTables snapshot={snapshot} />
   </section>;
 }

@@ -399,3 +399,71 @@ fn real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_au
         }
     }
 }
+
+#[test]
+fn fx_https_uses_only_fixed_get_pairs_with_bounded_body_timeout_and_no_redirect() {
+    let endpoint = ProviderEndpoint::AlpacaMarketData;
+    let path = "/v1beta1/forex/latest/rates?currency_pairs=EURUSD";
+    for allowed in [
+        path,
+        "/v1beta1/forex/latest/rates?currency_pairs=USDEUR",
+        "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR",
+    ] {
+        assert!(endpoint.allows_method(ProviderHttpMethod::Get, allowed));
+        assert!(!endpoint.allows_method(ProviderHttpMethod::Post, allowed));
+        assert!(!endpoint.allows_method(ProviderHttpMethod::Delete, allowed));
+    }
+    for forbidden in [
+        "/v1beta1/forex/rates?currency_pairs=EURUSD",
+        "/v1beta1/forex/latest/rates?currency_pairs=GBPUSD",
+        "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,EURUSD",
+        "/v1beta1/forex/latest/rates?currency_pairs=EURUSD&url=https://example.com",
+        "/v1beta1/forex/latest/rates?currency_pairs=USDEUR,EURUSD",
+        "/v1beta1/forex/latest/rates?currency_pairs=EURUSD%2CUSDEUR",
+    ] {
+        assert!(!endpoint.allows_method(ProviderHttpMethod::Get, forbidden));
+    }
+    for (mode, status, error) in [
+        ("ok", Some(200), None),
+        ("auth", Some(401), None),
+        ("forbidden", Some(403), None),
+        ("rate", Some(429), None),
+        ("redirect", Some(302), None),
+        ("large", None, Some("PROVIDER_RESPONSE_INVALID")),
+        ("timeout", None, Some("PROVIDER_UNAVAILABLE")),
+    ] {
+        let fixture = HttpsFixture::new(mode, endpoint);
+        let http = fixture.http();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "APCA-API-KEY-ID",
+            HeaderValue::from_static("synthetic-network-test"),
+        );
+        headers.insert(
+            "APCA-API-SECRET-KEY",
+            HeaderValue::from_static("synthetic-network-secret"),
+        );
+        let start = Instant::now();
+        let response = http.request(endpoint, ProviderHttpMethod::Get, path, headers, None);
+        if let Some(expected) = error {
+            assert_eq!(
+                response.err().expect("Expected transport failure").code,
+                expected,
+                "{mode}"
+            );
+        } else {
+            assert_eq!(response.unwrap().status, status.unwrap(), "{mode}");
+        }
+        assert_eq!(
+            std::fs::read_to_string(fixture.directory.path().join("requests")).unwrap(),
+            "1",
+            "No redirects or authentication fallback may repeat the request"
+        );
+        if mode == "timeout" {
+            assert!(
+                start.elapsed() >= Duration::from_secs(10)
+                    && start.elapsed() < Duration::from_secs(18)
+            );
+        }
+    }
+}

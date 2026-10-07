@@ -185,7 +185,7 @@ export function DataSources({ workspaceId }: { workspaceId: string }) {
       setStaleSources(current => ({ ...current, 'OD-005': false }));
       setProbeErrors(current => ({ ...current, 'OD-005': '' }));
     }} />
-    {(['actions', 'instrument'] as const).map(kind => <FinancialSourceSettings key={`${kind}-${workspaceId}`} workspaceId={workspaceId} kind={kind} onSourceChange={() => {
+    {(['actions', 'instrument', 'fx'] as const).map(kind => <FinancialSourceSettings key={`${kind}-${workspaceId}`} workspaceId={workspaceId} kind={kind} onSourceChange={() => {
       setOverrides(current => { const next = { ...current }; delete next['OD-005']; return next; });
       setStaleSources(current => ({ ...current, 'OD-005': false }));
       setProbeErrors(current => ({ ...current, 'OD-005': '' }));

@@ -74,7 +74,11 @@ impl tradex::provider_io::ProviderHttp for QuoteHttp {
 }
 fn main() -> io::Result<()> {
     #[cfg(feature = "integration-test")]
-    let (vault, http) = (Arc::new(SharedVault::default()), fixtures::Http::default());
+    let (vault, http) = {
+        let mut http = fixtures::Http::default();
+        http.fx_ui = std::env::var_os("TRADEX_FX_HTTP_FIXTURE").is_some();
+        (Arc::new(SharedVault::default()), http)
+    };
     let Some(path) = std::env::args_os().nth(1) else {
         eprintln!("Usage: tradex-ipc <isolated-workspace-directory>");
         std::process::exit(2);
@@ -1238,7 +1242,7 @@ fn main() -> io::Result<()> {
             #[cfg(feature = "integration-test")]
             if matches!(
                 command,
-                Some("data.actions.refresh" | "data.instrument.refresh")
+                Some("data.actions.refresh" | "data.instrument.refresh" | "data.fx.refresh")
             ) {
                 let result = tradex::financial_sources::execute_refresh(
                     &control,

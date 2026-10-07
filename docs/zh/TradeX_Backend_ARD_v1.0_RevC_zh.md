@@ -3007,6 +3007,32 @@ Broker metadata 在固定 Trading 212 Live host 使用同一已有 Live 凭证�
 
 `MarketDetail.financialEvidence` 可选包含 companyEvents/brokerInstruments 来源投影。选用生产来源后屏蔽历史金融 fixture，包括断开后；清除旧 timestamped actions 与标的 readiness，adjustment 保持不可用。普通外部股票 PLACE 增加独立 `CORPORATE_ACTION_COVERAGE`、`HISTORICAL_ADJUSTMENT` 不可用检查。精确账户可交易性要求所选账户/version/source/instrument 匹配，并有真实可用 capability/identity evidence；当前 provider metadata 不能补齐这些检查。保留 Local Paper、非股票、保护性 CANCEL 和其他门禁。既有明确标识的 synthetic contract producer 只属于测试，不是生产证据；不增加正向权威性 seed。Risk/approval/Prepare/dispatch 使用同一不可变证据并重新校验 binding/age/material/quality；轮询不能续期 consent。公开 UI/真实 Rust/临时存储/外部 HTTP-vault 测试与普通原生真实读取证据分开记录；父票 #117/#116/#113 在各自验收前保持 OPEN。
 
+### 41.40 所需币种路由与只读 FX 观察（S28 #120）
+
+本项提供有界币种需求和认证观察，不能提供合格金融换算，不能完成 OD-006 或关闭正向金融验收父票。[Alpaca 当前 Market Data schema](https://docs.alpaca.markets/us/openapi/market-data-api.json) 定义按币对索引的 latest rates `ap/bp/mp/t` 及 APCA Trading API 认证。已有 key 的实际 entitlement、允许的金融用途和 feed qualification 仍独立。第三方汇率不能证明 Trading 212 在主账户币种执行时的实际换汇或费用；每日 ECB 参考汇率与历史/延迟数据仍不能用于执行。
+
+| Command | Payload | Success data |
+|---|---|---|
+| data.fx.connection | `{workspaceId}` | `FinancialSourceConnection` |
+| data.fx.configure | `{workspaceId, expectedStateVersion, connectionId}` | `FinancialSourceConnection`；明确选择已有 Alpaca PAPER 账户 |
+| data.fx.disconnect | `{workspaceId, expectedStateVersion}` | `FinancialSourceConnection`；保留账户/key |
+| data.fx.refresh | `{workspaceId, expectedStateVersion, proposalId?}` | `FinancialSourceConnection`；只读后端导出的所需路由 |
+| data.fx.requirements | `{workspaceId, proposalId?}` | `FxRequirements` |
+
+输入拒绝未知字段、endpoint、vault reference、调用方 pairs/rates/quality/authority 和替代账户断言。合格已有 connected Alpaca PAPER 账户的 credential status 为 CONFIGURED 或 UNCHECKED；选择不代表已验证读取。Save 不读 provider/vault。SQLite schema35 原子扩展每类配置/audit 约束以支持 FX，并保留 schema34 的 source generation 和选择。Disconnect 保留借用凭据。Reopen 只恢复元数据；断开后的 generation 仍属于材料。
+
+`FxRequirements` 包含 workspaceId/baseCurrency、可选不可变 proposalId、materialVersion 和最多128条去重 typed requirements。每条保留 purpose（ACCOUNT_WORKSPACE、BALANCE_WORKSPACE、POSITION_WORKSPACE、ORDER_WORKSPACE、INTENT_POLICY、INTENT_FUNDING）、已知精确 account/version、可选 fromCurrency/toCurrency/providerPair、need（IDENTITY、EXTERNAL_RATE、UNKNOWN_CURRENCY）及 reason。后端依据真实账户货币观察和已存不可变 Proposal 导出币种，不能从其他提供方推断币种或金额。同币种 identity 不需外部汇率；未知仍未知，不支持路由仍不支持，USDT 与 USD 不同。EURUSD 与 USDEUR 是独立方向观察，不能推断倒数。组合上下文包含实际账户主币种、每个已观察 balance 的 total 或 available 所用原生单位、持仓 market-value 和订单 value 币种；余额路由明确标为 BALANCE_WORKSPACE，不能从已知钱包单位推断未知账户 fiat 主币种。已知货币/金额单位沿用 Portfolio 的2–16位 ASCII 大写字母或数字验证；这仅命名不支持的资产路由，不证明金融用途或平价。Proposal 上下文额外包含 policy 与实际需要的 BUY funding 路由。支持的 Spot BUY 中，与不可变 quote currency 匹配的已返回 balance 仅证明该 funding 单位，不能证明组合 fiat currency 或 USDT/USD 平价。SELL 的 base-asset capacity 不加入 BUY funding 换算路由。这些说明性路由不能成为保护性 CANCEL 的全组合前置项。
+
+仅读取实际需要的支持币对：固定 `GET https://data.alpaca.markets/v1beta1/forex/latest/rates?currency_pairs=EURUSD`、`USDEUR` 或排序后的 `EURUSD,USDEUR`，使用所选 key 的 APCA-API-KEY-ID/APCA-API-SECRET-KEY headers。无支持的外部币对需求时，不读 Keychain/HTTP；区分 identity 与缺失/不支持币种，不错误要求更换 key。无 history/auth/host/key/redirect/proxy 回退。既有 P3 quota 保持权威。最多2币对、512KiB 响应、12秒 HTTP timeout、30秒 job deadline。有界 vault/scheduler/HTTP 在 Control Plane 锁外执行；超时认证不能发布或随后启动 HTTP。
+
+将精确 JSON 数字词法值保留为有界正十进制 bid/ask/provider-mid 字符串。验证精确请求币对、重复/冲突字段、已知 schema、非交叉 bid/ask、小数边界和 RFC3339 时间戳。Provider mid 独立，不能要求等于 bid/ask 算术平均。不得伪造时间戳或价格。非法、不完整、反射秘密或超限响应撤销当前证据。HTTP401/403/429 和其他失败保留为脱敏、独立的 access/quota 失败。
+
+FX 来源投影增加可选 fxRequirements 及四项独立 typed capabilities：FX_RATE_OBSERVATION、TRANSACTION_FX_QUALIFICATION、BROKER_CONVERSION_COSTS、MONETARY_INPUT_COMPLETENESS。FX evidence 包含 kind=FX、binding/materialVersion、providerQuality=UNQUALIFIED_FX_RATE、原始 observedAt、缺失的汇总 providerObservedAt、捕获 requirements 和1–2条 rates。每条保留 providerPair/fromCurrency/toCurrency/bid/ask/mid 及原始 providerTimestamp。读取 AVAILABLE 不得提升 transaction qualification、精确 broker funding/costs、完整 monetary inputs、key permissions、Arm 或 consent。当前消费者不得把这些汇率变成可信 PortfolioFxProvenance 或金额权威；未来金融使用前必须另行同步 asset/liability/funding 方向、倒数和舍入契约。
+
+绑定 source/account/credential versions、workspace/session/runtime epoch、可信 clock generation、refresh sequence 和精确 requirements/Proposal 材料。Provider 时间、首次 receipt wall age、首次 receipt monotonic age 均须非负且最多30秒。投影轮询不续 receipt/material；过期上下文可保留但明确不可用。Account/source/key/time/workspace 改变、失败读取和较新 sequence 撤销旧资格，迟到结果不能覆盖新证据。明确选择 FX 来源后永久隔离旧合成 Portfolio opt-in，包括 Disconnect 后；不得制造缺失真实金额数据。
+
+非 Local Paper PLACE 在明确选过 FX 来源（包含断开后保留 generation）且存在真实跨币种或未知需求时，风险输入增加保留原始材料的 CURRENCY_RATES。CURRENCY_CONVERSION 检查维持 UNAVAILABLE / CURRENCY_CONVERSION_UNAVAILABLE，因为本来源不能证明换算资格、舍入或精确 funding/costs。可选 `ApprovalReview.currencyEvidence` 一次捕获该 decision 使用的同一 FxReviewEvidence `{requirements, source}`；快照不可变，保留原始观察。既有 input digest/consent/review、Prepare 与 dispatch 重新验证可发现来源/材料/过期变化，轮询不能续同意。纯同币种上下文不加 FX 门禁。Local Paper 和保护性 CANCEL 保留按操作的检查。Incomplete portfolio、permission、quote/SIP、calendar/actions、identity/venue/tradability、capacity 门禁仍独立。公开 fixture、响应式 UI、普通 native hosted 证据是不同验收类别；实现文档本身不证明任何一类 PASS。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

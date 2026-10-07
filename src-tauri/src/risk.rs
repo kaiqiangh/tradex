@@ -786,6 +786,7 @@ pub enum RiskCheckId {
     CancellationOrder,
     CancellationCapability,
     SnapshotFreshness,
+    CurrencyConversion,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -823,6 +824,7 @@ pub enum RiskDecisionReasonCode {
     InvalidProposalValue,
     OrderNotCancelable,
     CancellationUnsupported,
+    CurrencyConversionUnavailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -837,6 +839,7 @@ pub enum RiskDecisionInputKind {
     DailyCounters,
     Reservations,
     InstrumentRules,
+    CurrencyRates,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -850,7 +853,7 @@ pub struct RiskCheckResult {
 }
 
 impl RiskDecisionStatus {
-    fn from_checks(checks: &[RiskCheckResult]) -> Self {
+    pub(crate) fn from_checks(checks: &[RiskCheckResult]) -> Self {
         if checks
             .iter()
             .any(|check| check.outcome == RiskCheckOutcome::Reject)
@@ -1063,7 +1066,8 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
         | RiskDecisionInputKind::Calendar
         | RiskDecisionInputKind::DailyCounters
         | RiskDecisionInputKind::Reservations
-        | RiskDecisionInputKind::InstrumentRules => {}
+        | RiskDecisionInputKind::InstrumentRules
+        | RiskDecisionInputKind::CurrencyRates => {}
     }
 }
 

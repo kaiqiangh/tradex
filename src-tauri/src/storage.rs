@@ -63,7 +63,7 @@ use crate::providers::{
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 34;
+pub(crate) const SCHEMA_VERSION: u32 = 35;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -986,6 +986,17 @@ impl Store {
             }
             if version < 34 {
                 tx.execute_batch("CREATE TABLE financial_source_config (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE financial_source_config_audit (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation)); PRAGMA user_version=34;").map_err(storage_error)?;
+            }
+            if version < 35 {
+                tx.execute_batch("CREATE TABLE financial_source_config_v35 (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL);
+                    INSERT INTO financial_source_config_v35 SELECT * FROM financial_source_config;
+                    CREATE TABLE financial_source_config_audit_v35 (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation));
+                    INSERT INTO financial_source_config_audit_v35 SELECT * FROM financial_source_config_audit;
+                    DROP TABLE financial_source_config;
+                    DROP TABLE financial_source_config_audit;
+                    ALTER TABLE financial_source_config_v35 RENAME TO financial_source_config;
+                    ALTER TABLE financial_source_config_audit_v35 RENAME TO financial_source_config_audit;
+                    PRAGMA user_version=35;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }

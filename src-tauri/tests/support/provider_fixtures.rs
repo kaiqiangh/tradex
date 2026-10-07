@@ -50,6 +50,8 @@ pub fn credentials() -> Result<Credentials> {
 }
 
 pub struct Http {
+    // External response mode used only by disposable FX browser QA.
+    pub fx_ui: bool,
     pub alpaca_quote_status: Cell<u16>,
     pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
     pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
@@ -107,6 +109,7 @@ pub struct Http {
 impl Default for Http {
     fn default() -> Self {
         Self {
+            fx_ui: false,
             alpaca_quote_status: Cell::new(200),
             alpaca_quote_body: RefCell::new(None),
             alpaca_condition_body: RefCell::new(None),
@@ -319,6 +322,49 @@ impl ProviderHttp for Http {
         if endpoint == ProviderEndpoint::AlpacaMarketData {
             if method != ProviderHttpMethod::Get || body.is_some() {
                 return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            if self.fx_ui && path.starts_with("/v1beta1/forex/latest/rates?") {
+                let pairs = match path {
+                    "/v1beta1/forex/latest/rates?currency_pairs=EURUSD" => vec!["EURUSD"],
+                    "/v1beta1/forex/latest/rates?currency_pairs=USDEUR" => vec!["USDEUR"],
+                    "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR" => {
+                        vec!["EURUSD", "USDEUR"]
+                    }
+                    _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+                };
+                assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+                assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+                assert!(!headers.contains_key("authorization"));
+                self.calls.borrow_mut().push(path.into());
+                // UI scenario: an actual third read is denied by the external HTTP fixture.
+                // It changes no stored source, account or financial authority.
+                if self
+                    .calls
+                    .borrow()
+                    .iter()
+                    .filter(|read| read.starts_with("/v1beta1/forex/latest/rates?"))
+                    .count()
+                    % 3
+                    == 0
+                {
+                    return Ok(ProviderHttpResponse {
+                        status: 403,
+                        body: b"access unavailable".to_vec(),
+                    });
+                }
+                let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap();
+                let rows = pairs.into_iter().map(|pair| {
+                    let prices = if pair == "EURUSD" { "\"bp\":1.01234567890123456789012345678901234567890123456789012345678901,\"ap\":1.11234567891123456789112345678911234567891123456789112345678901,\"mp\":1.07" }
+                        else { "\"bp\":0.88,\"ap\":0.99,\"mp\":0.93" };
+                    format!("\"{pair}\":{{{prices},\"t\":\"{t}\"}}")
+                }).collect::<Vec<_>>().join(",");
+                return Ok(ProviderHttpResponse {
+                    status: 200,
+                    body: format!("{{\"rates\":{{{rows}}}}}").into_bytes(),
+                });
             }
             if let Some(query) = path.strip_prefix("/v1/corporate-actions?") {
                 assert_eq!(headers["APCA-API-KEY-ID"], KEY);
@@ -1043,9 +1089,13 @@ impl ProviderHttp for Http {
                 "/api/v0/equity/account/summary" => {
                     let mut summary: Value = serde_json::from_slice(br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000.1234567890123456789,"reservedForOrders":20.50,"inPies":3.2},"totalValue":1300.25}"#).unwrap();
                     summary["id"] = json!(self.trading212_identity.get());
+                    if self.fx_ui { summary["currency"] = json!("EUR"); }
                     serde_json::to_vec(&summary).unwrap()
                 }
-                "/api/v0/equity/positions" => br#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#.to_vec(),
+                "/api/v0/equity/positions" => {
+                    let body = r#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#;
+                    if self.fx_ui { body.replace("GBP", "EUR").into_bytes() } else { body.as_bytes().to_vec() }
+                },
                 "/api/v0/equity/metadata/instruments" => serde_json::to_vec(&json!([
                     {"ticker":"AAPL_US_EQ","type":"STOCK","isin":"US0378331005","currencyCode":"USD","name":"Apple","shortName":"Apple","workingScheduleId":101,"maxOpenQuantity":0,"extendedHours":false},
                     {"ticker":"MSFT_US_EQ","type":"STOCK","isin":"US5949181045","currencyCode":"USD","name":"Microsoft","shortName":"Microsoft","workingScheduleId":101,"maxOpenQuantity":10,"extendedHours":true}

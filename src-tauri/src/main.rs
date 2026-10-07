@@ -255,7 +255,7 @@ async fn control(
         }
         if matches!(
             request.get("command").and_then(Value::as_str),
-            Some("data.actions.refresh" | "data.instrument.refresh")
+            Some("data.actions.refresh" | "data.instrument.refresh" | "data.fx.refresh")
         ) {
             return tradex::financial_sources::execute_refresh(
                 &engine,

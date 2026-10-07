@@ -292,6 +292,15 @@
     "financialSourceConnection": {
       "$ref": "#/$defs/FinancialSourceConnection"
     },
+    "fxRequirements": {
+      "$ref": "#/$defs/FxRequirements"
+    },
+    "fxRequirementsQuery": {
+      "$ref": "#/$defs/FxRequirementsQuery"
+    },
+    "fxSourceRefresh": {
+      "$ref": "#/$defs/FxSourceRefresh"
+    },
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
     },
@@ -599,6 +608,9 @@
     "calendarConfigure",
     "financialSourceConnection",
     "financialSourceConfigure",
+    "fxRequirementsQuery",
+    "fxSourceRefresh",
+    "fxRequirements",
     "dataSourceConfigure",
     "dataSourceMutation",
     "marketCatalogQuery",
@@ -1984,6 +1996,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/CapacityProjection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currencyEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxReviewEvidence"
             },
             {
               "type": "null"
@@ -7839,7 +7861,11 @@
         "BROKER_ACCOUNT_IDENTITY",
         "BROKER_INSTRUMENT_METADATA",
         "EXCHANGE_HALTS",
-        "ACCOUNT_TRADABILITY"
+        "ACCOUNT_TRADABILITY",
+        "FX_RATE_OBSERVATION",
+        "TRANSACTION_FX_QUALIFICATION",
+        "BROKER_CONVERSION_COSTS",
+        "MONETARY_INPUT_COMPLETENESS"
       ]
     },
     "FinancialEvidenceCapabilityResult": {
@@ -7868,7 +7894,8 @@
       "type": "string",
       "enum": [
         "DELAYED_PROCESS_DATE_QUERY",
-        "TEN_MINUTE_METADATA"
+        "TEN_MINUTE_METADATA",
+        "UNQUALIFIED_FX_RATE"
       ]
     },
     "FinancialOperation": {
@@ -7944,6 +7971,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/FinancialSourceEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fxRequirements": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxRequirements"
             },
             {
               "type": "null"
@@ -8101,6 +8138,57 @@
             "accountCurrency",
             "instruments"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "kind": {
+              "type": "string",
+              "const": "FX"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            },
+            "rates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FxObservedRate"
+              },
+              "maxItems": 2,
+              "minItems": 1
+            },
+            "requirements": {
+              "$ref": "#/$defs/FxRequirements"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "providerQuality",
+            "observedAt",
+            "requirements",
+            "rates"
+          ]
         }
       ]
     },
@@ -8108,7 +8196,8 @@
       "type": "string",
       "enum": [
         "CORPORATE_ACTIONS",
-        "BROKER_INSTRUMENTS"
+        "BROKER_INSTRUMENTS",
+        "FX"
       ]
     },
     "FxFreshness": {
@@ -8117,6 +8206,56 @@
         "HEALTHY",
         "STALE",
         "UNAVAILABLE"
+      ]
+    },
+    "FxObservedRate": {
+      "type": "object",
+      "properties": {
+        "ask": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bid": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fromCurrency": {
+          "type": "string",
+          "maxLength": 3,
+          "minLength": 3
+        },
+        "mid": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerPair": {
+          "type": "string",
+          "maxLength": 6,
+          "minLength": 6
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "toCurrency": {
+          "type": "string",
+          "maxLength": 3,
+          "minLength": 3
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerPair",
+        "fromCurrency",
+        "toCurrency",
+        "bid",
+        "ask",
+        "mid",
+        "providerTimestamp"
       ]
     },
     "FxProvenance": {
@@ -8178,6 +8317,173 @@
         "DEGRADED",
         "UNKNOWN",
         "UNAVAILABLE"
+      ]
+    },
+    "FxRequirementNeed": {
+      "type": "string",
+      "enum": [
+        "IDENTITY",
+        "EXTERNAL_RATE",
+        "UNKNOWN_CURRENCY"
+      ]
+    },
+    "FxRequirementPurpose": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_WORKSPACE",
+        "BALANCE_WORKSPACE",
+        "POSITION_WORKSPACE",
+        "ORDER_WORKSPACE",
+        "INTENT_POLICY",
+        "INTENT_FUNDING"
+      ]
+    },
+    "FxRequirements": {
+      "type": "object",
+      "properties": {
+        "baseCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "materialVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FxRouteRequirement"
+          },
+          "maxItems": 128
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "baseCurrency",
+        "materialVersion",
+        "requirements"
+      ]
+    },
+    "FxRequirementsQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "default": null,
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "FxReviewEvidence": {
+      "type": "object",
+      "properties": {
+        "requirements": {
+          "$ref": "#/$defs/FxRequirements"
+        },
+        "source": {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requirements",
+        "source"
+      ]
+    },
+    "FxRouteRequirement": {
+      "type": "object",
+      "properties": {
+        "accountVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fromCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "need": {
+          "$ref": "#/$defs/FxRequirementNeed"
+        },
+        "providerPair": {
+          "type": "string",
+          "maxLength": 6,
+          "minLength": 6
+        },
+        "purpose": {
+          "$ref": "#/$defs/FxRequirementPurpose"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "toCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "need",
+        "reason"
+      ]
+    },
+    "FxSourceRefresh": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "default": null,
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
       ]
     },
     "GatewayAction": {
@@ -12580,6 +12886,9 @@
           "$ref": "#/$defs/FinancialSourceConnection"
         },
         {
+          "$ref": "#/$defs/FxRequirements"
+        },
+        {
           "$ref": "#/$defs/MarketCatalog"
         },
         {
@@ -13615,7 +13924,8 @@
         "LIVE_INACTIVITY",
         "CANCELLATION_ORDER",
         "CANCELLATION_CAPABILITY",
-        "SNAPSHOT_FRESHNESS"
+        "SNAPSHOT_FRESHNESS",
+        "CURRENCY_CONVERSION"
       ]
     },
     "RiskCheckOutcome": {
@@ -13799,7 +14109,8 @@
         "CALENDAR",
         "DAILY_COUNTERS",
         "RESERVATIONS",
-        "INSTRUMENT_RULES"
+        "INSTRUMENT_RULES",
+        "CURRENCY_RATES"
       ]
     },
     "RiskDecisionInputReference": {
@@ -13884,7 +14195,8 @@
         "UNSUPPORTED_CONTEXT",
         "INVALID_PROPOSAL_VALUE",
         "ORDER_NOT_CANCELABLE",
-        "CANCELLATION_UNSUPPORTED"
+        "CANCELLATION_UNSUPPORTED",
+        "CURRENCY_CONVERSION_UNAVAILABLE"
       ]
     },
     "RiskDecisionStatus": {
@@ -17804,7 +18116,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 34,
+          "maximum": 35,
           "minimum": 1
         },
         "workspaceId": {

@@ -28,13 +28,19 @@ fn connect_using(
     provider: &str,
     environment: &str,
     vault: &provider_fixtures::Vault,
-    http: &provider_fixtures::Http,
+    http: &impl tradex::provider_io::ProviderHttp,
 ) -> Value {
     let request = json!({"requestId":"source-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":workspace,"providerId":provider,"environment":environment,"label":"Read-only source"}});
     let job = control.prepare_provider(&request).unwrap().unwrap();
     let result = job.run(
         vault,
-        |_| provider_fixtures::credentials(),
+        |_| {
+            if provider == "bitget" {
+                provider_fixtures::bitget::credentials()
+            } else {
+                provider_fixtures::credentials()
+            }
+        },
         http,
         || control.provider_job_current(&job),
     );
@@ -2656,4 +2662,1587 @@ fn actual_http_adapter_retires_company_evidence_on_redirect_timeout_and_oversize
         }
         worker.join().unwrap();
     }
+}
+
+#[test]
+fn fx_source_reuses_explicit_saved_key_and_reopens_without_authority() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let initial = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId": workspace}),
+    );
+    assert_eq!(
+        initial["ok"], true,
+        "FX source selection is unavailable: {initial}"
+    );
+    assert_eq!(initial["data"]["configured"], false);
+    assert_eq!(
+        initial["data"]["eligibleAccounts"][0]["connectionId"],
+        account["connectionId"]
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":initial["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    assert_eq!(saved["data"]["kind"], "FX");
+    assert_eq!(saved["data"]["status"], "UNVERIFIED");
+    assert!(saved["data"]["observedAt"].is_null());
+    assert!(saved["data"]["evidence"].is_null());
+    assert_eq!(
+        saved["data"]["capabilityStatuses"][1]["capability"],
+        "TRANSACTION_FX_QUALIFICATION"
+    );
+    assert_eq!(
+        saved["data"]["capabilityStatuses"][1]["status"],
+        "BLOCKED_EXTERNAL"
+    );
+    assert_eq!(
+        command(
+            &mut control,
+            "data.fx.configure",
+            json!({"workspaceId":workspace,"expectedStateVersion":initial["data"]["stateVersion"],"connectionId":account["connectionId"]})
+        )["error"]["code"],
+        "STATE_VERSION_CONFLICT"
+    );
+    drop(control);
+    let mut control = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut control, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(restored["data"]["connectionId"], account["connectionId"]);
+    assert_eq!(restored["data"]["status"], "UNVERIFIED");
+    let disconnected = command(
+        &mut control,
+        "data.fx.disconnect",
+        json!({"workspaceId":workspace,"expectedStateVersion":restored["data"]["stateVersion"]}),
+    );
+    assert_eq!(disconnected["data"]["configured"], false);
+    let retained = command(
+        &mut control,
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(retained["data"]["permissions"]["scope"], "UNVERIFIED");
+    assert_eq!(retained["data"]["health"]["arming"], "NOT_APPLICABLE");
+    assert_eq!(vault.present.borrow().len(), 1);
+    for projection in [saved, restored, disconnected] {
+        assert!(!projection.to_string().contains(provider_fixtures::KEY));
+        assert!(!projection.to_string().contains(provider_fixtures::SECRET));
+    }
+}
+
+#[test]
+fn fx_requirements_distinguish_identity_from_actual_cross_currency_inputs() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let alpaca = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let same = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        same["ok"], true,
+        "Actual FX requirements are unavailable: {same}"
+    );
+    assert_eq!(same["data"]["baseCurrency"], "USD");
+    let rows = same["data"]["requirements"].as_array().unwrap();
+    let row = rows
+        .iter()
+        .find(|row| {
+            row["connectionId"] == alpaca["connectionId"] && row["purpose"] == "ACCOUNT_WORKSPACE"
+        })
+        .unwrap();
+    assert_eq!(row["need"], "IDENTITY");
+    assert_eq!(row["providerPair"], Value::Null);
+    let live = connect(&mut control, &workspace, "trading212", "LIVE", &vault);
+    let changed = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    let row = changed["data"]["requirements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| {
+            row["connectionId"] == live["connectionId"] && row["purpose"] == "ACCOUNT_WORKSPACE"
+        })
+        .unwrap();
+    assert_eq!(row["fromCurrency"], "GBP");
+    assert_eq!(row["toCurrency"], "USD");
+    assert_eq!(row["need"], "EXTERNAL_RATE");
+    assert_eq!(
+        row["providerPair"],
+        Value::Null,
+        "An unsupported route must not be silently replaced with EUR/USD"
+    );
+    assert_ne!(
+        same["data"]["materialVersion"],
+        changed["data"]["materialVersion"]
+    );
+    let repeated = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        repeated["data"]["materialVersion"],
+        changed["data"]["materialVersion"]
+    );
+    let account = command(
+        &mut control,
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":live["connectionId"]}),
+    );
+    assert_eq!(account["data"]["permissions"]["scope"], "UNVERIFIED");
+    assert_eq!(account["data"]["health"]["arming"], "DISARMED");
+}
+
+struct FxReadHttp {
+    account: provider_fixtures::Http,
+    body: Vec<u8>,
+    paths: std::cell::RefCell<Vec<String>>,
+}
+
+#[test]
+fn observed_wallet_units_require_named_portfolio_routes_and_actual_supported_reads() {
+    use std::sync::{Arc, Mutex};
+    use tradex::provider_io::{
+        ProviderEndpoint, ProviderHttp, ProviderHttpMethod, ProviderHttpResponse,
+    };
+    struct WalletHttp(FxReadHttp);
+    impl ProviderHttp for WalletHttp {
+        fn get(
+            &self,
+            endpoint: ProviderEndpoint,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            let bytes = self.0.get(endpoint, path, headers)?;
+            if matches!(
+                path,
+                "/api/v2/spot/account/info" | "/api/v2/spot/account/assets?assetType=all"
+            ) {
+                let mut body: Value = serde_json::from_slice(&bytes).unwrap();
+                if path == "/api/v2/spot/account/info" {
+                    body["data"].as_object_mut().unwrap().remove("authorities");
+                } else {
+                    for coin in ["EUR", "OP", "1INCH"] {
+                        body["data"].as_array_mut().unwrap().push(json!({
+                            "coin":coin,"available":"12.34","frozen":"0","locked":"0","limitAvailable":"12.34"
+                        }));
+                    }
+                }
+                return Ok(serde_json::to_vec(&body).unwrap());
+            }
+            Ok(bytes)
+        }
+        fn request(
+            &self,
+            endpoint: ProviderEndpoint,
+            method: ProviderHttpMethod,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+            body: Option<&Value>,
+        ) -> tradex::protocol::Result<ProviderHttpResponse> {
+            assert_eq!(
+                method,
+                ProviderHttpMethod::Get,
+                "Wallet/FX context must never write"
+            );
+            assert!(body.is_none());
+            self.get(endpoint, path, headers)
+                .map(|body| ProviderHttpResponse { status: 200, body })
+        }
+    }
+    let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let http = WalletHttp(FxReadHttp {
+        account: provider_fixtures::Http::default(),
+        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}}}}}}"#)
+            .into_bytes(),
+        paths: Default::default(),
+    });
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let wallet = connect_using(&mut control, &workspace, "bitget", "LIVE", &vault, &http);
+    let account = command(
+        &mut control,
+        "account.get",
+        json!({"workspaceId":workspace,"connectionId":wallet["connectionId"]}),
+    );
+    assert!(account["data"]["data"]["currency"].is_null());
+    assert_eq!(account["data"]["permissions"]["scope"], "UNVERIFIED");
+    assert_eq!(account["data"]["health"]["arming"], "DISARMED");
+    let requirements = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(requirements["ok"], true, "{requirements}");
+    let rows = requirements["data"]["requirements"].as_array().unwrap();
+    assert!(
+        rows.iter()
+            .any(|r| r["connectionId"] == wallet["connectionId"]
+                && r["purpose"] == "ACCOUNT_WORKSPACE"
+                && r["need"] == "UNKNOWN_CURRENCY")
+    );
+    for (unit, pair) in [
+        ("USDT", Value::Null),
+        ("EUR", json!("EURUSD")),
+        ("OP", Value::Null),
+        ("1INCH", Value::Null),
+    ] {
+        let row = rows
+            .iter()
+            .find(|r| {
+                r["connectionId"] == wallet["connectionId"]
+                    && r["purpose"] == "BALANCE_WORKSPACE"
+                    && r["fromCurrency"] == unit
+            })
+            .unwrap_or_else(|| {
+                panic!("Actual {unit} wallet monetary input needs its named route: {requirements}")
+            });
+        assert_eq!(row["toCurrency"], "USD");
+        assert_eq!(row["need"], "EXTERNAL_RATE");
+        assert_eq!(row["providerPair"], pair);
+    }
+    command(
+        &mut control,
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"]}),
+    );
+    let control = Arc::new(Mutex::new(control));
+    let read = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"wallet-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(read["data"]["status"], "AVAILABLE", "{read}");
+    assert_eq!(
+        &*http.0.paths.borrow(),
+        &["/v1beta1/forex/latest/rates?currency_pairs=EURUSD"]
+    );
+    assert_eq!(
+        read["data"]["capabilityStatuses"][1]["status"],
+        "BLOCKED_EXTERNAL"
+    );
+    assert!(http.0.account.trading212_posts.borrow().is_empty());
+    assert!(http.0.account.trading212_delete_calls.borrow().is_empty());
+}
+impl tradex::provider_io::ProviderHttp for FxReadHttp {
+    fn get(
+        &self,
+        endpoint: tradex::provider_io::ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> tradex::protocol::Result<Vec<u8>> {
+        if matches!(
+            path,
+            "/v1beta1/forex/latest/rates?currency_pairs=EURUSD"
+                | "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR"
+        ) {
+            assert_eq!(
+                endpoint,
+                tradex::provider_io::ProviderEndpoint::AlpacaMarketData
+            );
+            assert_eq!(headers["APCA-API-KEY-ID"], provider_fixtures::KEY);
+            assert_eq!(headers["APCA-API-SECRET-KEY"], provider_fixtures::SECRET);
+            assert!(!headers.contains_key("authorization"));
+            self.paths.borrow_mut().push(path.into());
+            return Ok(self.body.clone());
+        }
+        let bytes = self.account.get(endpoint, path, headers)?;
+        if matches!(
+            path,
+            "/api/v0/equity/account/summary" | "/api/v0/equity/positions"
+        ) {
+            return Ok(String::from_utf8(bytes)
+                .unwrap()
+                .replace("GBP", "EUR")
+                .into_bytes());
+        }
+        Ok(bytes)
+    }
+}
+
+#[test]
+fn required_fx_read_preserves_exact_bid_ask_mid_and_separate_qualification() {
+    use std::sync::{Arc, Mutex};
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let provider_time = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let http = FxReadHttp {
+        account: provider_fixtures::Http::default(),
+        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01234567890123456789,"ap":1.11234567890123456789,"mp":1.07,"t":"{provider_time}"}}}}}}"#).into_bytes(),
+        paths: Default::default(),
+    };
+    let _live = connect_using(
+        &mut control,
+        &workspace,
+        "trading212",
+        "LIVE",
+        &vault,
+        &http,
+    );
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace})
+        )["ok"],
+        true
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"]}),
+    );
+    let control = Arc::new(Mutex::new(control));
+    let result = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"fx-read","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(result["ok"], true, "FX read is unavailable: {result}");
+    assert_eq!(result["data"]["status"], "AVAILABLE", "{result}");
+    let evidence = &result["data"]["evidence"];
+    assert_eq!(evidence["kind"], "FX");
+    assert_eq!(evidence["providerQuality"], "UNQUALIFIED_FX_RATE");
+    assert_eq!(evidence["rates"][0]["providerPair"], "EURUSD");
+    assert_eq!(evidence["rates"][0]["bid"], "1.01234567890123456789");
+    assert_eq!(evidence["rates"][0]["ask"], "1.11234567890123456789");
+    assert_eq!(evidence["rates"][0]["mid"], "1.07");
+    assert_eq!(evidence["rates"][0]["providerTimestamp"], provider_time);
+    assert_eq!(
+        result["data"]["capabilityStatuses"][1]["status"],
+        "BLOCKED_EXTERNAL"
+    );
+    let mut control = control.lock().unwrap();
+    let repeated = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(repeated["data"]["observedAt"], result["data"]["observedAt"]);
+    assert_eq!(
+        repeated["data"]["evidence"]["materialVersion"],
+        evidence["materialVersion"]
+    );
+    let accounts = command(
+        &mut control,
+        "account.list",
+        json!({"workspaceId":workspace}),
+    );
+    assert!(
+        accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|a| a["providerId"] != "local-paper")
+            .all(|a| a["permissions"]["scope"] != "VERIFIED" && a["health"]["arming"] != "ARMED")
+    );
+    assert_eq!(http.paths.borrow().len(), 1);
+    assert!(http.account.trading212_posts.borrow().is_empty());
+    assert!(http.account.trading212_delete_calls.borrow().is_empty());
+}
+
+#[derive(Clone, Default)]
+struct CountingUnavailableVault(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+impl tradex::provider_io::CredentialVault for CountingUnavailableVault {
+    fn put(&self, _: &str, _: &tradex::provider_io::Credentials) -> tradex::protocol::Result<()> {
+        Err(tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))
+    }
+    fn get(&self, _: &str) -> tradex::protocol::Result<tradex::provider_io::Credentials> {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Err(tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))
+    }
+    fn remove(&self, _: &str) -> tradex::protocol::Result<()> {
+        Err(tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))
+    }
+}
+
+#[test]
+fn identity_currency_refresh_does_not_request_a_key_or_external_rate() {
+    use std::sync::{Arc, Mutex, atomic::Ordering};
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let account_vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &account_vault);
+    command(
+        &mut control,
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert!(
+        source["data"]["fxRequirements"]["requirements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["need"] == "IDENTITY")
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    let vault = CountingUnavailableVault::default();
+    let http = provider_fixtures::Http::default();
+    let control = Arc::new(Mutex::new(control));
+    let result = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"identity-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(
+        vault.0.load(Ordering::SeqCst),
+        0,
+        "Same-currency inputs must not request Keychain authentication: {result}"
+    );
+    assert!(http.calls.borrow().is_empty());
+    assert_eq!(result["ok"], true, "{result}");
+    assert!(result["data"]["evidence"].is_null());
+    assert!(
+        result["data"]["availabilityReason"]
+            .as_str()
+            .unwrap()
+            .contains("No external currency rate is required"),
+        "{result}"
+    );
+}
+
+#[test]
+fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
+    use std::sync::{Arc, Mutex};
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let t = time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let http = FxReadHttp {
+        account: provider_fixtures::Http::default(),
+        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}},"USDEUR":{{"bp":0.88,"ap":0.99,"mp":0.93,"t":"{t}"}}}}}}"#).into_bytes(),
+        paths: Default::default(),
+    };
+    let live = connect_using(
+        &mut control,
+        &workspace,
+        "trading212",
+        "LIVE",
+        &vault,
+        &http,
+    );
+    command(
+        &mut control,
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let draft = command(
+        &mut control,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":{
+            "accountId":live["connectionId"],"venue":"XNAS","environment":"TRADING212_LIVE","instrumentId":"equity:US:AAPL","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"1"},"limitPrice":"221.50","maximumSpend":null,"timeInForce":"DAY","clientLabel":"FX route read only"
+        }}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &mut control,
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    assert_eq!(
+        proposal["data"]["estimatedNotionalCurrency"], "USD",
+        "{proposal}"
+    );
+    let requirements = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    assert_eq!(requirements["ok"], true, "{requirements}");
+    assert!(
+        requirements["data"]["requirements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["purpose"] == "INTENT_FUNDING"
+                && row["fromCurrency"] == "USD"
+                && row["toCurrency"] == "EUR"
+                && row["providerPair"] == "USDEUR")
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"]}),
+    );
+    let control = Arc::new(Mutex::new(control));
+    let result = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"intent-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"],"proposalId":proposal["data"]["proposalId"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(
+        result["ok"], true,
+        "Immutable intent-scoped FX read is unavailable: {result}"
+    );
+    assert_eq!(result["data"]["status"], "AVAILABLE", "{result}");
+    assert_eq!(
+        *http.paths.borrow(),
+        vec!["/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR"]
+    );
+    assert_eq!(
+        result["data"]["evidence"]["requirements"],
+        requirements["data"]
+    );
+    let reread = command(
+        &mut control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(reread["data"]["status"], "AVAILABLE", "{reread}");
+    assert_eq!(
+        reread["data"]["evidence"]["rates"][1]["fromCurrency"],
+        "USD"
+    );
+    assert_eq!(reread["data"]["evidence"]["rates"][1]["bid"], "0.88");
+    let review_payload =
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]});
+    let review = command(
+        &mut control.lock().unwrap(),
+        "trade.request_approval",
+        review_payload.clone(),
+    );
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(
+        review["data"]["currencyEvidence"]["source"]["evidence"], result["data"]["evidence"],
+        "The immutable review must capture the original FX observation: {review}"
+    );
+    assert_eq!(review["data"]["eligible"], false);
+    assert!(
+        review["data"]["riskDecision"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["checkId"] == "CURRENCY_CONVERSION" && row["outcome"] == "UNAVAILABLE")
+    );
+    let fx_digest = |value: &Value| {
+        value["data"]["riskDecision"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["kind"] == "CURRENCY_RATES")
+            .unwrap()["digest"]
+            .clone()
+    };
+    let repeated = command(
+        &mut control.lock().unwrap(),
+        "trade.request_approval",
+        review_payload.clone(),
+    );
+    assert_eq!(
+        fx_digest(&review),
+        fx_digest(&repeated),
+        "Polling or review cannot renew captured FX material"
+    );
+    let disconnected = command(
+        &mut control.lock().unwrap(),
+        "data.fx.disconnect",
+        json!({"workspaceId":workspace,"expectedStateVersion":reread["data"]["stateVersion"]}),
+    );
+    assert_eq!(disconnected["ok"], true, "{disconnected}");
+    let changed = command(
+        &mut control.lock().unwrap(),
+        "trade.request_approval",
+        review_payload,
+    );
+    assert_ne!(
+        fx_digest(&review),
+        fx_digest(&changed),
+        "Changed FX selection must change the risk and consent binding"
+    );
+    assert_eq!(changed["data"]["eligible"], false);
+    assert!(http.account.trading212_posts.borrow().is_empty());
+    assert!(http.account.trading212_delete_calls.borrow().is_empty());
+}
+
+#[test]
+fn selected_or_disconnected_fx_source_cannot_restore_synthetic_portfolio_authority() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let live = connect(&mut control, &workspace, "trading212", "LIVE", &vault);
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    for disconnect in [false, true] {
+        if disconnect {
+            let result = command(
+                &mut control,
+                "data.fx.disconnect",
+                json!({"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}),
+            );
+            assert_eq!(result["ok"], true, "{result}");
+        }
+        let portfolio = command(
+            &mut control,
+            "portfolio.get",
+            json!({"workspaceId":workspace}),
+        );
+        assert_eq!(portfolio["ok"], true, "{portfolio}");
+        assert!(
+            portfolio["data"]["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|row| row["connectionId"] == live["connectionId"]),
+            "A selected producer must expose actual accounts: {portfolio}"
+        );
+        assert!(
+            portfolio["data"]["accounts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|row| !row["connectionId"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("fixture:"))
+        );
+        assert_eq!(portfolio["data"]["liveRisk"]["eligible"], false);
+    }
+}
+
+#[test]
+#[cfg(feature = "integration-test")]
+fn legacy_portfolio_opt_in_cannot_override_explicit_fx_selection() {
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "selected_or_disconnected_fx_source_cannot_restore_synthetic_portfolio_authority",
+            "--exact",
+        ])
+        .env("TRADEX_PORTFOLIO_FIXTURE", "1")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
+fn schema_34_source_selections_survive_fx_migration_and_metadata_reopen() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let source = command(
+        &mut control,
+        "data.actions.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.actions.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    drop(control);
+    // External historical storage fixture: restore only the v34 table constraints.
+    // No permissions, balances, rates or financial authority are inserted.
+    let database = rusqlite::Connection::open(path.join("workspace.sqlite3")).unwrap();
+    database.execute_batch("BEGIN;
+        CREATE TABLE financial_source_config_old (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL);
+        INSERT INTO financial_source_config_old SELECT * FROM financial_source_config;
+        CREATE TABLE financial_source_config_audit_old (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation));
+        INSERT INTO financial_source_config_audit_old SELECT * FROM financial_source_config_audit;
+        DROP TABLE financial_source_config;
+        DROP TABLE financial_source_config_audit;
+        ALTER TABLE financial_source_config_old RENAME TO financial_source_config;
+        ALTER TABLE financial_source_config_audit_old RENAME TO financial_source_config_audit;
+        PRAGMA user_version=34; COMMIT;").unwrap();
+    drop(database);
+    let mut reopened = ControlPlane::new(path);
+    let opened = command(&mut reopened, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    assert_eq!(opened["data"]["storageSchemaVersion"], 35);
+    let retained = command(
+        &mut reopened,
+        "data.actions.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        retained["data"]["connectionId"],
+        saved["data"]["connectionId"]
+    );
+    assert_eq!(
+        retained["data"]["stateVersion"],
+        saved["data"]["stateVersion"]
+    );
+    assert_eq!(retained["data"]["status"], "UNVERIFIED");
+    let fx = command(
+        &mut reopened,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let selected = command(
+        &mut reopened,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":fx["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(
+        selected["ok"], true,
+        "New FX selection must work after migration: {selected}"
+    );
+    assert!(selected["data"]["evidence"].is_null());
+    assert_eq!(vault.present.borrow().len(), 1);
+}
+
+#[test]
+fn malformed_fx_or_old_provider_time_retires_current_read_without_authority() {
+    use std::sync::{Arc, Mutex};
+    let now = time::OffsetDateTime::now_utc();
+    let timestamp = |t: time::OffsetDateTime| {
+        t.format(&time::format_description::well_known::Rfc3339)
+            .unwrap()
+    };
+    let t = timestamp(now);
+    let valid = format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}}}}}}"#);
+    let faults = vec![
+        ("missing pair", "{\"rates\":{}}".to_owned()),
+        ("wrong pair", valid.replace("EURUSD", "USDEUR")),
+        (
+            "extra pair",
+            valid.replace("\"EURUSD\":", "\"USDEUR\":{},\"EURUSD\":"),
+        ),
+        (
+            "duplicate pair",
+            valid.replace("\"EURUSD\":", "\"EURUSD\":{},\"EURUSD\":"),
+        ),
+        (
+            "duplicate field",
+            valid.replace("\"bp\":1.01", "\"bp\":1.01,\"bp\":1.02"),
+        ),
+        ("missing ask", valid.replace("\"ap\":1.12,", "")),
+        (
+            "unknown field",
+            valid.replace("\"bp\":1.01", "\"other\":true,\"bp\":1.01"),
+        ),
+        (
+            "unknown root",
+            valid.replace("{\"rates\":", "{\"other\":true,\"rates\":"),
+        ),
+        ("crossed bid ask", valid.replace("\"bp\":1.01", "\"bp\":2")),
+        ("zero bid", valid.replace("\"bp\":1.01", "\"bp\":0")),
+        ("negative ask", valid.replace("\"ap\":1.12", "\"ap\":-1")),
+        (
+            "string mid",
+            valid.replace("\"mp\":1.07", "\"mp\":\"1.07\""),
+        ),
+        (
+            "object bid",
+            valid.replace(
+                "\"bp\":1.01",
+                r#""bp":{"$serde_json::private::Number":"1.01"}"#,
+            ),
+        ),
+        (
+            "object ask",
+            valid.replace(
+                "\"ap\":1.12",
+                r#""ap":{"$serde_json::private::Number":"1.12"}"#,
+            ),
+        ),
+        (
+            "object mid",
+            valid.replace(
+                "\"mp\":1.07",
+                r#""mp":{"$serde_json::private::Number":"1.07"}"#,
+            ),
+        ),
+        (
+            "escaped object bid",
+            valid.replace(
+                "\"bp\":1.01",
+                r#""bp":{"\u0024serde_json::private::Number":"1.01"}"#,
+            ),
+        ),
+        (
+            "escaped object ask",
+            valid.replace(
+                "\"ap\":1.12",
+                r#""ap":{"\u0024serde_json::private::Number":"1.12"}"#,
+            ),
+        ),
+        (
+            "escaped object mid",
+            valid.replace(
+                "\"mp\":1.07",
+                r#""mp":{"\u0024serde_json::private::Number":"1.07"}"#,
+            ),
+        ),
+        (
+            "oversized decimal",
+            valid.replace("\"mp\":1.07", "\"mp\":1e1000"),
+        ),
+        ("invalid timestamp", valid.replace(&t, "2026-99-99")),
+        (
+            "stale provider time",
+            valid.replace(&t, &timestamp(now - time::Duration::seconds(31))),
+        ),
+        (
+            "future provider time",
+            valid.replace(&t, &timestamp(now + time::Duration::minutes(1))),
+        ),
+        ("oversized body", " ".repeat(512 * 1024 + 1)),
+        (
+            "secret reflection",
+            valid.replace(
+                "\"bp\":1.01",
+                &format!("\"secret\":\"{}\",\"bp\":1.01", provider_fixtures::KEY),
+            ),
+        ),
+    ];
+    for (name, body) in faults {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let workspace =
+            command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = provider_fixtures::Vault::default();
+        let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+        let mut http = FxReadHttp {
+            account: provider_fixtures::Http::default(),
+            body: valid.as_bytes().to_vec(),
+            paths: Default::default(),
+        };
+        connect_using(
+            &mut control,
+            &workspace,
+            "trading212",
+            "LIVE",
+            &vault,
+            &http,
+        );
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let source = command(
+            &mut control,
+            "data.fx.connection",
+            json!({"workspaceId":workspace}),
+        );
+        let saved = command(
+            &mut control,
+            "data.fx.configure",
+            json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"]}),
+        );
+        let request = json!({"requestId":"fx-invalid","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}});
+        let control = Arc::new(Mutex::new(control));
+        let read =
+            tradex::financial_sources::execute_refresh(&control, &request, "main", &vault, &http);
+        assert_eq!(
+            read["data"]["status"], "AVAILABLE",
+            "Initial read for {name}: {read}"
+        );
+        http.body = body.into_bytes();
+        let rejected =
+            tradex::financial_sources::execute_refresh(&control, &request, "main", &vault, &http);
+        assert_eq!(rejected["ok"], true, "{name}: {rejected}");
+        assert_eq!(
+            rejected["data"]["status"], "UNAVAILABLE",
+            "{name}: {rejected}"
+        );
+        assert!(rejected["data"]["evidence"].is_null(), "{name}: {rejected}");
+        assert!(rejected["data"]["observedAt"].is_null());
+        assert_eq!(
+            rejected["data"]["capabilityStatuses"][1]["status"],
+            "BLOCKED_EXTERNAL"
+        );
+        assert!(http.account.trading212_posts.borrow().is_empty());
+        assert!(http.account.trading212_delete_calls.borrow().is_empty());
+        assert!(!rejected.to_string().contains(provider_fixtures::KEY));
+    }
+}
+
+#[test]
+#[cfg(feature = "integration-test")]
+fn provider_age_expires_fx_before_a_recent_receipt_and_reopen_keeps_only_selection() {
+    use std::sync::{Arc, Mutex};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(20))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let http = FxReadHttp {
+        account: provider_fixtures::Http::default(),
+        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}}}}}}"#)
+            .into_bytes(),
+        paths: Default::default(),
+    };
+    connect_using(
+        &mut control,
+        &workspace,
+        "trading212",
+        "LIVE",
+        &vault,
+        &http,
+    );
+    command(
+        &mut control,
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    let control = Arc::new(Mutex::new(control));
+    let read = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"fx-dual-age","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(read["data"]["status"], "AVAILABLE", "{read}");
+    let mut locked = control.lock().unwrap();
+    locked
+        .advance_test_clock_fixture(workspace.as_str().unwrap(), 11_000)
+        .unwrap();
+    let stale = command(
+        &mut locked,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        stale["data"]["status"], "UNAVAILABLE",
+        "The provider rate is over30seconds even though the receipt is only11seconds old: {stale}"
+    );
+    assert_eq!(stale["data"]["evidence"], read["data"]["evidence"]);
+    assert_eq!(stale["data"]["observedAt"], read["data"]["observedAt"]);
+    drop(locked);
+    drop(control);
+    let mut reopened = ControlPlane::new(path);
+    command(&mut reopened, "workspace.open", json!({}));
+    let source = command(
+        &mut reopened,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        source["data"]["connectionId"],
+        saved["data"]["connectionId"]
+    );
+    assert_eq!(source["data"]["status"], "UNVERIFIED");
+    assert!(source["data"]["evidence"].is_null());
+    assert!(source["data"]["observedAt"].is_null());
+}
+
+#[test]
+fn changed_fx_source_account_workspace_clock_or_sequence_discards_late_results() {
+    use std::sync::{Arc, Mutex};
+    struct RacingHttp<'a> {
+        body: &'a FxReadHttp,
+        change: std::cell::RefCell<Box<dyn FnMut() + 'a>>,
+    }
+    impl tradex::provider_io::ProviderHttp for RacingHttp<'_> {
+        fn get(
+            &self,
+            e: tradex::provider_io::ProviderEndpoint,
+            p: &str,
+            h: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            (self.change.borrow_mut())();
+            self.body.get(e, p, h)
+        }
+    }
+    for boundary in ["source", "account", "workspace", "clock", "sequence"] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let workspace =
+            command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = provider_fixtures::Vault::default();
+        let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+        let t = time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        let http = FxReadHttp {
+            account: provider_fixtures::Http::default(),
+            body: format!(
+                r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}}}}}}"#
+            )
+            .into_bytes(),
+            paths: Default::default(),
+        };
+        connect_using(
+            &mut control,
+            &workspace,
+            "trading212",
+            "LIVE",
+            &vault,
+            &http,
+        );
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let source = command(
+            &mut control,
+            "data.fx.connection",
+            json!({"workspaceId":workspace}),
+        );
+        let saved = command(
+            &mut control,
+            "data.fx.configure",
+            json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+        );
+        let control = Arc::new(Mutex::new(control));
+        let request = json!({"requestId":"fx-race","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}});
+        let racing = RacingHttp {
+            body: &http,
+            change: std::cell::RefCell::new(Box::new(|| {
+                if boundary == "sequence" {
+                    let newer = tradex::financial_sources::execute_refresh(
+                        &control, &request, "main", &vault, &http,
+                    );
+                    assert_eq!(newer["data"]["status"], "AVAILABLE", "{newer}");
+                    return;
+                }
+                let mut locked = control
+                    .try_lock()
+                    .expect("FX HTTP must not hold the Control Plane lock");
+                match boundary {
+                "source" => assert_eq!(command(&mut locked, "data.fx.disconnect", json!({"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}))["ok"], true),
+                "account" => assert!(locked.prepare_provider(&json!({"requestId":"fx-account-change","schemaVersion":1,"command":"provider.disconnect","payload":{"workspaceId":workspace,"connectionId":account["connectionId"],"expectedStateVersion":account["stateVersion"]}})).unwrap().is_some()),
+                "workspace" => assert_eq!(command(&mut locked, "workspace.open", json!({"path":directory.path().join("workspace")}))["ok"], true),
+                "clock" => assert_eq!(command(&mut locked, "time.revalidate", json!({"workspaceId":workspace}))["ok"], true),
+                _ => unreachable!(),
+            }
+            })),
+        };
+        let late =
+            tradex::financial_sources::execute_refresh(&control, &request, "main", &vault, &racing);
+        assert_eq!(
+            late["error"]["code"], "STATE_VERSION_CONFLICT",
+            "{boundary}: {late}"
+        );
+        let source = command(
+            &mut control.lock().unwrap(),
+            "data.fx.connection",
+            json!({"workspaceId":workspace}),
+        );
+        if boundary == "sequence" {
+            assert_eq!(source["data"]["status"], "AVAILABLE");
+        } else {
+            assert_ne!(source["data"]["status"], "AVAILABLE");
+            assert!(source["data"]["evidence"].is_null());
+        }
+    }
+}
+
+#[test]
+fn fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota() {
+    use std::sync::{Arc, Mutex};
+    use tradex::provider_io::{
+        ProviderEndpoint, ProviderHttp, ProviderHttpMethod, ProviderHttpResponse, ProviderRateLimit,
+    };
+    struct Responses {
+        account: FxReadHttp,
+        status: std::cell::Cell<u16>,
+        reads: std::cell::Cell<usize>,
+    }
+    impl ProviderHttp for Responses {
+        fn get(
+            &self,
+            e: ProviderEndpoint,
+            p: &str,
+            h: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            self.account.get(e, p, h)
+        }
+        fn request_with_rate_limit(
+            &self,
+            e: ProviderEndpoint,
+            m: ProviderHttpMethod,
+            p: &str,
+            h: reqwest::header::HeaderMap,
+            b: Option<&Value>,
+        ) -> tradex::protocol::Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+            if e != ProviderEndpoint::AlpacaMarketData {
+                return self.account.request_with_rate_limit(e, m, p, h, b);
+            }
+            assert_eq!(e, ProviderEndpoint::AlpacaMarketData);
+            assert_eq!(m, ProviderHttpMethod::Get);
+            assert_eq!(p, "/v1beta1/forex/latest/rates?currency_pairs=EURUSD");
+            assert!(b.is_none());
+            assert_eq!(h["APCA-API-KEY-ID"], provider_fixtures::KEY);
+            assert!(!h.contains_key("authorization"));
+            self.reads.set(self.reads.get() + 1);
+            let status = self.status.get();
+            let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap();
+            let body = if status == 200 {
+                format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}}}}}}"#)
+                    .into_bytes()
+            } else {
+                format!("untrusted diagnostic {}", provider_fixtures::SECRET).into_bytes()
+            };
+            Ok((
+                ProviderHttpResponse { status, body },
+                if status == 429 {
+                    Some(ProviderRateLimit {
+                        retry_after_seconds: Some(2),
+                        ..Default::default()
+                    })
+                } else {
+                    None
+                },
+            ))
+        }
+    }
+    for (status, reason) in [
+        (401, "Authentication failed"),
+        (403, "provider denied access"),
+        (429, "Provider read quota is unavailable"),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let workspace =
+            command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let vault = provider_fixtures::Vault::default();
+        let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+        let http = Responses {
+            account: FxReadHttp {
+                account: provider_fixtures::Http::default(),
+                body: vec![],
+                paths: Default::default(),
+            },
+            status: std::cell::Cell::new(status),
+            reads: std::cell::Cell::new(0),
+        };
+        connect_using(
+            &mut control,
+            &workspace,
+            "trading212",
+            "LIVE",
+            &vault,
+            &http,
+        );
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        let source = command(
+            &mut control,
+            "data.fx.connection",
+            json!({"workspaceId":workspace}),
+        );
+        let saved = command(
+            &mut control,
+            "data.fx.configure",
+            json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+        );
+        let control = Arc::new(Mutex::new(control));
+        let request = json!({"requestId":"fx-denied","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}});
+        let denied =
+            tradex::financial_sources::execute_refresh(&control, &request, "main", &vault, &http);
+        assert_eq!(
+            denied["data"]["status"], "UNAVAILABLE",
+            "{status}: {denied}"
+        );
+        assert!(denied["data"]["evidence"].is_null());
+        assert!(
+            denied["data"]["availabilityReason"]
+                .as_str()
+                .unwrap()
+                .contains(reason),
+            "{status}: {denied}"
+        );
+        assert!(!denied.to_string().contains(provider_fixtures::SECRET));
+        assert_eq!(http.reads.get(), 1);
+        if status == 429 {
+            http.status.set(200);
+            let start = std::time::Instant::now();
+            let retry = tradex::financial_sources::execute_refresh(
+                &control, &request, "main", &vault, &http,
+            );
+            assert!(
+                start.elapsed() >= std::time::Duration::from_millis(1900),
+                "A retry must wait for actual Retry-After"
+            );
+            assert_eq!(retry["data"]["status"], "AVAILABLE", "{retry}");
+            assert_eq!(
+                retry["data"]["capabilityStatuses"][1]["status"],
+                "BLOCKED_EXTERNAL"
+            );
+            assert_eq!(http.reads.get(), 2);
+        }
+        assert!(http.account.account.trading212_posts.borrow().is_empty());
+        assert!(
+            http.account
+                .account
+                .trading212_delete_calls
+                .borrow()
+                .is_empty()
+        );
+    }
+}
+
+#[test]
+fn spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt_parity() {
+    use std::sync::{Arc, Mutex, atomic::Ordering};
+    struct PartialKeyScope(provider_fixtures::Http);
+    impl tradex::provider_io::ProviderHttp for PartialKeyScope {
+        fn get(
+            &self,
+            e: tradex::provider_io::ProviderEndpoint,
+            p: &str,
+            h: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            let bytes = self.0.get(e, p, h)?;
+            if p == "/api/v2/spot/account/info" {
+                let mut value: Value = serde_json::from_slice(&bytes).unwrap();
+                value["data"].as_object_mut().unwrap().remove("authorities");
+                return Ok(serde_json::to_vec(&value).unwrap());
+            }
+            Ok(bytes)
+        }
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let spot = connect_using(
+        &mut control,
+        &workspace,
+        "bitget",
+        "LIVE",
+        &vault,
+        &PartialKeyScope(provider_fixtures::Http::default()),
+    );
+    let draft = command(
+        &mut control,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":{
+            "accountId":spot["connectionId"],"venue":"BITGET","environment":"BITGET_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.01"},"limitPrice":"20000","timeInForce":"GTC"
+        }}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &mut control,
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    assert_eq!(
+        proposal["data"]["estimatedNotionalCurrency"], "USDT",
+        "{proposal}"
+    );
+    let requirements = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    let rows = requirements["data"]["requirements"].as_array().unwrap();
+    let policy = rows
+        .iter()
+        .find(|row| row["purpose"] == "INTENT_POLICY")
+        .unwrap();
+    assert_eq!(policy["fromCurrency"], "USDT");
+    assert_eq!(policy["toCurrency"], "USD");
+    assert_eq!(policy["need"], "EXTERNAL_RATE");
+    assert!(policy["providerPair"].is_null());
+    let funding = rows
+        .iter()
+        .find(|row| row["purpose"] == "INTENT_FUNDING")
+        .unwrap();
+    assert_eq!(funding["need"], "IDENTITY");
+    assert_eq!(funding["toCurrency"], "USDT");
+    assert!(rows.iter().any(|row| row["purpose"] == "ACCOUNT_WORKSPACE"
+        && row["connectionId"] == spot["connectionId"]
+        && row["need"] == "UNKNOWN_CURRENCY"));
+    command(
+        &mut control,
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"]}),
+    );
+    let control = Arc::new(Mutex::new(control));
+    let no_key = CountingUnavailableVault::default();
+    let http = provider_fixtures::Http::default();
+    let result = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"unsupported-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"],"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &no_key,
+        &http,
+    );
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(no_key.0.load(Ordering::SeqCst), 0);
+    assert!(http.calls.borrow().is_empty());
+    assert!(
+        result["data"]["availabilityReason"]
+            .as_str()
+            .unwrap()
+            .contains("unknown or unsupported"),
+        "{result}"
+    );
+    assert!(result["data"]["evidence"].is_null());
+}
+
+#[test]
+fn sell_intent_does_not_require_buy_funding_fx_for_asset_capacity() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let http = FxReadHttp {
+        account: provider_fixtures::Http::default(),
+        body: vec![],
+        paths: Default::default(),
+    };
+    let account = connect_using(
+        &mut control,
+        &workspace,
+        "trading212",
+        "LIVE",
+        &vault,
+        &http,
+    );
+    let draft = command(
+        &mut control,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":{
+            "accountId":account["connectionId"],"venue":"XNAS","environment":"TRADING212_LIVE","instrumentId":"equity:US:AAPL","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"1"},"limitPrice":"200","timeInForce":"DAY"
+        }}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &mut control,
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    let result = command(
+        &mut control,
+        "data.fx.requirements",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    assert_eq!(result["ok"], true, "{result}");
+    let rows = result["data"]["requirements"].as_array().unwrap();
+    assert!(
+        rows.iter().all(|row| row["purpose"] != "INTENT_FUNDING"),
+        "Sell capacity is in the base asset; it must not acquire a Buy funding-currency route: {result}"
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["purpose"] == "INTENT_POLICY" && row["need"] == "IDENTITY")
+    );
+    assert!(
+        rows.iter()
+            .any(|row| row["purpose"] == "ACCOUNT_WORKSPACE" && row["providerPair"] == "EURUSD"),
+        "Actually required portfolio conversions remain explicit"
+    );
+    assert!(http.account.trading212_posts.borrow().is_empty());
+    assert!(http.account.trading212_delete_calls.borrow().is_empty());
+}
+
+#[test]
+fn fx_commands_reject_renderer_assertions_before_vault_or_provider_work() {
+    use std::sync::{Arc, Mutex, atomic::Ordering};
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let before = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    for (name, extra) in [
+        (
+            "data.fx.connection",
+            json!({"connectionId":"caller-account"}),
+        ),
+        (
+            "data.fx.requirements",
+            json!({"fromCurrency":"EUR","toCurrency":"USD"}),
+        ),
+        (
+            "data.fx.configure",
+            json!({"expectedStateVersion":before["data"]["stateVersion"],"connectionId":"caller-account","endpoint":"https://example.com"}),
+        ),
+        (
+            "data.fx.disconnect",
+            json!({"expectedStateVersion":before["data"]["stateVersion"],"deleteCredentials":true}),
+        ),
+    ] {
+        let mut input = json!({"workspaceId":workspace});
+        input
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let rejected = command(&mut control, name, input);
+        assert_eq!(
+            rejected["error"]["code"], "IPC_PAYLOAD_INVALID",
+            "{name}: {rejected}"
+        );
+    }
+    let control = Arc::new(Mutex::new(control));
+    let vault = CountingUnavailableVault::default();
+    let http = provider_fixtures::Http::default();
+    for extra in [
+        json!({"pairs":["EURUSD"]}),
+        json!({"rate":"1"}),
+        json!({"providerTimestamp":"2026-10-04T12:00:00Z"}),
+        json!({"quality":"VERIFIED"}),
+        json!({"connectionId":"caller-account"}),
+        json!({"credentialRef":"caller-reference"}),
+        json!({"endpoint":"https://example.com"}),
+    ] {
+        let mut input =
+            json!({"workspaceId":workspace,"expectedStateVersion":before["data"]["stateVersion"]});
+        input
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let rejected = tradex::financial_sources::execute_refresh(
+            &control,
+            &json!({"requestId":"fx-caller-claims","schemaVersion":1,"command":"data.fx.refresh","payload":input}),
+            "main",
+            &vault,
+            &http,
+        );
+        assert_eq!(
+            rejected["error"]["code"], "IPC_PAYLOAD_INVALID",
+            "{rejected}"
+        );
+    }
+    let rejected = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"fx-untrusted-consumer","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "untrusted-renderer",
+        &vault,
+        &http,
+    );
+    assert_eq!(rejected["error"]["code"], "IPC_ACCESS_DENIED");
+    assert_eq!(vault.0.load(Ordering::SeqCst), 0);
+    assert!(http.calls.borrow().is_empty());
+    let after = command(
+        &mut control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(before["data"], after["data"]);
 }

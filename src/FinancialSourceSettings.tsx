@@ -4,6 +4,7 @@ import { explainError, request } from './client.ts';
 import { FinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 
 const sources = {
+  fx: { title: 'Alpaca currency rates', account: 'Currency rates account', selection: 'Paper', explanation: 'Read only the currency pairs required by current account and workspace inputs, using a saved Alpaca Paper key. Supplied rates do not establish transaction-grade qualification or exact broker conversion costs.' },
   actions: { title: 'Alpaca known company events', account: 'Company events account', selection: 'Paper', explanation: 'Read processed company events using a saved Alpaca Paper key. A completed query does not establish complete action coverage or adjusted history.' },
   instrument: { title: 'Trading 212 account instruments', account: 'Account instruments account', selection: 'Live', explanation: 'Read account identity, instrument metadata and schedules using the same saved Trading 212 Live key. These reads do not establish current account tradability, exchange halts or full key permissions.' },
 } as const;

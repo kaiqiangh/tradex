@@ -52,14 +52,20 @@ export type CapacityCommittedSource = "PROVIDER_BALANCE_COMMITTED" | "OPEN_SELL_
 export type CapacityFreshness = "CURRENT" | "STALE" | "UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "AdjustmentStatus".
+ * via the `definition` "FxRequirementNeed".
  */
-export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
+export type FxRequirementNeed = "IDENTITY" | "EXTERNAL_RATE" | "UNKNOWN_CURRENCY";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "CorporateActionType".
+ * via the `definition` "FxRequirementPurpose".
  */
-export type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
+export type FxRequirementPurpose =
+  | "ACCOUNT_WORKSPACE"
+  | "BALANCE_WORKSPACE"
+  | "POSITION_WORKSPACE"
+  | "ORDER_WORKSPACE"
+  | "INTENT_POLICY"
+  | "INTENT_FUNDING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialEvidenceCapability".
@@ -72,7 +78,11 @@ export type FinancialEvidenceCapability =
   | "BROKER_ACCOUNT_IDENTITY"
   | "BROKER_INSTRUMENT_METADATA"
   | "EXCHANGE_HALTS"
-  | "ACCOUNT_TRADABILITY";
+  | "ACCOUNT_TRADABILITY"
+  | "FX_RATE_OBSERVATION"
+  | "TRANSACTION_FX_QUALIFICATION"
+  | "BROKER_CONVERSION_COSTS"
+  | "MONETARY_INPUT_COMPLETENESS";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DataSourceStatus".
@@ -111,6 +121,20 @@ export type FinancialSourceEvidence =
       observedAt: string;
       providerObservedAt?: string;
       providerQuality: FinancialEvidenceQuality;
+    }
+  | {
+      binding: FinancialEvidenceBinding;
+      kind: "FX";
+      materialVersion: string;
+      observedAt: string;
+      providerObservedAt?: string;
+      providerQuality: FinancialEvidenceQuality;
+      /**
+       * @minItems 1
+       * @maxItems 2
+       */
+      rates: [FxObservedRate] | [FxObservedRate, FxObservedRate];
+      requirements: FxRequirements;
     };
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -175,7 +199,7 @@ export type CompanyEventTermName =
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialEvidenceQuality".
  */
-export type FinancialEvidenceQuality = "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA";
+export type FinancialEvidenceQuality = "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA" | "UNQUALIFIED_FX_RATE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BrokerScheduleEventType".
@@ -193,7 +217,17 @@ export type BrokerScheduleEventType =
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialSourceKind".
  */
-export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS";
+export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS" | "FX";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AdjustmentStatus".
+ */
+export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CorporateActionType".
+ */
+export type CorporateActionType = "SPLIT" | "DIVIDEND" | "SYMBOL_CHANGE" | "DELISTING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AssetClass".
@@ -338,7 +372,8 @@ export type RiskCheckId =
   | "LIVE_INACTIVITY"
   | "CANCELLATION_ORDER"
   | "CANCELLATION_CAPABILITY"
-  | "SNAPSHOT_FRESHNESS";
+  | "SNAPSHOT_FRESHNESS"
+  | "CURRENCY_CONVERSION";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskCheckOutcome".
@@ -380,7 +415,8 @@ export type RiskDecisionReasonCode =
   | "UNSUPPORTED_CONTEXT"
   | "INVALID_PROPOSAL_VALUE"
   | "ORDER_NOT_CANCELABLE"
-  | "CANCELLATION_UNSUPPORTED";
+  | "CANCELLATION_UNSUPPORTED"
+  | "CURRENCY_CONVERSION_UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionInputKind".
@@ -394,7 +430,8 @@ export type RiskDecisionInputKind =
   | "CALENDAR"
   | "DAILY_COUNTERS"
   | "RESERVATIONS"
-  | "INSTRUMENT_RULES";
+  | "INSTRUMENT_RULES"
+  | "CURRENCY_RATES";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionStatus".
@@ -830,6 +867,7 @@ export type ReplyData =
   | DataSourceConnection
   | CalendarConnection
   | FinancialSourceConnection
+  | FxRequirements
   | MarketCatalog
   | MarketDetail
   | HotQuoteProjection
@@ -1089,6 +1127,9 @@ export interface IpcSchema {
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
   financialSourceConfigure: FinancialSourceConfigure;
   financialSourceConnection: FinancialSourceConnection;
+  fxRequirements: FxRequirements;
+  fxRequirementsQuery: FxRequirementsQuery;
+  fxSourceRefresh: FxSourceRefresh;
   gatewayMutation: GatewayMutation;
   hotQuoteAcquire: HotQuoteAcquire;
   hotQuoteProjection: HotQuoteProjection;
@@ -1420,6 +1461,7 @@ export interface ApprovalReview {
    */
   blockers: string[];
   capacityProjection?: CapacityProjection | null;
+  currencyEvidence?: FxReviewEvidence | null;
   eligible: boolean;
   estimatedFees?: EstimatedFee | null;
   estimatedSlippagePercent?: string;
@@ -1628,196 +1670,39 @@ export interface CapacityProjection {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "EstimatedFee".
+ * via the `definition` "FxReviewEvidence".
  */
-export interface EstimatedFee {
-  amount: string;
-  currency: string;
+export interface FxReviewEvidence {
+  requirements: FxRequirements;
+  source: FinancialSourceConnection;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketDetail".
+ * via the `definition` "FxRequirements".
  */
-export interface MarketDetail {
-  adjustmentStatus: AdjustmentStatus;
-  availabilityReason: string;
+export interface FxRequirements {
+  baseCurrency: string;
+  materialVersion: string;
+  proposalId?: string;
   /**
-   * @maxItems 16
+   * @maxItems 128
    */
-  corporateActions:
-    | []
-    | [CorporateAction]
-    | [CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
-    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ]
-    | [
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction,
-        CorporateAction
-      ];
-  financialEvidence?: MarketFinancialEvidence | null;
-  instrument: Instrument;
-  instrumentState?: InstrumentTradingObservation | null;
-  marketState: MarketState;
-  snapshot?: MarketSnapshot | null;
-  sourceId?: string;
-  status: MarketDataStatus;
-  tier: MarketTier;
+  requirements: FxRouteRequirement[];
   workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "CorporateAction".
+ * via the `definition` "FxRouteRequirement".
  */
-export interface CorporateAction {
-  actionId: string;
-  actionType: CorporateActionType;
-  adjustmentStatus: AdjustmentStatus;
-  announcedAt?: string;
-  description: string;
-  effectiveAt: string;
-  instrumentId: string;
-  sourceId?: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "MarketFinancialEvidence".
- */
-export interface MarketFinancialEvidence {
-  brokerInstruments: FinancialSourceConnection;
-  companyEvents: FinancialSourceConnection;
+export interface FxRouteRequirement {
+  accountVersion?: string;
+  connectionId?: string;
+  fromCurrency?: string;
+  need: FxRequirementNeed;
+  providerPair?: string;
+  purpose: FxRequirementPurpose;
+  reason: string;
+  toCurrency?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1878,6 +1763,7 @@ export interface FinancialSourceConnection {
   eligibleAccounts: DataSourceAccountChoice[];
   environment: string;
   evidence?: FinancialSourceEvidence | null;
+  fxRequirements?: FxRequirements | null;
   kind: FinancialSourceKind;
   observedAt?: string;
   stateVersion: string;
@@ -2449,6 +2335,212 @@ export interface BrokerInstrumentMetadata {
 export interface BrokerScheduleEvent {
   date: string;
   eventType: BrokerScheduleEventType;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxObservedRate".
+ */
+export interface FxObservedRate {
+  ask: string;
+  bid: string;
+  fromCurrency: string;
+  mid: string;
+  providerPair: string;
+  providerTimestamp: string;
+  toCurrency: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "EstimatedFee".
+ */
+export interface EstimatedFee {
+  amount: string;
+  currency: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketDetail".
+ */
+export interface MarketDetail {
+  adjustmentStatus: AdjustmentStatus;
+  availabilityReason: string;
+  /**
+   * @maxItems 16
+   */
+  corporateActions:
+    | []
+    | [CorporateAction]
+    | [CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction, CorporateAction]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ]
+    | [
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction,
+        CorporateAction
+      ];
+  financialEvidence?: MarketFinancialEvidence | null;
+  instrument: Instrument;
+  instrumentState?: InstrumentTradingObservation | null;
+  marketState: MarketState;
+  snapshot?: MarketSnapshot | null;
+  sourceId?: string;
+  status: MarketDataStatus;
+  tier: MarketTier;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CorporateAction".
+ */
+export interface CorporateAction {
+  actionId: string;
+  actionType: CorporateActionType;
+  adjustmentStatus: AdjustmentStatus;
+  announcedAt?: string;
+  description: string;
+  effectiveAt: string;
+  instrumentId: string;
+  sourceId?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketFinancialEvidence".
+ */
+export interface MarketFinancialEvidence {
+  brokerInstruments: FinancialSourceConnection;
+  companyEvents: FinancialSourceConnection;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -4850,6 +4942,23 @@ export interface FinancialApprovalHistoryQuery {
 export interface FinancialSourceConfigure {
   connectionId: string;
   expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRequirementsQuery".
+ */
+export interface FxRequirementsQuery {
+  proposalId?: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceRefresh".
+ */
+export interface FxSourceRefresh {
+  expectedStateVersion: string;
+  proposalId?: string;
   workspaceId: string;
 }
 /**

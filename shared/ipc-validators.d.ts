@@ -188,8 +188,16 @@ declare const validators: {
   FinancialSourceEvidence: (value: unknown) => boolean;
   FinancialSourceKind: (value: unknown) => boolean;
   FxFreshness: (value: unknown) => boolean;
+  FxObservedRate: (value: unknown) => boolean;
   FxProvenance: (value: unknown) => boolean;
   FxQuality: (value: unknown) => boolean;
+  FxRequirementNeed: (value: unknown) => boolean;
+  FxRequirementPurpose: (value: unknown) => boolean;
+  FxRequirements: (value: unknown) => boolean;
+  FxRequirementsQuery: (value: unknown) => boolean;
+  FxReviewEvidence: (value: unknown) => boolean;
+  FxRouteRequirement: (value: unknown) => boolean;
+  FxSourceRefresh: (value: unknown) => boolean;
   GatewayAction: (value: unknown) => boolean;
   GatewayMutation: (value: unknown) => boolean;
   GatewayState: (value: unknown) => boolean;

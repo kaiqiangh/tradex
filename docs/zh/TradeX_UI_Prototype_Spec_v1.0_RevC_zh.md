@@ -999,3 +999,9 @@ Settings → Data & Storage 分别提供“Alpaca known company events”和“T
 显示首次 receipt、provider quality、缺失 provider time、source/account/material version 及独立能力。已知事件保留全部16类别、date-only 日期、精确 terms、securities/movements、可选属性和 partial。每页25条访问最多1000条；查询穷尽/空结果不能证明没有待处理事件、完整覆盖或历史调整。Broker metadata 显示精确 AAPL/MSFT ticker/ISIN/currency/schedule join、十分钟质量和 unverified 规范身份；目录成员或 quantity/extended-hours 元数据不能证明当前可交易性、停牌或执行 venue。Markets 和金融 review 显示原始证据及独立阻塞，过期保留内容明确不可用。流程不包含权威性提升、回退、Arm 或金融修改。保留390/768/1280px 布局及所有既有门禁。Backend §41.39 拥有 wire/lifecycle 语义；此目标不修复点击原型，也不证明真实 provider 验收。
 
 冻结的审批及 pre-arm 金融证据必须显示“捕获时状态”和 review 捕获时间，并说明不可变 review 不报告当前资格。过期后保留原始 receipt/material；重新打开获取新的后端评估，受保护操作重新核验当前证据。
+
+## 14.24 所需币种路由与只读 FX 上下文（S28 #120）
+
+消费 Backend §41.40 生成的 data.fx.* commands。Settings → Data & Storage 提供“Alpaca currency rates”，明确保存合格已有 Paper 账户；Save、Refresh、Disconnect、reload 分离。未保存选择不能刷新，Save 不读 provider，Disconnect 保留借用账户/key，reopen 仅恢复 unverified 元数据。Renderer 不提供 pair、endpoint、rates、quality 或金融权威。显示脱敏 entitlement、quota、缺失/不支持币种和无需汇率原因。
+
+Portfolio 显示后端导出的金额币种需求，包括已观察余额单位的 BALANCE_WORKSPACE 具名路由；未知账户主币种仍独立保持未知；Trade 加入所选不可变 Proposal 的 policy/funding 路由及明确的“Refresh rates for this proposal”读取。区分所选 intent 上下文与已观察读取上下文。显示原始 bid/ask/provider-mid、方向、各 provider timestamp、首次 receipt/material/source binding、UNQUALIFIED_FX_RATE 和独立 transaction qualification、broker costs、monetary completeness 阻塞。不得把上下文变成组合金额权威、funding bounds 或 consent。仅轮询本地投影更新过期状态，不读 provider、不续 receipt。过期证据保留但不可用。预 Arm review 与不可变审批窗口均仅显示捕获的 currencyEvidence、capture time 和捕获状态，不能把轮询写进这些捕获 review。预 Arm 证据保持只读，不能批准 Proposal。保留所有既有门禁、Local Paper 与保护性 CANCEL。以真实 Rust 验证键盘/status/errors/reload 及390/768/1280px。此目标契约不是 runtime 或 prototype PASS。

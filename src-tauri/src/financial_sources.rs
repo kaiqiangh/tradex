@@ -1,4 +1,4 @@
-//! Explicit saved-account selections for read-only company events and broker metadata.
+//! Explicit saved-account selections for read-only company events, broker metadata and FX.
 use crate::protocol::{
     BrokerInstrumentEvidence, BrokerInstrumentMetadata, BrokerScheduleEvent, CompanyEventCategory,
     CompanyEventDate, CompanyEventSecurity, CompanyEventTerm, CorporateActionEvidence,
@@ -41,6 +41,8 @@ struct Binding {
     runtime_epoch: String,
     clock_generation: String,
     sequence: u64,
+    fx_requirements_version: Option<String>,
+    fx_proposal_id: Option<String>,
 }
 impl Binding {
     fn current(&self, control: &ControlPlane) -> bool {
@@ -49,6 +51,16 @@ impl Binding {
             && self.clock_generation == control.time.generation()
             && control.financial_source_runtime.sequences.get(&self.kind) == Some(&self.sequence)
             && control.require_workspace(&self.workspace).is_ok()
+            && self.fx_requirements_version.as_ref().is_none_or(|version| {
+                fx_requirements(
+                    control,
+                    &crate::protocol::FxRequirementsQuery {
+                        workspace_id: self.workspace.clone(),
+                        proposal_id: self.fx_proposal_id.clone(),
+                    },
+                )
+                .is_ok_and(|requirements| requirements.material_version == *version)
+            })
             && control.store.as_ref().is_some_and(|store| {
                 store.financial_source(self.kind).is_ok_and(|source| {
                     source.version(self.kind, &self.workspace) == self.source_version
@@ -74,7 +86,9 @@ impl Binding {
                 self.session,
                 self.runtime_epoch,
                 self.clock_generation,
-                self.sequence
+                self.sequence,
+                self.fx_requirements_version,
+                self.fx_proposal_id
             ]))?,
         })
     }
@@ -92,6 +106,18 @@ impl Observation {
             .zip(timestamp(&self.received.wall_clock).ok())
             .map(|(now, received)| now - received);
         self.binding.current(control)
+            && match &self.evidence {
+                FinancialSourceEvidence::Fx(evidence) => {
+                    timestamp(&now.wall_clock).is_ok_and(|now| {
+                        evidence.rates.iter().all(|rate| {
+                            timestamp(&rate.provider_timestamp).is_ok_and(|provider| {
+                                (Duration::ZERO..=Duration::seconds(30)).contains(&(now - provider))
+                            })
+                        })
+                    })
+                }
+                _ => true,
+            }
             && now.confidence == TimeConfidence::Trusted
             && self.received.confidence == TimeConfidence::Trusted
             && now
@@ -127,6 +153,211 @@ fn hash(value: &impl Serialize) -> Result<String> {
         Sha256::digest(serde_json::to_vec(value).map_err(|_| invalid())?)
     ))
 }
+
+pub(crate) fn fx_requirements(
+    control: &ControlPlane,
+    input: &crate::protocol::FxRequirementsQuery,
+) -> Result<crate::protocol::FxRequirements> {
+    use crate::protocol::{FxRequirementPurpose as Purpose, FxRequirements};
+    control.require_workspace(&input.workspace_id)?;
+    let store = control.store.as_ref().unwrap();
+    let base = store.base_currency()?;
+    let accounts = store.accounts()?;
+    let mut rows = Vec::new();
+    for account in &accounts {
+        let data = account.data.as_ref();
+        let currency = data.and_then(|data| data.currency.as_deref());
+        rows.push(fx_route(
+            Purpose::AccountWorkspace,
+            Some(account),
+            currency,
+            Some(&base),
+        ));
+        if let Some(data) = data {
+            for balance in &data.balances {
+                // Portfolio consumes total-or-available in this observed native unit.
+                // Naming a wallet unit never establishes the account's fiat currency.
+                rows.push(fx_route(
+                    Purpose::BalanceWorkspace,
+                    Some(account),
+                    Some(&balance.asset),
+                    Some(&base),
+                ));
+            }
+            for position in &data.positions {
+                if position.market_value.is_some() {
+                    rows.push(fx_route(
+                        Purpose::PositionWorkspace,
+                        Some(account),
+                        position.market_value_currency.as_deref(),
+                        Some(&base),
+                    ));
+                }
+            }
+            for order in &data.open_orders {
+                if order.notional.is_some() || order.filled_value.is_some() {
+                    rows.push(fx_route(
+                        Purpose::OrderWorkspace,
+                        Some(account),
+                        order.currency.as_deref(),
+                        Some(&base),
+                    ));
+                }
+            }
+        }
+    }
+    let proposal = if let Some(id) = &input.proposal_id {
+        if !crate::valid_bounded_text(id, 128) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let proposal = store.order_proposal(id)?;
+        if proposal.workspace_id != input.workspace_id {
+            return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+        }
+        let account = accounts
+            .iter()
+            .find(|account| Some(&account.connection_id) == proposal.fields.account_id.as_ref());
+        let currency = proposal.estimated_notional_currency.as_deref();
+        rows.push(fx_route(
+            Purpose::IntentPolicy,
+            account,
+            currency,
+            Some(&base),
+        ));
+        let funding_currency = account.and_then(|account| {
+            let data = account.data.as_ref()?;
+            if proposal.fields.side == crate::protocol::OrderSide::Buy
+                && proposal.fields.instrument_id.starts_with("crypto:")
+                && matches!(account.provider_id.as_str(), "binance" | "bitget")
+                && let Some(currency) = currency
+                && data
+                    .balances
+                    .iter()
+                    .any(|balance| balance.asset == currency)
+            {
+                // A returned quote-asset balance establishes that funding unit only;
+                // it does not establish portfolio fiat currency, completeness or parity.
+                return Some(currency);
+            }
+            data.currency.as_deref()
+        });
+        if proposal.fields.side == crate::protocol::OrderSide::Buy {
+            rows.push(fx_route(
+                Purpose::IntentFunding,
+                account,
+                currency,
+                funding_currency,
+            ));
+        }
+        Some(proposal)
+    } else {
+        None
+    };
+    // Deduplicate same-purpose currency requirements, retaining exact account version.
+    let mut keyed = rows
+        .into_iter()
+        .map(|row| Ok((serde_json::to_string(&row).map_err(|_| invalid())?, row)))
+        .collect::<Result<Vec<_>>>()?;
+    keyed.sort_by(|left, right| left.0.cmp(&right.0));
+    keyed.dedup_by(|left, right| left.0 == right.0);
+    if keyed.len() > 128 {
+        return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+    }
+    let requirements = keyed.into_iter().map(|(_, row)| row).collect::<Vec<_>>();
+    let material_version = hash(&json!([input.workspace_id, base, proposal, requirements]))?;
+    Ok(FxRequirements {
+        workspace_id: input.workspace_id.clone(),
+        base_currency: base,
+        proposal_id: input.proposal_id.clone(),
+        material_version,
+        requirements,
+    })
+}
+
+fn fx_route(
+    purpose: crate::protocol::FxRequirementPurpose,
+    account: Option<&AccountConnection>,
+    from: Option<&str>,
+    to: Option<&str>,
+) -> crate::protocol::FxRouteRequirement {
+    use crate::protocol::{FxRequirementNeed as Need, FxRouteRequirement};
+    let valid = |currency: &&str| crate::portfolio::valid_currency(currency);
+    let from = from.filter(valid);
+    let to = to.filter(valid);
+    let (need, pair, reason) = match (from, to) {
+        (Some(from), Some(to)) if from == to => (
+            Need::Identity,
+            None,
+            "The monetary input and target have the same currency; no external rate is required.",
+        ),
+        (Some("EUR"), Some("USD")) => (
+            Need::ExternalRate,
+            Some("EURUSD"),
+            "EUR to USD needs a qualified directional conversion. A rate read alone does not establish financial eligibility.",
+        ),
+        (Some("USD"), Some("EUR")) => (
+            Need::ExternalRate,
+            Some("USDEUR"),
+            "USD to EUR needs a qualified directional conversion. A rate read alone does not establish broker funding or fees.",
+        ),
+        (Some(_), Some(_)) => (
+            Need::ExternalRate,
+            None,
+            "This currency route is required but unsupported by the selected bounded FX producer. Currency parity is never assumed.",
+        ),
+        _ => (
+            Need::UnknownCurrency,
+            None,
+            "A required monetary currency is unavailable; no conversion pair or zero amount can be inferred.",
+        ),
+    };
+    FxRouteRequirement {
+        purpose,
+        connection_id: account.map(|account| account.connection_id.clone()),
+        account_version: account.map(|account| account.state_version.clone()),
+        from_currency: from.map(str::to_owned),
+        to_currency: to.map(str::to_owned),
+        need,
+        provider_pair: pair.map(str::to_owned),
+        reason: reason.into(),
+    }
+}
+
+pub(crate) fn review_context(
+    control: &mut ControlPlane,
+    proposal: &crate::protocol::OrderProposal,
+) -> Result<Option<crate::protocol::FxReviewEvidence>> {
+    // Source selection is never an operation-wide gate for Local Paper or CANCEL.
+    if proposal.fields.environment == crate::protocol::ExecutionContext::LocalPaper
+        || control
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+            .financial_source(FinancialSourceKind::Fx)?
+            .generation
+            == 0
+    {
+        return Ok(None);
+    }
+    let requirements = fx_requirements(
+        control,
+        &crate::protocol::FxRequirementsQuery {
+            workspace_id: proposal.workspace_id.clone(),
+            proposal_id: Some(proposal.proposal_id.clone()),
+        },
+    )?;
+    if requirements
+        .requirements
+        .iter()
+        .all(|row| row.need == crate::protocol::FxRequirementNeed::Identity)
+    {
+        return Ok(None);
+    }
+    Ok(Some(crate::protocol::FxReviewEvidence {
+        requirements,
+        source: connection(control, &proposal.workspace_id, FinancialSourceKind::Fx)?,
+    }))
+}
 fn date(value: &str) -> Result<Date> {
     if value.len() != 10 {
         return Err(invalid());
@@ -157,17 +388,18 @@ impl FinancialSourceKind {
         match self {
             Self::CorporateActions => "CORPORATE_ACTIONS",
             Self::BrokerInstruments => "BROKER_INSTRUMENTS",
+            Self::Fx => "FX",
         }
     }
     fn environment(self) -> &'static str {
         match self {
-            Self::CorporateActions => "PAPER",
+            Self::CorporateActions | Self::Fx => "PAPER",
             Self::BrokerInstruments => "LIVE",
         }
     }
     fn provider(self) -> &'static str {
         match self {
-            Self::CorporateActions => "alpaca",
+            Self::CorporateActions | Self::Fx => "alpaca",
             Self::BrokerInstruments => "trading212",
         }
     }
@@ -251,6 +483,9 @@ pub(crate) fn connection(
             FinancialSourceKind::BrokerInstruments => {
                 "The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity."
             }
+            FinancialSourceKind::Fx => {
+                "Read-only currency rates are current. Transaction-grade source qualification, exact broker conversion costs and complete monetary inputs remain independently unverified."
+            }
         }
     } else if let Some(code) = runtime.failures.get(&kind) {
         match code.as_str() {
@@ -274,6 +509,23 @@ pub(crate) fn connection(
             }
             "PROVIDER_RESPONSE_INVALID" => {
                 "The provider response could not be validated. The prior current observation was retired."
+            }
+            "PROVIDER_UNSUPPORTED" if kind == FinancialSourceKind::Fx => {
+                if fx_requirements(
+                    control,
+                    &crate::protocol::FxRequirementsQuery {
+                        workspace_id: workspace.into(),
+                        proposal_id: None,
+                    },
+                )?
+                .requirements
+                .iter()
+                .all(|row| row.need == crate::protocol::FxRequirementNeed::Identity)
+                {
+                    "No external currency rate is required for the current monetary inputs. No saved key or provider endpoint was read."
+                } else {
+                    "Required currency routes are unknown or unsupported by this source. No saved key or provider endpoint was read; replacing the key cannot supply missing currency evidence."
+                }
             }
             _ => {
                 "The provider read failed or exceeded its deadline. No current observation was published."
@@ -306,7 +558,37 @@ pub(crate) fn connection(
             .collect(),
         observed_at: observation.map(|observation| observation.received.wall_clock.clone()),
         evidence: observation.map(|observation| observation.evidence.clone()),
-        capability_statuses: if kind == FinancialSourceKind::BrokerInstruments {
+        fx_requirements: if kind == FinancialSourceKind::Fx {
+            Some(fx_requirements(
+                control,
+                &crate::protocol::FxRequirementsQuery {
+                    workspace_id: workspace.into(),
+                    proposal_id: None,
+                },
+            )?)
+        } else {
+            None
+        },
+        capability_statuses: if kind == FinancialSourceKind::Fx {
+            vec![
+                capability(Capability::FxRateObservation, status.clone(), reason),
+                capability(
+                    Capability::TransactionFxQualification,
+                    DataSourceStatus::BlockedExternal,
+                    "An authenticated rate response does not establish transaction-grade entitlement, feed quality or permitted financial use.",
+                ),
+                capability(
+                    Capability::BrokerConversionCosts,
+                    DataSourceStatus::BlockedExternal,
+                    "Third-party rates do not establish the selected broker's executable funding conversion or fees.",
+                ),
+                capability(
+                    Capability::MonetaryInputCompleteness,
+                    DataSourceStatus::Unverified,
+                    "Currency rates cannot establish complete account monetary inputs.",
+                ),
+            ]
+        } else if kind == FinancialSourceKind::BrokerInstruments {
             vec![
                 capability(Capability::BrokerAccountIdentity, status.clone(), reason),
                 capability(Capability::BrokerInstrumentMetadata, status.clone(), reason),
@@ -426,10 +708,11 @@ pub(crate) fn metadata(
     if !provider_order_consumer_allowed(consumer) {
         return Err(TradeXError::new("IPC_ACCESS_DENIED"));
     }
-    let kind = if request.command.starts_with("data.actions.") {
-        FinancialSourceKind::CorporateActions
-    } else {
-        FinancialSourceKind::BrokerInstruments
+    let kind = match request.command.split('.').nth(1) {
+        Some("actions") => FinancialSourceKind::CorporateActions,
+        Some("instrument") => FinancialSourceKind::BrokerInstruments,
+        Some("fx") => FinancialSourceKind::Fx,
+        _ => return Err(TradeXError::new("IPC_COMMAND_UNKNOWN")),
     };
     if request.command.ends_with(".connection") {
         let input: DataSourceQuery = payload(request.payload)?;
@@ -1017,6 +1300,198 @@ pub(crate) fn allowed_actions_path(path: &str) -> bool {
                             || matches!(byte, b'-' | b'_' | b'.' | b'~' | b'%')
                     })
             }))
+}
+
+pub(crate) fn allowed_fx_path(path: &str) -> bool {
+    matches!(
+        path,
+        "/v1beta1/forex/latest/rates?currency_pairs=EURUSD"
+            | "/v1beta1/forex/latest/rates?currency_pairs=USDEUR"
+            | "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR"
+    )
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FxPriceTokens {
+    bp: Box<serde_json::value::RawValue>,
+    ap: Box<serde_json::value::RawValue>,
+    mp: Box<serde_json::value::RawValue>,
+    #[serde(rename = "t")]
+    _timestamp: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FxResponseTokens {
+    rates: HashMap<String, FxPriceTokens>,
+}
+
+fn validate_fx_price_tokens(body: &[u8]) -> Result<()> {
+    let parsed: FxResponseTokens = serde_json::from_slice(body).map_err(|_| invalid())?;
+    for row in parsed.rates.values() {
+        for price in [&row.bp, &row.ap, &row.mp] {
+            // Value's arbitrary-precision sentinel can turn a JSON object into Number.
+            // Check the original token before that conversion; never round through f64.
+            if !price
+                .get()
+                .as_bytes()
+                .first()
+                .is_some_and(|byte| byte.is_ascii_digit() || *byte == b'-')
+            {
+                return Err(invalid());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn read_fx_rates(
+    control: &Arc<Mutex<ControlPlane>>,
+    binding: &Binding,
+    credentials: &crate::provider_io::Credentials,
+    http: &impl ProviderHttp,
+    current: &impl Fn() -> bool,
+    deadline: Instant,
+) -> Result<Observation> {
+    let requirements = {
+        let control = control
+            .lock()
+            .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
+        fx_requirements(
+            &control,
+            &crate::protocol::FxRequirementsQuery {
+                workspace_id: binding.workspace.clone(),
+                proposal_id: binding.fx_proposal_id.clone(),
+            },
+        )?
+    };
+    let mut pairs = requirements
+        .requirements
+        .iter()
+        .filter_map(|row| row.provider_pair.clone())
+        .collect::<Vec<_>>();
+    pairs.sort();
+    pairs.dedup();
+    if pairs.is_empty() || pairs.len() > 2 {
+        return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+    }
+    let path = format!(
+        "/v1beta1/forex/latest/rates?currency_pairs={}",
+        pairs.join(",")
+    );
+    let http_current = || current() && http_budget_remains(deadline);
+    let http = crate::provider_io::p3_provider_http(http, &http_current, &binding.reference);
+    let response = http.request(
+        ProviderEndpoint::AlpacaMarketData,
+        crate::provider_io::ProviderHttpMethod::Get,
+        &path,
+        crate::quote_source::source_headers(credentials)?,
+        None,
+    )?;
+    let received = control
+        .lock()
+        .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?
+        .time
+        .status(&binding.workspace)?;
+    if received.confidence != TimeConfidence::Trusted || !current() {
+        return Err(TradeXError::new("CLOCK_SKEW"));
+    }
+    match response.status {
+        200 => (),
+        401 => return Err(TradeXError::new("PROVIDER_AUTH_FAILED")),
+        403 => return Err(TradeXError::new("PROVIDER_PERMISSION_BLOCKED")),
+        429 => return Err(TradeXError::new("PROVIDER_RATE_LIMITED")),
+        _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
+    }
+    if response.body.len() > 512 * 1024 {
+        return Err(invalid());
+    }
+    validate_fx_price_tokens(&response.body)?;
+    let parsed: Value = strict_json(&response.body)?;
+    if crate::provider_io::contains_secret(&parsed, &credentials.values()?) {
+        return Err(invalid());
+    }
+    let root = parsed.as_object().ok_or_else(invalid)?;
+    if root.len() != 1 {
+        return Err(invalid());
+    }
+    let returned = root
+        .get("rates")
+        .and_then(Value::as_object)
+        .ok_or_else(invalid)?;
+    if returned.len() != pairs.len() {
+        return Err(invalid());
+    }
+    let now = timestamp(&received.wall_clock)?;
+    let mut rates = Vec::new();
+    for pair in pairs {
+        let row = returned
+            .get(&pair)
+            .and_then(Value::as_object)
+            .ok_or_else(invalid)?;
+        if row.len() != 4
+            || row
+                .keys()
+                .any(|field| !matches!(field.as_str(), "ap" | "bp" | "mp" | "t"))
+        {
+            return Err(invalid());
+        }
+        let price = |field: &str| -> Result<String> {
+            let value = row
+                .get(field)
+                .filter(|value| value.is_number())
+                .ok_or_else(invalid)?;
+            let result = decimal(value)?;
+            if crate::provider_io::decimal_cmp(&result, "0")? != std::cmp::Ordering::Greater {
+                return Err(invalid());
+            }
+            Ok(result)
+        };
+        let bid = price("bp")?;
+        let ask = price("ap")?;
+        let mid = price("mp")?;
+        if crate::provider_io::decimal_cmp(&bid, &ask)? == std::cmp::Ordering::Greater {
+            return Err(invalid());
+        }
+        let provider_timestamp = required_text(row, "t", 64)?;
+        let age = now - timestamp(&provider_timestamp)?;
+        if !(Duration::ZERO..=Duration::seconds(30)).contains(&age) {
+            return Err(invalid());
+        }
+        rates.push(crate::protocol::FxObservedRate {
+            provider_pair: pair.clone(),
+            from_currency: pair[..3].into(),
+            to_currency: pair[3..].into(),
+            bid,
+            ask,
+            mid,
+            provider_timestamp,
+        });
+    }
+    let projected = binding.projection()?;
+    let material_version = hash(&json!([
+        projected,
+        requirements,
+        received.wall_clock,
+        received.monotonic_ms,
+        FinancialEvidenceQuality::UnqualifiedFxRate,
+        rates
+    ]))?;
+    let evidence = FinancialSourceEvidence::Fx(crate::protocol::FxRateEvidence {
+        binding: projected,
+        material_version,
+        provider_quality: FinancialEvidenceQuality::UnqualifiedFxRate,
+        observed_at: received.wall_clock.clone(),
+        provider_observed_at: None,
+        requirements,
+        rates,
+    });
+    Ok(Observation {
+        binding: binding.clone(),
+        received,
+        evidence,
+    })
 }
 fn valid_isin(value: &str) -> bool {
     if value.len() != 12
@@ -1619,10 +2094,10 @@ pub fn execute_refresh(
     http: &impl ProviderHttp,
 ) -> Value {
     let deadline = Instant::now()
-        + StdDuration::from_secs(if request["command"] == "data.instrument.refresh" {
-            45
-        } else {
-            60
+        + StdDuration::from_secs(match request["command"].as_str() {
+            Some("data.instrument.refresh") => 45,
+            Some("data.fx.refresh") => 30,
+            _ => 60,
         });
     let prepare = (|| {
         if !provider_order_consumer_allowed(consumer) {
@@ -1635,12 +2110,24 @@ pub fn execute_refresh(
         let kind = match envelope.command.as_str() {
             "data.actions.refresh" => FinancialSourceKind::CorporateActions,
             "data.instrument.refresh" => FinancialSourceKind::BrokerInstruments,
+            "data.fx.refresh" => FinancialSourceKind::Fx,
             _ => return Err(TradeXError::new("IPC_COMMAND_UNKNOWN")),
         };
         if !crate::valid_bounded_text(&envelope.request_id, 128) {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
-        let input: DataSourceMutation = payload(envelope.payload)?;
+        let (input, fx_proposal_id) = if kind == FinancialSourceKind::Fx {
+            let input: crate::protocol::FxSourceRefresh = payload(envelope.payload)?;
+            (
+                DataSourceMutation {
+                    workspace_id: input.workspace_id,
+                    expected_state_version: input.expected_state_version,
+                },
+                input.proposal_id,
+            )
+        } else {
+            (payload::<DataSourceMutation>(envelope.payload)?, None)
+        };
         let mut control = control
             .lock()
             .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
@@ -1674,7 +2161,7 @@ pub fn execute_refresh(
             .filter(|sequence| *sequence <= MAX_SEQUENCE)
             .ok_or_else(|| TradeXError::new("PROVIDER_BACKPRESSURE"))?;
         let binding = Binding {
-            workspace: input.workspace_id,
+            workspace: input.workspace_id.clone(),
             kind,
             source_version: input.expected_state_version,
             account: account.connection_id.clone(),
@@ -1684,6 +2171,21 @@ pub fn execute_refresh(
             runtime_epoch: control.financial_source_runtime.epoch.clone(),
             clock_generation: control.time.generation().into(),
             sequence,
+            fx_requirements_version: if kind == FinancialSourceKind::Fx {
+                Some(
+                    fx_requirements(
+                        &control,
+                        &crate::protocol::FxRequirementsQuery {
+                            workspace_id: input.workspace_id.clone(),
+                            proposal_id: fx_proposal_id.clone(),
+                        },
+                    )?
+                    .material_version,
+                )
+            } else {
+                None
+            },
+            fx_proposal_id,
         };
         control
             .financial_source_runtime
@@ -1712,6 +2214,25 @@ pub fn execute_refresh(
         if !current() {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
+        if binding.kind == FinancialSourceKind::Fx {
+            let control = control
+                .lock()
+                .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
+            let requirements = fx_requirements(
+                &control,
+                &crate::protocol::FxRequirementsQuery {
+                    workspace_id: binding.workspace.clone(),
+                    proposal_id: binding.fx_proposal_id.clone(),
+                },
+            )?;
+            if !requirements
+                .requirements
+                .iter()
+                .any(|row| row.provider_pair.is_some())
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+        }
         let credentials = read_credentials_before_deadline(vault, &binding.reference, deadline)?;
         if !current() {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
@@ -1726,6 +2247,9 @@ pub fn execute_refresh(
                 &current,
                 deadline,
             );
+        }
+        if binding.kind == FinancialSourceKind::Fx {
+            return read_fx_rates(control, &binding, &credentials, http, &current, deadline);
         }
         let headers = crate::quote_source::source_headers(&credentials)?;
         let secrets = credentials.values()?;
