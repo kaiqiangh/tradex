@@ -1,0 +1,46 @@
+{
+  "capturedAt": "2026-10-07T14:16:09.025743+00:00",
+  "baseline": "213d63953187439cce366faa327d153f3c19bb1d",
+  "ticket": 116,
+  "state": "REVIEWED_CORRECTION_COMMITTED_PENDING_EVIDENCE_PUSH",
+  "sourceSha256": {
+    "src-tauri/src/quote_source.rs": "c090b23941b72ab3fdf09af4867856c1b5f2d0c74ae946e5649dc6116ca7f4e0",
+    "src-tauri/src/quote_source/hot.rs": "04fcf9f4d763ad52bb3f82238c9bd0c281b7fb68b2139de77cc03ac0de09bd17",
+    "src-tauri/tests/data_sources.rs": "42bae1310879d2ae795128fe2177905dfa8d9025d36a47e240f4fedc83dbd1fb",
+    "src-tauri/tests/quote_hot.rs": "42688a9935953839d3ebc921ea6d736f4ef4acc77ef4dee3d3e0e692443b7aeb"
+  },
+  "red": [
+    "http-object-red.txt",
+    "hot-object-red.txt"
+  ],
+  "green": [
+    "http-object-green.txt",
+    "hot-object-green.txt",
+    "quote-related-green.txt"
+  ],
+  "relatedTestsPassed": 35,
+  "matrix": "HTTP8 and Hot8 sentinel object cases across bp/ap/bs/as with ordinary and escaped sentinel keys; Hot includes existing malformed/timing/subscription scenarios",
+  "pending": [
+    "evidence commit and normal dev push verification",
+    "original positive AC4 and independent financial/source prerequisites",
+    "previous serial scheduling decision"
+  ],
+  "originalPositiveAC4StillUnverified": true,
+  "noFinancialMutation": true,
+  "noMainAction": true,
+  "validation": {
+    "node": 17,
+    "ordinaryRust": 387,
+    "integrationRust": 426,
+    "gateway": 23,
+    "ignoredUnverified": 39,
+    "testConcurrency": "Rust cases serial; explicit race/socket tests keep their intended internal concurrency",
+    "ui": "PASS selected-feed keyboard/source verification and actual Hot fixture at390/768/1280;0error/warn; old on-demand helper mode attempts unfulfilled, not product RED",
+    "ordinaryBuild": "PASS; compiled Gateway pin/local signature/75 tracked inputs match; earlier actual parent-child separately archived; post-UI process sample absent, no fresh parent-child claim",
+    "review": "Standards PASS0 documented breaches/0 actionable smells; Spec correction PASS0 defects/0 scope creep, originalticketNOTPASS1positiveacceptancegap",
+    "delivery": "Source committed; evidence commit and normal dev push pending",
+    "nativeRead": "PASS authenticated selected IEX technical access through ordinary new bundle; no freshness/coverage/licence/financial eligibility inference; native-read.json"
+  },
+  "transcriptArchivalNormalization": "Trailing whitespace/redundant terminal blank lines only; semantic outcomes retained",
+  "sourceCommit": "953cbacc99d3f0662dba69ba1baf0cf14f8bef71"
+}

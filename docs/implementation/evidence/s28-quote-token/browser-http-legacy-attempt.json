@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-10-07T10:45:16.718Z",
+  "kind": "LEGACY_UI_HELPER_MODE_MISMATCH",
+  "helper": "checkActualQuoteProjectionUI",
+  "configuredDetail": "Current UI acquires Hot; isolated mode without a stream fixture deliberately rejects market.hot.acquire",
+  "actual": "Control-plane error; no Market quote region",
+  "sourceVerificationUiPassed": true,
+  "productRegressionClaimed": false,
+  "httpPublicCommandRegressionPassed": true,
+  "correctHotUiPassed": true
+}

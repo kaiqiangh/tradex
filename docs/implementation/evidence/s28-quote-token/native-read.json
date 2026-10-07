@@ -1,0 +1,18 @@
+{
+  "capturedAt": "2026-10-07T14:10:24.483787+00:00",
+  "savedFeed": "iex",
+  "readOnlyAuthenticatedTechnicalAccess": "PASS",
+  "uiMessage": "Technical access to the selected iex feed verified by an authenticated quote read. Quote freshness, coverage, licensing and every financial guard still apply.",
+  "initialAttempt": "STATE_CURSOR_EXPIRED; public Reload quote source followed by fresh Verify selected feed",
+  "verificationButtonEnabledAtTerminal": true,
+  "all75BuildInputsMatch": true,
+  "buildInputCount": 75,
+  "signedBinaryHashMatches": true,
+  "gatewayHashMatches": true,
+  "compiledPinMatches": true,
+  "postUiProcessSample": "NO MATCHING PROCESS; do not infer a current parent/child match or restart from this absence",
+  "previousProcessBinding": "native-process.json separately records earlier actual parent/child hashes and protected wait; not a fresh process claim",
+  "noPrivateUiOrBodiesArchived": true,
+  "noFinancialAction": true,
+  "quoteFreshnessCoverageLicenceAndFinancialEligibilityNotProven": true
+}

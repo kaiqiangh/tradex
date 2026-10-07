@@ -1,0 +1,10 @@
+{
+  "capturedAt": "2026-10-07T11:09:45.838095+00:00",
+  "parentImageMatches": true,
+  "gatewayImageMatches": true,
+  "parentChildOwnership": true,
+  "binaryHashesMatch": true,
+  "all75BuildInputsMatch": true,
+  "protectedKeychainRead": true,
+  "privateStackArchived": false
+}
