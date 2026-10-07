@@ -87,7 +87,11 @@ export type FinancialEvidenceCapability =
   | "FX_RATE_OBSERVATION"
   | "TRANSACTION_FX_QUALIFICATION"
   | "BROKER_CONVERSION_COSTS"
-  | "MONETARY_INPUT_COMPLETENESS";
+  | "MONETARY_INPUT_COMPLETENESS"
+  | "SPOT_RULE_COLLECTION"
+  | "SPOT_ACCOUNT_ADMISSION"
+  | "SPOT_EXECUTION_QUALIFICATION"
+  | "SPOT_DATA_USE_RIGHTS";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DataSourceStatus".
@@ -222,7 +226,7 @@ export type BrokerScheduleEventType =
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialSourceKind".
  */
-export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS" | "FX";
+export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS" | "FX" | "BINANCE_SPOT_RULES";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AdjustmentStatus".
@@ -1077,6 +1081,7 @@ export interface IpcSchema {
   backtestRunQuery: BacktestRunQuery;
   backtestRunRequest: BacktestRunRequest;
   backtestRunSummary: BacktestRunSummary;
+  binanceRuleSourceConfigure: BinanceRuleSourceConfigure;
   binanceTestnetBalance: BinanceTestnetBalance;
   binanceTestnetFill: BinanceTestnetFill;
   binanceTestnetHistoryState: BinanceTestnetHistoryState;
@@ -1781,6 +1786,7 @@ export interface FinancialSourceConnection {
   environment: string;
   evidence?: FinancialSourceEvidence | null;
   fxRequirements?: FxRequirements | null;
+  instrumentId?: string;
   kind: FinancialSourceKind;
   observedAt?: string;
   stateVersion: string;
@@ -3316,6 +3322,16 @@ export interface BacktestRunRequest {
   startAt: string;
   startingCash: string;
   strategyVersionId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceRuleSourceConfigure".
+ */
+export interface BinanceRuleSourceConfigure {
+  connectionId: string;
+  expectedStateVersion: string;
+  instrumentId: string;
   workspaceId: string;
 }
 /**

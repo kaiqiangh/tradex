@@ -389,18 +389,20 @@ impl FinancialSourceKind {
             Self::CorporateActions => "CORPORATE_ACTIONS",
             Self::BrokerInstruments => "BROKER_INSTRUMENTS",
             Self::Fx => "FX",
+            Self::BinanceSpotRules => "BINANCE_SPOT_RULES",
         }
     }
     fn environment(self) -> &'static str {
         match self {
             Self::CorporateActions | Self::Fx => "PAPER",
-            Self::BrokerInstruments => "LIVE",
+            Self::BrokerInstruments | Self::BinanceSpotRules => "LIVE",
         }
     }
     fn provider(self) -> &'static str {
         match self {
             Self::CorporateActions | Self::Fx => "alpaca",
             Self::BrokerInstruments => "trading212",
+            Self::BinanceSpotRules => "binance",
         }
     }
     fn eligible(self, account: &AccountConnection) -> bool {
@@ -419,12 +421,15 @@ impl FinancialSourceKind {
 pub(crate) struct SavedFinancialSource {
     pub generation: u64,
     pub connection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instrument_id: Option<String>,
 }
 impl Default for SavedFinancialSource {
     fn default() -> Self {
         Self {
             generation: 0,
             connection_id: None,
+            instrument_id: None,
         }
     }
 }
@@ -432,12 +437,21 @@ impl SavedFinancialSource {
     pub fn version(&self, kind: FinancialSourceKind, workspace: &str) -> String {
         format!("{}:{workspace}:{}", kind.key(), self.generation)
     }
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self, kind: FinancialSourceKind) -> Result<()> {
         if self.generation > MAX_SEQUENCE
             || self
                 .connection_id
                 .as_ref()
                 .is_some_and(|id| !crate::valid_bounded_text(id, 128))
+            || self
+                .instrument_id
+                .as_deref()
+                .is_some_and(|id| !matches!(id, "crypto:BTC/USDT:spot" | "crypto:ETH/USDT:spot"))
+            || (kind == FinancialSourceKind::BinanceSpotRules
+                && self.connection_id.is_some()
+                && self.instrument_id.is_none())
+            || (self.instrument_id.is_some()
+                && (kind != FinancialSourceKind::BinanceSpotRules || self.connection_id.is_none()))
         {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
@@ -485,6 +499,9 @@ pub(crate) fn connection(
             }
             FinancialSourceKind::Fx => {
                 "Read-only currency rates are current. Transaction-grade source qualification, exact broker conversion costs and complete monetary inputs remain independently unverified."
+            }
+            FinancialSourceKind::BinanceSpotRules => {
+                "Exact Spot rule observations are current as collected evidence only. Proposal-specific execution qualification, quotes and data rights remain separate."
             }
         }
     } else if let Some(code) = runtime.failures.get(&kind) {
@@ -544,6 +561,7 @@ pub(crate) fn connection(
         state_version: saved.version(kind, workspace),
         configured: saved.connection_id.is_some(),
         connection_id: saved.connection_id,
+        instrument_id: saved.instrument_id,
         environment: kind.environment().into(),
         status: status.clone(),
         availability_reason: reason.into(),
@@ -569,7 +587,26 @@ pub(crate) fn connection(
         } else {
             None
         },
-        capability_statuses: if kind == FinancialSourceKind::Fx {
+        capability_statuses: if kind == FinancialSourceKind::BinanceSpotRules {
+            vec![
+                capability(Capability::SpotRuleCollection, status.clone(), reason),
+                capability(
+                    Capability::SpotAccountAdmission,
+                    DataSourceStatus::Unverified,
+                    "Exact current account and permission-set admission has not been established.",
+                ),
+                capability(
+                    Capability::SpotExecutionQualification,
+                    DataSourceStatus::Unverified,
+                    "Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.",
+                ),
+                capability(
+                    Capability::SpotDataUseRights,
+                    DataSourceStatus::Unverified,
+                    "Provider access does not establish this user's data licence or regional trading eligibility.",
+                ),
+            ]
+        } else if kind == FinancialSourceKind::Fx {
             vec![
                 capability(Capability::FxRateObservation, status.clone(), reason),
                 capability(
@@ -712,6 +749,7 @@ pub(crate) fn metadata(
         Some("actions") => FinancialSourceKind::CorporateActions,
         Some("instrument") => FinancialSourceKind::BrokerInstruments,
         Some("fx") => FinancialSourceKind::Fx,
+        Some("binance_rules") => FinancialSourceKind::BinanceSpotRules,
         _ => return Err(TradeXError::new("IPC_COMMAND_UNKNOWN")),
     };
     if request.command.ends_with(".connection") {
@@ -719,7 +757,25 @@ pub(crate) fn metadata(
         let source = connection(control, &input.workspace_id, kind)?;
         return Ok((json!(source), Some(source.state_version)));
     }
-    let (workspace, expected, selected) = if request.command.ends_with(".configure") {
+    let (workspace, expected, selected, instrument_id) = if request.command.ends_with(".configure")
+        && kind == FinancialSourceKind::BinanceSpotRules
+    {
+        let input: crate::protocol::BinanceRuleSourceConfigure = payload(request.payload)?;
+        if !crate::valid_bounded_text(&input.connection_id, 128)
+            || !matches!(
+                input.instrument_id.as_str(),
+                "crypto:BTC/USDT:spot" | "crypto:ETH/USDT:spot"
+            )
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        (
+            input.workspace_id,
+            input.expected_state_version,
+            Some(input.connection_id),
+            Some(input.instrument_id),
+        )
+    } else if request.command.ends_with(".configure") {
         let input: FinancialSourceConfigure = payload(request.payload)?;
         if !crate::valid_bounded_text(&input.connection_id, 128) {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
@@ -728,10 +784,11 @@ pub(crate) fn metadata(
             input.workspace_id,
             input.expected_state_version,
             Some(input.connection_id),
+            None,
         )
     } else {
         let input: DataSourceMutation = payload(request.payload)?;
-        (input.workspace_id, input.expected_state_version, None)
+        (input.workspace_id, input.expected_state_version, None, None)
     };
     control.require_workspace(&workspace)?;
     let store = control.store.as_mut().unwrap();
@@ -745,6 +802,7 @@ pub(crate) fn metadata(
         }
     }
     saved.connection_id = selected;
+    saved.instrument_id = instrument_id;
     store.save_financial_source(kind, saved)?;
     control.financial_source_runtime.observations.remove(&kind);
     control.financial_source_runtime.failures.remove(&kind);

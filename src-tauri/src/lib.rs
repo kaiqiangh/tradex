@@ -4546,7 +4546,12 @@ impl ControlPlane {
             | "data.instrument.disconnect"
             | "data.fx.connection"
             | "data.fx.configure"
-            | "data.fx.disconnect" => financial_sources::metadata(self, request, consumer),
+            | "data.fx.disconnect"
+            | "data.binance_rules.connection"
+            | "data.binance_rules.configure"
+            | "data.binance_rules.disconnect" => {
+                financial_sources::metadata(self, request, consumer)
+            }
             "data.fx.requirements" => {
                 if !provider_order_consumer_allowed(consumer) {
                     return Err(TradeXError::new("IPC_ACCESS_DENIED"));

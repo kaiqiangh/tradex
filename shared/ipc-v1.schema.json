@@ -127,6 +127,9 @@
     "backtestRunSummary": {
       "$ref": "#/$defs/BacktestRunSummary"
     },
+    "binanceRuleSourceConfigure": {
+      "$ref": "#/$defs/BinanceRuleSourceConfigure"
+    },
     "binanceTestnetBalance": {
       "$ref": "#/$defs/BinanceTestnetBalance"
     },
@@ -608,6 +611,7 @@
     "calendarConfigure",
     "financialSourceConnection",
     "financialSourceConfigure",
+    "binanceRuleSourceConfigure",
     "fxRequirementsQuery",
     "fxSourceRefresh",
     "fxRequirements",
@@ -3594,6 +3598,38 @@
       "required": [
         "asset",
         "available"
+      ]
+    },
+    "BinanceRuleSourceConfigure": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "connectionId",
+        "instrumentId"
       ]
     },
     "BinanceSystemStatus": {
@@ -7918,7 +7954,11 @@
         "FX_RATE_OBSERVATION",
         "TRANSACTION_FX_QUALIFICATION",
         "BROKER_CONVERSION_COSTS",
-        "MONETARY_INPUT_COMPLETENESS"
+        "MONETARY_INPUT_COMPLETENESS",
+        "SPOT_RULE_COLLECTION",
+        "SPOT_ACCOUNT_ADMISSION",
+        "SPOT_EXECUTION_QUALIFICATION",
+        "SPOT_DATA_USE_RIGHTS"
       ]
     },
     "FinancialEvidenceCapabilityResult": {
@@ -8039,6 +8079,11 @@
               "type": "null"
             }
           ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
         },
         "kind": {
           "$ref": "#/$defs/FinancialSourceKind"
@@ -8250,7 +8295,8 @@
       "enum": [
         "CORPORATE_ACTIONS",
         "BROKER_INSTRUMENTS",
-        "FX"
+        "FX",
+        "BINANCE_SPOT_RULES"
       ]
     },
     "FxFreshness": {

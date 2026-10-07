@@ -3041,6 +3041,12 @@ FX 来源投影增加可选 fxRequirements 及四项独立 typed capabilities：
 
 系统正常与 API 未锁定只是只读诊断，不等于完整权限、标的/规则/报价/FX/数据权利/私有流就绪。维护、锁定、缺失观察、无法解析/未来接收时间或接收时间超过 30 秒，阻断 Arm 与 PLACE 的账户健康判断。适用时沿用账户降级路径解除武装并使未消费权限失效；正常读取永不自动重新武装。失败或过时任务保留此前可信数据、状态及成功同步时间，但不得恢复当前健康。重开保留状态供参考，仍执行启动失效与解除武装/对账。S29 父项的普通数据源、Live PLACE/私有流及经授权外部生命周期验收保持开放；S28/S17/物理 S27 发布门禁不变。
 
+### 41.42 Binance 普通 Spot 规则来源目标（S29.2 #123）
+
+本票仍为 IN_PROGRESS；元数据选择增量本身不表示 Provider 读取或金融验收。`data.binance_rules.connection {workspaceId}` 返回 kind 为 `BINANCE_SPOT_RULES`、带可选标准 `instrumentId` 的 `FinancialSourceConnection`。`data.binance_rules.configure {workspaceId, expectedStateVersion, connectionId, instrumentId}` 选择符合条件的已保存普通 Binance Live 账户，以及唯一支持的 `crypto:BTC/USDT:spot` 或 `crypto:ETH/USDT:spot`；`data.binance_rules.disconnect {workspaceId, expectedStateVersion}` 移除该选择并保留借用账户/密钥。Save/disconnect 不访问 Provider。SQLite schema 36 扩展既有金融来源选择/审计表并保留原记录；历史选择省略新增可选标的字段。重开只恢复元数据，不恢复活跃规则资格或 Arm 权威。
+
+当前完整票仍需有界的原始 token 类型化账户/密钥/交易状态、精确标的 exchangeInfo/executionRules 与签名 myFilters 观察、独立约束范围及首个接收/代次/身份绑定、保留/时效/故障处理、真实 Settings/Markets/Trade 投影和负向安全消费。缺失/未知活跃约束或逐 Proposal 参考/动态义务保持未合格。元数据成功不提供无条件 InstrumentRules PASS、报价/深度/使用权/FX、股票日历/公司行为完整性、审批、Live PLACE 或私有流权威。精确 CANCEL/对账及 S28/S17/物理 S27 门禁保持独立。运行时采集/UI/普通 Provider 证明仍等待 #123 自身验收完成。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

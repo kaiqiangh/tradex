@@ -315,6 +315,7 @@ pub struct IpcSchema {
     pub calendar_configure: CalendarConfigure,
     pub financial_source_connection: FinancialSourceConnection,
     pub financial_source_configure: FinancialSourceConfigure,
+    pub binance_rule_source_configure: BinanceRuleSourceConfigure,
     pub fx_requirements_query: FxRequirementsQuery,
     pub fx_source_refresh: FxSourceRefresh,
     pub fx_requirements: FxRequirements,
@@ -1852,6 +1853,7 @@ pub enum FinancialSourceKind {
     CorporateActions,
     BrokerInstruments,
     Fx,
+    BinanceSpotRules,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
@@ -1954,6 +1956,9 @@ pub struct FinancialSourceConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub connection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
     #[schemars(length(min = 1, max = 16))]
     pub environment: String,
     pub status: DataSourceStatus,
@@ -1983,6 +1988,19 @@ pub struct FinancialSourceConfigure {
     pub connection_id: String,
 }
 
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceRuleSourceConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum FinancialEvidenceCapability {
@@ -1998,6 +2016,10 @@ pub enum FinancialEvidenceCapability {
     TransactionFxQualification,
     BrokerConversionCosts,
     MonetaryInputCompleteness,
+    SpotRuleCollection,
+    SpotAccountAdmission,
+    SpotExecutionQualification,
+    SpotDataUseRights,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]

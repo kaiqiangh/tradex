@@ -63,7 +63,7 @@ use crate::providers::{
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 35;
+pub(crate) const SCHEMA_VERSION: u32 = 36;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -998,6 +998,17 @@ impl Store {
                     ALTER TABLE financial_source_config_audit_v35 RENAME TO financial_source_config_audit;
                     PRAGMA user_version=35;").map_err(storage_error)?;
             }
+            if version < 36 {
+                tx.execute_batch("CREATE TABLE financial_source_config_v36 (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX','BINANCE_SPOT_RULES')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL);
+                    INSERT INTO financial_source_config_v36 SELECT * FROM financial_source_config;
+                    CREATE TABLE financial_source_config_audit_v36 (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX','BINANCE_SPOT_RULES')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation));
+                    INSERT INTO financial_source_config_audit_v36 SELECT * FROM financial_source_config_audit;
+                    DROP TABLE financial_source_config;
+                    DROP TABLE financial_source_config_audit;
+                    ALTER TABLE financial_source_config_v36 RENAME TO financial_source_config;
+                    ALTER TABLE financial_source_config_audit_v36 RENAME TO financial_source_config_audit;
+                    PRAGMA user_version=36;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         connection
@@ -1059,7 +1070,7 @@ impl Store {
         };
         let saved: crate::financial_sources::SavedFinancialSource =
             serde_json::from_str(&encoded).map_err(storage_error)?;
-        saved.validate()?;
+        saved.validate(kind)?;
         if generation <= 0 || saved.generation != generation as u64 {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
@@ -1072,7 +1083,7 @@ impl Store {
         mut saved: crate::financial_sources::SavedFinancialSource,
     ) -> Result<()> {
         let prior = self.financial_source(kind)?;
-        saved.validate()?;
+        saved.validate(kind)?;
         if saved.generation != prior.generation || prior.generation >= MAX_SEQUENCE {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
