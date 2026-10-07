@@ -1,0 +1,44 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: methods `set_order_info`, `set_order_info_error`, `set_order_info_transport_error`, and `order_writes` are never used
+  --> src-tauri/tests/support/bitget_fixtures.rs:23:12
+   |
+22 | impl Http {
+   | --------- methods in this implementation
+23 |     pub fn set_order_info(&self, order: Option<Value>) {
+   |            ^^^^^^^^^^^^^^
+...
+29 |     pub fn set_order_info_error(&self, code: Option<String>) {
+   |            ^^^^^^^^^^^^^^^^^^^^
+...
+34 |     pub fn set_order_info_transport_error(&self, enabled: bool) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+39 |     pub fn order_writes(&self) -> usize {
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "binance") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.93s
+     Running tests/binance.rs (target/debug/deps/binance-9e17f89f7fe2c3f3)
+
+running 1 test
+test live_trading_state_rejects_object_valued_numeric_tokens ... FAILED
+
+failures:
+
+---- live_trading_state_rejects_object_valued_numeric_tokens stdout ----
+
+thread 'live_trading_state_rejects_object_valued_numeric_tokens' (8064342) panicked at src-tauri/tests/binance.rs:1980:9:
+assertion `left == right` failed: /sapi/v1/system/status: {"data":{"binanceTradingStatus":{"apiTradingLocked":false,"observedAt":"2026-10-07T16:37:02.628095Z","plannedRecoveryAt":null,"providerUpdatedAt":"2019-01-16T09:21:11.725Z","systemStatus":"NORMAL"},"connectionId":"3d9e0869-b8b5-408f-a83b-666e84e05ea6","connectionState":"REVIEW_REQUIRED","createdAt":"2026-10-07T16:37:02.620231Z","data":{"accountType":"BINANCE_SPOT","balances":[{"asset":"USDT","available":"99999999999999999999.9999999999999999999","inPies":null,"locked":null,"reserved":"0.0000000000000000002","restrictedAvailable":null,"total":"100000000000000000000.0000000000000000001"},{"asset":"ODDCOIN","available":"0.1","inPies":null,"locked":null,"reserved":"0.2","restrictedAvailable":null,"total":"0.3"}],"capabilities":["account.read","positions.read","orders.read"],"currency":null,"limitations":["Spot holdings are free plus locked assets, without cost basis or FX valuation. USDT is not USD.","Order quote currency is unavailable until instrument metadata is resolved. Amounts are not workspace-currency values.","Private stream, reconciliation, risk policy and execution are not configured. Manual full open-order reads consume weight 80; rate limits require a later retry.","Recent order history is limited to one page for each of up to 10 locally observed symbols; Binance does not provide an account-wide order-history listing."],"openOrders":[{"brokerOrderId":"BTCUSDT:9007199254740995","currency":null,"filledQuantity":"0","filledValue":null,"instrumentId":"crypto:BTC/USDT:spot","kind":null,"limitPrice":"100.2","notional":null,"quantity":"0.1","side":"BUY","status":"NEW","symbol":"BTCUSDT","triggerPrice":null},{"brokerOrderId":"ODDCOINUSDT:9007199254740996","currency":null,"filledQuantity":"0.1","filledValue":null,"kind":null,"limitPrice":"2","notional":null,"quantity":"0.5","side":"SELL","status":"PARTIALLY_FILLED","symbol":"ODDCOINUSDT","triggerPrice":null}],"positions":[{"averageEntryPrice":null,"instrumentCurrency":null,"marketValue":null,"marketValueCurrency":null,"quantity":"100000000000000000000.0000000000000000001","symbol":"USDT"},{"averageEntryPrice":null,"instrumentCurrency":null,"marketValue":null,"marketValueCurrency":null,"quantity":"0.3","symbol":"ODDCOIN"}],"recentOrders":[],"remoteAccountId":"9007199254740993"},"environment":"LIVE","health":{"arming":"DISARMED","armingReason":"NOT_ARMED","authentication":"VALID","connection":"ONLINE","credential":"CONFIGURED","executionEligibility":"BLOCKED","privateStream":"NOT_CONFIGURED","reason":"Read-only account data loaded. Trading, private streams and reconciliation are not configured.","reconciliation":"NOT_RUN"},"label":"Status types","lastSuccessfulSync":"2026-10-07T16:37:02.629075Z","permissions":{"acknowledged":false,"detected":["account.read","positions.read","orders.read","read","spot-and-margin.trade"],"forbidden":[],"ipAllowList":null,"ipAllowListStatus":"RESTRICTED","scope":"VERIFIED","unsupported":[]},"providerId":"binance","stateVersion":"3d9e0869-b8b5-408f-a83b-666e84e05ea6:3","updatedAt":"2026-10-07T16:37:02.62917Z","workspaceId":"8cd01d13-edeb-471e-a998-89b7ee9d46c9"},"ok":true,"requestId":"binance-test","schemaVersion":1,"stateVersion":"3d9e0869-b8b5-408f-a83b-666e84e05ea6:3"}
+  left: Null
+ right: "PROVIDER_RESPONSE_INVALID"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    live_trading_state_rejects_object_valued_numeric_tokens
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --test binance`

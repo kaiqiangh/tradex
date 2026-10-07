@@ -1,0 +1,47 @@
+{
+  "source": "Isolated real Rust Control Plane, SQLite/outbox and React; external HTTP/vault fixtures only; no financial authority seeding or provider mutations",
+  "origin": "http://127.0.0.1:1423",
+  "workflow": [
+    "Public workspace open",
+    "Accounts provider selection Binance Spot Live",
+    "Connect securely uses disposable fake vault/HTTP",
+    "Confirm connection remains DISARMED",
+    "External fixture MAINTENANCE then keyboard Refresh: MAINTENANCE/UNLOCKED, Arm disabled",
+    "External fixture LOCKED then keyboard Refresh: NORMAL/LOCKED, Arm disabled",
+    "External fixture MALFORMED then keyboard Refresh: provider response could not be validated, saved LOCKED observation retained, FAILED/ERROR, DISARMED",
+    "External fixture NORMAL then keyboard Refresh: NORMAL/UNLOCKED, REVIEW_REQUIRED, DISARMED, Arm disabled"
+  ],
+  "layouts": [
+    {
+      "width": 1280,
+      "scrollWidth": 1280,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    }
+  ],
+  "consoleErrors": 0,
+  "consoleWarnings": 0,
+  "initialSelectorCorrection": "getByLabel had no matches through CUA; observed role/combobox names succeeded",
+  "errorSelectorCorrection": "The message is could not be validated, not invalid; inspected actual alert before checking recovery",
+  "screenshot": "maintenance-390.jpg",
+  "nativeProviderAcceptance": "Not performed or claimed; parent S29 remains OPEN",
+  "finalPublicRead": {
+    "connectionState": "CONNECTED",
+    "arming": "DISARMED",
+    "systemStatus": "NORMAL",
+    "apiTradingLocked": false,
+    "canArm": false
+  }
+}

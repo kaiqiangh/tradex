@@ -1,0 +1,46 @@
+{
+  "sourceCommit": "24207a664bb5934934879c699e08a56861c9d93f",
+  "source": "Public React → typed real Rust Control Plane → temporary SQLite/outbox; external fake vault/HTTP only; no financial authority seeding or real provider requests",
+  "layouts": [
+    {
+      "scrollWidth": 1280,
+      "width": 1280,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    },
+    {
+      "scrollWidth": 768,
+      "width": 768,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    },
+    {
+      "scrollWidth": 390,
+      "width": 390,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    }
+  ],
+  "locked": {
+    "text": "Binance trading status\n\nSystem at last read: NORMAL · API trading: LOCKED\n\nFirst status response received at: 2026-10-07T17:22:38.601542Z\nProvider lock updated at: 2019-01-16T09:21:11.725Z\nPlanned recovery: Not provided\n\nMaintenance, an API trading lock or a status read older than 30 seconds blocks Arm and new orders. These observations do not establish instrument tradability, current quotes, data rights or Live readiness. Refresh failures retain the last observation for reference.",
+    "armEnabled": false
+  },
+  "malformed": {
+    "text": "Binance trading status\n\nSystem at last read: NORMAL · API trading: LOCKED\n\nFirst status response received at: 2026-10-07T17:22:38.601542Z\nProvider lock updated at: 2019-01-16T09:21:11.725Z\nPlanned recovery: Not provided\n\nMaintenance, an API trading lock or a status read older than 30 seconds blocks Arm and new orders. These observations do not establish instrument tradability, current quotes, data rights or Live readiness. Refresh failures retain the last observation for reference.",
+    "alert": "The provider response could not be validated. Saved observations were preserved.\n\nReload account state",
+    "armEnabled": false
+  },
+  "recovery": {
+    "unlockedVisible": false,
+    "armEnabled": false
+  },
+  "console": [],
+  "screenshot": "final-maintenance-390.jpg",
+  "finalPublicRead": {
+    "connectionState": "CONNECTED",
+    "arming": "DISARMED",
+    "systemStatus": "NORMAL",
+    "apiTradingLocked": false,
+    "canArm": false
+  }
+}

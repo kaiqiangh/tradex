@@ -1,0 +1,27 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0425]: cannot find value `request_id` in this scope
+   --> src-tauri/src/bin/ipc.rs:310:44
+    |
+310 |                         json!({"requestId":request_id,"schemaVersion":1,"ok":true,"data":{}})
+    |                                            ^^^^^^^^^^
+    |
+help: a local variable with a similar name exists
+    |
+310 -                         json!({"requestId":request_id,"schemaVersion":1,"ok":true,"data":{}})
+310 +                         json!({"requestId":request,"schemaVersion":1,"ok":true,"data":{}})
+    |
+
+error[E0425]: cannot find value `request_id` in this scope
+   --> src-tauri/src/bin/ipc.rs:313:44
+    |
+313 |                         json!({"requestId":request_id,"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+    |                                            ^^^^^^^^^^
+    |
+help: a local variable with a similar name exists
+    |
+313 -                         json!({"requestId":request_id,"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+313 +                         json!({"requestId":request,"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+    |
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `tradex` (bin "tradex-ipc") due to 2 previous errors

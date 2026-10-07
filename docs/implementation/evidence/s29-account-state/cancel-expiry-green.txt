@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.41s
+     Running unittests src/lib.rs (target/debug/deps/tradex-e514ccf2eccb02df)
+
+running 1 test
+test cancellation_approval_tests::expired_binance_diagnostic_does_not_degrade_an_exact_cancel_observation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 242 filtered out; finished in 30.18s
+

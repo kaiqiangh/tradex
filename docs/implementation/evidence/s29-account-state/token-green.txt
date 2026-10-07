@@ -1,0 +1,29 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: methods `set_order_info`, `set_order_info_error`, `set_order_info_transport_error`, and `order_writes` are never used
+  --> src-tauri/tests/support/bitget_fixtures.rs:23:12
+   |
+22 | impl Http {
+   | --------- methods in this implementation
+23 |     pub fn set_order_info(&self, order: Option<Value>) {
+   |            ^^^^^^^^^^^^^^
+...
+29 |     pub fn set_order_info_error(&self, code: Option<String>) {
+   |            ^^^^^^^^^^^^^^^^^^^^
+...
+34 |     pub fn set_order_info_transport_error(&self, enabled: bool) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+39 |     pub fn order_writes(&self) -> usize {
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "binance") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.99s
+     Running tests/binance.rs (target/debug/deps/binance-9e17f89f7fe2c3f3)
+
+running 1 test
+test live_trading_state_rejects_object_valued_numeric_tokens ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.09s
+

@@ -1,0 +1,47 @@
+{
+  "sourceCommit": "ec9929ec8d449cad142e03da6acb19545a1ceb7d",
+  "source": "Public React → typed real Rust CP → temporary SQLite/outbox → external fake HTTP/vault only; no financial seed or real provider request",
+  "layouts": [
+    {
+      "scrollWidth": 1280,
+      "width": 1280,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    },
+    {
+      "scrollWidth": 768,
+      "width": 768,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    },
+    {
+      "scrollWidth": 390,
+      "width": 390,
+      "maintenanceVisible": true,
+      "armEnabled": false
+    }
+  ],
+  "browserRecovery": "Browser IDs changed after environment continuation; inventory identified the same in-app browser at ID 2. No user tab changed.",
+  "locked": {
+    "text": "Binance trading status\n\nSystem at last read: NORMAL · API trading: LOCKED\n\nFirst status response received at: 2026-10-07T20:18:29.320179Z\nProvider lock updated at: 2019-01-16T09:21:11.725Z\nPlanned recovery: Not provided\n\nMaintenance, an API trading lock or a status read older than 30 seconds blocks Arm and new orders. These observations do not establish instrument tradability, current quotes, data rights or Live readiness. Refresh failures retain the last observation for reference.",
+    "armEnabled": false
+  },
+  "malformed": {
+    "text": "Binance trading status\n\nSystem at last read: NORMAL · API trading: LOCKED\n\nFirst status response received at: 2026-10-07T20:18:29.320179Z\nProvider lock updated at: 2019-01-16T09:21:11.725Z\nPlanned recovery: Not provided\n\nMaintenance, an API trading lock or a status read older than 30 seconds blocks Arm and new orders. These observations do not establish instrument tradability, current quotes, data rights or Live readiness. Refresh failures retain the last observation for reference.",
+    "alert": "The provider response could not be validated. Saved observations were preserved.\n\nReload account state",
+    "armEnabled": false
+  },
+  "recovery": {
+    "unlockedVisible": true,
+    "armEnabled": false
+  },
+  "console": [],
+  "screenshot": "remediation-maintenance-390.jpg",
+  "finalPublicRead": {
+    "connectionState": "CONNECTED",
+    "arming": "DISARMED",
+    "systemStatus": "NORMAL",
+    "apiTradingLocked": false,
+    "canArm": false
+  }
+}
