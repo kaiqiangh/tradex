@@ -1862,6 +1862,14 @@ fn source_disconnect_and_workspace_reopen_close_the_socket_before_late_authentic
 fn malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence() {
     use tradex::quote_source::hot::{QuoteHotSupervisor, StockStreamConnector};
     for scenario in [
+        "object-bp",
+        "object-ap",
+        "object-bs",
+        "object-as",
+        "escaped-object-bp",
+        "escaped-object-ap",
+        "escaped-object-bs",
+        "escaped-object-as",
         "malformed",
         "crossed",
         "zero",
@@ -1930,7 +1938,26 @@ fn malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evi
                 _ => (),
             }
             socket
-                .send(Message::text(if scenario == "malformed" {
+                .send(Message::text(if scenario.contains("object-") {
+                    let field = scenario.rsplit('-').next().unwrap();
+                    let number = match field {
+                        "bp" => "250.1",
+                        "ap" => "250.2",
+                        "bs" => "205",
+                        "as" => "310",
+                        _ => unreachable!(),
+                    };
+                    let sentinel = if scenario.starts_with("escaped-") {
+                        r"\u0024serde_json::private::Number"
+                    } else {
+                        "$serde_json::private::Number"
+                    };
+                    let token = format!(r#""{field}":{number}"#);
+                    let object = format!(r#""{field}":{{"{sentinel}":"{number}"}}"#);
+                    let text = json!([frame]).to_string();
+                    assert!(text.contains(&token));
+                    text.replace(&token, &object)
+                } else if scenario == "malformed" {
                     "not-json".into()
                 } else if scenario == "mixed-control-quote" {
                     json!([{"T":"subscription","quotes":["AAPL"]}, frame]).to_string()

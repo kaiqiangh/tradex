@@ -2,6 +2,82 @@ use serde_json::{Value, json};
 use tradex::ControlPlane;
 
 #[test]
+fn object_valued_http_quote_price_never_becomes_a_market_snapshot() {
+    use std::sync::{Arc, Mutex};
+    use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+    let directory = tempfile::tempdir().unwrap();
+    let control = Arc::new(Mutex::new(ControlPlane::new(
+        directory.path().join("workspace"),
+    )));
+    let workspace =
+        command(&mut control.lock().unwrap(), "workspace.open", json!({}))["data"]["workspaceId"]
+            .clone();
+    let source = command(
+        &mut control.lock().unwrap(),
+        "data.source.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let vault = provider_fixtures::Vault::default();
+    let http = provider_fixtures::Http::default();
+    let configured = tradex::quote_source::execute_configuration(
+        &control,
+        &json!({"requestId":"object-price-source","schemaVersion":1,"command":"data.source.configure","payload":{"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"feed":"sip","credential":{"kind":"DEDICATED"}}}),
+        "main",
+        &vault,
+        provider_fixtures::credentials,
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    let now = command(
+        &mut control.lock().unwrap(),
+        "time.revalidate",
+        json!({"workspaceId":workspace}),
+    );
+    let timestamp = (OffsetDateTime::parse(now["data"]["wallClock"].as_str().unwrap(), &Rfc3339)
+        .unwrap()
+        - time::Duration::seconds(1))
+    .format(&Rfc3339)
+    .unwrap();
+    let valid = format!(
+        r#"{{"quotes":{{"AAPL":{{"t":"{timestamp}","bx":"P","bp":250.1,"bs":205,"ax":"Q","ap":250.2,"as":310,"c":["R"],"z":"C"}}}}}}"#
+    );
+    for (field, number) in [
+        ("bp", "250.1"),
+        ("ap", "250.2"),
+        ("bs", "205"),
+        ("as", "310"),
+    ] {
+        for sentinel in [
+            "$serde_json::private::Number",
+            r"\u0024serde_json::private::Number",
+        ] {
+            let token = format!(r#""{field}":{number}"#);
+            let object = format!(r#""{field}":{{"{sentinel}":"{number}"}}"#);
+            assert!(valid.contains(&token));
+            *http.alpaca_quote_body.borrow_mut() =
+                Some(valid.replace(&token, &object).into_bytes());
+            let observed = tradex::quote_source::execute_market(
+                &control,
+                &json!({"requestId":"object-price-read","schemaVersion":1,"command":"market.get","payload":{"workspaceId":workspace,"instrumentId":"equity:US:AAPL","tier":"CENSUS"}}),
+                "main",
+                &vault,
+                &http,
+            );
+            assert_eq!(observed["ok"], true, "{observed}");
+            assert!(
+                observed["data"]["snapshot"].is_null(),
+                "Object-valued {field} cannot become quote evidence: {observed}"
+            );
+            assert!(
+                observed["data"]["availabilityReason"]
+                    .as_str()
+                    .is_some_and(|reason| reason.contains("PROVIDER_RESPONSE_INVALID")),
+                "{observed}"
+            );
+        }
+    }
+}
+
+#[test]
 fn selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt() {
     use std::sync::{Arc, Mutex};
     use time::{OffsetDateTime, format_description::well_known::Rfc3339};

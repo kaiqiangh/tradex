@@ -691,6 +691,8 @@ fn run_connection(job: &Job, stop: &AtomicBool) -> Result<()> {
                 .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?
                 .time
                 .status(&job.lease.binding.workspace_id)?;
+            let raw_frames: Vec<Box<serde_json::value::RawValue>> = serde_json::from_str(&text)
+                .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
             let value: Value = serde_json::from_str(&text)
                 .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
             let frames = value
@@ -707,7 +709,7 @@ fn run_connection(job: &Job, stop: &AtomicBool) -> Result<()> {
             {
                 return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
             }
-            for frame in frames {
+            for (frame, raw_frame) in frames.iter().zip(&raw_frames) {
                 match frame["T"].as_str() {
                     Some("success") if frame["msg"] == "connected" && !authenticated => (),
                     Some("success") if frame["msg"] == "authenticated" && !authenticated => {
@@ -762,6 +764,7 @@ fn run_connection(job: &Job, stop: &AtomicBool) -> Result<()> {
                         if frame["S"] != symbol {
                             return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
                         }
+                        validate_quote_numeric_tokens(raw_frame.get().as_bytes())?;
                         let body = serde_json::to_vec(&json!({"quotes":{symbol.clone():frame}}))
                             .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
                         let quote = parse_latest_response(&body, &symbol)?;

@@ -743,11 +743,46 @@ fn validate_latest_response(body: &[u8], symbol: &str) -> Result<()> {
     parse_latest_response(body, symbol).map(|_| ())
 }
 
+#[derive(Deserialize)]
+struct QuotePriceTokens {
+    bp: Box<serde_json::value::RawValue>,
+    ap: Box<serde_json::value::RawValue>,
+    bs: Box<serde_json::value::RawValue>,
+    #[serde(rename = "as")]
+    ask_size: Box<serde_json::value::RawValue>,
+}
+
+#[derive(Deserialize)]
+struct LatestQuoteTokens {
+    quotes: std::collections::HashMap<String, Box<serde_json::value::RawValue>>,
+}
+
+fn validate_quote_numeric_tokens(body: &[u8]) -> Result<()> {
+    let invalid = || TradeXError::new("PROVIDER_RESPONSE_INVALID");
+    let tokens: QuotePriceTokens = serde_json::from_slice(body).map_err(|_| invalid())?;
+    for number in [&tokens.bp, &tokens.ap, &tokens.bs, &tokens.ask_size] {
+        // arbitrary_precision can deserialize its private sentinel object as Number.
+        // Validate the original JSON token before it can become monetary evidence.
+        if !number
+            .get()
+            .as_bytes()
+            .first()
+            .is_some_and(|byte| byte.is_ascii_digit() || *byte == b'-')
+        {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
+
 fn parse_latest_response(body: &[u8], symbol: &str) -> Result<ParsedQuote> {
     let invalid = || TradeXError::new("PROVIDER_RESPONSE_INVALID");
     if body.len() > 2 * 1024 * 1024 {
         return Err(invalid());
     }
+    let tokens: LatestQuoteTokens = serde_json::from_slice(body).map_err(|_| invalid())?;
+    let quote_tokens = tokens.quotes.get(symbol).ok_or_else(invalid)?;
+    validate_quote_numeric_tokens(quote_tokens.get().as_bytes())?;
     let response: Value = serde_json::from_slice(body).map_err(|_| invalid())?;
     if !response
         .get("quotes")
