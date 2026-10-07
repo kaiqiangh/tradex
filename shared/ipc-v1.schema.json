@@ -785,6 +785,16 @@
     "AccountConnection": {
       "type": "object",
       "properties": {
+        "binanceTradingStatus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceTradingStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "connectionId": {
           "type": "string",
           "minLength": 1
@@ -3586,6 +3596,13 @@
         "available"
       ]
     },
+    "BinanceSystemStatus": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "MAINTENANCE"
+      ]
+    },
     "BinanceTestnetBalance": {
       "type": "object",
       "properties": {
@@ -4452,6 +4469,42 @@
         "proposalHash",
         "idempotencyKey",
         "confirmedTestnetOrder"
+      ]
+    },
+    "BinanceTradingStatus": {
+      "type": "object",
+      "properties": {
+        "apiTradingLocked": {
+          "type": "boolean"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "plannedRecoveryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerUpdatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "systemStatus": {
+          "$ref": "#/$defs/BinanceSystemStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "systemStatus",
+        "apiTradingLocked",
+        "providerUpdatedAt",
+        "observedAt"
       ]
     },
     "BitgetDemoOrderAttempt": {

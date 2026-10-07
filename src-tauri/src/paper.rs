@@ -46,6 +46,7 @@ pub fn account(workspace_id: &str, base_currency: &str) -> Result<AccountConnect
     let now = crate::storage::timestamp()?;
     let account_id = format!("{PROVIDER_ID}:{workspace_id}");
     Ok(AccountConnection {
+        binance_trading_status: None,
         connection_id: account_id,
         workspace_id: workspace_id.into(),
         provider_id: PROVIDER_ID.into(),

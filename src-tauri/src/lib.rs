@@ -2896,6 +2896,18 @@ impl ControlPlane {
         account.health.reason =
             "Synthetic Live arming fixture; no provider request was made.".into();
         account.health.arming_reason = "SYNTHETIC_FIXTURE".into();
+        // Compatibility for the pre-existing lower-level synthetic lifecycle
+        // tests only. S29 acceptance uses public provider reads, never this seed.
+        if provider_id == "binance" {
+            let now = storage::timestamp()?;
+            account.binance_trading_status = Some(providers::BinanceTradingStatus {
+                system_status: providers::BinanceSystemStatus::Normal,
+                api_trading_locked: false,
+                provider_updated_at: now.clone(),
+                planned_recovery_at: None,
+                observed_at: now,
+            });
+        }
         account.permissions.scope = "VERIFIED".into();
         account.permissions.detected = provider.required_permissions.clone();
         let remote_account_id = if provider_id == "trading212" {
@@ -7312,6 +7324,9 @@ impl ControlPlane {
         {
             return Some("ACCOUNT_UNHEALTHY");
         }
+        if !storage::timestamp().is_ok_and(|now| account.binance_trading_state_is_current(&now)) {
+            return Some("ACCOUNT_UNHEALTHY");
+        }
         if !account.permissions.forbidden.is_empty()
             || !account.permissions.unsupported.is_empty()
             || account.permissions.scope != "VERIFIED"
@@ -11712,6 +11727,9 @@ impl ControlPlane {
             if a.connection_state != ConnectionState::Connected || !unchanged_scope {
                 a.connection_state = ConnectionState::ReviewRequired;
             }
+            if let Some(status) = observed.binance_trading_status {
+                a.binance_trading_status = Some(status);
+            }
             a.data = Some(observed.data);
             a.last_successful_sync = Some(storage::timestamp()?);
             a.health.connection = "ONLINE".into();
@@ -14866,6 +14884,11 @@ mod live_approval_tests {
                         "canTrade":true,"canWithdraw":false,"canDeposit":false
                     }),
                 ),
+                "/sapi/v1/system/status" => (200, json!({"status":0})),
+                "/sapi/v1/account/apiTradingStatus" => (
+                    200,
+                    json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64}}),
+                ),
                 "/sapi/v1/account/apiRestrictions" => (
                     200,
                     json!({
@@ -17100,6 +17123,7 @@ mod live_approval_tests {
             &job,
             provider_io::ProviderOutcome {
                 observation: Some(provider_io::Observation {
+                    binance_trading_status: None,
                     data: account.data.clone().unwrap(),
                     permissions: account.permissions.clone(),
                     live_order_settlements: vec![settlement],
@@ -20574,6 +20598,10 @@ mod cancellation_approval_tests {
                     "canDeposit":true,
                     "balances":[{"asset":"BTC","free":"1","locked":"0"}],
                 }),
+                "/sapi/v1/system/status" => json!({"status":0}),
+                "/sapi/v1/account/apiTradingStatus" => {
+                    json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64}})
+                }
                 "/sapi/v1/account/apiRestrictions" => json!({
                     "enableReading":true,
                     "enableWithdrawals":false,
@@ -20989,6 +21017,7 @@ mod cancellation_approval_tests {
         let connection = job.connection();
         let outcome = provider_io::ProviderOutcome {
             observation: Some(provider_io::Observation {
+                binance_trading_status: None,
                 data: connection.data.clone().unwrap(),
                 permissions: connection.permissions.clone(),
                 live_order_settlements: Vec::new(),
@@ -22719,6 +22748,7 @@ mod cancellation_approval_tests {
             &changed_snapshot,
             provider_io::ProviderOutcome {
                 observation: Some(provider_io::Observation {
+                    binance_trading_status: None,
                     data: connection.data.clone().unwrap(),
                     permissions: connection.permissions.clone(),
                     live_order_settlements: Vec::new(),
@@ -23128,6 +23158,7 @@ mod cancellation_approval_tests {
             &job,
             provider_io::ProviderOutcome {
                 observation: Some(provider_io::Observation {
+                    binance_trading_status: None,
                     data: connection.data.clone().unwrap(),
                     permissions: connection.permissions.clone(),
                     live_order_settlements: Vec::new(),

@@ -32,6 +32,11 @@ export type AlpacaPaperOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRADED"
 export type ApprovalRejectionReason = "USER_REJECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSystemStatus".
+ */
+export type BinanceSystemStatus = "NORMAL" | "MAINTENANCE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ConnectionState".
  */
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
@@ -1481,6 +1486,7 @@ export interface ApprovalReview {
  * via the `definition` "AccountConnection".
  */
 export interface AccountConnection {
+  binanceTradingStatus?: BinanceTradingStatus | null;
   connectionId: string;
   connectionState: ConnectionState;
   createdAt: string;
@@ -1495,6 +1501,17 @@ export interface AccountConnection {
   stateVersion: string;
   updatedAt: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTradingStatus".
+ */
+export interface BinanceTradingStatus {
+  apiTradingLocked: boolean;
+  observedAt: string;
+  plannedRecoveryAt?: string | null;
+  providerUpdatedAt: string;
+  systemStatus: BinanceSystemStatus;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

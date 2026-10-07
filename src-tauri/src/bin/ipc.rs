@@ -290,6 +290,35 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.trading-status.fixture") {
+                let scenario = request
+                    .get("payload")
+                    .and_then(|p| p.get("scenario"))
+                    .and_then(Value::as_str);
+                let reply = match scenario {
+                    Some("NORMAL" | "MAINTENANCE" | "LOCKED" | "MALFORMED") => {
+                        *http.binance_system_status.borrow_mut() = Some(
+                            json!({"status": if scenario == Some("MAINTENANCE") {1} else {0}}),
+                        );
+                        *http.binance_api_trading_status.borrow_mut() = Some(
+                            if scenario == Some("MALFORMED") {
+                                json!({"data":{}})
+                            } else {
+                                json!({"data":{"isLocked": scenario == Some("LOCKED"),"plannedRecoverTime":0,"updateTime":1547630471725u64}})
+                            },
+                        );
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                    }
+                    _ => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.testnet.cancel.fixture") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let scenario = payload.get("scenario").and_then(Value::as_str);

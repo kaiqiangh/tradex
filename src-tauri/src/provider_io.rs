@@ -1998,6 +1998,7 @@ pub(crate) struct LiveOrderObservation {
 }
 
 pub(crate) struct Observation {
+    pub binance_trading_status: Option<crate::providers::BinanceTradingStatus>,
     pub data: AccountData,
     pub permissions: PermissionReview,
     pub live_order_settlements: Vec<LiveOrderObservation>,
@@ -6531,6 +6532,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
         ..PermissionReview::default()
     };
     Ok(Observation {
+        binance_trading_status: None,
         data: AccountData {
             remote_account_id,
             account_type: "ALPACA_PAPER".into(),

@@ -103,6 +103,8 @@ pub struct Http {
     pub binance_uid: Cell<u64>,
     pub binance_hide_order_lookup: Cell<bool>,
     pub binance_exchange_info: RefCell<Option<Value>>,
+    pub binance_system_status: RefCell<Option<Value>>,
+    pub binance_api_trading_status: RefCell<Option<Value>>,
     pub binance_reference_price: RefCell<Option<Value>>,
     pub binance_reference_price_status: Cell<Option<u16>>,
 }
@@ -172,6 +174,8 @@ impl Default for Http {
             binance_uid: Cell::new(9007199254740993),
             binance_hide_order_lookup: Cell::new(false),
             binance_exchange_info: RefCell::new(None),
+            binance_system_status: RefCell::new(None),
+            binance_api_trading_status: RefCell::new(None),
             binance_reference_price: RefCell::new(None),
             binance_reference_price_status: Cell::new(None),
         }
@@ -944,6 +948,18 @@ impl ProviderHttp for Http {
             self.calls
                 .borrow_mut()
                 .push(format!("{}{path}", endpoint.base_url()));
+            if path == "/sapi/v1/system/status" {
+                assert_eq!(endpoint, tradex::provider_io::ProviderEndpoint::BinanceLive);
+                assert!(headers.is_empty());
+                return Ok(serde_json::to_vec(
+                    &self
+                        .binance_system_status
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(|| json!({"status":0,"msg":"normal"})),
+                )
+                .unwrap());
+            }
             if path == "/api/v3/time" {
                 assert!(headers.is_empty());
                 return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
@@ -1023,6 +1039,10 @@ impl ProviderHttp for Http {
                             .find(|order| order["symbol"] == symbol && (order["orderId"].as_str() == Some(order_id) || order["orderId"].as_u64().is_some_and(|id| id.to_string() == order_id)))
                             .cloned().unwrap_or(Value::Null)
                     }
+                },
+                "/sapi/v1/account/apiTradingStatus"=>{
+                    assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
+                    self.binance_api_trading_status.borrow().clone().unwrap_or_else(|| json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64,"triggerCondition":{"GCR":150,"IFER":150,"UFR":300}}}))
                 },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);

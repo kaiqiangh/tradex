@@ -68,6 +68,7 @@ declare const validators: {
   BacktestRunState: (value: unknown) => boolean;
   BacktestRunSummary: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
+  BinanceSystemStatus: (value: unknown) => boolean;
   BinanceTestnetBalance: (value: unknown) => boolean;
   BinanceTestnetFill: (value: unknown) => boolean;
   BinanceTestnetHistoryState: (value: unknown) => boolean;
@@ -88,6 +89,7 @@ declare const validators: {
   BinanceTestnetOrderOrigin: (value: unknown) => boolean;
   BinanceTestnetOrderReconcile: (value: unknown) => boolean;
   BinanceTestnetOrderSubmit: (value: unknown) => boolean;
+  BinanceTradingStatus: (value: unknown) => boolean;
   BitgetDemoOrderAttempt: (value: unknown) => boolean;
   BitgetDemoOrderAttemptQuery: (value: unknown) => boolean;
   BitgetDemoOrderAttemptQueryResult: (value: unknown) => boolean;

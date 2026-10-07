@@ -680,6 +680,7 @@ pub(super) fn read(
         limitations.push("Classic Demo account endpoints may be unsupported.".into());
     }
     Ok(Observation {
+        binance_trading_status: None,
         permissions,
         data: AccountData {
             remote_account_id: identity,

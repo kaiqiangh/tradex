@@ -716,6 +716,10 @@ workspace 打开后，恢复每个受支持 Live 账户的后端恢复状态和�
 
 Portfolio 显示后端导出的金额币种需求，包括已观察余额单位的 BALANCE_WORKSPACE 具名路由；未知账户主币种仍独立保持未知；Trade 加入所选不可变 Proposal 的 policy/funding 路由及明确的“Refresh rates for this proposal”读取。区分所选 intent 上下文与已观察读取上下文。显示原始 bid/ask/provider-mid、方向、各 provider timestamp、首次 receipt/material/source binding、UNQUALIFIED_FX_RATE 和独立 transaction qualification、broker costs、monetary completeness 阻塞。不得把上下文变成组合金额权威、funding bounds 或 consent。仅轮询本地投影更新过期状态，不读 provider、不续 receipt。过期证据保留但不可用。预 Arm review 与不可变审批窗口均仅显示捕获的 currencyEvidence、capture time 和捕获状态，不能把轮询写进这些捕获 review。预 Arm 证据保持只读，不能批准 Proposal。保留所有既有门禁、Local Paper 与保护性 CANCEL。以真实 Rust 验证键盘/status/errors/reload 及390/768/1280px。此目标契约不是 runtime 或 prototype PASS。
 
+### 13.26 Binance Live 交易状态展示（S29.1 #122）
+
+Accounts 显示选中 Binance Live 连接在 Backend §41.41 定义的可选观察：采样系统状态、API 交易锁、保守的首个响应接收时间、提供方锁更新时间及可空预计恢复时间。历史状态缺失时显示不可用，并引导用户使用现有 Refresh。正常/未锁定只表示最近一次读取，明确提示 30 秒过期及不完整读取保留旧观察。不得断言标的流动性、数据权利或 Live-ready。Arm/PLACE 使用后端健康门禁；浏览器时间或这些标签不能赋权。保留独立受限撤单/对账、键盘导航及窄屏换行。S29 实际金融验收另行完成。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

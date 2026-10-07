@@ -1270,7 +1270,8 @@ pub(crate) fn evaluate(
         },
     );
     let account_healthy = account.is_some_and(|account| {
-        account.connection_state == crate::providers::ConnectionState::Connected
+        account.binance_trading_state_is_current(&time_status.wall_clock)
+            && account.connection_state == crate::providers::ConnectionState::Connected
             && matches!(account.health.connection.as_str(), "ONLINE" | "CONNECTED")
             && matches!(
                 account.health.authentication.as_str(),
@@ -1296,7 +1297,7 @@ pub(crate) fn evaluate(
         if account_healthy {
             "The saved account connection and authentication are healthy."
         } else {
-            "The saved account is disconnected or its health is unverified."
+            "The saved account is disconnected or required health/trading-state evidence is unavailable, restricted or stale."
         },
     );
     let live_context = matches!(

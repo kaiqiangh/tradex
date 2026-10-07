@@ -329,6 +329,26 @@ pub struct AccountData {
     pub limitations: Vec<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceSystemStatus {
+    Normal,
+    Maintenance,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceTradingStatus {
+    pub system_status: BinanceSystemStatus,
+    pub api_trading_locked: bool,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_updated_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub planned_recovery_at: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AccountConnection {
@@ -350,6 +370,8 @@ pub struct AccountConnection {
     pub last_successful_sync: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_private_stream_event_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binance_trading_status: Option<BinanceTradingStatus>,
 }
 
 #[derive(Clone, Serialize, JsonSchema)]
@@ -406,6 +428,7 @@ impl AccountConnection {
             data: None,
             last_successful_sync: None,
             last_private_stream_event_at: None,
+            binance_trading_status: None,
         })
     }
     pub fn credential_ref(&self) -> String {
@@ -436,5 +459,24 @@ impl AccountConnection {
     }
     pub fn blocked_permissions(&self) -> bool {
         !self.permissions.forbidden.is_empty() || !self.permissions.unsupported.is_empty()
+    }
+
+    pub(crate) fn binance_trading_state_is_current(&self, now: &str) -> bool {
+        if self.provider_id != "binance" || self.environment != "LIVE" {
+            return true;
+        }
+        let Some(status) = &self.binance_trading_status else {
+            return false;
+        };
+        let parse = |value| {
+            time::OffsetDateTime::parse(value, &time::format_description::well_known::Rfc3339).ok()
+        };
+        status.system_status == BinanceSystemStatus::Normal
+            && !status.api_trading_locked
+            && parse(now)
+                .zip(parse(&status.observed_at))
+                .is_some_and(|(now, observed)| {
+                    now >= observed && (now - observed).whole_milliseconds() <= 30_000
+                })
     }
 }

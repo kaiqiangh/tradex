@@ -258,7 +258,7 @@ pub(super) fn observe(
         ],
         ..PermissionReview::default()
     };
-    Ok(Observation { data: AccountData {
+    Ok(Observation { binance_trading_status: None, data: AccountData {
         remote_account_id: account_id(&account)?,
         account_type: "Invest / Stocks ISA — subtype unavailable".into(),
         currency: Some(account_currency.clone()),

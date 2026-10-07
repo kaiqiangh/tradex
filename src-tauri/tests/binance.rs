@@ -1900,3 +1900,398 @@ fn invalidation_during_server_time_prevents_any_signed_request_and_cleans_new_ke
     assert_eq!(reply["error"]["code"], "STATE_VERSION_CONFLICT");
     assert!(vault.get(&reference).is_err());
 }
+
+#[test]
+fn live_trading_state_is_read_only_typed_and_persisted() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let ws = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let reply = run(
+        &mut cp,
+        request(
+            "provider.connect",
+            json!({"step":"test","workspaceId":ws,"providerId":"binance","environment":"LIVE","label":"Live state"}),
+        ),
+        &vault,
+        &http,
+    );
+    assert_eq!(reply["ok"], true, "{reply}");
+    let account = &reply["data"];
+    let state = &account["binanceTradingStatus"];
+    assert_eq!(state["systemStatus"], "NORMAL");
+    assert_eq!(state["apiTradingLocked"], false);
+    assert_eq!(state["providerUpdatedAt"], "2019-01-16T09:21:11.725Z");
+    assert_eq!(state["plannedRecoveryAt"], Value::Null);
+    assert!(state["observedAt"].as_str().is_some());
+    assert_eq!(account["health"]["arming"], "DISARMED");
+    assert_eq!(account["health"]["executionEligibility"], "BLOCKED");
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|path| path == "https://api.binance.com/sapi/v1/system/status")
+    );
+    assert!(
+        http.calls
+            .borrow()
+            .iter()
+            .any(|path| path
+                .starts_with("https://api.binance.com/sapi/v1/account/apiTradingStatus?"))
+    );
+    drop(cp);
+    let mut cp = ControlPlane::new(folder.path().into());
+    call(&mut cp, "workspace.open", json!({}));
+    let restored = call(
+        &mut cp,
+        "account.get",
+        json!({"workspaceId":ws,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(restored["data"]["binanceTradingStatus"], *state);
+    assert_eq!(restored["data"]["health"]["arming"], "DISARMED");
+    let testnet = run(
+        &mut cp,
+        request(
+            "provider.connect",
+            json!({"step":"test","workspaceId":ws,"providerId":"binance","environment":"TESTNET","label":"Historical testnet"}),
+        ),
+        &vault,
+        &http,
+    );
+    assert!(testnet["data"].get("binanceTradingStatus").is_none());
+}
+
+#[test]
+fn live_trading_state_rejects_object_valued_numeric_tokens() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let ws = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = fixtures::Vault::default();
+    let original = run(&mut cp, request("provider.connect", json!({"step":"test","workspaceId":ws,"providerId":"binance","environment":"LIVE","label":"Status types"})), &vault, &fixtures::Http::default())["data"].clone();
+    let object_number = |value: &str| json!({"$serde_json::private::Number":value});
+    for (route, body) in [
+        (
+            "/sapi/v1/system/status",
+            json!({"status":object_number("0")}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":object_number("1547630471725"),"plannedRecoverTime":0}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":1547630471725u64,"plannedRecoverTime":object_number("0")}}),
+        ),
+    ] {
+        let current = call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":original["connectionId"]}),
+        )["data"]
+            .clone();
+        let result = run(
+            &mut cp,
+            request("account.refresh", mutation(&current)),
+            &vault,
+            &Response {
+                route,
+                body: Some(body),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            result["error"]["code"], "PROVIDER_RESPONSE_INVALID",
+            "{route}: {result}"
+        );
+        let retained = call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":original["connectionId"]}),
+        )["data"]
+            .clone();
+        assert_eq!(
+            retained["binanceTradingStatus"],
+            original["binanceTradingStatus"]
+        );
+        assert_eq!(
+            retained["lastSuccessfulSync"],
+            original["lastSuccessfulSync"]
+        );
+    }
+}
+
+#[test]
+fn live_trading_state_gates_arming_and_recovers_without_mutations() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let ws = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = fixtures::Vault::default();
+    let http = fixtures::Http::default();
+    let mut account = run(&mut cp, request("provider.connect", json!({"step":"test","workspaceId":ws,"providerId":"binance","environment":"LIVE","label":"Live blockers"})), &vault, &http)["data"].clone();
+    let mut confirm = mutation(&account);
+    confirm["step"] = json!("confirm");
+    confirm["acknowledgeUnverified"] = json!(false);
+    account = call(&mut cp, "provider.connect", confirm)["data"].clone();
+    assert_eq!(account["connectionState"], "CONNECTED");
+    let eligibility = |cp: &mut ControlPlane| {
+        call(cp, "account.list", json!({"workspaceId":ws}))["data"]["liveArmingEligibility"][0]
+            .clone()
+    };
+    assert_eq!(
+        eligibility(&mut cp)["reasonCode"],
+        "RECONCILIATION_REQUIRED"
+    );
+    for (route, body, system, locked) in [
+        (
+            "/sapi/v1/system/status",
+            json!({"status":1,"msg":"Remote message is never exported"}),
+            "MAINTENANCE",
+            false,
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":true,"updateTime":1547630471725u64,"plannedRecoverTime":1788849700000u64}}),
+            "NORMAL",
+            true,
+        ),
+    ] {
+        let blocked = run(
+            &mut cp,
+            request("account.refresh", mutation(&account)),
+            &vault,
+            &Response {
+                route,
+                body: Some(body),
+                ..Default::default()
+            },
+        );
+        assert_eq!(blocked["ok"], true, "{blocked}");
+        account = blocked["data"].clone();
+        assert_eq!(account["binanceTradingStatus"]["systemStatus"], system);
+        assert_eq!(account["binanceTradingStatus"]["apiTradingLocked"], locked);
+        assert!(!account.to_string().contains("Remote message"));
+        assert_eq!(eligibility(&mut cp)["reasonCode"], "ACCOUNT_UNHEALTHY");
+        let draft = call(
+            &mut cp,
+            "trade.save_draft",
+            json!({"workspaceId":ws,"fields":{"accountId":account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.01"},"limitPrice":"100","timeInForce":"GTC"}}),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let proposal = call(
+            &mut cp,
+            "trade.generate_proposal",
+            json!({"workspaceId":ws,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+        );
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        let risk = call(
+            &mut cp,
+            "risk.evaluate_proposal",
+            json!({"workspaceId":ws,"proposalId":proposal["data"]["proposalId"]}),
+        );
+        assert_eq!(risk["ok"], true, "{risk}");
+        let health = risk["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == "ACCOUNT_HEALTH")
+            .unwrap();
+        assert_eq!(health["outcome"], "UNAVAILABLE", "{risk}");
+        let arm = call(
+            &mut cp,
+            "account.arm",
+            json!({"workspaceId":ws,"connectionId":account["connectionId"],"expectedStateVersion":account["stateVersion"],"confirmed":true}),
+        );
+        assert_eq!(arm["error"]["code"], "ACCOUNT_UNHEALTHY", "{arm}");
+        let recovered = run(
+            &mut cp,
+            request("account.refresh", mutation(&account)),
+            &vault,
+            &http,
+        );
+        assert_eq!(recovered["ok"], true, "{recovered}");
+        account = recovered["data"].clone();
+        assert_eq!(account["health"]["arming"], "DISARMED");
+        assert_eq!(
+            eligibility(&mut cp)["reasonCode"],
+            "RECONCILIATION_REQUIRED"
+        );
+    }
+    // Actual time passage proves that an unchanged retained observation expires.
+    std::thread::sleep(std::time::Duration::from_millis(30_100));
+    assert_eq!(eligibility(&mut cp)["reasonCode"], "ACCOUNT_UNHEALTHY");
+    assert_eq!(
+        call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":account["connectionId"]})
+        )["data"]["binanceTradingStatus"],
+        account["binanceTradingStatus"]
+    );
+}
+
+#[test]
+fn live_trading_state_faults_retain_evidence_and_health_does_not_recover_implicitly() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let ws = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = fixtures::Vault::default();
+    let original = run(&mut cp, request("provider.connect", json!({"step":"test","workspaceId":ws,"providerId":"binance","environment":"LIVE","label":"Status faults"})), &vault, &fixtures::Http::default())["data"].clone();
+    for (route, body) in [
+        ("/sapi/v1/system/status", json!({})),
+        ("/sapi/v1/system/status", json!({"status":2})),
+        ("/sapi/v1/system/status", json!({"status":"0"})),
+        ("/sapi/v1/system/status", json!({"status":false})),
+        ("/sapi/v1/system/status", json!({"status":0.0})),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"updateTime":1547630471725u64,"plannedRecoverTime":0}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":"false","updateTime":1547630471725u64,"plannedRecoverTime":0}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":0,"plannedRecoverTime":0}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":1893456000000u64,"plannedRecoverTime":0}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":1547630471725u64,"plannedRecoverTime":-1}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":1547630471725u64,"plannedRecoverTime":null}}),
+        ),
+        (
+            "/sapi/v1/account/apiTradingStatus",
+            json!({"data":{"isLocked":false,"updateTime":1547630471725u64,"plannedRecoverTime":0},"untrusted":fixtures::SECRET}),
+        ),
+    ] {
+        let account = call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":original["connectionId"]}),
+        )["data"]
+            .clone();
+        let result = run(
+            &mut cp,
+            request("account.refresh", mutation(&account)),
+            &vault,
+            &Response {
+                route,
+                body: Some(body),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            result["error"]["code"], "PROVIDER_RESPONSE_INVALID",
+            "{route}: {result}"
+        );
+        let retained = call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":original["connectionId"]}),
+        )["data"]
+            .clone();
+        assert_eq!(retained["data"], original["data"]);
+        assert_eq!(
+            retained["binanceTradingStatus"],
+            original["binanceTradingStatus"]
+        );
+        assert_eq!(
+            retained["lastSuccessfulSync"],
+            original["lastSuccessfulSync"]
+        );
+        assert_ne!(retained["health"]["connection"], "ONLINE");
+        assert_eq!(retained["health"]["arming"], "DISARMED");
+    }
+    for route in [
+        "/sapi/v1/system/status",
+        "/sapi/v1/account/apiTradingStatus",
+    ] {
+        let account = call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":original["connectionId"]}),
+        )["data"]
+            .clone();
+        let result = run(
+            &mut cp,
+            request("account.refresh", mutation(&account)),
+            &vault,
+            &Response {
+                route,
+                error: Some("PROVIDER_RATE_LIMITED"),
+                ..Default::default()
+            },
+        );
+        assert_eq!(result["error"]["code"], "PROVIDER_RATE_LIMITED");
+        let retained = call(
+            &mut cp,
+            "account.get",
+            json!({"workspaceId":ws,"connectionId":original["connectionId"]}),
+        )["data"]
+            .clone();
+        assert_eq!(
+            retained["binanceTradingStatus"],
+            original["binanceTradingStatus"]
+        );
+        assert_eq!(
+            retained["lastSuccessfulSync"],
+            original["lastSuccessfulSync"]
+        );
+    }
+}
+
+#[test]
+fn an_obsolete_trading_status_result_cannot_replace_a_newer_public_refresh() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut cp = ControlPlane::new(folder.path().into());
+    let ws = call(&mut cp, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = fixtures::Vault::default();
+    let account = run(&mut cp, request("provider.connect", json!({"step":"test","workspaceId":ws,"providerId":"binance","environment":"LIVE","label":"Late status"})), &vault, &fixtures::Http::default())["data"].clone();
+    let old = cp
+        .prepare_provider_for(&request("account.refresh", mutation(&account)), "main")
+        .unwrap()
+        .unwrap();
+    let outcome = old.run(
+        &vault,
+        |_| fixtures::credentials(),
+        &Response {
+            route: "/sapi/v1/system/status",
+            body: Some(json!({"status":1})),
+            ..Default::default()
+        },
+        || cp.provider_job_current(&old),
+    );
+    let newer = run(
+        &mut cp,
+        request("account.refresh", mutation(&account)),
+        &vault,
+        &fixtures::Http::default(),
+    );
+    assert_eq!(newer["ok"], true, "{newer}");
+    let obsolete = cp.complete_provider(&old, outcome);
+    assert_eq!(
+        obsolete["error"]["code"], "STATE_VERSION_CONFLICT",
+        "{obsolete}"
+    );
+    let retained = call(
+        &mut cp,
+        "account.get",
+        json!({"workspaceId":ws,"connectionId":account["connectionId"]}),
+    );
+    assert_eq!(
+        retained["data"]["binanceTradingStatus"],
+        newer["data"]["binanceTradingStatus"]
+    );
+    assert_eq!(
+        retained["data"]["lastSuccessfulSync"],
+        newer["data"]["lastSuccessfulSync"]
+    );
+}

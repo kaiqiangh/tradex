@@ -91,6 +91,9 @@ fn testnet_ip_retry_at() -> Option<(String, &'static str)> {
 }
 
 pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
+    if endpoint == ProviderEndpoint::BinanceLive && path == "/sapi/v1/system/status" {
+        return true;
+    }
     if path == "/api/v3/time" {
         return true;
     }
@@ -120,7 +123,10 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
             | "/api/v3/allOrders"
             | "/api/v3/myTrades"
     ) && !(endpoint == ProviderEndpoint::BinanceLive
-        && route == "/sapi/v1/account/apiRestrictions")
+        && matches!(
+            route,
+            "/sapi/v1/account/apiRestrictions" | "/sapi/v1/account/apiTradingStatus"
+        ))
     {
         return false;
     }
@@ -267,7 +273,7 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
                 };
             query_order_by_client || query_order_by_id || new_order
         }
-        "/sapi/v1/account/apiRestrictions" => {
+        "/sapi/v1/account/apiRestrictions" | "/sapi/v1/account/apiTradingStatus" => {
             endpoint == ProviderEndpoint::BinanceLive && keys.is_empty()
         }
         _ => false,
@@ -3029,7 +3035,7 @@ pub(super) fn read(
         {
             return Err(invalid());
         }
-        Ok(value)
+        validate_diagnostic_tokens(&bytes, path, value)
     };
     let started = Instant::now();
     let time = query("/api/v3/time", HeaderMap::new())?;
@@ -3077,6 +3083,17 @@ pub(super) fn read(
         None
     };
     let mut result = observe(account, signed("/api/v3/openOrders")?, restrictions)?;
+    // Exact-order CANCEL observations retain their existing independent read contract.
+    if endpoint == ProviderEndpoint::BinanceLive && exact_order.is_none() {
+        let system = query("/sapi/v1/system/status", HeaderMap::new())?;
+        let observed_at = crate::storage::timestamp()?;
+        let trading = signed("/sapi/v1/account/apiTradingStatus")?;
+        let upper_time = server_time
+            .checked_add(sampled.elapsed().as_millis() as u64)
+            .ok_or_else(time_error)?;
+        result.binance_trading_status =
+            Some(trading_status(&system, &trading, upper_time, observed_at)?);
+    }
     if endpoint == ProviderEndpoint::BinanceLive && exact_order.is_none() {
         let mut symbols = Vec::new();
         let mut seen_symbols = HashSet::new();
@@ -3285,6 +3302,83 @@ const FLAGS: &[(&str, &str)] = &[
     ("enableFixReadOnly", "fix.read"),
     ("enableSpotAndMarginTrading", "spot-and-margin.trade"),
 ];
+
+// Validate original JSON tokens before Value's arbitrary-precision Number map
+// decoding can erase an object-valued numeric field's original type.
+fn validate_diagnostic_tokens(bytes: &[u8], path: &str, value: Value) -> Result<Value> {
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct System {
+        status: u64,
+    }
+    #[derive(serde::Deserialize, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Trading {
+        is_locked: bool,
+        update_time: u64,
+        planned_recover_time: u64,
+    }
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct Response {
+        data: Trading,
+    }
+    match path.split('?').next() {
+        Some("/sapi/v1/system/status") => {
+            let typed: System = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+            serde_json::to_value(typed).map_err(|_| invalid())
+        }
+        Some("/sapi/v1/account/apiTradingStatus") => {
+            let typed: Response = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+            serde_json::to_value(typed).map_err(|_| invalid())
+        }
+        _ => Ok(value),
+    }
+}
+
+fn trading_status(
+    system: &Value,
+    trading: &Value,
+    sampled_server_time: u64,
+    observed_at: String,
+) -> Result<crate::providers::BinanceTradingStatus> {
+    use crate::providers::{BinanceSystemStatus, BinanceTradingStatus};
+    let system_status = match system.get("status").and_then(Value::as_u64) {
+        Some(0) => BinanceSystemStatus::Normal,
+        Some(1) => BinanceSystemStatus::Maintenance,
+        _ => return Err(invalid()),
+    };
+    let data = trading
+        .get("data")
+        .and_then(Value::as_object)
+        .ok_or_else(invalid)?;
+    let api_trading_locked = data
+        .get("isLocked")
+        .and_then(Value::as_bool)
+        .ok_or_else(invalid)?;
+    let updated = data
+        .get("updateTime")
+        .and_then(Value::as_u64)
+        .filter(|value| valid_time(*value) && *value <= sampled_server_time)
+        .ok_or_else(invalid)?;
+    let recovery = data
+        .get("plannedRecoverTime")
+        .and_then(Value::as_u64)
+        .ok_or_else(invalid)?;
+    let planned_recovery_at = if recovery == 0 {
+        None
+    } else if valid_time(recovery) {
+        Some(provider_event_time(recovery)?)
+    } else {
+        return Err(invalid());
+    };
+    Ok(BinanceTradingStatus {
+        system_status,
+        api_trading_locked,
+        provider_updated_at: provider_event_time(updated)?,
+        planned_recovery_at,
+        observed_at,
+    })
+}
+
 fn permissions(restrictions: Option<Value>) -> Result<PermissionReview> {
     let mut p = PermissionReview {
         detected: vec![
@@ -3499,6 +3593,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(Observation {
+        binance_trading_status: None,
         data: AccountData {
             remote_account_id: numeric_id(&account, "uid")?,
             account_type: "BINANCE_SPOT".into(),
