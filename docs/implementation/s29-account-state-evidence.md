@@ -17,3 +17,5 @@ Round 1 Standards passed with no findings; Spec identified one AC4 exact-CANCEL 
 ## Remaining scope
 
 Parent S29 requires configured exact crypto rules and authentic quote/depth/source rights, genuinely required financial FX/cost inputs, Live PLACE and private-stream lifecycle, failure/recovery and concrete authorized real-provider acceptance. USDT is not USD. S28 and its financial acceptance remain OPEN; S17 real Paper and skipped physical S27 wake remain unverified. The clickable prototype is unchanged. No main PR or merge has been performed.
+
+Delivered source/evidence: `09e999e8be0a44082d531bbe6e3acfcef3ff68c1`. Child #122 CLOSED; parent #121 OPEN. [Closure receipt](evidence/s29-account-state/closure-receipt.json) records verified remote delivery and the preserved gates.

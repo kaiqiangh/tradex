@@ -17,3 +17,5 @@
 ## 剩余范围
 
 S29 父项仍需已配置的精确 crypto 规则、真实报价/深度/来源权限、实际必要的金融 FX/费用输入、Live PLACE/私有流生命周期、故障恢复及具体授权的真实 Provider 验收。USDT 不等于 USD。S28 及其金融验收保持 OPEN；S17 真实 Paper 与用户跳过的物理 S27 唤醒仍未验证。点击式原型代码未改。没有提交 main PR 或合并 main。
+
+源码/证据交付：`09e999e8be0a44082d531bbe6e3acfcef3ff68c1`。子票 #122 CLOSED；父项 #121 OPEN。[结票回执](evidence/s29-account-state/closure-receipt.json)记录已核对的远程交付及保留门禁。
