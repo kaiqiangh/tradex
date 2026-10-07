@@ -1,0 +1,7 @@
+NOT PASS — original116acceptance incomplete;0confirmed recoveryauditdefects,1positiveacceptancegap.
+
+Issue116AC4 requires quoteidentity consumed/revalidated through existing approval/risk/preparation/dispatch bindings. Current issuedapproval/Prepare/Gateway unverified (financialaudit:21,recoveryaudit:14); readonlyrecovery/blockedpreview cannotcomplete it.
+
+Recoveryconsistent: sameRefresh endedREVIEW_REQUIRED, retainedsamescopeack/localconfirm restoredCONNECTED/UNVERIFIED/DISARMED and3readcaps. PRD:954 acknowledgement permits completingconnectionreviewonly; nopermissionpromotion. CalendarAVAILABLE datedrefreshneedsconsumptionage/binding; companyqueryretainedunavailable; brokermetadataUNAVAILABLE preservesfirstreceipt2026-10-07T09:21:18.724Z (source-recovery.json:17);TEN_MINUTE_METADATAquality notcurrenttradability/executionfreshness (Backend:3006). FX exactsanitizeddenial,norate/receipt,HTTP403inference (source-recovery.json:29). Permission/eligiblecoverage/completeactions-adjustment/exactidentity-tradability/requiredqualifiedFX-cost-completeinputs independent.
+
+Scope:HEAD6a81d2e,3trackeddocs+5untrackedrecoveryfiles,7currentand9priorGitobjecthashes match,pairagree. Native20runtime+mainGatewayownership/noKeychainwait recorded,notresampledbyreviewer. No tests/build/UI/provider/CI. No runtime/schema/normativechanges orfinancialpositiveclaim. Honestnegativeproof/pendingdeliverynotnewdefects;originalAC4/parentsstayOPEN.

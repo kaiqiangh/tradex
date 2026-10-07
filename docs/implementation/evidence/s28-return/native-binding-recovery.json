@@ -1,0 +1,11 @@
+{
+  "capturedAt": "2026-10-07T09:25:43.612714+00:00",
+  "baseline": "6a81d2ed63f9fba5f774b2abd8900cca776d7b67",
+  "relevantRuntimeInputsMatch": 20,
+  "mainSha256": "0d4805a76c010b418de210b4914a05d3f4ba4da5969d642b38cc4dd330c933f8",
+  "gatewaySha256": "bb8b5df9e691fc0085351d7fbaee9b28ed0da97213f01a11e8a20b6633227742",
+  "parentAndChildImageMatch": true,
+  "parentChildOwnership": true,
+  "protectedKeychainReadOnCurrentSample": false,
+  "privateStackArchived": false
+}

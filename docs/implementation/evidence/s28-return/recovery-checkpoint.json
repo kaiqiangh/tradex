@@ -1,0 +1,30 @@
+{
+  "capturedAt": "2026-10-07T09:33:52.087492+00:00",
+  "baseline": "6a81d2ed63f9fba5f774b2abd8900cca776d7b67",
+  "ticket": 116,
+  "state": "RECOVERY_REVIEWED_ORIGINAL_AC4_NOT_PASS",
+  "filesSha256": {
+    "docs/implementation/s28-financial-prerequisites.md": "a56aa66fd7dd4e6566d073672e723aed554733759613b01681236b7c67178b21",
+    "docs/implementation/s28-financial-prerequisites_zh.md": "6643e83135d1368d545bcd699f34f85e2c8301ab554cbd9d88d409a95ae75c3a",
+    "docs/implementation/README.md": "d67ac5aa91226212fceddd3b17296f81cee1ac5b2794523082c7ddaa7b9e9706",
+    "docs/implementation/evidence/s28-return/account-restored.json": "54c359abf8e5fc886bc7628029c932d3546ad80fee35e63929582ae94755bd2e",
+    "docs/implementation/evidence/s28-return/source-recovery.json": "9301cea50d74e25ca85cce056879c288ce23b8bf5da4414bb6cc5185073e46b4",
+    "docs/implementation/evidence/s28-return/native-binding-recovery.json": "feaba712cc09b3e3b0f60335404eb49c772abbc4c24d6fcc049e7b01e9842a0d",
+    "docs/implementation/evidence/s28-return/recovery-audit.md": "51a42359efdaae3c3dc68e3e06cb74a272704325e764f6767d0ccc00747689c3",
+    "docs/implementation/evidence/s28-return/recovery-standards-review.md": "1c674abaf758145fd62b6b0f4f0bfa2a231657e032c6c5a09b4023a031caf9b4",
+    "docs/implementation/evidence/s28-return/recovery-spec-review.md": "328a78102b8f7eb5a19a5ca5a4aec91355c53cebe579fa8f47a450f4e4f7b362"
+  },
+  "previousAuditCommit": "6a81d2ed63f9fba5f774b2abd8900cca776d7b67",
+  "previousNineHashesVerifiedAgainstGitObjects": true,
+  "noRuntimeSourceChanges": true,
+  "nativeAuthenticationWaitEnded": true,
+  "originalAC4Complete": false,
+  "financialActionsPerformed": false,
+  "pending": [
+    "scoped dev evidence delivery",
+    "user serial-scheduling choice and authoritative missing financial evidence"
+  ],
+  "reviewedPreReportFileHashCount": 7,
+  "standards": "PASS0hard0advisory",
+  "spec": "NOT PASS originalAC4;0auditdefects1positivegap"
+}

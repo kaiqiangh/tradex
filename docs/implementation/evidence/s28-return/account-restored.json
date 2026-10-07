@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-07T09:17:43.483Z",
+  "provider": "trading212",
+  "environment": "LIVE",
+  "connectionState": "CONNECTED",
+  "arming": "DISARMED",
+  "permissionScope": "UNVERIFIED",
+  "ipRestriction": "UNKNOWN",
+  "readCapabilities": [
+    "account.read",
+    "positions.read",
+    "orders.read"
+  ],
+  "successfulReadCapabilitiesObserved": true,
+  "priorSameScopeAcknowledgementRetainedBeforeConfirm": true,
+  "localConfirmationPerformed": true,
+  "scopeVerified": false,
+  "financialActionsPerformed": false,
+  "privateValuesArchived": false
+}
