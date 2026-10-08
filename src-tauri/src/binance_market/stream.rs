@@ -4,6 +4,8 @@ use crate::protocol::{Result, TradeXError};
 pub struct BinanceStreamConnector {
     #[cfg(feature = "integration-test")]
     loopback: Option<String>,
+    #[cfg(feature = "integration-test")]
+    rotation_after: Option<std::time::Duration>,
 }
 impl BinanceStreamConnector {
     #[cfg(feature = "integration-test")]
@@ -26,7 +28,26 @@ impl BinanceStreamConnector {
         }
         Ok(Self {
             loopback: Some(url.into()),
+            rotation_after: None,
         })
+    }
+    #[cfg(feature = "integration-test")]
+    pub fn for_loopback_test_with_rotation(url: &str, after: std::time::Duration) -> Result<Self> {
+        if after.is_zero() || after >= std::time::Duration::from_secs(24 * 60 * 60) {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let mut connector = Self::for_loopback_test(url)?;
+        connector.rotation_after = Some(after);
+        Ok(connector)
+    }
+    fn rotation_interval(&self) -> std::time::Duration {
+        // Rotate before the ordinary provider's mandatory 24-hour disconnect.
+        // This is monotonic and never grants a new quote or resets retry limits.
+        #[cfg(feature = "integration-test")]
+        if let Some(after) = self.rotation_after {
+            return after;
+        }
+        std::time::Duration::from_secs(23 * 60 * 60)
     }
     pub(crate) fn connect(
         &self,
@@ -450,21 +471,31 @@ impl Job {
             return Ok(());
         }
         let deadline = Instant::now() + Duration::from_secs(10);
+        let rotation = Instant::now() + self.connector.rotation_interval();
         let mut socket = self
             .connector
             .connect(self.symbol, &|| self.current(stop))?;
         let ready = AtomicBool::new(false);
-        crate::quote_source::transport::guarded_read(
+        let result = crate::quote_source::transport::guarded_read(
             &mut socket,
-            &|| self.current(stop) && (ready.load(Ordering::Acquire) || Instant::now() < deadline),
-            |socket| self.read_connection(socket, stop, deadline, &ready),
-        )
+            &|| {
+                self.current(stop)
+                    && Instant::now() < rotation
+                    && (ready.load(Ordering::Acquire) || Instant::now() < deadline)
+            },
+            |socket| self.read_connection(socket, stop, deadline, rotation, &ready),
+        );
+        if self.current(stop) && Instant::now() >= rotation {
+            return Err(TradeXError::new("PROVIDER_STREAM_SHUTDOWN"));
+        }
+        result
     }
     fn read_connection(
         &self,
         socket: &mut crate::quote_source::transport::Socket,
         stop: &AtomicBool,
         deadline: Instant,
+        rotation: Instant,
         ready: &AtomicBool,
     ) -> Result<()> {
         self.transition(
@@ -480,6 +511,9 @@ impl Job {
         let mut buffered_bytes = 0usize;
         let mut controls = std::collections::VecDeque::<Instant>::new();
         while self.current(stop) {
+            if Instant::now() >= rotation {
+                return Err(TradeXError::new("PROVIDER_STREAM_SHUTDOWN"));
+            }
             if book.is_none() && Instant::now() > deadline {
                 return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
             }
@@ -532,7 +566,11 @@ impl Job {
                     ready.store(true, Ordering::Release);
                 }
             }
-            match socket.read() {
+            let incoming = socket.read();
+            if Instant::now() >= rotation {
+                return Err(TradeXError::new("PROVIDER_STREAM_SHUTDOWN"));
+            }
+            match incoming {
                 Ok(tungstenite::Message::Text(text)) => {
                     let (receipt, received) = {
                         let mut c = self

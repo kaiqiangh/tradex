@@ -2,7 +2,7 @@
 
 父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。实现/复审起点：dev@5edf18d01122d1871b6c94aeafefe708435b7f38。前票 #123 规则来源/准入已 CLOSED；S29 保持 OPEN。此规范推进父项故事 9–12、27，不移除完整执行及真实外部验收要求。[English](s29-binance-hot-source-spec.md)。
 
-当前单实现票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124)。已领取、ready-for-agent、IN_PROGRESS。已实现选择和首个真实 loopback HTTP/WS 生产者；其余传输/生命周期、受保护消费者、UI 以及完整验收/复审/交付仍须完成。不表示当前票或父项关闭。
+当前单实现票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124)。已领取、ready-for-agent、IN_PROGRESS。已实现选择、连续 loopback HTTP/WS 生产者、有界传输/轮换、所属报价/准入检查和实际 Settings/Markets/Trade 来源流程。其余生命周期/真实隐藏与边界证据，以及完整验收/复审/交付仍须完成。不表示当前票或父项关闭。
 
 ## 问题
 
@@ -45,6 +45,8 @@
 - 一个 raw 精确标的 diff-depth 流及有界 REST bootstrap。按当前官方 snapshot/buffer 桥接确认后才可用；后续允许重叠、丢弃旧增量、缺范围则失败关闭，零数量删除层级。整数 ID 无损保留，十进制精确原始字符串，不经 f64 或舍入。
 - 初始 snapshot 每侧 limit1000；保留其及连续增量建立的完整已知价格带。最多每侧5000已知层级，bootstrap 缓冲最多256帧/4MiB，单帧512KiB。容量耗尽、价格带耗尽或任一最佳侧未证实则撤销盘口、有界重新同步，不静默丢层却声称完整。投影最佳两侧、每侧最多20已知层级及覆盖边界；不证明全盘口流动性。
 - 总连接/bootstrap 期限有界、及时检查取消，I/O/解析不占全局 Control Plane 锁。重连最多3次且退避；被拒、封禁、限流和不支持分别呈现。遵守提供方控制消息上限、复制 ping 负载 pong、计划/实际关闭；新 socket/bootstrap 在新可用报价前建立新代次。
+
+- 在官方24小时连接期限前，每个连接按单调时间23小时计划轮换。先退役旧盘口/socket，再进入有界新 bootstrap；沿用 PROVIDER_STREAM_SHUTDOWN 原因及最多3次重连，不重置配额或报价年龄。仅 integration-test 的 loopback 配置可缩短传输期限，不注入报价或权限证据。
 - 材料有独立首次接收/提供方事件时间和不可变身份；重复/旧/相同材料与缓存读取不续期。流 cursor/健康可单独推进。新鲜度使用可信提供方/墙钟/单调时钟；来源投影不超过30秒，金融消费者使用更严格已配置阈值。无事件时间的 REST/bookTicker/partial-depth 不能用本地接收时间代替。
 - Binance 出处记录规范标的/BASE/QUOTE、准确 BINANCE venue、来源/连接/session/time 代次、材料更新 ID、接收/事件时间、有界已知深度、当前连续性/质量。不虚构 last trade、加权/参考价、股票日历/公司行为完整性、全盘口、稳定币平价或 quote age。
 - 可见当前 Trade Proposal 和 Markets 沿同一归属生命周期取得自己的 Hot 租约；从 Markets 导航不能让 Trade 借用已释放/过期租约。两者使用同一后端生产者投影和捕获边界。真实流动性只可满足所属技术 coverage/freshness/spread/displayed-depth 检查；缺权利或其他义务不能形成整体金融 PASS。已配置 last-trade 偏离检查缺真实参考则不可用。规则/权限/交易所负项复用 #123 当前准确账户证据，不当成完整逐单规则。数量遍历、费用/FX 和派发归后续所属解释/预检工作。
@@ -53,7 +55,7 @@
 
 ## 测试决策
 
-使用已确认最高公开边界，只在外部替身。先真实公开来源选择 RED，再实现 GREEN，随后逐行为推进。验证 CAS/无 I/O/重开、真实 HTTP+WS bootstrap 与报价、原始无损类型、覆盖价格带/删除/重叠/重复/缺口、错误来源/标的/环境、未来/过期提供方/接收/单调时间、缓存不续期、乱序/过时完成、资源上限、ping/close/拒绝/冷却/有界恢复、释放/导航/工作区/来源退休及精确消费者绑定。传输/生命周期相关时使用真实 loopback socket。实际 React Settings/Markets/Trade 对接 Rust 及外部模拟响应，键盘与1280/768/390验证；不播种 CP 金融快照/权威。生成 schema/typecheck、完整本地检查、相关 Hot/Gateway 回归及普通桌面构建，最后独立 Standards → Spec 串行复审，并记录源码/证据/远端及 tracker 收口。
+使用已确认最高公开边界，只在外部替身。先真实公开来源选择 RED，再实现 GREEN，随后逐行为推进。验证 CAS/无 I/O/重开、真实 HTTP+WS bootstrap 与报价、原始无损类型、覆盖价格带/删除/重叠/重复/缺口、错误来源/标的/环境、未来/过期提供方/接收/单调时间、缓存不续期、乱序/过时完成、资源上限、ping/close/拒绝/冷却/有界恢复、释放/导航/工作区/来源退休及精确消费者绑定。传输/生命周期相关时使用真实 loopback socket。实际 React Settings/Markets/Trade 对接 Rust 及外部模拟响应，键盘与1280/768/390验证；不播种 CP 金融快照/权威。通过 `npm run test:binance-hot` 串行运行来源场景，每个独立外部提供方场景拥有一个应用进程；每个场景内保留生产配额，包括跨工作区/来源配额验证。此方式不重置运行中的应用，也不证明真实共享 IP 验收。生成 schema/typecheck、完整本地检查、相关 Hot/Gateway 回归及普通桌面构建，最后独立 Standards → Spec 串行复审，并记录源码/证据/远端及 tracker 收口。
 
 ## 此票范围外
 

@@ -2715,10 +2715,14 @@ pub struct SpotDepthLevel {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum SpotMarketEnvironment { Ordinary }
+pub enum SpotMarketEnvironment {
+    Ordinary,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum SpotDepthCoverage { KnownPriceBands }
+pub enum SpotDepthCoverage {
+    KnownPriceBands,
+}
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BinanceSpotQuoteEvidence {

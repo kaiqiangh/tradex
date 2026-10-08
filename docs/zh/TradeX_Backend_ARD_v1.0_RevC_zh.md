@@ -3066,6 +3066,8 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 快照落后于第一条缓冲范围时，允许在同一连接上重读一次 REST，保留原始缓冲/接收时间，仍受同一个10s 连接/初始化期限及既有共享公开读取限额约束。已接纳读取使用 scoped 中断守卫：为既有正常关闭路径保留250ms，然后中断持续缓慢发送的残缺帧；唯一工作线程移交替代页面前须 join 守卫。股票和 Binance 读取均使用此取消边界。精确符号原始流不发送订阅 JSON；提供方 Pong 须回显原始 payload，客户端每滚动秒最多4次控制回复。普通主机连接尝试按单调时间，在符号/来源代次/工作区之间共享每滚动300s 最多30次的余量。合法原始 `serverShutdown {e, E}` 没有符号，以 `PROVIDER_STREAM_SHUTDOWN` 终止连续性，并进入同一最多3次重连/重新初始化路径。关闭通知或 Pong 均不得续期报价材料。
 
+每个 socket 按单调时间23小时轮换，早于官方24小时期限。旧 socket/盘口沿用 `PROVIDER_STREAM_SHUTDOWN` 路径退役、最多3次重连并重新 bootstrap；scoped 读取守卫也限制轮换时的持续缓慢读取。经过时间不重置进程/IP 配额或续期材料。只有 integration-test 的 loopback connector 可为真实外部协议测试缩短传输期限；renderer 参数和生产配置均不能改写它。
+
 可选 `MarketSnapshotProvenance.binance: BinanceSpotQuoteEvidence` 记录 `workspaceId`、`sessionId`、`timeGeneration`、`leaseId`、`environment: ORDINARY`、`providerSymbol`、`baseAsset`、`quoteAsset`、`sourceVersion`、`connectionGeneration`、`bookUpdateId`（材料的更新）、`providerEventTimeMs`、`depthUnit: BASE`、`depthCoverage: KNOWN_PRICE_BANDS`、`knownBidLevels`、`knownAskLevels`、`bidKnownFloor`、`askKnownCeiling`、每侧最多20条 `bids/asks {price, quantity}`、64字符小写 SHA-256 `materialHash`、`dataUseRights: UNVERIFIED`。哈希覆盖 canonical 来源/符号/BASE、已知边界以及所有保留的已知层级，按精确 bid 降序/ask 升序，包括显示20层之外的层级。删除边界价位不得扩大已知边界。初始快照每侧最多1000层、保留已知层级每侧最多5000层、帧最多512KiB、初始化缓冲最多256帧/4MiB。不虚构完整订单簿、最后成交、USD/USDT 等价或数据使用许可。
 
 对于明确选择的普通公开 Spot 生产者，非 Cold `MarketDetail.sourceId` 为 `BINANCE_SPOT_PUBLIC`，即使采集待初始化/失去绑定/不可用也须明确。所属 `QUOTE_FRESHNESS` 按当前 canonical/场所/工作区/运行时来源投影、原始事件时间、有界 BASE 深度和不可续期材料验证，不要求 `lastPrice`。仅匹配普通 Binance Live 执行覆盖；其他场所/环境或过期运行时绑定仍不可用。`RiskCheckId: MARKET_DATA_USE` 与 `RiskDecisionReasonCode: DATA_USE_RIGHTS_UNVERIFIED` 是独立共享 IPC 检查：无论技术采集/读取成功、来源替换或其他检查结果，使用此所选来源的金融用途始终 UNAVAILABLE。其他来源/本地模拟对此来源专属检查返回 NOT_APPLICABLE，不创建任何权利权威。评审可在临时内存持有捕获的订单簿；持久化风险决定仅保留类型化引用/摘要/时间/检查结果，不保留原始快照/层级。公开评审/历史/重开证明仅覆盖该路径，不能证明全部导出/artifact/保留合规。依赖参考价的偏差、FX/费用、权利和后续审批/派发仍为独立必需职责。
@@ -3073,7 +3075,7 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 普通 Binance Live 的既有 `MARKET_SESSION` 风险检查负责精确账户/标的 Spot 场所准入，不要求股票日历。只消费当前 AVAILABLE 的 `spotRuleEvidence`，匹配所选连接/标的、账户/来源版本与远程账户身份。规则采集器负责当前工作区/会话/时间/sequence 绑定及独立墙钟/单调时钟30s 准入年龄。准入阻断项为空只能满足这一项；HALT/BREAK 以 MARKET_HALTED 拒绝，维护/API 锁/权限集合不满足保留实际阻断诊断。缺失、其他标的、过期、失败或账户版本变化的证据保持 UNAVAILABLE。不得改变 `MarketState.session: UNKNOWN`，不得虚构 OPEN/calendarVersion/提供方场所时间，也不得将提供方时钟样本或旧锁更新时间改称当前场所观察。正常采集元数据的 `INSTRUMENT_RULES` 仍 UNAVAILABLE，精确负面准入可拒绝该项。显示的最佳买卖侧 BASE 流动性只能满足既有保守滑点估计：数量必须不超过该侧显示最佳数量，并精确比较价差相对中间价。不得推断更深执行/完整订单簿成交或数量遍历。配置最后成交偏差后，即使 bid/ask 与报价新鲜度通过，没有真实参考也保持 UNAVAILABLE。这些检查不创建整体金融权限。
 
 
-完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)。生产者与 #124 验收仍 IN_PROGRESS：其余深度/资源/时钟/生命周期故障、计划轮换、受保护消费者和实际 React UI 仍须所属验收。传输配额、快照重读、类型化关闭通知和取消已有聚焦外部协议证明，不表示完整验收。本地 loopback 生产者证明与普通原生/提供方/金融验收及父项关闭分开。原型代码未改。
+完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)。生产者与 #124 验收仍 IN_PROGRESS：其余生命周期/真实隐藏与边界证据、完整检查和串行复审仍须所属验收。生产者/轮换/受保护消费者及实际来源 UI 具有范围明确的检查点证据，均不表示整票验收。传输配额、快照重读、类型化关闭通知和取消已有聚焦外部协议证明，不表示完整验收。本地 loopback 生产者证明与普通原生/提供方/金融验收及父项关闭分开。原型代码未改。
 
 ## 42. Backend-to-Frontend Event Surface
 

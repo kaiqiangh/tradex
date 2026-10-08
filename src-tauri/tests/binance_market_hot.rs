@@ -99,6 +99,8 @@ struct DepthPeer {
     threads: Vec<std::thread::JoinHandle<()>>,
     http: Arc<tradex::provider_io::BrokerHttp>,
     connector: BinanceStreamConnector,
+    stream_url: String,
+    http_status: Arc<std::sync::atomic::AtomicU16>,
     requests: Arc<Mutex<Vec<String>>>,
     events: std::sync::mpsc::Sender<Value>,
     connections: Arc<std::sync::atomic::AtomicUsize>,
@@ -158,18 +160,20 @@ impl DepthPeer {
             ))
             .unwrap(),
         );
-        let connector = BinanceStreamConnector::for_loopback_test(&format!(
+        let stream_url = format!(
             "ws://127.0.0.1:{}/ws/{}@depth@100ms",
             ws_listener.local_addr().unwrap().port(),
             symbol.to_ascii_lowercase()
-        ))
-        .unwrap();
+        );
+        let connector = BinanceStreamConnector::for_loopback_test(&stream_url).unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let requests = Arc::new(Mutex::new(Vec::new()));
         let connections = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let sent_events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let responses = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let response_ledger = responses.clone();
+        let http_status = Arc::new(std::sync::atomic::AtomicU16::new(200));
+        let response_status = http_status.clone();
         let halt = stop.clone();
         let ledger = requests.clone();
         let rest = std::thread::spawn(move || {
@@ -223,8 +227,13 @@ impl DepthPeer {
                     _ => panic!("Unexpected public source request {path}"),
                 };
                 let body = serde_json::to_vec(&body).unwrap();
+                let status = if path == "/api/v3/time" {
+                    200
+                } else {
+                    response_status.load(Ordering::Acquire)
+                };
                 let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    "HTTP/1.1 {status} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nRetry-After: 60\r\nLocation: /untrusted-redirect\r\nConnection: close\r\n\r\n",
                     body.len()
                 );
                 if socket
@@ -284,7 +293,7 @@ impl DepthPeer {
                     .send(tungstenite::Message::Text(event.to_string().into()))
                     .unwrap();
                 event_ledger.fetch_add(1, Ordering::AcqRel);
-                while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
+                'connection: while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
                     while let Ok(ping) = next_ping.try_recv() {
                         socket
                             .send(tungstenite::Message::Ping(ping.into()))
@@ -295,7 +304,7 @@ impl DepthPeer {
                             .send(tungstenite::Message::Text(event.to_string().into()))
                             .is_err()
                         {
-                            return;
+                            break 'connection;
                         }
                         event_ledger.fetch_add(1, Ordering::AcqRel);
                     }
@@ -326,6 +335,8 @@ impl DepthPeer {
             threads: vec![rest, stream],
             http,
             connector,
+            stream_url,
+            http_status,
             requests,
             events,
             connections,
@@ -767,6 +778,46 @@ fn a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_r
 }
 
 #[test]
+fn planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap() {
+    let mut peer = DepthPeer::new();
+    // This changes only a transport deadline; all quote material still comes
+    // from the actual external HTTP and WebSocket peer.
+    peer.connector = BinanceStreamConnector::for_loopback_test_with_rotation(
+        &peer.stream_url,
+        std::time::Duration::from_millis(750),
+    )
+    .unwrap();
+    let view = HotView::with_peer(peer);
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let retired =
+        view.wait(|v| v["data"]["connectionGeneration"] != first["data"]["connectionGeneration"]);
+    assert!(
+        retired["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_STREAM_SHUTDOWN"),
+        "{retired}"
+    );
+    assert_eq!(retired["data"]["detail"]["status"], "UNAVAILABLE");
+    assert_eq!(
+        retired["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
+    let recovered = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(recovered["data"]["reconnectAttempt"], 1);
+    assert_eq!(
+        view.peer
+            .connections
+            .load(std::sync::atomic::Ordering::Acquire),
+        2
+    );
+    assert_ne!(
+        recovered["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
+}
+
+#[test]
 fn original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material() {
     let cases: [(&str, fn(&mut Value)); 6] = [
         ("event time string", |v| v["E"] = json!("1791450000000")),
@@ -804,6 +855,157 @@ fn original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_
             "{name}"
         );
     }
+}
+
+#[test]
+fn http_source_denial_stops_without_retry_or_fallback() {
+    source_http_fault(403, "DATA_SOURCE_FEED_DENIED", false, 1);
+}
+
+#[test]
+fn http_redirects_never_follow_an_untrusted_source_path() {
+    source_http_fault(302, "PROVIDER_RESPONSE_INVALID", false, 4);
+}
+
+#[test]
+fn public_http_ban_stops_and_its_shared_cooldown_survives_source_replacement() {
+    source_http_fault(418, "PROVIDER_IP_BANNED", true, 1);
+}
+
+#[test]
+fn public_http_rate_limit_stops_and_its_shared_cooldown_survives_source_replacement() {
+    source_http_fault(429, "PROVIDER_RATE_LIMITED", true, 1);
+}
+
+fn source_http_fault(status: u16, reason: &str, cooldown: bool, attempts: usize) {
+    let peer = DepthPeer::new();
+    peer.http_status
+        .store(status, std::sync::atomic::Ordering::Release);
+    let mut view = HotView::with_peer(peer);
+    let failed = view.wait(|v| v["data"]["status"] == "FAILED");
+    assert!(
+        failed["data"]["reason"].as_str().unwrap().contains(reason),
+        "{failed}"
+    );
+    assert_eq!(failed["data"]["reconnectAttempt"], attempts - 1);
+    assert_eq!(failed["data"]["detail"]["status"], "UNAVAILABLE");
+    assert!(failed["data"]["detail"]["snapshot"].is_null());
+    assert_eq!(
+        view.peer
+            .connections
+            .load(std::sync::atomic::Ordering::Acquire),
+        attempts
+    );
+    assert_eq!(
+        *view.peer.requests.lock().unwrap(),
+        (0..attempts)
+            .flat_map(|_| [
+                "/api/v3/time".to_owned(),
+                "/api/v3/depth?symbol=BTCUSDT&limit=1000".to_owned()
+            ])
+            .collect::<Vec<_>>()
+    );
+    if cooldown {
+        view.peer
+            .http_status
+            .store(200, std::sync::atomic::Ordering::Release);
+        let selected = command(
+            &view.control,
+            "data.binance_market.configure",
+            json!({"workspaceId":view.workspace,"expectedStateVersion":failed["data"]["sourceVersion"]}),
+        );
+        assert_eq!(selected["ok"], true, "{selected}");
+        view.acquire(&selected["data"]["stateVersion"]);
+        view.wait(|v| v["data"]["status"] == "AWAITING_QUOTE");
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let waiting = command(&view.control, "market.hot.get", view.query.clone());
+        assert_eq!(waiting["data"]["detail"]["status"], "UNAVAILABLE");
+        assert!(waiting["data"]["detail"]["snapshot"].is_null());
+        assert_eq!(
+            view.peer.requests.lock().unwrap().len(),
+            2,
+            "source CAS must not reset provider/IP cooldown"
+        );
+        assert_eq!(view.release(&view.query)["ok"], true);
+    }
+}
+
+#[test]
+fn snapshot_original_id_types_and_per_side_capacity_never_become_quote_authority() {
+    let valid = json!({"lastUpdateId":9_007_199_254_740_992u64,"bids":[["60000","1"],["59900","2"]],"asks":[["60001","1"],["60100","2"]]});
+    let mut cases = Vec::new();
+    for (name, id) in [
+        ("string update id", json!("9007199254740992")),
+        ("boolean update id", json!(true)),
+        ("floating update id", json!(9_007_199_254_740_992.0f64)),
+    ] {
+        let mut snapshot = valid.clone();
+        snapshot["lastUpdateId"] = id;
+        cases.push((name, snapshot));
+    }
+    let mut over_capacity = valid;
+    over_capacity["bids"] = json!(
+        (0..1001)
+            .map(|n| vec![(60000 - n).to_string(), "1".to_owned()])
+            .collect::<Vec<_>>()
+    );
+    cases.push(("1001 snapshot levels on one side", over_capacity));
+    for (name, snapshot) in cases {
+        let view = HotView::with_peer(DepthPeer::with_snapshots(None, vec![snapshot; 4]));
+        let failed = view.wait(|v| v["data"]["status"] == "FAILED");
+        assert_eq!(failed["data"]["reconnectAttempt"], 3, "{name}: {failed}");
+        assert!(
+            failed["data"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("PROVIDER_RESPONSE_INVALID"),
+            "{name}: {failed}"
+        );
+        assert_eq!(failed["data"]["detail"]["status"], "UNAVAILABLE", "{name}");
+        assert!(
+            failed["data"]["detail"]["snapshot"].is_null(),
+            "{name}: unqualified material escaped bootstrap"
+        );
+        assert_eq!(
+            view.peer
+                .connections
+                .load(std::sync::atomic::Ordering::Acquire),
+            4,
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn an_oversized_actual_websocket_frame_retires_good_depth_before_rebootstrap() {
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let quantity = format!("0.{}1", "0".repeat(60));
+    let event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_994u64,"u":9_007_199_254_740_994u64,
+        "b":(0..5000).map(|n|vec![(60000-n).to_string(),quantity.clone()]).collect::<Vec<_>>(),
+        "a":(0..5000).map(|n|vec![(60001+n).to_string(),quantity.clone()]).collect::<Vec<_>>()});
+    assert!(serde_json::to_vec(&event).unwrap().len() > 512 * 1024);
+    view.peer.events.send(event).unwrap();
+    let retired =
+        view.wait(|v| v["data"]["connectionGeneration"] != first["data"]["connectionGeneration"]);
+    assert!(
+        retired["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_UNAVAILABLE"),
+        "{retired}"
+    );
+    assert_eq!(retired["data"]["detail"]["status"], "UNAVAILABLE");
+    assert_eq!(
+        retired["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
+    let recovered = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(recovered["data"]["reconnectAttempt"], 1);
+    assert_ne!(
+        recovered["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
 }
 
 #[test]
