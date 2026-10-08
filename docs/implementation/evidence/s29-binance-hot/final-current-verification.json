@@ -18,8 +18,15 @@
   "actualVisibility": "NATIVE_CHROME_MARKETS_AND_SELECTED_TRADE_EXTERNAL_WORKER_PROOF",
   "directHiddenDomSample": false,
   "sourceUseBoundary": "CURRENT_CONSTRUCTOR_INPUT_ARGUMENT_AND_PUBLIC_NEGATIVE_REGRESSION",
-  "independentReviews": "RE_REVIEW_PENDING",
+  "independentReviews": "STANDARDS_PASS_SPEC_PASS_SERIAL",
   "ticket124": "OPEN",
   "parent121": "OPEN",
-  "prototypeCodeChanged": false
+  "prototypeCodeChanged": false,
+  "reviewBaseline": "5edf18d01122d1871b6c94aeafefe708435b7f38",
+  "reviewedHead": "4898850e55c904f43072a32bdd05d5c3651b41d0",
+  "reviewedHeadMatchesOriginDev": true,
+  "standardsHardFindings": 0,
+  "standardsNonblockingHeuristics": 1,
+  "specRemainingFindings": 0,
+  "trackerHandoff": "PENDING_DELIVERY_AND_CLOSURE"
 }
