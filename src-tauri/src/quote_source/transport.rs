@@ -164,6 +164,7 @@ pub(crate) fn connect(
                         TradeXError::new(match response.status().as_u16() {
                             401 => "PROVIDER_AUTH_FAILED",
                             403 => "DATA_SOURCE_FEED_DENIED",
+                            418 => "PROVIDER_IP_BANNED",
                             429 => "PROVIDER_RATE_LIMITED",
                             _ => "PROVIDER_UNAVAILABLE",
                         })

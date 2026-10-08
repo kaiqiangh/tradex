@@ -101,6 +101,8 @@ struct DepthPeer {
     connector: BinanceStreamConnector,
     stream_url: String,
     http_status: Arc<std::sync::atomic::AtomicU16>,
+    upgrade_status: Arc<std::sync::atomic::AtomicU16>,
+    upgrade_attempts: Arc<std::sync::atomic::AtomicUsize>,
     requests: Arc<Mutex<Vec<String>>>,
     events: std::sync::mpsc::Sender<Value>,
     connections: Arc<std::sync::atomic::AtomicUsize>,
@@ -253,6 +255,10 @@ impl DepthPeer {
         let (pings, next_ping) = std::sync::mpsc::channel::<Vec<u8>>();
         let pongs = Arc::new(Mutex::new(Vec::new()));
         let pong_ledger = pongs.clone();
+        let upgrade_status = Arc::new(std::sync::atomic::AtomicU16::new(101));
+        let upgrade_attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let upgrade_response = upgrade_status.clone();
+        let upgrade_ledger = upgrade_attempts.clone();
         let stream = std::thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(8);
             while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
@@ -270,7 +276,7 @@ impl DepthPeer {
                 };
                 tcp.set_nonblocking(false).unwrap();
                 tcp.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-                let mut socket = tungstenite::accept_hdr(
+                let upgraded = tungstenite::accept_hdr(
                     tcp,
                     |request: &tungstenite::handshake::server::Request,
                      response: tungstenite::handshake::server::Response| {
@@ -279,10 +285,21 @@ impl DepthPeer {
                             format!("/ws/{}@depth@100ms", symbol.to_ascii_lowercase())
                         );
                         assert!(!request.headers().contains_key("x-mbx-apikey"));
+                        upgrade_ledger.fetch_add(1, Ordering::AcqRel);
+                        let status = upgrade_response.load(Ordering::Acquire);
+                        if status != 101 {
+                            return Err(tungstenite::http::Response::builder()
+                                .status(status)
+                                .body(None)
+                                .unwrap());
+                        }
                         Ok(response)
                     },
-                )
-                .unwrap();
+                );
+                let mut socket = match upgraded {
+                    Ok(socket) => socket,
+                    Err(_) => continue,
+                };
                 connection_ledger.fetch_add(1, Ordering::AcqRel);
                 socket
                     .get_mut()
@@ -337,6 +354,8 @@ impl DepthPeer {
             connector,
             stream_url,
             http_status,
+            upgrade_status,
+            upgrade_attempts,
             requests,
             events,
             connections,
@@ -855,6 +874,38 @@ fn original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_
             "{name}"
         );
     }
+}
+
+#[test]
+fn a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect() {
+    let peer = DepthPeer::new();
+    peer.upgrade_status
+        .store(418, std::sync::atomic::Ordering::Release);
+    let view = HotView::with_peer(peer);
+    let failed = view.wait(|v| v["data"]["status"] == "FAILED");
+    assert!(
+        failed["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_IP_BANNED"),
+        "{failed}"
+    );
+    assert_eq!(failed["data"]["reconnectAttempt"], 0);
+    assert!(failed["data"]["detail"]["snapshot"].is_null());
+    assert_eq!(failed["data"]["detail"]["status"], "UNAVAILABLE");
+    assert_eq!(
+        view.peer
+            .upgrade_attempts
+            .load(std::sync::atomic::Ordering::Acquire),
+        1
+    );
+    assert_eq!(
+        view.peer
+            .connections
+            .load(std::sync::atomic::Ordering::Acquire),
+        0
+    );
+    assert!(view.peer.requests.lock().unwrap().is_empty());
 }
 
 #[test]
