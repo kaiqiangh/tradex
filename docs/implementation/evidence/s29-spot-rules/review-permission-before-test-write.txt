@@ -1,0 +1,8 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.24s
+     Running tests/binance_rules.rs (/Users/kai/Desktop/my-repo/tradex/target/debug/deps/binance_rules-3328355685de7afe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+

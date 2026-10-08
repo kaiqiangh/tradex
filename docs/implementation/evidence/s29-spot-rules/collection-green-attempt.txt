@@ -1,0 +1,51 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0433]: cannot find `binance` in `crate`
+   --> src-tauri/src/financial_sources/binance_rules.rs:402:28
+    |
+402 |             let r = crate::binance::signed_request_for(
+    |                            ^^^^^^^ unresolved import
+    |
+note: module `crate::provider_io::binance` exists but is inaccessible
+   --> src-tauri/src/provider_io.rs:33:1
+    |
+ 33 | mod binance;
+    | ^^^^^^^^^^^^ not accessible
+help: a similar path exists
+    |
+402 |             let r = crate::provider_io::binance::signed_request_for(
+    |                            +++++++++++++
+
+error[E0433]: cannot find `binance` in `crate`
+   --> src-tauri/src/financial_sources/binance_rules.rs:428:34
+    |
+428 |     let key_permissions = crate::binance::permissions(Some(strict_json(&restrictions)?))?;
+    |                                  ^^^^^^^ unresolved import
+    |
+note: module `crate::provider_io::binance` exists but is inaccessible
+   --> src-tauri/src/provider_io.rs:33:1
+    |
+ 33 | mod binance;
+    | ^^^^^^^^^^^^ not accessible
+help: a similar path exists
+    |
+428 |     let key_permissions = crate::provider_io::binance::permissions(Some(strict_json(&restrictions)?))?;
+    |                                  +++++++++++++
+
+error[E0433]: cannot find `binance` in `crate`
+   --> src-tauri/src/financial_sources/binance_rules.rs:445:33
+    |
+445 |     let trading_status = crate::binance::trading_status(
+    |                                 ^^^^^^^ unresolved import
+    |
+note: module `crate::provider_io::binance` exists but is inaccessible
+   --> src-tauri/src/provider_io.rs:33:1
+    |
+ 33 | mod binance;
+    | ^^^^^^^^^^^^ not accessible
+help: a similar path exists
+    |
+445 |     let trading_status = crate::provider_io::binance::trading_status(
+    |                                 +++++++++++++
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `tradex` (lib) due to 3 previous errors

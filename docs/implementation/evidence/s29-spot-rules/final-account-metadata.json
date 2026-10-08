@@ -1,0 +1,137 @@
+{
+  "data": {
+    "binanceTradingStatus": {
+      "apiTradingLocked": false,
+      "observedAt": "2026-10-08T04:07:09.535238Z",
+      "plannedRecoveryAt": null,
+      "providerUpdatedAt": "2019-01-16T09:21:11.725Z",
+      "systemStatus": "NORMAL"
+    },
+    "connectionId": "0d80d7c6-da88-41ca-b050-2689548e0a18",
+    "connectionState": "CONNECTED",
+    "createdAt": "2026-10-08T04:07:09.531959Z",
+    "data": {
+      "accountType": "BINANCE_SPOT",
+      "balances": [
+        {
+          "asset": "USDT",
+          "available": "99999999999999999999.9999999999999999999",
+          "inPies": null,
+          "locked": null,
+          "reserved": "0.0000000000000000002",
+          "restrictedAvailable": null,
+          "total": "100000000000000000000.0000000000000000001"
+        },
+        {
+          "asset": "ODDCOIN",
+          "available": "0.1",
+          "inPies": null,
+          "locked": null,
+          "reserved": "0.2",
+          "restrictedAvailable": null,
+          "total": "0.3"
+        }
+      ],
+      "capabilities": [
+        "account.read",
+        "positions.read",
+        "orders.read"
+      ],
+      "currency": null,
+      "limitations": [
+        "Spot holdings are free plus locked assets, without cost basis or FX valuation. USDT is not USD.",
+        "Order quote currency is unavailable until instrument metadata is resolved. Amounts are not workspace-currency values.",
+        "Private stream, reconciliation, risk policy and execution are not configured. Manual full open-order reads consume weight 80; rate limits require a later retry.",
+        "Recent order history is limited to one page for each of up to 10 locally observed symbols; Binance does not provide an account-wide order-history listing."
+      ],
+      "openOrders": [
+        {
+          "brokerOrderId": "BTCUSDT:9007199254740995",
+          "currency": null,
+          "filledQuantity": "0",
+          "filledValue": null,
+          "instrumentId": "crypto:BTC/USDT:spot",
+          "kind": null,
+          "limitPrice": "100.2",
+          "notional": null,
+          "quantity": "0.1",
+          "side": "BUY",
+          "status": "NEW",
+          "symbol": "BTCUSDT",
+          "triggerPrice": null
+        },
+        {
+          "brokerOrderId": "ODDCOINUSDT:9007199254740996",
+          "currency": null,
+          "filledQuantity": "0.1",
+          "filledValue": null,
+          "kind": null,
+          "limitPrice": "2",
+          "notional": null,
+          "quantity": "0.5",
+          "side": "SELL",
+          "status": "PARTIALLY_FILLED",
+          "symbol": "ODDCOINUSDT",
+          "triggerPrice": null
+        }
+      ],
+      "positions": [
+        {
+          "averageEntryPrice": null,
+          "instrumentCurrency": null,
+          "marketValue": null,
+          "marketValueCurrency": null,
+          "quantity": "100000000000000000000.0000000000000000001",
+          "symbol": "USDT"
+        },
+        {
+          "averageEntryPrice": null,
+          "instrumentCurrency": null,
+          "marketValue": null,
+          "marketValueCurrency": null,
+          "quantity": "0.3",
+          "symbol": "ODDCOIN"
+        }
+      ],
+      "recentOrders": [],
+      "remoteAccountId": "9007199254740993"
+    },
+    "environment": "LIVE",
+    "health": {
+      "arming": "DISARMED",
+      "armingReason": "NOT_ARMED",
+      "authentication": "VALID",
+      "connection": "ONLINE",
+      "credential": "CONFIGURED",
+      "executionEligibility": "BLOCKED",
+      "privateStream": "NOT_CONFIGURED",
+      "reason": "Read-only account data loaded. Trading, private streams and reconciliation are not configured.",
+      "reconciliation": "NOT_RUN"
+    },
+    "label": "S29 rules final",
+    "lastSuccessfulSync": "2026-10-08T04:07:09.536522Z",
+    "permissions": {
+      "acknowledged": false,
+      "detected": [
+        "account.read",
+        "positions.read",
+        "orders.read",
+        "read",
+        "spot-and-margin.trade"
+      ],
+      "forbidden": [],
+      "ipAllowList": null,
+      "ipAllowListStatus": "RESTRICTED",
+      "scope": "VERIFIED",
+      "unsupported": []
+    },
+    "providerId": "binance",
+    "stateVersion": "0d80d7c6-da88-41ca-b050-2689548e0a18:3",
+    "updatedAt": "2026-10-08T04:07:36.069847Z",
+    "workspaceId": "444b3b4c-54d9-46f6-993c-f4efb1043284"
+  },
+  "ok": true,
+  "requestId": "s29-final-account-metadata",
+  "schemaVersion": 1,
+  "stateVersion": "0d80d7c6-da88-41ca-b050-2689548e0a18:3"
+}

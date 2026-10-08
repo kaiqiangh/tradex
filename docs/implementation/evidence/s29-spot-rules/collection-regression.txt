@@ -1,0 +1,16 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.54s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 8 tests
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... ok
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+test elapsed_receipt_expires_rules_without_renewing_retained_evidence ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.77s
+

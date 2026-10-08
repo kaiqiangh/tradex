@@ -1,0 +1,10 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.45s
+     Running tests/binance_rule_limits.rs (target/debug/deps/binance_rule_limits-cadb5581113ad3d4)
+
+running 2 tests
+test account_and_ip_read_budgets_survive_selection_and_workspace_changes ... ok
+test vault_deadline_finishes_without_http_or_late_publication ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.19s
+

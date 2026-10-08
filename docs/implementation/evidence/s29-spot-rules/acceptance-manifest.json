@@ -1,0 +1,68 @@
+{
+  "source": "b726bb38df9280cb290d8efedc72cc2f2dbbff95",
+  "baseline": "4388d9c4ae460ee5f4d8a6a21b0ced5cfa3fe374",
+  "branch": "dev",
+  "checks": {
+    "fullLocal": {
+      "file": "review-full-check.txt",
+      "exitCode": 0,
+      "rustPassed": 410,
+      "nodePassed": 17,
+      "rustIgnored": 39
+    },
+    "integration": {
+      "file": "review-integration-check.txt",
+      "exitCode": 0,
+      "rustPassed": 449,
+      "rustIgnored": 39
+    },
+    "gateway": {
+      "file": "review-gateway-check.txt",
+      "exitCode": 0,
+      "passed": 23
+    },
+    "ordinaryDesktop": {
+      "file": "review-desktop-build.txt",
+      "inputs": "review-desktop-build-inputs.json",
+      "exitCode": 0
+    },
+    "publicRules": {
+      "file": "review-rule-regression.txt",
+      "exitCode": 0,
+      "passed": 15
+    },
+    "ui": {
+      "file": "review-ui.json",
+      "success": true,
+      "widths": [
+        1280,
+        768,
+        390
+      ],
+      "views": [
+        "Settings",
+        "Markets",
+        "Trade"
+      ]
+    }
+  },
+  "ordinaryProviderRead": false,
+  "ordinaryNativeUiAcceptance": false,
+  "financialMutation": false,
+  "physicalSleepWakeAcceptance": false,
+  "prototypeCodeChanged": false,
+  "initialUiSource": "1d207478968db23e6753a7f5d243a7380df21af4",
+  "initialUiFile": "final-ui.json",
+  "reviews": {
+    "file": "review-final.md",
+    "standards": "PASS",
+    "hardViolations": 0,
+    "nonblockingHeuristics": 1,
+    "spec": "PASS",
+    "actionableSpecFindings": 0,
+    "serial": true,
+    "independentAxes": true
+  },
+  "remoteDelivery": "PENDING",
+  "historicalEvidence": "Other raw logs include actual RED runs, earlier successful runs, unsuccessful intermediate UI/checks and no-test invocation; none is relabelled as current-source PASS. The initial review NOT PASS is retained in review-initial.md."
+}

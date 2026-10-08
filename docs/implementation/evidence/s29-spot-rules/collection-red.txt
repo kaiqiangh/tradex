@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.99s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... FAILED
+
+failures:
+
+---- public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority stdout ----
+
+thread 'public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority' (8540962) panicked at src-tauri/tests/binance_rules.rs:226:5:
+assertion `left == right` failed: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"collect-spot-rules","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--test binance_rules`

@@ -1,0 +1,61 @@
+Spot rule evidence
+
+available · Exact Spot rule observations are current as collected evidence only. Proposal-specific execution qualification, quotes and data rights remain separate.
+
+Saved account
+48fbda2d-c5e1-46f4-b947-c70e84505363
+Selected rule instrument
+crypto:BTC/USDT:spot
+First receipt
+2026-10-07T22:24:11.47Z
+spot rule collection
+available · Exact Spot rule observations are current as collected evidence only. Proposal-specific execution qualification, quotes and data rights remain separate.
+spot account admission
+unavailable · Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.
+spot execution qualification
+unverified · Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.
+spot data use rights
+unverified · Provider access does not establish this user's data licence or regional trading eligibility.
+Provider quality
+Read-only Spot rules; per-order execution qualification pending. A recent receipt does not improve provider quality.
+Provider observation time
+Not supplied
+Account / source version
+48fbda2d-c5e1-46f4-b947-c70e84505363:3 · BINANCE_SPOT_RULES:2161c779-28aa-49a2-b9ad-6f207867b04b:1
+Material version
+22712830784eeb5820fbb24ed53a74adc7394e5634bb8a64add09ad27a64cbc6
+BTCUSDT · halt
+
+Read-only rule collection. The reviewed order, references, current balances/counts, quotes and data rights still need independent checks.
+
+Canonical instrument
+crypto:BTC/USDT:spot
+BASE / QUOTE
+BTC / USDT — USDT is not USD
+Native precision
+BASE 8 · QUOTE 8
+Account type / can trade
+SPOT · true
+Account permission-set membership
+true · OR inside each set, AND between sets
+Account permissions
+SPOT
+Required permission sets
+(SPOT OR MARGIN)
+Spot / quote Market quantity
+true / true
+Order forms
+LIMIT, MARKET
+Self-trade prevention
+NONE · NONE · account requirement Not supplied
+System / API lock
+NORMAL / UNLOCKED
+Provider clock sample
+2026-10-07T22:24:11.47Z — not a rule update or quote timestamp
+Admission blockers
+symbol not trading
+6 scoped constraints
+Unresolved execution obligations
+proposal specific rule validation required
+quote depth and rights required
+account self trade prevention requirement unobserved

@@ -1,0 +1,309 @@
+{
+  "retainedReceipt": true,
+  "retainedMaterial": true,
+  "status": "UNAVAILABLE",
+  "source": {
+    "data": {
+      "availabilityReason": "The provider response could not be validated. The prior current observation was retired.",
+      "capabilityStatuses": [
+        {
+          "capability": "SPOT_RULE_COLLECTION",
+          "reason": "The provider response could not be validated. The prior current observation was retired.",
+          "status": "UNAVAILABLE"
+        },
+        {
+          "capability": "SPOT_ACCOUNT_ADMISSION",
+          "reason": "Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.",
+          "status": "UNAVAILABLE"
+        },
+        {
+          "capability": "SPOT_EXECUTION_QUALIFICATION",
+          "reason": "Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.",
+          "status": "UNVERIFIED"
+        },
+        {
+          "capability": "SPOT_DATA_USE_RIGHTS",
+          "reason": "Provider access does not establish this user's data licence or regional trading eligibility.",
+          "status": "UNVERIFIED"
+        }
+      ],
+      "configured": true,
+      "connectionId": "48fbda2d-c5e1-46f4-b947-c70e84505363",
+      "eligibleAccounts": [
+        {
+          "connectionId": "48fbda2d-c5e1-46f4-b947-c70e84505363",
+          "displayName": "S29 rules isolated"
+        }
+      ],
+      "environment": "LIVE",
+      "evidence": {
+        "accountCanTrade": true,
+        "accountPermissions": [
+          "SPOT"
+        ],
+        "accountRequiresSelfTradePrevention": null,
+        "accountType": "SPOT",
+        "admissionBlockers": [],
+        "allowedSelfTradePreventionModes": [
+          "NONE"
+        ],
+        "baseAsset": "BTC",
+        "baseAssetPrecision": 8,
+        "binding": {
+          "accountVersion": "48fbda2d-c5e1-46f4-b947-c70e84505363:3",
+          "bindingVersion": "004a07210ee20e3d7ef57cacf27ca67e29296a8ec9b5c3a76ebfccd78c5fde97",
+          "connectionId": "48fbda2d-c5e1-46f4-b947-c70e84505363",
+          "sourceVersion": "BINANCE_SPOT_RULES:2161c779-28aa-49a2-b9ad-6f207867b04b:1"
+        },
+        "constraints": [
+          {
+            "fields": [
+              {
+                "disabled": true,
+                "name": "minPrice",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "maxPrice",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "999999"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "tickSize",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0.01"
+                }
+              }
+            ],
+            "knownSchema": true,
+            "origin": "EXCHANGE_INFO",
+            "ruleType": "PRICE_FILTER",
+            "scope": "SYMBOL",
+            "unsupportedFields": []
+          },
+          {
+            "fields": [
+              {
+                "disabled": false,
+                "name": "minQty",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0.000001"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "maxQty",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "100"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "stepSize",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0.000001"
+                }
+              }
+            ],
+            "knownSchema": true,
+            "origin": "EXCHANGE_INFO",
+            "ruleType": "LOT_SIZE",
+            "scope": "SYMBOL",
+            "unsupportedFields": []
+          },
+          {
+            "fields": [
+              {
+                "disabled": false,
+                "name": "bidLimitMultUp",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "1.0001"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "bidLimitMultDown",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0.9999"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "askLimitMultUp",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "1.0001"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "askLimitMultDown",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0.9999"
+                }
+              }
+            ],
+            "knownSchema": true,
+            "origin": "EXECUTION_RULES",
+            "ruleType": "PRICE_RANGE",
+            "scope": "EXECUTION",
+            "unsupportedFields": []
+          },
+          {
+            "fields": [
+              {
+                "disabled": false,
+                "name": "maxNumOrders",
+                "value": {
+                  "type": "INTEGER",
+                  "value": "1000"
+                }
+              }
+            ],
+            "knownSchema": true,
+            "origin": "ACCOUNT_FILTERS",
+            "ruleType": "EXCHANGE_MAX_NUM_ORDERS",
+            "scope": "EXCHANGE",
+            "unsupportedFields": []
+          },
+          {
+            "fields": [
+              {
+                "disabled": false,
+                "name": "minNotional",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "5"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "applyToMarket",
+                "value": {
+                  "type": "BOOLEAN",
+                  "value": true
+                }
+              },
+              {
+                "disabled": false,
+                "name": "avgPriceMins",
+                "value": {
+                  "type": "INTEGER",
+                  "value": "5"
+                }
+              }
+            ],
+            "knownSchema": true,
+            "origin": "ACCOUNT_FILTERS",
+            "ruleType": "MIN_NOTIONAL",
+            "scope": "SYMBOL",
+            "unsupportedFields": []
+          },
+          {
+            "fields": [
+              {
+                "disabled": false,
+                "name": "asset",
+                "value": {
+                  "type": "ASSET",
+                  "value": "BTC"
+                }
+              },
+              {
+                "disabled": false,
+                "name": "limit",
+                "value": {
+                  "type": "DECIMAL",
+                  "value": "0.25"
+                }
+              }
+            ],
+            "knownSchema": true,
+            "origin": "ACCOUNT_FILTERS",
+            "ruleType": "MAX_ASSET",
+            "scope": "ASSET",
+            "unsupportedFields": []
+          }
+        ],
+        "defaultSelfTradePreventionMode": "NONE",
+        "instrumentId": "crypto:BTC/USDT:spot",
+        "keyPermissions": {
+          "acknowledged": false,
+          "detected": [
+            "account.read",
+            "positions.read",
+            "orders.read",
+            "read",
+            "spot-and-margin.trade"
+          ],
+          "forbidden": [],
+          "ipAllowList": null,
+          "ipAllowListStatus": "RESTRICTED",
+          "scope": "VERIFIED",
+          "unsupported": []
+        },
+        "kind": "BINANCE_SPOT_RULES",
+        "materialVersion": "1a039a18a9075f1d3c9075c67eae99e398ad861fbfbec2e66c5b41d18725776a",
+        "observedAt": "2026-10-07T22:21:59.062Z",
+        "orderTypes": [
+          "LIMIT",
+          "MARKET"
+        ],
+        "permissionSets": [
+          [
+            "SPOT",
+            "MARGIN"
+          ]
+        ],
+        "permissionSetsSatisfied": true,
+        "providerClockSample": "2026-10-07T22:21:59.061Z",
+        "providerObservedAt": null,
+        "providerQuality": "READ_ONLY_SPOT_RULES",
+        "providerSymbol": "BTCUSDT",
+        "quoteAsset": "USDT",
+        "quoteAssetPrecision": 8,
+        "quoteOrderQtyMarketAllowed": true,
+        "remoteAccountId": "9007199254740993",
+        "reportedSymbolStatus": "TRADING",
+        "spotTradingAllowed": true,
+        "symbolStatus": "TRADING",
+        "tradingStatus": {
+          "apiTradingLocked": false,
+          "observedAt": "2026-10-07T22:21:59.065Z",
+          "plannedRecoveryAt": null,
+          "providerUpdatedAt": "2019-01-16T09:21:11.725Z",
+          "systemStatus": "NORMAL"
+        },
+        "unresolvedObligations": [
+          "PROPOSAL_SPECIFIC_RULE_VALIDATION_REQUIRED",
+          "QUOTE_DEPTH_AND_RIGHTS_REQUIRED",
+          "ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED"
+        ]
+      },
+      "instrumentId": "crypto:BTC/USDT:spot",
+      "kind": "BINANCE_SPOT_RULES",
+      "observedAt": "2026-10-07T22:21:59.062Z",
+      "stateVersion": "BINANCE_SPOT_RULES:2161c779-28aa-49a2-b9ad-6f207867b04b:1",
+      "status": "UNAVAILABLE",
+      "workspaceId": "2161c779-28aa-49a2-b9ad-6f207867b04b"
+    },
+    "ok": true,
+    "requestId": "f60c8b3f-bf9c-48e1-96d5-88a71140df54",
+    "schemaVersion": 1,
+    "stateVersion": "BINANCE_SPOT_RULES:2161c779-28aa-49a2-b9ad-6f207867b04b:1"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "source": "b726bb38df9280cb290d8efedc72cc2f2dbbff95",
+  "seam": "Actual React -> real Rust Control Plane -> temporary SQLite/outbox -> external fake vault/HTTP",
+  "workspaceId": "86de1b3d-1285-44c5-89b1-1a1b185c1fb2",
+  "accountId": "b6b5487f-aa7d-455a-9974-3a23c6d03ea0",
+  "ordinaryProviderRead": false,
+  "financialMutation": false,
+  "settings": "Binance Spot rule source\n\nRead exact Spot rules and account admission using a saved ordinary Binance Live key. These observations do not supply a quote, licence, per-order rule qualification or Live readiness.\n\nBinance Live rule account\nChoose a saved Binance Live account\nS29 repaired rules\nSpot rule instrument\nBTC / USDT\nETH / USDT\n\navailable · Exact Spot rule observations are current as collected evidence only. Proposal-specific execution qualification, quotes and data rights remain separate.\n\nSaved account\nb6b5487f-aa7d-455a-9974-3a23c6d03ea0\nSelected rule instrument\ncrypto:BTC/USDT:spot\nFirst receipt\n2026-10-08T04:48:12.714Z\nspot rule collection\navailable · Exact Spot rule observations are current as collected evidence only. Proposal-specific execution qualification, quotes and data rights remain separate.\nspot account admission\navailable · Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.\nspot execution qualification\nunverified · Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.\nspot data use rights\nunverified · Provider access does not establish this user's data licence or regional trading eligibility.\nProvider quality\nRead-only Spot rules; per-order execution qualification pending. A recent receipt does not improve provider quality.\nProvider observation time\nNot supplied\nAccount / source version\nb6b5487f-aa7d-455a-9974-3a23c6d03ea0:3 · BINANCE_SPOT_RULES:86de1b3d-1285-44c5-89b1-1a1b185c1fb2:1\nMaterial version\nac7249357af5a6fde36e1c4472ea13b1803ffcfde9f109c50ac40c11cfde7adf\nBTCUSDT · trading\n\nRead-only rule collection. The reviewed order, references, current balances/counts, quotes and data rights still need independent checks.\n\nCanonical instrument\ncrypto:BTC/USDT:spot\nBASE / QUOTE\nBTC / USDT — USDT is not USD\nNative precision\nBASE 8 · QUOTE 8\nAccount type / can trade\nSPOT · true\nAccount permission-set membership\ntrue · OR inside each set, AND between sets\nAccount permissions\nSPOT\nRequired permission sets\n(SPOT OR MARGIN)\nSpot / quote Market quantity\ntrue / true\nOrder forms\nLIMIT, MARKET\nProvider order-form flags\nallowTrailingStop: false\namendAllowed: false\ncancelReplaceAllowed: true\nicebergAllowed: true\nocoAllowed: true\nopoAllowed: false\notoAllowed: true\npegInstructionsAllowed: true\nTradeX order-form boundary\nOnly supported Market and Limit intents can proceed to independent checks. Iceberg, trailing, order lists, cancel-replace, amend and pegged forms remain unsupported.\nSelf-trade prevention\nNONE · NONE · account requirement Not supplied\nSystem / API lock\nNORMAL / UNLOCKED\nProvider clock sample\n2026-10-08T04:48:12.714Z — not a rule update or quote timestamp\n6 scoped constraints\nUnresolved execution obligations\nproposal specific rule validation required\nquote depth and rights required\nprice tick and bound validation required\nbase quantity grid validation required\nbook reference price range validation required\ncurrent account exchange order counts required\nnotional and market reference validation required\nexact order asset amount validation required\naccount self trade prevention requirement unobserved\nadvanced order forms unsupported\n\nRule observations refreshed. Execution qualification and data rights remain separate.\n\nSave Binance rule sourceRefresh Binance rule sourceDisconnect Binance rule source",
+  "widths": [
+    {
+      "view": "Settings",
+      "overflow": false,
+      "scrollWidth": 1280,
+      "width": 1280
+    },
+    {
+      "view": "Settings",
+      "overflow": false,
+      "scrollWidth": 768,
+      "width": 768
+    },
+    {
+      "view": "Settings",
+      "overflow": false,
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "view": "Markets",
+      "overflow": false,
+      "scrollWidth": 1280,
+      "width": 1280
+    },
+    {
+      "view": "Markets",
+      "overflow": false,
+      "scrollWidth": 768,
+      "width": 768
+    },
+    {
+      "view": "Markets",
+      "overflow": false,
+      "scrollWidth": 390,
+      "width": 390
+    },
+    {
+      "view": "Trade",
+      "overflow": false,
+      "scrollWidth": 1280,
+      "width": 1280
+    },
+    {
+      "view": "Trade",
+      "overflow": false,
+      "scrollWidth": 768,
+      "width": 768
+    },
+    {
+      "view": "Trade",
+      "overflow": false,
+      "scrollWidth": 390,
+      "width": 390
+    }
+  ],
+  "markets": "BTCUSDT · trading\n\nRead-only rule collection. The reviewed order, references, current balances/counts, quotes and data rights still need independent checks.\n\nCanonical instrument\ncrypto:BTC/USDT:spot\nBASE / QUOTE\nBTC / USDT — USDT is not USD\nNative precision\nBASE 8 · QUOTE 8\nAccount type / can trade\nSPOT · true\nAccount permission-set membership\ntrue · OR inside each set, AND between sets\nAccount permissions\nSPOT\nRequired permission sets\n(SPOT OR MARGIN)\nSpot / quote Market quantity\ntrue / true\nOrder forms\nLIMIT, MARKET\nProvider order-form flags\nallowTrailingStop: false\namendAllowed: false\ncancelReplaceAllowed: true\nicebergAllowed: true\nocoAllowed: true\nopoAllowed: false\notoAllowed: true\npegInstructionsAllowed: true\nTradeX order-form boundary\nOnly supported Market and Limit intents can proceed to independent checks. Iceberg, trailing, order lists, cancel-replace, amend and pegged forms remain unsupported.\nSelf-trade prevention\nNONE · NONE · account requirement Not supplied\nSystem / API lock\nNORMAL / UNLOCKED\nProvider clock sample\n2026-10-08T04:48:12.714Z — not a rule update or quote timestamp\n6 scoped constraints\nUnresolved execution obligations\nproposal specific rule validation required\nquote depth and rights required\nprice tick and bound validation required\nbase quantity grid validation required\nbook reference price range validation required\ncurrent account exchange order counts required\nnotional and market reference validation required\nexact order asset amount validation required\naccount self trade prevention requirement unobserved\nadvanced order forms unsupported",
+  "trade": "BTCUSDT · trading\n\nRead-only rule collection. The reviewed order, references, current balances/counts, quotes and data rights still need independent checks.\n\nCanonical instrument\ncrypto:BTC/USDT:spot\nBASE / QUOTE\nBTC / USDT — USDT is not USD\nNative precision\nBASE 8 · QUOTE 8\nAccount type / can trade\nSPOT · true\nAccount permission-set membership\ntrue · OR inside each set, AND between sets\nAccount permissions\nSPOT\nRequired permission sets\n(SPOT OR MARGIN)\nSpot / quote Market quantity\ntrue / true\nOrder forms\nLIMIT, MARKET\nProvider order-form flags\nallowTrailingStop: false\namendAllowed: false\ncancelReplaceAllowed: true\nicebergAllowed: true\nocoAllowed: true\nopoAllowed: false\notoAllowed: true\npegInstructionsAllowed: true\nTradeX order-form boundary\nOnly supported Market and Limit intents can proceed to independent checks. Iceberg, trailing, order lists, cancel-replace, amend and pegged forms remain unsupported.\nSelf-trade prevention\nNONE · NONE · account requirement Not supplied\nSystem / API lock\nNORMAL / UNLOCKED\nProvider clock sample\n2026-10-08T04:48:12.714Z — not a rule update or quote timestamp\n6 scoped constraints\nUnresolved execution obligations\nproposal specific rule validation required\nquote depth and rights required\nprice tick and bound validation required\nbase quantity grid validation required\nbook reference price range validation required\ncurrent account exchange order counts required\nnotional and market reference validation required\nexact order asset amount validation required\naccount self trade prevention requirement unobserved\nadvanced order forms unsupported",
+  "console": []
+}
