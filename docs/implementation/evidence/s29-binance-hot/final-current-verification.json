@@ -19,7 +19,7 @@
   "directHiddenDomSample": false,
   "sourceUseBoundary": "CURRENT_CONSTRUCTOR_INPUT_ARGUMENT_AND_PUBLIC_NEGATIVE_REGRESSION",
   "independentReviews": "STANDARDS_PASS_SPEC_PASS_SERIAL",
-  "ticket124": "OPEN",
+  "ticket124": "CLOSED",
   "parent121": "OPEN",
   "prototypeCodeChanged": false,
   "reviewBaseline": "5edf18d01122d1871b6c94aeafefe708435b7f38",
@@ -28,5 +28,7 @@
   "standardsHardFindings": 0,
   "standardsNonblockingHeuristics": 1,
   "specRemainingFindings": 0,
-  "trackerHandoff": "PENDING_DELIVERY_AND_CLOSURE"
+  "trackerHandoff": "RESOLUTION_POSTED_CLOSED_MAP_UPDATED",
+  "acceptanceDeliverySha": "dc51bd7bb46d546c61dcdbcf00627139caba8535",
+  "resolutionUrl": "https://github.com/kaiqiangh/tradex/issues/124#issuecomment-6069229563"
 }

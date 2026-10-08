@@ -21,4 +21,4 @@
 
 S29.2 [收口](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-6052549325)：源码 `b726bb38df9280cb290d8efedc72cc2f2dbbff95`，证据交付 `21a665919d540caf730e5b6c1b2a35d72af826b0`；当前完整检查、普通构建、真实 Rust-backed UI 和独立串行复审通过。父项 #121 保持 OPEN。
 
-当前单实现票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124)，[配对规范](s29-binance-hot-source-spec_zh.md)。起始基线 `5edf18d`；已发布/领取；选择、生产者、所属消费者和实际来源 UI 已按检查点实现。#124 保持 IN_PROGRESS，待其余证据、完整检查和串行复审。准确 venue/消费者证据复用已关闭 #123 原生依赖，无开放技术阻塞。
+已完成单来源票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124#issuecomment-6069229563)已 CLOSED。[配对验收](s29-binance-hot-source-evidence_zh.md)：运行时d9abe24、复审4898850、交付dc51bd7已核对 origin/dev；九项来源标准、当前检查、独立串行复审通过。父项保持 OPEN；下一步先细化逐 Proposal 精确规则/参考/动态输入及实际需要的费用/FX，再完成所属审批/Prepare/Gateway/私有生命周期验收；不并行实施或跳过权威门禁。
