@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.47s
+

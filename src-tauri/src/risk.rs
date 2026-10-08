@@ -1961,11 +1961,69 @@ pub(crate) fn evaluate(
             "The ordinary public Spot financial data-use gate is not applicable to this source/context."
         },
     );
+    // Preserve only the existing, explicitly identified contract-test producer. Ordinary builds
+    // cannot create it, and selecting a production financial source shields it at the producer.
+    let synthetic_contract = cfg!(any(test, feature = "integration-test"))
+        && market.is_some_and(|market| {
+            market.financial_evidence.is_none()
+                && market
+                    .instrument_state
+                    .as_ref()
+                    .is_some_and(|state| state.source == "SYNTHETIC_INTEGRATION_FIXTURE")
+        });
+    let ordinary_binance_rules = !local_simulation
+        && proposal.fields.environment == crate::protocol::ExecutionContext::BinanceLive
+        && (!synthetic_contract || market.is_some_and(|m| m.spot_rule_evidence.is_some()));
+    let admitted = market.zip(account).and_then(|(market, account)| {
+        market
+            .spot_rule_evidence
+            .as_ref()
+            .filter(|source| {
+                source.status == crate::protocol::DataSourceStatus::Available
+                    && source.connection_id.as_deref() == Some(account.connection_id.as_str())
+                    && source.instrument_id.as_deref()
+                        == Some(proposal.fields.instrument_id.as_str())
+            })
+            .and_then(|source| match &source.evidence {
+                Some(crate::protocol::FinancialSourceEvidence::BinanceSpotRules(e))
+                    if e.binding.account_version == account.state_version
+                        && e.binding.connection_id == account.connection_id
+                        && e.binding.source_version == source.state_version
+                        && e.instrument_id == proposal.fields.instrument_id
+                        && e.remote_account_id == account.data.as_ref()?.remote_account_id =>
+                {
+                    Some(e)
+                }
+                _ => None,
+            })
+    });
     let (outcome, reason) = if local_simulation {
         (
             RiskCheckOutcome::Pass,
             RiskDecisionReasonCode::NotApplicable,
         )
+    } else if ordinary_binance_rules {
+        match admitted {
+            Some(e) if e.admission_blockers.is_empty() => {
+                (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+            }
+            Some(e) => (
+                RiskCheckOutcome::Reject,
+                if matches!(
+                    e.symbol_status,
+                    crate::protocol::BinanceSpotSymbolStatus::Halt
+                        | crate::protocol::BinanceSpotSymbolStatus::Break
+                ) {
+                    RiskDecisionReasonCode::MarketHalted
+                } else {
+                    RiskDecisionReasonCode::InstrumentRulesUnavailable
+                },
+            ),
+            None => (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::InstrumentRulesUnavailable,
+            ),
+        }
     } else {
         market
             .filter(|market| {
@@ -2003,15 +2061,25 @@ pub(crate) fn evaluate(
         RiskCheckId::MarketSession,
         outcome,
         reason,
-        match reason {
-            RiskDecisionReasonCode::MarketClosed => {
-                "The authoritative market calendar reports a closed session."
+        if ordinary_binance_rules {
+            match admitted {
+                Some(e) if e.admission_blockers.is_empty() =>
+                    "Current exact-account/symbol Spot venue admission is satisfied. This establishes no equity calendar, complete order rules, data-use rights or execution authority.".to_string(),
+                Some(e) => format!("Current exact-account/symbol Spot venue admission is rejected: {}. Complete order rules and execution authority remain separate.", e.admission_blockers.join(", ")),
+                None => "Current exact-account/symbol Spot venue admission is unavailable. An equity calendar cannot supply this evidence.".to_string(),
             }
-            RiskDecisionReasonCode::MarketHalted => {
-                "The authoritative market state reports a halt or suspension."
+        } else {
+            match reason {
+                RiskDecisionReasonCode::MarketClosed => {
+                    "The authoritative market calendar reports a closed session."
+                }
+                RiskDecisionReasonCode::MarketHalted => {
+                    "The authoritative market state reports a halt or suspension."
+                }
+                RiskDecisionReasonCode::WithinLimit => "The market session is open.",
+                _ => "A current authoritative market calendar is unavailable.",
             }
-            RiskDecisionReasonCode::WithinLimit => "The market session is open.",
-            _ => "A current authoritative market calendar is unavailable.",
+            .to_string()
         },
     );
     let deviation = match (
@@ -2050,16 +2118,6 @@ pub(crate) fn evaluate(
         );
     }
     let external_equity = !local_simulation && proposal.fields.instrument_id.starts_with("equity:");
-    // Preserve only the existing, explicitly identified contract-test producer. Ordinary builds
-    // cannot create it, and selecting a production financial source shields it at the producer.
-    let synthetic_contract = cfg!(any(test, feature = "integration-test"))
-        && market.is_some_and(|market| {
-            market.financial_evidence.is_none()
-                && market
-                    .instrument_state
-                    .as_ref()
-                    .is_some_and(|state| state.source == "SYNTHETIC_INTEGRATION_FIXTURE")
-        });
     let financial_required = external_equity && !synthetic_contract;
     for (check_id, reason_code, reason) in [
         (
@@ -2151,33 +2209,7 @@ pub(crate) fn evaluate(
     };
     // Collected ordinary Spot metadata can reject admission; it never supplies
     // the reference prices, dynamic bounds or per-Proposal execution qualification.
-    let ordinary_binance_rules = !local_simulation
-        && proposal.fields.environment == crate::protocol::ExecutionContext::BinanceLive
-        && (!synthetic_contract || market.is_some_and(|m| m.spot_rule_evidence.is_some()));
     if ordinary_binance_rules {
-        let admitted = market.zip(account).and_then(|(market, account)| {
-            market
-                .spot_rule_evidence
-                .as_ref()
-                .filter(|source| {
-                    source.status == crate::protocol::DataSourceStatus::Available
-                        && source.connection_id.as_deref() == Some(account.connection_id.as_str())
-                        && source.instrument_id.as_deref()
-                            == Some(proposal.fields.instrument_id.as_str())
-                })
-                .and_then(|source| match &source.evidence {
-                    Some(crate::protocol::FinancialSourceEvidence::BinanceSpotRules(e))
-                        if e.binding.account_version == account.state_version
-                            && e.binding.connection_id == account.connection_id
-                            && e.binding.source_version == source.state_version
-                            && e.instrument_id == proposal.fields.instrument_id
-                            && e.remote_account_id == account.data.as_ref()?.remote_account_id =>
-                    {
-                        Some(e)
-                    }
-                    _ => None,
-                })
-        });
         instrument_state_status = if admitted.is_some_and(|e| !e.admission_blockers.is_empty()) {
             (
                 RiskCheckOutcome::Reject,

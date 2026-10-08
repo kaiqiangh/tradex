@@ -1438,6 +1438,445 @@ fn connected_binance_proposal(view: &HotView) -> (Value, account_fixtures::Vault
     (proposal["data"].clone(), vault)
 }
 
+fn collect_spot_admission(
+    view: &HotView,
+    proposal: &Value,
+    vault: &account_fixtures::Vault,
+    http: &account_fixtures::Http,
+    instrument: &str,
+) -> Value {
+    let source = command(
+        &view.control,
+        "data.binance_rules.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    let saved = command(
+        &view.control,
+        "data.binance_rules.configure",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":proposal["fields"]["accountId"],"instrumentId":instrument}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    let read = tradex::financial_sources::execute_refresh(
+        &view.control,
+        &json!({"requestId":"quote-admission","schemaVersion":1,"command":"data.binance_rules.refresh","payload":{"workspaceId":view.workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        vault,
+        http,
+    );
+    assert_eq!(read["ok"], true, "{read}");
+    assert_eq!(read["data"]["status"], "AVAILABLE", "{read}");
+    read["data"].clone()
+}
+
+#[test]
+fn exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority()
+ {
+    let view = HotView::open();
+    view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, vault) = connected_binance_proposal(&view);
+    let http = account_fixtures::Http {
+        binance_rules_ui: true,
+        ..Default::default()
+    };
+    let collected = collect_spot_admission(&view, &proposal, &vault, &http, "crypto:BTC/USDT:spot");
+    assert!(
+        collected["evidence"]["admissionBlockers"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        collected["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["capability"] == "SPOT_ACCOUNT_ADMISSION")
+            .unwrap()["status"],
+        "AVAILABLE"
+    );
+    let detail = command(
+        &view.control,
+        "market.get",
+        json!({"workspaceId":view.workspace,"instrumentId":"crypto:BTC/USDT:spot","tier":"HOT"}),
+    );
+    assert!(detail["data"]["marketState"]["calendarVersion"].is_null());
+    assert_eq!(detail["data"]["marketState"]["session"], "UNKNOWN");
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    let admission = checks
+        .iter()
+        .find(|c| c["checkId"] == "MARKET_SESSION")
+        .unwrap();
+    assert_eq!(
+        admission["outcome"], "PASS",
+        "Actual exact-account Spot admission must not demand a fictional equity calendar: {admission}"
+    );
+    assert!(admission["reason"].as_str().unwrap().contains("admission"));
+    for check in ["INSTRUMENT_RULES", "MARKET_DATA_USE", "ACCOUNT_ARMING"] {
+        assert_eq!(
+            checks.iter().find(|c| c["checkId"] == check).unwrap()["outcome"],
+            "UNAVAILABLE",
+            "{check}"
+        );
+    }
+    assert_ne!(decision["data"]["status"], "ALLOWED");
+}
+
+fn assert_spot_admission_rejects_external_negative(mode: &str, blocker: &str, reason: &str) {
+    let view = HotView::open();
+    view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, vault) = connected_binance_proposal(&view);
+    let http = account_fixtures::Http {
+        binance_rules_ui: true,
+        ..Default::default()
+    };
+    match mode {
+        "HALT" | "BREAK" => {
+            let mut info = account_fixtures::binance_spot_exchange_info("BTCUSDT");
+            info["symbols"][0]["status"] = json!(mode);
+            *http.binance_exchange_info.borrow_mut() = Some(info);
+        }
+        "MAINTENANCE" => *http.binance_system_status.borrow_mut() = Some(json!({"status":1})),
+        "API_LOCK" => {
+            *http.binance_api_trading_status.borrow_mut() = Some(
+                json!({"data":{"isLocked":true,"plannedRecoverTime":0,"updateTime":1547630471725u64}}),
+            )
+        }
+        "PERMISSION" => {
+            let mut info = account_fixtures::binance_spot_exchange_info("BTCUSDT");
+            info["symbols"][0]["permissionSets"] = json!([["MARGIN"]]);
+            *http.binance_exchange_info.borrow_mut() = Some(info);
+        }
+        _ => panic!("Unsupported external protocol case"),
+    }
+    let collected = collect_spot_admission(&view, &proposal, &vault, &http, "crypto:BTC/USDT:spot");
+    assert!(
+        collected["evidence"]["admissionBlockers"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(blocker))
+    );
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    let admission = checks
+        .iter()
+        .find(|c| c["checkId"] == "MARKET_SESSION")
+        .unwrap();
+    assert_eq!(admission["outcome"], "REJECT", "{admission}");
+    assert_eq!(admission["reasonCode"], reason, "{admission}");
+    assert!(admission["reason"].as_str().unwrap().contains(blocker));
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "PASS"
+    );
+    assert_ne!(decision["data"]["status"], "ALLOWED");
+}
+
+#[test]
+fn current_symbol_halt_rejects_spot_admission_despite_a_continuous_public_book() {
+    assert_spot_admission_rejects_external_negative("HALT", "SYMBOL_NOT_TRADING", "MARKET_HALTED");
+}
+
+#[test]
+fn current_symbol_break_rejects_spot_admission_despite_a_continuous_public_book() {
+    assert_spot_admission_rejects_external_negative("BREAK", "SYMBOL_NOT_TRADING", "MARKET_HALTED");
+}
+
+#[test]
+fn current_system_maintenance_rejects_spot_admission_despite_a_continuous_public_book() {
+    assert_spot_admission_rejects_external_negative(
+        "MAINTENANCE",
+        "SYSTEM_MAINTENANCE",
+        "INSTRUMENT_RULES_UNAVAILABLE",
+    );
+}
+
+#[test]
+fn unsatisfied_account_permission_sets_reject_spot_admission_despite_a_continuous_public_book() {
+    assert_spot_admission_rejects_external_negative(
+        "PERMISSION",
+        "PERMISSION_SETS_NOT_SATISFIED",
+        "INSTRUMENT_RULES_UNAVAILABLE",
+    );
+}
+
+#[test]
+fn current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book() {
+    assert_spot_admission_rejects_external_negative(
+        "API_LOCK",
+        "API_TRADING_LOCKED",
+        "INSTRUMENT_RULES_UNAVAILABLE",
+    );
+}
+
+fn save_spot_quote_policy(view: &HotView, slippage: &str, deviation: Option<&str>) {
+    let current = command(
+        &view.control,
+        "risk.get_policy",
+        json!({"workspaceId":view.workspace}),
+    );
+    let saved = command(
+        &view.control,
+        "risk.save_policy",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":current["data"]["stateVersion"],"policy":{"maxOrderNotional":null,"maxOrderQuantity":null,"maxPositionSize":null,"maxSingleInstrumentExposurePercent":null,"maxAssetClassExposurePercent":[],"maxDailyTradedNotional":null,"maxDailyRealizedLoss":null,"maxOpenOrders":null,"maxReservedCapital":null,"allowedInstrumentIds":[],"blockedInstrumentIds":[],"allowedVenues":[],"blockedVenues":[],"allowedAccountIds":[],"blockedAccountIds":[],"allowedEnvironments":[],"staleQuoteThresholdSeconds":3,"marketOrdersEnabled":true,"maxMarketOrderSlippagePercent":slippage,"maxPriceDeviationPercent":deviation,"liveInactivityTimeoutMinutes":20}}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+}
+
+fn evaluate_spot_market_order(
+    view: &HotView,
+    account: &Value,
+    side: &str,
+    quantity: &str,
+) -> Value {
+    let draft = command(
+        &view.control,
+        "trade.save_draft",
+        json!({"workspaceId":view.workspace,"fields":{"accountId":account,"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":side,"orderType":"MARKET","quantity":{"type":"BASE","value":quantity},"limitPrice":null,"maximumSpend":null,"timeInForce":"GTC"}}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &view.control,
+        "trade.generate_proposal",
+        json!({"workspaceId":view.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    decision["data"].clone()
+}
+
+#[test]
+fn displayed_spot_base_liquidity_qualifies_only_its_own_exact_side_size_check() {
+    let view = HotView::open();
+    let current = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(current["data"]["detail"]["snapshot"]["bidSize"], "0.5");
+    assert_eq!(current["data"]["detail"]["snapshot"]["askSize"], "0.75");
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    save_spot_quote_policy(&view, "1", Some("1"));
+    // Displayed best-side BASE quantities, not quote-currency amounts or deeper fills.
+    for (side, quantity, expected) in [
+        ("BUY", "0.75", "PASS"),
+        ("BUY", "0.750000000000000001", "UNAVAILABLE"),
+        ("SELL", "0.5", "PASS"),
+        ("SELL", "0.500000000000000001", "UNAVAILABLE"),
+    ] {
+        let decision =
+            evaluate_spot_market_order(&view, &proposal["fields"]["accountId"], side, quantity);
+        let checks = decision["checks"].as_array().unwrap();
+        let slippage = checks
+            .iter()
+            .find(|c| c["checkId"] == "MARKET_ORDER_SLIPPAGE")
+            .unwrap();
+        assert_eq!(
+            slippage["outcome"], expected,
+            "{side} {quantity}: {slippage}"
+        );
+        assert_eq!(
+            checks
+                .iter()
+                .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+                .unwrap()["outcome"],
+            "PASS"
+        );
+        for check in [
+            "PRICE_DEVIATION",
+            "INSTRUMENT_RULES",
+            "MARKET_DATA_USE",
+            "ACCOUNT_ARMING",
+        ] {
+            assert_eq!(
+                checks.iter().find(|c| c["checkId"] == check).unwrap()["outcome"],
+                "UNAVAILABLE",
+                "{check}"
+            );
+        }
+        assert_ne!(decision["status"], "ALLOWED");
+    }
+}
+
+#[test]
+fn exact_spot_spread_comparison_and_missing_last_trade_reference_remain_separate() {
+    let view = HotView::open();
+    view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    // Bid60000/ask60001 gives adverse midpoint percentage100/120001,
+    // strictly between0.0008 and0.0009. No float or rounded midpoint is needed.
+    for (limit, expected) in [("0.0008", "REJECT"), ("0.0009", "PASS")] {
+        save_spot_quote_policy(&view, limit, Some("1"));
+        let decision =
+            evaluate_spot_market_order(&view, &proposal["fields"]["accountId"], "BUY", "0.75");
+        let checks = decision["checks"].as_array().unwrap();
+        let slippage = checks
+            .iter()
+            .find(|c| c["checkId"] == "MARKET_ORDER_SLIPPAGE")
+            .unwrap();
+        assert_eq!(slippage["outcome"], expected, "{limit}: {slippage}");
+        assert_ne!(decision["status"], "ALLOWED");
+    }
+    let draft = command(
+        &view.control,
+        "trade.save_draft",
+        json!({"workspaceId":view.workspace,"fields":proposal["fields"]}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let limit_proposal = command(
+        &view.control,
+        "trade.generate_proposal",
+        json!({"workspaceId":view.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(limit_proposal["ok"], true, "{limit_proposal}");
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":limit_proposal["data"]["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    let deviation = checks
+        .iter()
+        .find(|c| c["checkId"] == "PRICE_DEVIATION")
+        .unwrap();
+    assert_eq!(
+        deviation["outcome"], "UNAVAILABLE",
+        "Bid/ask/midpoint are not an actual last-trade reference: {deviation}"
+    );
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "PASS"
+    );
+    assert_ne!(decision["data"]["status"], "ALLOWED");
+}
+
+#[test]
+fn other_symbol_rules_and_expired_rule_receipts_cannot_qualify_spot_admission() {
+    let view = HotView::open();
+    view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, vault) = connected_binance_proposal(&view);
+    let http = account_fixtures::Http {
+        binance_rules_ui: true,
+        ..Default::default()
+    };
+    let evaluate = || {
+        command(
+            &view.control,
+            "risk.evaluate_proposal",
+            json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+        )
+    };
+    let check = |decision: &Value| {
+        decision["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["checkId"] == "MARKET_SESSION")
+            .unwrap()
+            .clone()
+    };
+    collect_spot_admission(&view, &proposal, &vault, &http, "crypto:ETH/USDT:spot");
+    let mismatch = evaluate();
+    assert_eq!(mismatch["ok"], true, "{mismatch}");
+    assert_eq!(check(&mismatch)["outcome"], "UNAVAILABLE", "{mismatch}");
+    collect_spot_admission(&view, &proposal, &vault, &http, "crypto:BTC/USDT:spot");
+    assert_eq!(check(&evaluate())["outcome"], "PASS");
+    view.control
+        .lock()
+        .unwrap()
+        .advance_test_clock_fixture(view.workspace.as_str().unwrap(), 31_001)
+        .unwrap();
+    let expired = evaluate();
+    assert_eq!(expired["ok"], true, "{expired}");
+    assert_eq!(check(&expired)["outcome"], "UNAVAILABLE");
+    assert_eq!(
+        check(&expired)["reasonCode"],
+        "INSTRUMENT_RULES_UNAVAILABLE"
+    );
+    assert_ne!(expired["data"]["status"], "ALLOWED");
+}
+
+#[test]
+fn spot_admission_retires_when_the_public_account_refresh_changes_its_binding() {
+    let view = HotView::open();
+    view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, vault) = connected_binance_proposal(&view);
+    let http = account_fixtures::Http {
+        binance_rules_ui: true,
+        ..Default::default()
+    };
+    let collected = collect_spot_admission(&view, &proposal, &vault, &http, "crypto:BTC/USDT:spot");
+    let account = command(
+        &view.control,
+        "account.get",
+        json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
+    );
+    let request = json!({"requestId":"refresh-admitted-account","schemaVersion":1,"command":"provider.probe","payload":{"workspaceId":view.workspace,"connectionId":account["data"]["connectionId"],"expectedStateVersion":account["data"]["stateVersion"]}});
+    let job = view
+        .control
+        .lock()
+        .unwrap()
+        .prepare_provider_for(&request, "main")
+        .unwrap()
+        .unwrap();
+    let outcome = job.run(
+        &vault,
+        |_| account_fixtures::credentials(),
+        &http,
+        || view.control.lock().unwrap().provider_job_current(&job),
+    );
+    let refreshed = view
+        .control
+        .lock()
+        .unwrap()
+        .complete_provider(&job, outcome);
+    assert_eq!(refreshed["ok"], true, "{refreshed}");
+    assert_ne!(
+        refreshed["data"]["stateVersion"],
+        collected["evidence"]["binding"]["accountVersion"]
+    );
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "MARKET_SESSION")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "PASS"
+    );
+    assert_ne!(decision["data"]["status"], "ALLOWED");
+}
+
 #[test]
 fn authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade() {
     let view = HotView::open();
