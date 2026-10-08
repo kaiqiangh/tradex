@@ -1,0 +1,19 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.72s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+
+thread 'a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect' (9937793) panicked at src-tauri/tests/binance_market_hot.rs:886:5:
+{"data":{"authenticated":false,"connectionGeneration":"35e4ad9d-266c-4ae2-8411-5f738da640e6","detail":{"adjustmentStatus":"UNKNOWN","availabilityReason":"Continuous Spot book unavailable (PROVIDER_UNAVAILABLE). Retry the selected source; retained observations are unavailable.","corporateActions":[],"instrument":{"assetClass":"CRYPTO_SPOT","base":"BTC","currency":"USDT","displayName":"Bitcoin / Tether spot","instrumentId":"crypto:BTC/USDT:spot","providers":[{"providerId":"binance","providerSymbol":"BTCUSDT"},{"providerId":"bitget","providerSymbol":"BTCUSDT"}],"quote":"USDT","symbol":"BTC/USDT"},"marketState":{"observedAt":"2026-10-08T16:46:16.172Z","reason":"No crypto venue-state source is selected in the S06 authorization catalog.","session":"UNKNOWN","sourceStatus":"UNAVAILABLE","timeConfidence":"TRUSTED","venue":"UNSELECTED"},"sourceId":"BINANCE_SPOT_PUBLIC","status":"UNAVAILABLE","tier":"HOT","workspaceId":"3f800466-dbf6-4e95-bfb4-081e2e02f926"},"generation":"d8689519-eaa0-4096-9c41-1b448ed4ae58","instrumentId":"crypto:BTC/USDT:spot","leaseId":"c15cedee-2f44-4bbb-8d77-0673d196a246","reason":"Continuous Spot book unavailable (PROVIDER_UNAVAILABLE). Retry the selected source; retained observations are unavailable.","reconnectAttempt":3,"sequence":4,"sourceId":"BINANCE_SPOT_PUBLIC","sourceVersion":"binance-market:3f800466-dbf6-4e95-bfb4-081e2e02f926:1","status":"FAILED","subscribed":false,"workspaceId":"3f800466-dbf6-4e95-bfb4-081e2e02f926"},"ok":true,"requestId":"spot-hot","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect ... FAILED
+
+failures:
+
+failures:
+    a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 47 filtered out; finished in 1.90s
+
+error: test failed, to rerun pass `-p tradex --test binance_market_hot`

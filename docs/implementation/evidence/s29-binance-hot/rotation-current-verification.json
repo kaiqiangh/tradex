@@ -1,0 +1,19 @@
+{
+  "sourceSha": "d9abe2470ed0b5d69b08c645625a4aa30d988511",
+  "fullCheckExitCode": 0,
+  "rustPassed": 413,
+  "rustIgnored": 39,
+  "nodePassed": 17,
+  "binanceSourceScenarios": 48,
+  "sourceScenarioIsolation": "serial independent application processes; runtime quotas intact per scenario",
+  "stockHotPassed": 19,
+  "gatewayPassed": 23,
+  "ordinaryReleaseBuildExitCode": 0,
+  "manifestRows": 20,
+  "manifestMismatches": 0,
+  "actualVisibility": "UNPROVEN",
+  "independentReviews": "PENDING",
+  "ticket124": "OPEN",
+  "parent121": "OPEN",
+  "prototypeCodeChanged": false
+}

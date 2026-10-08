@@ -1,0 +1,44 @@
+npm notice run tradex@0.1.0 desktop:build
+npm notice run node scripts/desktop-order-gateway.mjs build
+   Compiling ring v0.17.14
+   Compiling libsqlite3-sys v0.38.2
+   Compiling rustls v0.23.44
+   Compiling rustls-webpki v0.103.15
+   Compiling ureq v3.4.2
+   Compiling libduckdb-sys v1.10505.0
+   Compiling rusqlite v0.40.2
+   Compiling duckdb v1.10505.0
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `release` profile [optimized] target(s) in 3m 38s
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+npm notice run tradex@0.1.0 build
+npm notice run npm run typecheck && vite build
+npm notice run tradex@0.1.0 typecheck
+npm notice run tsc --noEmit
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 91 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.46 kB │ gzip:   0.29 kB
+dist/assets/index-CO1F1XJN.css     49.02 kB │ gzip:   9.00 kB
+dist/assets/index-tk2GdirF.js   4,598.93 kB │ gzip: 461.35 kB
+
+✓ built in 606ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+   Compiling ring v0.17.14
+   Compiling libsqlite3-sys v0.38.2
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+   Compiling rustls v0.23.44
+   Compiling rustls-webpki v0.103.15
+   Compiling ureq v3.4.2
+   Compiling libduckdb-sys v1.10505.0
+   Compiling rusqlite v0.40.2
+   Compiling duckdb v1.10505.0
+    Finished `release` profile [optimized] target(s) in 3m 46s
+       Built application at: /Users/kai/Desktop/my-repo/tradex/target/release/tradex

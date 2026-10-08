@@ -1,0 +1,4 @@
+Observed terminal excerpt, before implementing rotation; not a rerun or complete raw log.
+Command: cargo test -p tradex --features integration-test --test binance_market_hot planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap -- --exact --nocapture
+Exit101. Hot condition not reached after5.33s: original connectionGeneration remained unchanged, status STREAMING, reconnectAttempt0, original book still AVAILABLE despite external-loopback transport deadline750ms.
+The integration-only shortened deadline existed but was not consumed by the producer. No CP quote/authority seed was used.
