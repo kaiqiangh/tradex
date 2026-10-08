@@ -30,7 +30,7 @@ use std::{
 use zeroize::Zeroizing;
 
 #[path = "binance.rs"]
-mod binance;
+pub(crate) mod binance;
 #[path = "bitget.rs"]
 mod bitget;
 #[path = "trading212.rs"]

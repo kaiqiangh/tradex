@@ -3448,7 +3448,7 @@ fn schema_34_source_selections_survive_fx_migration_and_metadata_reopen() {
     let mut reopened = ControlPlane::new(path);
     let opened = command(&mut reopened, "workspace.open", json!({}));
     assert_eq!(opened["ok"], true, "{opened}");
-    assert_eq!(opened["data"]["storageSchemaVersion"], 35);
+    assert_eq!(opened["data"]["storageSchemaVersion"], 36);
     let retained = command(
         &mut reopened,
         "data.actions.connection",

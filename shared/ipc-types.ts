@@ -144,6 +144,61 @@ export type FinancialSourceEvidence =
        */
       rates: [FxObservedRate] | [FxObservedRate, FxObservedRate];
       requirements: FxRequirements;
+    }
+  | {
+      accountCanTrade: boolean;
+      /**
+       * @maxItems 64
+       */
+      accountPermissions: string[];
+      accountRequiresSelfTradePrevention?: boolean | null;
+      accountType: string;
+      /**
+       * @maxItems 32
+       */
+      admissionBlockers: string[];
+      /**
+       * @maxItems 32
+       */
+      allowedSelfTradePreventionModes: string[];
+      baseAsset: string;
+      baseAssetPrecision: number;
+      binding: FinancialEvidenceBinding;
+      /**
+       * @maxItems 256
+       */
+      constraints: SpotRuleConstraint[];
+      defaultSelfTradePreventionMode: string;
+      instrumentId: string;
+      keyPermissions: PermissionReview;
+      kind: "BINANCE_SPOT_RULES";
+      materialVersion: string;
+      observedAt: string;
+      /**
+       * @maxItems 32
+       */
+      orderTypes: string[];
+      /**
+       * @maxItems 64
+       */
+      permissionSets: string[][];
+      permissionSetsSatisfied: boolean;
+      providerClockSample: string;
+      providerObservedAt?: string | null;
+      providerQuality: FinancialEvidenceQuality;
+      providerSymbol: string;
+      quoteAsset: string;
+      quoteAssetPrecision: number;
+      quoteOrderQtyMarketAllowed: boolean;
+      remoteAccountId: string;
+      reportedSymbolStatus: string;
+      spotTradingAllowed: boolean;
+      symbolStatus: BinanceSpotSymbolStatus;
+      tradingStatus: BinanceTradingStatus;
+      /**
+       * @maxItems 64
+       */
+      unresolvedObligations: string[];
     };
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -208,7 +263,8 @@ export type CompanyEventTermName =
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialEvidenceQuality".
  */
-export type FinancialEvidenceQuality = "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA" | "UNQUALIFIED_FX_RATE";
+export type FinancialEvidenceQuality =
+  "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA" | "UNQUALIFIED_FX_RATE" | "READ_ONLY_SPOT_RULES";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BrokerScheduleEventType".
@@ -222,6 +278,46 @@ export type BrokerScheduleEventType =
   | "AFTER_HOURS_OPEN"
   | "AFTER_HOURS_CLOSE"
   | "OVERNIGHT_OPEN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleValue".
+ */
+export type SpotRuleValue =
+  | {
+      type: "DECIMAL";
+      value: string;
+      [k: string]: unknown;
+    }
+  | {
+      type: "INTEGER";
+      value: string;
+      [k: string]: unknown;
+    }
+  | {
+      type: "BOOLEAN";
+      value: boolean;
+      [k: string]: unknown;
+    }
+  | {
+      type: "ASSET";
+      value: string;
+      [k: string]: unknown;
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleOrigin".
+ */
+export type SpotRuleOrigin = "EXCHANGE_INFO" | "ACCOUNT_FILTERS" | "EXECUTION_RULES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleScope".
+ */
+export type SpotRuleScope = "SYMBOL" | "EXCHANGE" | "ASSET" | "EXECUTION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSpotSymbolStatus".
+ */
+export type BinanceSpotSymbolStatus = "TRADING" | "HALT" | "BREAK" | "UNKNOWN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialSourceKind".
@@ -2374,6 +2470,33 @@ export interface FxObservedRate {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleConstraint".
+ */
+export interface SpotRuleConstraint {
+  /**
+   * @maxItems 32
+   */
+  fields: SpotRuleField[];
+  knownSchema: boolean;
+  origin: SpotRuleOrigin;
+  ruleType: string;
+  scope: SpotRuleScope;
+  /**
+   * @maxItems 32
+   */
+  unsupportedFields: string[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleField".
+ */
+export interface SpotRuleField {
+  disabled: boolean;
+  name: string;
+  value: SpotRuleValue;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "EstimatedFee".
  */
 export interface EstimatedFee {
@@ -2539,6 +2662,7 @@ export interface MarketDetail {
   marketState: MarketState;
   snapshot?: MarketSnapshot | null;
   sourceId?: string;
+  spotRuleEvidence?: FinancialSourceConnection | null;
   status: MarketDataStatus;
   tier: MarketTier;
   workspaceId: string;

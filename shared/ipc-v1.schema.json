@@ -3632,6 +3632,15 @@
         "instrumentId"
       ]
     },
+    "BinanceSpotSymbolStatus": {
+      "type": "string",
+      "enum": [
+        "TRADING",
+        "HALT",
+        "BREAK",
+        "UNKNOWN"
+      ]
+    },
     "BinanceSystemStatus": {
       "type": "string",
       "enum": [
@@ -7988,7 +7997,8 @@
       "enum": [
         "DELAYED_PROCESS_DATE_QUERY",
         "TEN_MINUTE_METADATA",
-        "UNQUALIFIED_FX_RATE"
+        "UNQUALIFIED_FX_RATE",
+        "READ_ONLY_SPOT_RULES"
       ]
     },
     "FinancialOperation": {
@@ -8286,6 +8296,204 @@
             "observedAt",
             "requirements",
             "rates"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountCanTrade": {
+              "type": "boolean"
+            },
+            "accountPermissions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            },
+            "accountRequiresSelfTradePrevention": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "accountType": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            },
+            "admissionBlockers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32
+            },
+            "allowedSelfTradePreventionModes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32
+            },
+            "baseAsset": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            },
+            "baseAssetPrecision": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SpotRuleConstraint"
+              },
+              "maxItems": 256
+            },
+            "defaultSelfTradePreventionMode": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "instrumentId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "keyPermissions": {
+              "$ref": "#/$defs/PermissionReview"
+            },
+            "kind": {
+              "type": "string",
+              "const": "BINANCE_SPOT_RULES"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "orderTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32
+            },
+            "permissionSets": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "maxItems": 64
+            },
+            "permissionSetsSatisfied": {
+              "type": "boolean"
+            },
+            "providerClockSample": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            },
+            "providerSymbol": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "quoteAsset": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            },
+            "quoteAssetPrecision": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "quoteOrderQtyMarketAllowed": {
+              "type": "boolean"
+            },
+            "remoteAccountId": {
+              "type": "string",
+              "maxLength": 20,
+              "minLength": 1
+            },
+            "reportedSymbolStatus": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "spotTradingAllowed": {
+              "type": "boolean"
+            },
+            "symbolStatus": {
+              "$ref": "#/$defs/BinanceSpotSymbolStatus"
+            },
+            "tradingStatus": {
+              "$ref": "#/$defs/BinanceTradingStatus"
+            },
+            "unresolvedObligations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "observedAt",
+            "providerQuality",
+            "providerClockSample",
+            "remoteAccountId",
+            "instrumentId",
+            "providerSymbol",
+            "baseAsset",
+            "quoteAsset",
+            "symbolStatus",
+            "reportedSymbolStatus",
+            "baseAssetPrecision",
+            "quoteAssetPrecision",
+            "spotTradingAllowed",
+            "quoteOrderQtyMarketAllowed",
+            "orderTypes",
+            "defaultSelfTradePreventionMode",
+            "allowedSelfTradePreventionModes",
+            "accountPermissions",
+            "permissionSets",
+            "permissionSetsSatisfied",
+            "accountCanTrade",
+            "accountType",
+            "keyPermissions",
+            "tradingStatus",
+            "constraints",
+            "admissionBlockers",
+            "unresolvedObligations"
           ]
         }
       ]
@@ -10408,6 +10616,16 @@
           "type": "string",
           "maxLength": 32,
           "minLength": 1
+        },
+        "spotRuleEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialSourceConnection"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "status": {
           "$ref": "#/$defs/MarketDataStatus"
@@ -15728,6 +15946,161 @@
         "lastSequence"
       ]
     },
+    "SpotRuleConstraint": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRuleField"
+          },
+          "maxItems": 32
+        },
+        "knownSchema": {
+          "type": "boolean"
+        },
+        "origin": {
+          "$ref": "#/$defs/SpotRuleOrigin"
+        },
+        "ruleType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/SpotRuleScope"
+        },
+        "unsupportedFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "origin",
+        "ruleType",
+        "knownSchema",
+        "fields",
+        "unsupportedFields"
+      ]
+    },
+    "SpotRuleField": {
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "value": {
+          "$ref": "#/$defs/SpotRuleValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value",
+        "disabled"
+      ]
+    },
+    "SpotRuleOrigin": {
+      "type": "string",
+      "enum": [
+        "EXCHANGE_INFO",
+        "ACCOUNT_FILTERS",
+        "EXECUTION_RULES"
+      ]
+    },
+    "SpotRuleScope": {
+      "type": "string",
+      "enum": [
+        "SYMBOL",
+        "EXCHANGE",
+        "ASSET",
+        "EXECUTION"
+      ]
+    },
+    "SpotRuleValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "DECIMAL"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "INTEGER"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 20,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "BOOLEAN"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ASSET"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        }
+      ]
+    },
     "StrategyCancel": {
       "type": "object",
       "properties": {
@@ -18215,7 +18588,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 35,
+          "maximum": 36,
           "minimum": 1
         },
         "workspaceId": {

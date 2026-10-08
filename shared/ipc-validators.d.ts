@@ -69,6 +69,7 @@ declare const validators: {
   BacktestRunSummary: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
   BinanceRuleSourceConfigure: (value: unknown) => boolean;
+  BinanceSpotSymbolStatus: (value: unknown) => boolean;
   BinanceSystemStatus: (value: unknown) => boolean;
   BinanceTestnetBalance: (value: unknown) => boolean;
   BinanceTestnetFill: (value: unknown) => boolean;
@@ -388,6 +389,11 @@ declare const validators: {
   SetFallbackPolicy: (value: unknown) => boolean;
   SetOnboardingStep: (value: unknown) => boolean;
   Snapshot: (value: unknown) => boolean;
+  SpotRuleConstraint: (value: unknown) => boolean;
+  SpotRuleField: (value: unknown) => boolean;
+  SpotRuleOrigin: (value: unknown) => boolean;
+  SpotRuleScope: (value: unknown) => boolean;
+  SpotRuleValue: (value: unknown) => boolean;
   StrategyCancel: (value: unknown) => boolean;
   StrategyDefinition: (value: unknown) => boolean;
   StrategyDirection: (value: unknown) => boolean;

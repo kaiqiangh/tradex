@@ -470,7 +470,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 35))]
+    #[schemars(range(min = 1, max = 36))]
     pub storage_schema_version: u32,
 }
 
@@ -2027,6 +2027,7 @@ pub enum FinancialEvidenceQuality {
     DelayedProcessDateQuery,
     TenMinuteMetadata,
     UnqualifiedFxRate,
+    ReadOnlySpotRules,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -2208,6 +2209,113 @@ pub enum FinancialSourceEvidence {
     CorporateActions(CorporateActionEvidence),
     BrokerInstruments(BrokerInstrumentEvidence),
     Fx(FxRateEvidence),
+    BinanceSpotRules(BinanceSpotRuleEvidence),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotRuleScope {
+    Symbol,
+    Exchange,
+    Asset,
+    Execution,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotRuleOrigin {
+    ExchangeInfo,
+    AccountFilters,
+    ExecutionRules,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceSpotSymbolStatus {
+    Trading,
+    Halt,
+    Break,
+    Unknown,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotRuleValue {
+    Decimal(#[schemars(length(min = 1, max = 64))] String),
+    Integer(#[schemars(length(min = 1, max = 20))] String),
+    Boolean(bool),
+    Asset(#[schemars(length(min = 1, max = 16))] String),
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotRuleField {
+    #[schemars(length(min = 1, max = 64))]
+    pub name: String,
+    pub value: SpotRuleValue,
+    pub disabled: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotRuleConstraint {
+    pub scope: SpotRuleScope,
+    pub origin: SpotRuleOrigin,
+    #[schemars(length(min = 1, max = 64))]
+    pub rule_type: String,
+    pub known_schema: bool,
+    #[schemars(length(max = 32))]
+    pub fields: Vec<SpotRuleField>,
+    #[schemars(length(max = 32))]
+    pub unsupported_fields: Vec<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceSpotRuleEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub provider_observed_at: Option<String>,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_clock_sample: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub remote_account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub base_asset: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub quote_asset: String,
+    pub symbol_status: BinanceSpotSymbolStatus,
+    #[schemars(length(min = 1, max = 32))]
+    pub reported_symbol_status: String,
+    pub base_asset_precision: u32,
+    pub quote_asset_precision: u32,
+    pub spot_trading_allowed: bool,
+    pub quote_order_qty_market_allowed: bool,
+    #[schemars(length(max = 32))]
+    pub order_types: Vec<String>,
+    #[schemars(length(min = 1, max = 32))]
+    pub default_self_trade_prevention_mode: String,
+    #[schemars(length(max = 32))]
+    pub allowed_self_trade_prevention_modes: Vec<String>,
+    #[schemars(length(max = 64))]
+    pub account_permissions: Vec<String>,
+    #[schemars(length(max = 64))]
+    pub permission_sets: Vec<Vec<String>>,
+    pub permission_sets_satisfied: bool,
+    pub account_can_trade: bool,
+    #[schemars(length(min = 1, max = 16))]
+    pub account_type: String,
+    pub account_requires_self_trade_prevention: Option<bool>,
+    pub key_permissions: crate::providers::PermissionReview,
+    pub trading_status: crate::providers::BinanceTradingStatus,
+    #[schemars(length(max = 256))]
+    pub constraints: Vec<SpotRuleConstraint>,
+    #[schemars(length(max = 32))]
+    pub admission_blockers: Vec<String>,
+    #[schemars(length(max = 64))]
+    pub unresolved_obligations: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2785,6 +2893,8 @@ pub struct MarketDetail {
     pub adjustment_status: AdjustmentStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub financial_evidence: Option<MarketFinancialEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_rule_evidence: Option<FinancialSourceConnection>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

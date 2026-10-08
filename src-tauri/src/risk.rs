@@ -2100,7 +2100,7 @@ pub(crate) fn evaluate(
             account.is_some_and(|account| mapping.provider_id == account.provider_id)
         })
     });
-    let instrument_state_status = match (instrument_state, provider_mapping, market, account) {
+    let mut instrument_state_status = match (instrument_state, provider_mapping, market, account) {
         (_, _, _, _) if local_simulation => (
             RiskCheckOutcome::Pass,
             RiskDecisionReasonCode::NotApplicable,
@@ -2129,6 +2129,53 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::InstrumentRulesUnavailable,
         ),
     };
+    // Collected ordinary Spot metadata can reject admission; it never supplies
+    // the reference prices, dynamic bounds or per-Proposal execution qualification.
+    let ordinary_binance_rules = !local_simulation
+        && proposal.fields.environment == crate::protocol::ExecutionContext::BinanceLive
+        && (!synthetic_contract || market.is_some_and(|m| m.spot_rule_evidence.is_some()));
+    if ordinary_binance_rules {
+        let admitted = market.zip(account).and_then(|(market, account)| {
+            market
+                .spot_rule_evidence
+                .as_ref()
+                .filter(|source| {
+                    source.status == crate::protocol::DataSourceStatus::Available
+                        && source.connection_id.as_deref() == Some(account.connection_id.as_str())
+                        && source.instrument_id.as_deref()
+                            == Some(proposal.fields.instrument_id.as_str())
+                })
+                .and_then(|source| match &source.evidence {
+                    Some(crate::protocol::FinancialSourceEvidence::BinanceSpotRules(e))
+                        if e.binding.account_version == account.state_version
+                            && e.binding.connection_id == account.connection_id
+                            && e.binding.source_version == source.state_version
+                            && e.instrument_id == proposal.fields.instrument_id
+                            && e.remote_account_id == account.data.as_ref()?.remote_account_id =>
+                    {
+                        Some(e)
+                    }
+                    _ => None,
+                })
+        });
+        instrument_state_status = if admitted.is_some_and(|e| !e.admission_blockers.is_empty()) {
+            (
+                RiskCheckOutcome::Reject,
+                if admitted.is_some_and(|e| {
+                    e.symbol_status == crate::protocol::BinanceSpotSymbolStatus::Halt
+                }) {
+                    RiskDecisionReasonCode::MarketHalted
+                } else {
+                    RiskDecisionReasonCode::InstrumentRulesUnavailable
+                },
+            )
+        } else {
+            (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::InstrumentRulesUnavailable,
+            )
+        };
+    }
     push!(
         RiskCheckId::InstrumentRules,
         instrument_state_status.0,
@@ -2139,6 +2186,10 @@ pub(crate) fn evaluate(
             "A current provider instrument-tradability observation matches this account and venue."
         } else if instrument_state_status.1 == RiskDecisionReasonCode::MarketHalted {
             "The provider reports that this instrument is halted."
+        } else if ordinary_binance_rules && instrument_state_status.0 == RiskCheckOutcome::Reject {
+            "Current exact-account Spot metadata rejects admission. These checks apply to new orders; exact cancellation remains independent."
+        } else if ordinary_binance_rules {
+            "Complete per-Proposal Spot rule qualification is unavailable. Collected metadata cannot supply references, dynamic bounds, quotes or data rights."
         } else {
             "A current provider instrument-tradability observation is unavailable or mismatched."
         },

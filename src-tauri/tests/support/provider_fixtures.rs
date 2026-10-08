@@ -52,6 +52,7 @@ pub fn credentials() -> Result<Credentials> {
 pub struct Http {
     // External response mode used only by disposable FX browser QA.
     pub fx_ui: bool,
+    pub binance_rules_ui: bool,
     pub alpaca_quote_status: Cell<u16>,
     pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
     pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
@@ -112,6 +113,7 @@ impl Default for Http {
     fn default() -> Self {
         Self {
             fx_ui: false,
+            binance_rules_ui: false,
             alpaca_quote_status: Cell::new(200),
             alpaca_quote_body: RefCell::new(None),
             alpaca_condition_body: RefCell::new(None),
@@ -962,7 +964,30 @@ impl ProviderHttp for Http {
             }
             if path == "/api/v3/time" {
                 assert!(headers.is_empty());
+                if self.binance_rules_ui {
+                    return Ok(serde_json::to_vec(&json!({"serverTime":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})).unwrap());
+                }
                 return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
+            }
+            if self.binance_rules_ui && endpoint == ProviderEndpoint::BinanceLive {
+                if let Some(symbol) = path
+                    .strip_prefix("/api/v3/exchangeInfo?symbol=")
+                    .and_then(|s| s.strip_suffix("&showPermissionSets=true"))
+                {
+                    assert!(headers.is_empty());
+                    return Ok(serde_json::to_vec(
+                        &self
+                            .binance_exchange_info
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(|| binance_spot_exchange_info(symbol)),
+                    )
+                    .unwrap());
+                }
+                if let Some(symbol) = path.strip_prefix("/api/v3/executionRules?symbol=") {
+                    assert!(headers.is_empty());
+                    return Ok(serde_json::to_vec(&json!({"symbolRules":[{"symbol":symbol,"rules":[{"ruleType":"PRICE_RANGE","bidLimitMultUp":"1.0001","bidLimitMultDown":"0.9999","askLimitMultUp":"1.0001","askLimitMultDown":"0.9999"}]}]})).unwrap());
+                }
             }
             if path == "/api/v3/exchangeInfo?symbol=BTCUSDT" {
                 assert!(headers.is_empty());
@@ -997,7 +1022,13 @@ impl ProviderHttp for Http {
                 .unwrap()
                 .parse::<u64>()
                 .unwrap();
-            assert!((1788849600000..1788849660000).contains(&timestamp));
+            if self.binance_rules_ui {
+                let now =
+                    (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
+                assert!(timestamp.abs_diff(now) <= 5000);
+            } else {
+                assert!((1788849600000..1788849660000).contains(&timestamp));
+            }
             let param = |name: &str| {
                 params
                     .split('&')
@@ -1043,6 +1074,10 @@ impl ProviderHttp for Http {
                 "/sapi/v1/account/apiTradingStatus"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
                     self.binance_api_trading_status.borrow().clone().unwrap_or_else(|| json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64,"triggerCondition":{"GCR":150,"IFER":150,"UFR":300}}}))
+                },
+                "/api/v3/myFilters" if self.binance_rules_ui => {
+                    assert!(matches!(param("symbol"), Some("BTCUSDT" | "ETHUSDT")));
+                    json!({"exchangeFilters":[{"filterType":"EXCHANGE_MAX_NUM_ORDERS","maxNumOrders":1000}],"symbolFilters":[{"filterType":"MIN_NOTIONAL","minNotional":"5.00000000","applyToMarket":true,"avgPriceMins":5}],"assetFilters":[{"filterType":"MAX_ASSET","asset":if param("symbol") == Some("BTCUSDT") {"BTC"} else {"ETH"},"limit":"0.25000000"}]})
                 },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
@@ -1167,4 +1202,10 @@ impl ProviderHttp for Http {
 
 pub fn default_binance_exchange_info() -> Value {
     json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},{"filterType":"LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"MARKET_LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"NOTIONAL","minNotional":"5","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]})
+}
+
+// External HTTP response fixture only: no Control Plane snapshot or financial authority.
+pub fn binance_spot_exchange_info(symbol: &str) -> Value {
+    let base = if symbol == "ETHUSDT" { "ETH" } else { "BTC" };
+    json!({"exchangeFilters":[],"symbols":[{"symbol":symbol,"status":"TRADING","baseAsset":base,"quoteAsset":"USDT","baseAssetPrecision":8,"quoteAssetPrecision":8,"isSpotTradingAllowed":true,"quoteOrderQtyMarketAllowed":true,"orderTypes":["LIMIT","MARKET"],"defaultSelfTradePreventionMode":"NONE","allowedSelfTradePreventionModes":["NONE"],"permissionSets":[["SPOT","MARGIN"]],"filters":[{"filterType":"PRICE_FILTER","minPrice":"0.00000000","maxPrice":"999999.00000000","tickSize":"0.01000000"},{"filterType":"LOT_SIZE","minQty":"0.00000100","maxQty":"100.00000000","stepSize":"0.00000100"}]}]})
 }

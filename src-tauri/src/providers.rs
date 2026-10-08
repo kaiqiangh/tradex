@@ -157,7 +157,7 @@ pub enum ConnectionState {
     Disconnected,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PermissionReview {
     #[schemars(extend("enum" = ["VERIFIED", "UNVERIFIED"]))]
@@ -336,7 +336,7 @@ pub enum BinanceSystemStatus {
     Maintenance,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BinanceTradingStatus {
     pub system_status: BinanceSystemStatus,

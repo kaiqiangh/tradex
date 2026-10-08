@@ -7655,8 +7655,10 @@ impl ControlPlane {
                 .calendar_source()?
                 .connection_id
                 .is_some();
-        let financial_selected =
-            input.instrument_id.starts_with("equity:") && financial_sources::selected_once(self)?;
+        let financial_selected = (input.instrument_id.starts_with("equity:")
+            && financial_sources::selected_once(self)?)
+            || (input.instrument_id.starts_with("crypto:")
+                && financial_sources::spot_rules_selected_once(self)?);
         let mut detail = market::detail_with_fixture(
             &input,
             source,
@@ -7685,6 +7687,8 @@ impl ControlPlane {
                 tier: MarketTier::Census,
             };
             if live_provider_id(&proposal.fields.environment).is_some()
+                && !(input.instrument_id.starts_with("crypto:")
+                    && financial_sources::spot_rules_selected_once(self)?)
                 && !(input.instrument_id.starts_with("equity:")
                     && financial_sources::selected_once(self)?)
                 && self

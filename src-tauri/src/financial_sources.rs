@@ -1,4 +1,5 @@
 //! Explicit saved-account selections for read-only company events, broker metadata and FX.
+mod binance_rules;
 use crate::protocol::{
     BrokerInstrumentEvidence, BrokerInstrumentMetadata, BrokerScheduleEvent, CompanyEventCategory,
     CompanyEventDate, CompanyEventSecurity, CompanyEventTerm, CorporateActionEvidence,
@@ -36,6 +37,7 @@ struct Binding {
     source_version: String,
     account: String,
     account_version: String,
+    instrument_id: Option<String>,
     reference: String,
     session: String,
     runtime_epoch: String,
@@ -64,6 +66,7 @@ impl Binding {
             && control.store.as_ref().is_some_and(|store| {
                 store.financial_source(self.kind).is_ok_and(|source| {
                     source.version(self.kind, &self.workspace) == self.source_version
+                        && source.instrument_id == self.instrument_id
                 }) && store.account(&self.account).is_ok_and(|account| {
                     self.kind.eligible(&account)
                         && account.state_version == self.account_version
@@ -82,6 +85,7 @@ impl Binding {
                 self.source_version,
                 self.account,
                 self.account_version,
+                self.instrument_id,
                 self.reference,
                 self.session,
                 self.runtime_epoch,
@@ -592,8 +596,16 @@ pub(crate) fn connection(
                 capability(Capability::SpotRuleCollection, status.clone(), reason),
                 capability(
                     Capability::SpotAccountAdmission,
-                    DataSourceStatus::Unverified,
-                    "Exact current account and permission-set admission has not been established.",
+                    if fresh
+                        && matches!(observation.map(|o|&o.evidence),Some(FinancialSourceEvidence::BinanceSpotRules(e)) if e.admission_blockers.is_empty())
+                    {
+                        DataSourceStatus::Available
+                    } else if observation.is_some() {
+                        DataSourceStatus::Unavailable
+                    } else {
+                        DataSourceStatus::Unverified
+                    },
+                    "Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.",
                 ),
                 capability(
                     Capability::SpotExecutionQualification,
@@ -678,10 +690,31 @@ pub(crate) fn selected_once(control: &ControlPlane) -> Result<bool> {
             > 0)
 }
 
+pub(crate) fn spot_rules_selected_once(control: &ControlPlane) -> Result<bool> {
+    Ok(control
+        .store
+        .as_ref()
+        .ok_or_else(invalid)?
+        .financial_source(FinancialSourceKind::BinanceSpotRules)?
+        .generation
+        > 0)
+}
+
 pub(crate) fn project(
     control: &mut ControlPlane,
     detail: &mut crate::protocol::MarketDetail,
 ) -> Result<()> {
+    if detail.instrument.instrument_id.starts_with("crypto:") {
+        let source = connection(
+            control,
+            &detail.workspace_id,
+            FinancialSourceKind::BinanceSpotRules,
+        )?;
+        if source.instrument_id.as_deref() == Some(detail.instrument.instrument_id.as_str()) {
+            detail.spot_rule_evidence = Some(source);
+        }
+        return Ok(());
+    }
     if !detail.instrument.instrument_id.starts_with("equity:") || !selected_once(control)? {
         return Ok(());
     }
@@ -2154,7 +2187,7 @@ pub fn execute_refresh(
     let deadline = Instant::now()
         + StdDuration::from_secs(match request["command"].as_str() {
             Some("data.instrument.refresh") => 45,
-            Some("data.fx.refresh") => 30,
+            Some("data.fx.refresh" | "data.binance_rules.refresh") => 30,
             _ => 60,
         });
     let prepare = (|| {
@@ -2169,6 +2202,7 @@ pub fn execute_refresh(
             "data.actions.refresh" => FinancialSourceKind::CorporateActions,
             "data.instrument.refresh" => FinancialSourceKind::BrokerInstruments,
             "data.fx.refresh" => FinancialSourceKind::Fx,
+            "data.binance_rules.refresh" => FinancialSourceKind::BinanceSpotRules,
             _ => return Err(TradeXError::new("IPC_COMMAND_UNKNOWN")),
         };
         if !crate::valid_bounded_text(&envelope.request_id, 128) {
@@ -2224,6 +2258,7 @@ pub fn execute_refresh(
             source_version: input.expected_state_version,
             account: account.connection_id.clone(),
             account_version: account.state_version.clone(),
+            instrument_id: saved.instrument_id.clone(),
             reference: account.credential_ref(),
             session: control.session.clone(),
             runtime_epoch: control.financial_source_runtime.epoch.clone(),
@@ -2249,7 +2284,9 @@ pub fn execute_refresh(
             .financial_source_runtime
             .sequences
             .insert(kind, sequence);
-        control.financial_source_runtime.observations.remove(&kind);
+        if kind != FinancialSourceKind::BinanceSpotRules {
+            control.financial_source_runtime.observations.remove(&kind);
+        }
         control.financial_source_runtime.failures.remove(&kind);
         Ok((
             binding,
@@ -2308,6 +2345,17 @@ pub fn execute_refresh(
         }
         if binding.kind == FinancialSourceKind::Fx {
             return read_fx_rates(control, &binding, &credentials, http, &current, deadline);
+        }
+        if binding.kind == FinancialSourceKind::BinanceSpotRules {
+            return binance_rules::read(
+                control,
+                &binding,
+                &account,
+                &credentials,
+                http,
+                &current,
+                deadline,
+            );
         }
         let headers = crate::quote_source::source_headers(&credentials)?;
         let secrets = credentials.values()?;

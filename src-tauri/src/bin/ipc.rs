@@ -77,6 +77,7 @@ fn main() -> io::Result<()> {
     let (vault, http) = {
         let mut http = fixtures::Http::default();
         http.fx_ui = std::env::var_os("TRADEX_FX_HTTP_FIXTURE").is_some();
+        http.binance_rules_ui = std::env::var_os("TRADEX_BINANCE_RULE_HTTP_FIXTURE").is_some();
         (Arc::new(SharedVault::default()), http)
     };
     let Some(path) = std::env::args_os().nth(1) else {
@@ -285,6 +286,40 @@ fn main() -> io::Result<()> {
                     }),
                 };
                 write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.rules.fixture") {
+                let p = &request["payload"];
+                let result = match (p["scenario"].as_str(), p["symbol"].as_str()) {
+                    (
+                        Some("NORMAL" | "HALT" | "BREAK" | "MALFORMED"),
+                        Some(symbol @ ("BTCUSDT" | "ETHUSDT")),
+                    ) if http.binance_rules_ui => {
+                        let mut external = fixtures::binance_spot_exchange_info(symbol);
+                        match p["scenario"].as_str().unwrap() {
+                            "HALT" | "BREAK" => {
+                                external["symbols"][0]["status"] = p["scenario"].clone()
+                            }
+                            "MALFORMED" => {
+                                external["symbols"][0]["filters"][1]["minQty"] = json!("200")
+                            }
+                            _ => (),
+                        }
+                        *http.binance_exchange_info.borrow_mut() = if p["scenario"] == "NORMAL" {
+                            None
+                        } else {
+                            Some(external)
+                        };
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                    }
+                    _ => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
                 frame.clear();
                 oversized = false;
                 continue;
@@ -1271,7 +1306,12 @@ fn main() -> io::Result<()> {
             #[cfg(feature = "integration-test")]
             if matches!(
                 command,
-                Some("data.actions.refresh" | "data.instrument.refresh" | "data.fx.refresh")
+                Some(
+                    "data.actions.refresh"
+                        | "data.instrument.refresh"
+                        | "data.fx.refresh"
+                        | "data.binance_rules.refresh"
+                )
             ) {
                 let result = tradex::financial_sources::execute_refresh(
                     &control,

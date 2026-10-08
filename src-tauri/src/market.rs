@@ -785,6 +785,7 @@ pub fn detail_with_fixture(
         corporate_actions,
         adjustment_status,
         financial_evidence: None,
+        spot_rule_evidence: None,
     })
 }
 

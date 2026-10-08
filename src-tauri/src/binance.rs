@@ -91,6 +91,17 @@ fn testnet_ip_retry_at() -> Option<(String, &'static str)> {
 }
 
 pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
+    if endpoint == ProviderEndpoint::BinanceLive
+        && matches!(
+            path,
+            "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true"
+                | "/api/v3/exchangeInfo?symbol=ETHUSDT&showPermissionSets=true"
+                | "/api/v3/executionRules?symbol=BTCUSDT"
+                | "/api/v3/executionRules?symbol=ETHUSDT"
+        )
+    {
+        return true;
+    }
     if endpoint == ProviderEndpoint::BinanceLive && path == "/sapi/v1/system/status" {
         return true;
     }
@@ -125,7 +136,9 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     ) && !(endpoint == ProviderEndpoint::BinanceLive
         && matches!(
             route,
-            "/sapi/v1/account/apiRestrictions" | "/sapi/v1/account/apiTradingStatus"
+            "/sapi/v1/account/apiRestrictions"
+                | "/sapi/v1/account/apiTradingStatus"
+                | "/api/v3/myFilters"
         ))
     {
         return false;
@@ -276,6 +289,14 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
         "/sapi/v1/account/apiRestrictions" | "/sapi/v1/account/apiTradingStatus" => {
             endpoint == ProviderEndpoint::BinanceLive && keys.is_empty()
         }
+        "/api/v3/myFilters" => {
+            endpoint == ProviderEndpoint::BinanceLive
+                && keys.len() == 1
+                && keys.contains("symbol")
+                && values
+                    .get("symbol")
+                    .is_some_and(|symbol| matches!(*symbol, "BTCUSDT" | "ETHUSDT"))
+        }
         _ => false,
     }
 }
@@ -424,7 +445,7 @@ fn signed_request(
     )
 }
 
-pub(super) fn signed_request_for(
+pub(crate) fn signed_request_for(
     endpoint: ProviderEndpoint,
     http: &impl ProviderHttp,
     method: ProviderHttpMethod,
@@ -465,6 +486,16 @@ pub(super) fn signed_request_for(
         http.request_with_rate_limit(endpoint, method, &path, headers, None)?;
     if endpoint == ProviderEndpoint::BinanceTestnet {
         observe_ip_rate_limit(response.status, rate_limit.as_ref());
+    }
+    // The signature is authentication material too. A provider reflection must
+    // not reach any caller's projection, including read-only rule evidence.
+    if response.body.len() as u64 > MAX_RESPONSE {
+        return Err(invalid());
+    }
+    if let Ok(value) = serde_json::from_slice::<Value>(&response.body)
+        && (contains_secret(&value, secrets) || contains_secret(&value, &[signed.as_str().into()]))
+    {
+        return Err(invalid());
     }
     Ok(response)
 }
@@ -3334,7 +3365,7 @@ fn validate_diagnostic_tokens(bytes: &[u8], path: &str, value: Value) -> Result<
     }
 }
 
-fn trading_status(
+pub(crate) fn trading_status(
     system: &Value,
     trading: &Value,
     sampled_server_time: u64,
@@ -3379,7 +3410,7 @@ fn trading_status(
     })
 }
 
-fn permissions(restrictions: Option<Value>) -> Result<PermissionReview> {
+pub(crate) fn permissions(restrictions: Option<Value>) -> Result<PermissionReview> {
     let mut p = PermissionReview {
         detected: vec![
             "account.read".into(),
