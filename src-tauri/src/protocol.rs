@@ -184,6 +184,7 @@ pub enum ReplyData {
     ContextCatalog(ContextCatalog),
     DataSourceCatalog(DataSourceCatalog),
     DataSourceConnection(DataSourceConnection),
+    BinanceMarketSourceConnection(BinanceMarketSourceConnection),
     CalendarConnection(CalendarConnection),
     FinancialSourceConnection(FinancialSourceConnection),
     FxRequirements(FxRequirements),
@@ -311,6 +312,7 @@ pub struct IpcSchema {
     pub data_source_query: DataSourceQuery,
     pub data_source_probe: DataSourceProbe,
     pub data_source_connection: DataSourceConnection,
+    pub binance_market_source_connection: BinanceMarketSourceConnection,
     pub calendar_connection: CalendarConnection,
     pub calendar_configure: CalendarConfigure,
     pub financial_source_connection: FinancialSourceConnection,
@@ -470,7 +472,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 36))]
+    #[schemars(range(min = 1, max = 37))]
     pub storage_schema_version: u32,
 }
 
@@ -2454,6 +2456,17 @@ pub struct DataSourceConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 128))]
     pub account_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceMarketSourceConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    pub source: DataSourceEntry,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

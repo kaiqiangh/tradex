@@ -608,7 +608,7 @@ fn catalog_and_credentialed_probe_are_scoped_and_read_only() {
         json!({"workspaceId":workspace_id}),
     );
     assert_eq!(catalog["ok"], true, "{catalog}");
-    assert_eq!(catalog["data"]["sources"].as_array().unwrap().len(), 6);
+    assert_eq!(catalog["data"]["sources"].as_array().unwrap().len(), 7);
     let version = catalog["data"]["stateVersion"].as_str().unwrap();
     let alpaca = command(
         &mut control,

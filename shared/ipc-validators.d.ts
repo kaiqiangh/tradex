@@ -68,6 +68,7 @@ declare const validators: {
   BacktestRunState: (value: unknown) => boolean;
   BacktestRunSummary: (value: unknown) => boolean;
   Balance: (value: unknown) => boolean;
+  BinanceMarketSourceConnection: (value: unknown) => boolean;
   BinanceRuleSourceConfigure: (value: unknown) => boolean;
   BinanceSpotOrderFormFlags: (value: unknown) => boolean;
   BinanceSpotSymbolStatus: (value: unknown) => boolean;

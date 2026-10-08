@@ -336,7 +336,7 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
         .execute("DROP TABLE resolution_evidence", [])
         .unwrap();
     connection
-        .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials; DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit;")
+        .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials; DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit; DROP TABLE binance_market_source_config; DROP TABLE binance_market_source_config_audit;")
         .unwrap();
     connection.pragma_update(None, "user_version", 6).unwrap();
     drop(connection);
@@ -344,7 +344,7 @@ fn schema_six_workspaces_migrate_watchlists_transactionally() {
     let mut migrated = ControlPlane::new(path);
     let opened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(opened["ok"], true, "{opened}");
-    assert_eq!(opened["data"]["storageSchemaVersion"], 36);
+    assert_eq!(opened["data"]["storageSchemaVersion"], 37);
     let listed = command(
         &mut migrated,
         "watchlist.list",
@@ -442,7 +442,7 @@ fn schema_eight_workspaces_migrate_artifacts_table() {
         .execute("DROP TABLE resolution_evidence", [])
         .unwrap();
     connection
-        .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials; DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit;")
+        .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials; DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit; DROP TABLE binance_market_source_config; DROP TABLE binance_market_source_config_audit;")
         .unwrap();
     connection.pragma_update(None, "user_version", 8).unwrap();
     drop(connection);
@@ -450,7 +450,7 @@ fn schema_eight_workspaces_migrate_artifacts_table() {
     let mut migrated = ControlPlane::new(path);
     let reopened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
-    assert_eq!(reopened["data"]["storageSchemaVersion"], 36);
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 37);
     let artifacts = command(
         &mut migrated,
         "artifact.list",

@@ -3056,6 +3056,12 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 `orderFormFlags` 保留可空原始布尔 `icebergAllowed`、`ocoAllowed`、`otoAllowed`、`opoAllowed`、`allowTrailingStop`、`cancelReplaceAllowed`、`amendAllowed` 和 `pegInstructionsAllowed`。缺失/null 保留为未观察（`ORDER_FORM_FLAGS_UNOBSERVED`）；提供的类型畸形则采集失败。`ADVANCED_ORDER_FORMS_UNSUPPORTED` 明确保留 TradeX Market/Limit 意图边界：提供方支持不能启用冰山、追踪、列表、撤单替换、改单或挂钩订单。空外层或内层权限集合属于未填充证据，采集失败，绝不隐含成功成员判断。
 
+### 41.43 Binance 普通公开 Spot 行情来源选择（S29.3 #124，IN_PROGRESS）
+
+`data.binance_market.connection {workspaceId}`、`data.binance_market.configure {workspaceId, expectedStateVersion}` 和 `data.binance_market.disconnect {workspaceId, expectedStateVersion}` 返回类型化 `BinanceMarketSourceConnection {workspaceId, stateVersion, configured, source: DataSourceEntry}`。元数据命令须可信 main 消费者（沿用 feature-gated 验证 stdio，仅集成构建允许），绝不读取 HTTP/WS 或凭据。来源 ID `BINANCE_SPOT_PUBLIC` 与 OD-001/Alpaca、执行密钥分开；目标覆盖仅 canonical BTC/USDT、ETH/USDT。SQLite schema37 增加版本化配置/审计，保留 schema36 规则选择和更早历史，重开只恢复选择。选择/断开此来源不得恢复历史合成 crypto 权威。
+
+配置选择仍为 UNVERIFIED，直到所属连续 Hot 生产者提供真实证据。来源目录记录公开技术访问、实时目标、临时内存，以及明确未验证的保留/再分发/商业/用户地区权利，官方/条款 URL 审阅于2026-10-08。公开读取/勾选不授予权利、Arm 或审批。完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)；生产者实现和 #124 验收仍 IN_PROGRESS。本段元数据不证明运行时报价、普通原生/提供方/金融验收或父项关闭。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

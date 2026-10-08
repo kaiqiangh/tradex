@@ -63,7 +63,7 @@ use crate::providers::{
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 36;
+pub(crate) const SCHEMA_VERSION: u32 = 37;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -1009,6 +1009,9 @@ impl Store {
                     ALTER TABLE financial_source_config_audit_v36 RENAME TO financial_source_config_audit;
                     PRAGMA user_version=36;").map_err(storage_error)?;
             }
+            if version < 37 {
+                tx.execute_batch("CREATE TABLE binance_market_source_config (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE binance_market_source_config_audit (generation INTEGER PRIMARY KEY CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL); PRAGMA user_version=37;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         connection
@@ -1142,6 +1145,52 @@ impl Store {
         tx.execute("INSERT INTO calendar_source_config VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,projection=excluded.projection",params![saved.generation as i64,encoded]).map_err(storage_error)?;
         tx.execute(
             "INSERT INTO calendar_source_config_audit VALUES(?1,?2,?3)",
+            params![saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub(crate) fn binance_market_source(&self) -> Result<crate::binance_market::SavedMarketSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM binance_market_source_config WHERE singleton=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::binance_market::SavedMarketSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        if generation <= 0 || saved.generation != generation as u64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        saved.validate()?;
+        Ok(saved)
+    }
+
+    pub(crate) fn save_binance_market_source(
+        &mut self,
+        mut saved: crate::binance_market::SavedMarketSource,
+    ) -> Result<()> {
+        let prior = self.binance_market_source()?;
+        if saved.generation != prior.generation || saved.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.generation += 1;
+        saved.validate()?;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        tx.execute("INSERT INTO binance_market_source_config VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,projection=excluded.projection", params![saved.generation as i64, encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO binance_market_source_config_audit VALUES(?1,?2,?3)",
             params![saved.generation as i64, timestamp()?, encoded],
         )
         .map_err(storage_error)?;

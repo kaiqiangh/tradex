@@ -29,7 +29,7 @@ const SEC_RATE_LIMIT: usize = 10;
 static SEC_REQUESTS: OnceLock<Mutex<VecDeque<Instant>>> = OnceLock::new();
 
 pub fn entries() -> Vec<DataSourceEntry> {
-    vec![
+    let mut sources = vec![
         DataSourceEntry {
             source_id: "OD-001".into(),
             provider: "Alpaca Market Data API".into(),
@@ -162,7 +162,9 @@ pub fn entries() -> Vec<DataSourceEntry> {
             verified_at: None,
             availability_reason: "Public EXR endpoint has not been probed in this workspace.".into(),
         },
-    ]
+    ];
+    sources.push(crate::binance_market::policy());
+    sources
 }
 
 pub fn probe(source_id: &str, mut source: DataSourceEntry) -> Result<DataSourceEntry> {
@@ -569,13 +571,21 @@ mod tests {
     #[test]
     fn policy_covers_each_open_decision_without_secrets() {
         let sources = entries();
-        assert_eq!(sources.len(), 6);
+        assert_eq!(sources.len(), 7);
         assert_eq!(
             sources
                 .iter()
                 .map(|source| source.source_id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["OD-001", "OD-002", "OD-003", "OD-004", "OD-005", "OD-006"]
+            vec![
+                "OD-001",
+                "OD-002",
+                "OD-003",
+                "OD-004",
+                "OD-005",
+                "OD-006",
+                "BINANCE_SPOT_PUBLIC"
+            ]
         );
         let encoded = serde_json::to_string(&sources).unwrap();
         assert!(!encoded.contains("secret"));

@@ -575,6 +575,11 @@ export type BacktestFixtureScenario =
   | "DATASET_HASH_MISMATCH";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceProbeKind".
+ */
+export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BinanceTestnetOrderOrigin".
  */
 export type BinanceTestnetOrderOrigin = "TRADE_X" | "EXTERNAL";
@@ -971,6 +976,7 @@ export type ReplyData =
   | ContextCatalog
   | DataSourceCatalog
   | DataSourceConnection
+  | BinanceMarketSourceConnection
   | CalendarConnection
   | FinancialSourceConnection
   | FxRequirements
@@ -1036,11 +1042,6 @@ export type ToolId =
   | "historical_simulation"
   | "paper_demo_testnet_execution"
   | "live_order_proposal";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceProbeKind".
- */
-export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FxFreshness".
@@ -1178,6 +1179,7 @@ export interface IpcSchema {
   backtestRunQuery: BacktestRunQuery;
   backtestRunRequest: BacktestRunRequest;
   backtestRunSummary: BacktestRunSummary;
+  binanceMarketSourceConnection: BinanceMarketSourceConnection;
   binanceRuleSourceConfigure: BinanceRuleSourceConfigure;
   binanceTestnetBalance: BinanceTestnetBalance;
   binanceTestnetFill: BinanceTestnetFill;
@@ -3462,6 +3464,54 @@ export interface BacktestRunRequest {
   startingCash: string;
   strategyVersionId: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceMarketSourceConnection".
+ */
+export interface BinanceMarketSourceConnection {
+  configured: boolean;
+  source: DataSourceEntry;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceEntry".
+ */
+export interface DataSourceEntry {
+  availabilityReason: string;
+  /**
+   * @maxItems 8
+   */
+  capabilities:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  checkedAt?: string;
+  commercialUse: string;
+  configured: boolean;
+  coverage: string;
+  entitlement: string;
+  jurisdictions: string;
+  latency: string;
+  observedAt?: string;
+  officialUrl: string;
+  probeKind: DataSourceProbeKind;
+  provider: string;
+  redistribution: string;
+  retention: string;
+  reviewedAt: string;
+  sourceId: string;
+  status: DataSourceStatus;
+  termsUrl: string;
+  verifiedAt?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -5978,44 +6028,6 @@ export interface DataSourceCatalog {
       ];
   stateVersion: string;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceEntry".
- */
-export interface DataSourceEntry {
-  availabilityReason: string;
-  /**
-   * @maxItems 8
-   */
-  capabilities:
-    | []
-    | [string]
-    | [string, string]
-    | [string, string, string]
-    | [string, string, string, string]
-    | [string, string, string, string, string]
-    | [string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string, string];
-  checkedAt?: string;
-  commercialUse: string;
-  configured: boolean;
-  coverage: string;
-  entitlement: string;
-  jurisdictions: string;
-  latency: string;
-  observedAt?: string;
-  officialUrl: string;
-  probeKind: DataSourceProbeKind;
-  provider: string;
-  redistribution: string;
-  retention: string;
-  reviewedAt: string;
-  sourceId: string;
-  status: DataSourceStatus;
-  termsUrl: string;
-  verifiedAt?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

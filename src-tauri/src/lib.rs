@@ -4,6 +4,7 @@ extern crate self as tradex;
 #[cfg(target_os = "macos")]
 pub mod alpaca_stream;
 pub mod backtest;
+pub mod binance_market;
 #[cfg(target_os = "macos")]
 pub mod binance_stream;
 pub mod calendar_source;
@@ -4560,6 +4561,9 @@ impl ControlPlane {
                 let requirements = financial_sources::fx_requirements(self, &input)?;
                 Ok((json!(requirements), None))
             }
+            "data.binance_market.connection"
+            | "data.binance_market.configure"
+            | "data.binance_market.disconnect" => binance_market::metadata(self, request, consumer),
             "data.source.connection" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -7519,6 +7523,14 @@ impl ControlPlane {
         data_sources::entries()
             .into_iter()
             .map(|source| {
+                if source.source_id == binance_market::SOURCE_ID {
+                    return binance_market::connection(self, workspace_id).map(|connection| connection.source).unwrap_or_else(|_| {
+                        let mut unavailable = source;
+                        unavailable.status = protocol::DataSourceStatus::Unavailable;
+                        unavailable.availability_reason = "The saved public Spot source could not be read. Reopen or repair the workspace; no quote authority is available.".into();
+                        unavailable
+                    });
+                }
                 if source.source_id == "OD-001" {
                     return quote_source::configured_entry(self, workspace_id).unwrap_or_else(|_| {
                         let mut unavailable=source;
@@ -7658,7 +7670,8 @@ impl ControlPlane {
         let financial_selected = (input.instrument_id.starts_with("equity:")
             && financial_sources::selected_once(self)?)
             || (input.instrument_id.starts_with("crypto:")
-                && financial_sources::spot_rules_selected_once(self)?);
+                && (financial_sources::spot_rules_selected_once(self)?
+                    || binance_market::selected_once(self)?));
         let mut detail = market::detail_with_fixture(
             &input,
             source,
@@ -7688,7 +7701,8 @@ impl ControlPlane {
             };
             if live_provider_id(&proposal.fields.environment).is_some()
                 && !(input.instrument_id.starts_with("crypto:")
-                    && financial_sources::spot_rules_selected_once(self)?)
+                    && (financial_sources::spot_rules_selected_once(self)?
+                        || binance_market::selected_once(self)?))
                 && !(input.instrument_id.starts_with("equity:")
                     && financial_sources::selected_once(self)?)
                 && self

@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.70s
+     Running tests/binance_market.rs (target/debug/deps/binance_market-b27d17916223a904)
+
+running 1 test
+test public_spot_market_selection_is_versioned_metadata_without_trading_credentials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+

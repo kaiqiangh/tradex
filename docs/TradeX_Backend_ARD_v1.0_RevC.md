@@ -3056,6 +3056,12 @@ Individual remaining duties name price/quantity grids, notional/market reference
 
 `orderFormFlags` preserves nullable original booleans `icebergAllowed`, `ocoAllowed`, `otoAllowed`, `opoAllowed`, `allowTrailingStop`, `cancelReplaceAllowed`, `amendAllowed` and `pegInstructionsAllowed`. Missing/null values remain unobserved (`ORDER_FORM_FLAGS_UNOBSERVED`); malformed supplied types fail collection. `ADVANCED_ORDER_FORMS_UNSUPPORTED` explicitly preserves the TradeX Market/Limit intent boundary: provider support cannot enable iceberg, trailing, lists, cancel-replace, amend or peg. Empty outer or inner permission sets are unpopulated evidence and fail collection; they never imply successful membership.
 
+### 41.43 Binance ordinary public Spot market-source selection (S29.3 #124, IN_PROGRESS)
+
+`data.binance_market.connection {workspaceId}`, `data.binance_market.configure {workspaceId, expectedStateVersion}` and `data.binance_market.disconnect {workspaceId, expectedStateVersion}` return typed `BinanceMarketSourceConnection {workspaceId, stateVersion, configured, source: DataSourceEntry}`. These metadata commands require the trusted main consumer (existing feature-gated verification stdio is allowed only in integration builds) and never read HTTP/WS or credentials. Source ID `BINANCE_SPOT_PUBLIC` is separate from OD-001/Alpaca and execution keys; only canonical BTC/USDT and ETH/USDT are target coverage. SQLite schema37 adds versioned configuration/audit records, preserves schema36 rule selections and earlier history, and restores only selection after reopen. Selecting/disconnecting this source must not restore legacy synthetic crypto authority.
+
+Configured selection remains UNVERIFIED until its owning continuous Hot producer supplies actual evidence. The source registry records technical public access, realtime target, ephemeral memory, explicit unverified retention/redistribution/commercial/user-region rights and official/terms URLs reviewed2026-10-08. No public read/checkbox grants those rights, Arm or approval. The full Hot/continuous-depth/consumer/UI contract is [the paired source specification](implementation/s29-binance-hot-source-spec.md); producer implementation and #124 acceptance remain IN_PROGRESS. This metadata paragraph does not establish runtime quote, ordinary-native/provider/financial acceptance or parent closure.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:

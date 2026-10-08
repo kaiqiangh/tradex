@@ -127,6 +127,9 @@
     "backtestRunSummary": {
       "$ref": "#/$defs/BacktestRunSummary"
     },
+    "binanceMarketSourceConnection": {
+      "$ref": "#/$defs/BinanceMarketSourceConnection"
+    },
     "binanceRuleSourceConfigure": {
       "$ref": "#/$defs/BinanceRuleSourceConfigure"
     },
@@ -607,6 +610,7 @@
     "dataSourceQuery",
     "dataSourceProbe",
     "dataSourceConnection",
+    "binanceMarketSourceConnection",
     "calendarConnection",
     "calendarConfigure",
     "financialSourceConnection",
@@ -3598,6 +3602,34 @@
       "required": [
         "asset",
         "available"
+      ]
+    },
+    "BinanceMarketSourceConnection": {
+      "type": "object",
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/DataSourceEntry"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "configured",
+        "source"
       ]
     },
     "BinanceRuleSourceConfigure": {
@@ -13255,6 +13287,9 @@
           "$ref": "#/$defs/DataSourceConnection"
         },
         {
+          "$ref": "#/$defs/BinanceMarketSourceConnection"
+        },
+        {
           "$ref": "#/$defs/CalendarConnection"
         },
         {
@@ -18646,7 +18681,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 36,
+          "maximum": 37,
           "minimum": 1
         },
         "workspaceId": {

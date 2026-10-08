@@ -3443,12 +3443,12 @@ fn schema_34_source_selections_survive_fx_migration_and_metadata_reopen() {
         DROP TABLE financial_source_config_audit;
         ALTER TABLE financial_source_config_old RENAME TO financial_source_config;
         ALTER TABLE financial_source_config_audit_old RENAME TO financial_source_config_audit;
-        PRAGMA user_version=34; COMMIT;").unwrap();
+        DROP TABLE binance_market_source_config; DROP TABLE binance_market_source_config_audit; PRAGMA user_version=34; COMMIT;").unwrap();
     drop(database);
     let mut reopened = ControlPlane::new(path);
     let opened = command(&mut reopened, "workspace.open", json!({}));
     assert_eq!(opened["ok"], true, "{opened}");
-    assert_eq!(opened["data"]["storageSchemaVersion"], 36);
+    assert_eq!(opened["data"]["storageSchemaVersion"], 37);
     let retained = command(
         &mut reopened,
         "data.actions.connection",
