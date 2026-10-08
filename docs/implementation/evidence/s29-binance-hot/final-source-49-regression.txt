@@ -1,0 +1,347 @@
+npm notice run tradex@0.1.0 test:binance-hot
+npm notice run node scripts/test-binance-hot.mjs
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.55s
+Scenario 1/49: a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect
+
+running 1 test
+test a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.22s
+
+Scenario 2/49: a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable
+
+running 1 test
+test a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 3/49: a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation
+
+running 1 test
+test a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.14s
+
+Scenario 4/49: a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection
+
+running 1 test
+test a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.67s
+
+Scenario 5/49: a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting
+
+running 1 test
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.67s
+
+Scenario 6/49: a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason
+
+running 1 test
+test a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.13s
+
+Scenario 7/49: an_oversized_actual_websocket_frame_retires_good_depth_before_rebootstrap
+
+running 1 test
+test an_oversized_actual_websocket_frame_retires_good_depth_before_rebootstrap ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.19s
+
+Scenario 8/49: authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade
+
+running 1 test
+test authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 9/49: bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit
+
+running 1 test
+test bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.19s
+
+Scenario 10/49: bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source
+
+running 1 test
+test bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.61s
+
+Scenario 11/49: cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried
+
+running 1 test
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 12/49: captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references
+
+running 1 test
+test captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.49s
+
+Scenario 13/49: configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials
+
+running 1 test
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.07s
+
+Scenario 14/49: current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.48s
+
+Scenario 15/49: current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs
+
+running 1 test
+test current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.48s
+
+Scenario 16/49: current_symbol_break_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_symbol_break_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 17/49: current_symbol_halt_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_symbol_halt_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 18/49: current_system_maintenance_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_system_maintenance_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 19/49: displayed_spot_base_liquidity_qualifies_only_its_own_exact_side_size_check
+
+running 1 test
+test displayed_spot_base_liquidity_qualifies_only_its_own_exact_side_size_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 20/49: eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity
+
+running 1 test
+test eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 21/49: exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority
+
+running 1 test
+test exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 22/49: exact_spot_spread_comparison_and_missing_last_trade_reference_remain_separate
+
+running 1 test
+test exact_spot_spread_comparison_and_missing_last_trade_reference_remain_separate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 23/49: financial_quote_ttl_is_stricter_than_collection_age_and_cached_reads_cannot_renew_it
+
+running 1 test
+test financial_quote_ttl_is_stricter_than_collection_age_and_cached_reads_cannot_renew_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.50s
+
+Scenario 24/49: five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating
+
+running 1 test
+test five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.71s
+
+Scenario 25/49: http_redirects_never_follow_an_untrusted_source_path
+
+running 1 test
+test http_redirects_never_follow_an_untrusted_source_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 2.69s
+
+Scenario 26/49: http_source_denial_stops_without_retry_or_fallback
+
+running 1 test
+test http_source_denial_stops_without_retry_or_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.30s
+
+Scenario 27/49: material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity
+
+running 1 test
+test material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.67s
+
+Scenario 28/49: obsolete_update_ids_do_not_hide_malformed_original_depth_values
+
+running 1 test
+test obsolete_update_ids_do_not_hide_malformed_original_depth_values ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.51s
+
+Scenario 29/49: original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material
+
+running 1 test
+test original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 3.03s
+
+Scenario 30/49: other_symbol_rules_and_expired_rule_receipts_cannot_qualify_spot_admission
+
+running 1 test
+test other_symbol_rules_and_expired_rule_receipts_cannot_qualify_spot_admission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 31/49: overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material
+
+running 1 test
+test overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.10s
+
+Scenario 32/49: planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap
+
+running 1 test
+test planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 1.54s
+
+Scenario 33/49: protected_market_digest_keeps_unchanged_material_and_retires_on_depth_or_source_change
+
+running 1 test
+test protected_market_digest_keeps_unchanged_material_and_retires_on_depth_or_source_change ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.87s
+
+Scenario 34/49: provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom
+
+running 1 test
+test provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.48s
+
+Scenario 35/49: public_depth_provenance_binds_runtime_scope_and_bounded_known_material
+
+running 1 test
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.67s
+
+Scenario 36/49: public_http_ban_stops_and_its_shared_cooldown_survives_source_replacement
+
+running 1 test
+test public_http_ban_stops_and_its_shared_cooldown_survives_source_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.69s
+
+Scenario 37/49: public_http_rate_limit_stops_and_its_shared_cooldown_survives_source_replacement
+
+running 1 test
+test public_http_rate_limit_stops_and_its_shared_cooldown_survives_source_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.68s
+
+Scenario 38/49: public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes
+
+running 1 test
+test public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.48s
+
+Scenario 39/49: real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key
+
+running 1 test
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 40/49: repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability
+
+running 1 test
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 3.48s
+
+Scenario 41/49: selected_public_spot_source_is_explicit_in_current_and_retired_market_details
+
+running 1 test
+test selected_public_spot_source_is_explicit_in_current_and_retired_market_details ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 42/49: session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition
+
+running 1 test
+test session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 3.59s
+
+Scenario 43/49: skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection
+
+running 1 test
+test skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.78s
+
+Scenario 44/49: snapshot_original_id_types_and_per_side_capacity_never_become_quote_authority
+
+running 1 test
+test snapshot_original_id_types_and_per_side_capacity_never_become_quote_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 10.98s
+
+Scenario 45/49: source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease
+
+running 1 test
+test source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.89s
+
+Scenario 46/49: spot_admission_retires_when_the_public_account_refresh_changes_its_binding
+
+running 1 test
+test spot_admission_retires_when_the_public_account_refresh_changes_its_binding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.48s
+
+Scenario 47/49: stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io
+
+running 1 test
+test stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+Scenario 48/49: unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts
+
+running 1 test
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.67s
+
+Scenario 49/49: unsatisfied_account_permission_sets_reject_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test unsatisfied_account_permission_sets_reject_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.47s
+
+PASS: 49 Binance Hot scenarios, serial isolated processes
