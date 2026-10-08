@@ -45,6 +45,7 @@ impl BinanceStreamConnector {
         if parsed.path() != path {
             return Err(TradeXError::new("DATA_SOURCE_FEED_DENIED"));
         }
+        crate::provider_io::binance_read_budget::reserve_stream_connection()?;
         crate::quote_source::transport::connect(&url, 524_288, current)
     }
 }
@@ -208,6 +209,7 @@ impl Job {
                     | "PROVIDER_STREAM_GAP"
                     | "PROVIDER_RESPONSE_INVALID"
                     | "PROVIDER_BACKPRESSURE"
+                    | "PROVIDER_STREAM_SHUTDOWN"
             );
             if !retryable || attempt >= 3 {
                 let _ = self.transition(HotQuoteStatus::Failed,&format!("Continuous Spot book unavailable ({}). Retry the selected source; retained observations are unavailable.",error.code));
@@ -443,24 +445,40 @@ impl Job {
             .ok_or_else(|| TradeXError::new("PROVIDER_BACKPRESSURE"))?;
         Ok(())
     }
-    fn run_connection(&mut self, stop: &AtomicBool) -> Result<()> {
+    fn run_connection(&self, stop: &AtomicBool) -> Result<()> {
         if !self.current(stop) {
             return Ok(());
         }
+        let deadline = Instant::now() + Duration::from_secs(10);
         let mut socket = self
             .connector
             .connect(self.symbol, &|| self.current(stop))?;
+        let ready = AtomicBool::new(false);
+        crate::quote_source::transport::guarded_read(
+            &mut socket,
+            &|| self.current(stop) && (ready.load(Ordering::Acquire) || Instant::now() < deadline),
+            |socket| self.read_connection(socket, stop, deadline, &ready),
+        )
+    }
+    fn read_connection(
+        &self,
+        socket: &mut crate::quote_source::transport::Socket,
+        stop: &AtomicBool,
+        deadline: Instant,
+        ready: &AtomicBool,
+    ) -> Result<()> {
         self.transition(
             HotQuoteStatus::AwaitingQuote,
             "Public stream connected; awaiting verified snapshot and depth continuity.",
         )?;
-        let deadline = Instant::now() + Duration::from_secs(10);
         let mut receiver: Option<std::sync::mpsc::Receiver<Result<Vec<u8>>>> = None;
         let mut book: Option<super::book::Book> = None;
         let mut candidate: Option<super::book::Book> = None;
+        let mut resnapshot_used = false;
         let mut buffer: std::collections::VecDeque<(super::book::Event, String, Instant, usize)> =
             std::collections::VecDeque::new();
         let mut buffered_bytes = 0usize;
+        let mut controls = std::collections::VecDeque::<Instant>::new();
         while self.current(stop) {
             if book.is_none() && Instant::now() > deadline {
                 return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
@@ -486,7 +504,16 @@ impl Job {
                 }
                 if let Some((first, _, _, _)) = buffer.front() {
                     if !pending.bridge(first) {
-                        return Err(TradeXError::new("PROVIDER_STREAM_GAP"));
+                        if resnapshot_used {
+                            return Err(TradeXError::new("PROVIDER_STREAM_GAP"));
+                        }
+                        // A REST snapshot may lag an already-buffering stream.
+                        // Keep those original frames/receipts and reread once,
+                        // under the same total bootstrap deadline and budgets.
+                        resnapshot_used = true;
+                        candidate = None;
+                        receiver = Some(self.snapshot_job());
+                        continue;
                     }
                     let mut published = false;
                     while let Some((event, receipt, received, bytes)) = buffer.pop_front() {
@@ -502,6 +529,7 @@ impl Job {
                         }
                     }
                     book = candidate.take();
+                    ready.store(true, Ordering::Release);
                 }
             }
             match socket.read() {
@@ -518,7 +546,14 @@ impl Job {
                             Instant::now(),
                         )
                     };
-                    let event = super::book::Event::parse(text.as_bytes(), self.symbol)?;
+                    let event = match super::book::StreamEvent::parse(text.as_bytes(), self.symbol)?
+                    {
+                        super::book::StreamEvent::Depth(event) => event,
+                        super::book::StreamEvent::Shutdown(time) => {
+                            provider_time(time, &receipt)?;
+                            return Err(TradeXError::new("PROVIDER_STREAM_SHUTDOWN"));
+                        }
+                    };
                     provider_time(event.time, &receipt)?;
                     if let Some(book) = book.as_mut() {
                         let time = event.time;
@@ -541,6 +576,19 @@ impl Job {
                     }
                 }
                 Ok(tungstenite::Message::Ping(payload)) => {
+                    let now = Instant::now();
+                    while controls.front().is_some_and(|at| {
+                        now.saturating_duration_since(*at) >= Duration::from_secs(1)
+                    }) {
+                        controls.pop_front();
+                    }
+                    // Reserve one of the provider's five controls/second. Raw
+                    // exact-symbol subscriptions send no JSON controls. Stop
+                    // before flushing a queued automatic Pong over this limit.
+                    if controls.len() >= 4 {
+                        return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+                    }
+                    controls.push_back(now);
                     socket
                         .send(tungstenite::Message::Pong(payload))
                         .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;

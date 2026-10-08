@@ -59,17 +59,24 @@ struct RawSnapshot {
     asks: Vec<(String, String)>,
 }
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RawEvent {
-    pub e: String,
-    #[serde(rename = "E")]
-    pub time: i64,
-    pub s: String,
-    #[serde(rename = "U")]
-    pub first: i64,
-    pub u: i64,
-    b: Vec<(String, String)>,
-    a: Vec<(String, String)>,
+#[serde(tag = "e", deny_unknown_fields)]
+enum RawEvent {
+    #[serde(rename = "depthUpdate")]
+    Depth {
+        #[serde(rename = "E")]
+        time: i64,
+        s: String,
+        #[serde(rename = "U")]
+        first: i64,
+        u: i64,
+        b: Vec<(String, String)>,
+        a: Vec<(String, String)>,
+    },
+    #[serde(rename = "serverShutdown")]
+    Shutdown {
+        #[serde(rename = "E")]
+        time: i64,
+    },
 }
 pub(super) struct Event {
     pub time: i64,
@@ -78,27 +85,34 @@ pub(super) struct Event {
     b: Vec<(Price, String)>,
     a: Vec<(Price, String)>,
 }
-impl Event {
+pub(super) enum StreamEvent {
+    Depth(Event),
+    Shutdown(i64),
+}
+impl StreamEvent {
     pub(super) fn parse(bytes: &[u8], symbol: &str) -> Result<Self> {
         if bytes.len() > 524_288 {
             return Err(invalid());
         }
         let event: RawEvent = strict_json(bytes)?;
-        if event.e != "depthUpdate"
-            || event.s != symbol
-            || event.time <= 0
-            || event.first <= 0
-            || event.u < event.first
-        {
-            return Err(invalid());
+        match event {
+            RawEvent::Shutdown { time } if time > 0 => Ok(Self::Shutdown(time)),
+            RawEvent::Depth {
+                time,
+                s,
+                first,
+                u,
+                b,
+                a,
+            } if s == symbol && time > 0 && first > 0 && u >= first => Ok(Self::Depth(Event {
+                time,
+                first,
+                u,
+                b: levels(b, true, 5000)?,
+                a: levels(a, true, 5000)?,
+            })),
+            _ => Err(invalid()),
         }
-        Ok(Self {
-            time: event.time,
-            first: event.first,
-            u: event.u,
-            b: levels(event.b, true, 5000)?,
-            a: levels(event.a, true, 5000)?,
-        })
     }
 }
 pub(super) struct Book {

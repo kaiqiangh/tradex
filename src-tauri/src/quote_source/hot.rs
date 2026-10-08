@@ -581,285 +581,289 @@ fn run_connection(job: &Job, stop: &AtomicBool) -> Result<()> {
             })?;
         socket = Some(connected);
         let socket = socket.as_mut().unwrap();
-        if !current(&job, stop) {
-            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-        }
-        transition(
-            &job,
-            HotQuoteStatus::Authenticating,
-            false,
-            false,
-            "Waiting for provider authentication confirmation.",
-        )?;
-        let authentication =
-            Zeroizing::new(json!({"action":"auth","key":values[0],"secret":values[1]}).to_string());
-        socket
-            .send(Message::text(authentication.as_str()))
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        let symbol = job
-            .lease
-            .instrument
-            .providers
-            .iter()
-            .find(|p| p.provider_id == "alpaca")
-            .ok_or_else(|| TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"))?
-            .provider_symbol
-            .clone();
-        let mut authenticated = false;
-        let mut subscribed = false;
-        let mut deadline = Instant::now() + Duration::from_secs(10);
-        let mut ping_at = Instant::now();
-        let mut pending_ping: Option<(Instant, Vec<u8>)> = None;
-        let mut dictionaries = None;
-        while current(&job, stop) {
-            if !subscribed && Instant::now() > deadline {
-                return Err(TradeXError::new("PROVIDER_AUTH_TIMEOUT"));
+        super::transport::guarded_read(socket, &|| current(job, stop), |socket| {
+            if !current(&job, stop) {
+                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
-            if pending_ping
-                .as_ref()
-                .is_some_and(|(deadline, _)| Instant::now() > *deadline)
-            {
-                return Err(TradeXError::new("PROVIDER_STREAM_STALE"));
-            }
-            if ping_at.elapsed() > Duration::from_secs(20) && pending_ping.is_none() {
-                let nonce = uuid::Uuid::new_v4().as_bytes().to_vec();
-                socket
-                    .send(Message::Ping(nonce.clone().into()))
-                    .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-                pending_ping = Some((Instant::now() + Duration::from_secs(10), nonce));
-                ping_at = Instant::now();
-            }
-            let message = match socket.read() {
-                Ok(message) => message,
-                Err(tungstenite::Error::Io(error))
-                    if matches!(
-                        error.kind(),
-                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                    ) =>
+            transition(
+                &job,
+                HotQuoteStatus::Authenticating,
+                false,
+                false,
+                "Waiting for provider authentication confirmation.",
+            )?;
+            let authentication = Zeroizing::new(
+                json!({"action":"auth","key":values[0],"secret":values[1]}).to_string(),
+            );
+            socket
+                .send(Message::text(authentication.as_str()))
+                .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+            let symbol = job
+                .lease
+                .instrument
+                .providers
+                .iter()
+                .find(|p| p.provider_id == "alpaca")
+                .ok_or_else(|| TradeXError::new("MARKET_INSTRUMENT_NOT_FOUND"))?
+                .provider_symbol
+                .clone();
+            let mut authenticated = false;
+            let mut subscribed = false;
+            let mut deadline = Instant::now() + Duration::from_secs(10);
+            let mut ping_at = Instant::now();
+            let mut pending_ping: Option<(Instant, Vec<u8>)> = None;
+            let mut dictionaries = None;
+            while current(&job, stop) {
+                if !subscribed && Instant::now() > deadline {
+                    return Err(TradeXError::new("PROVIDER_AUTH_TIMEOUT"));
+                }
+                if pending_ping
+                    .as_ref()
+                    .is_some_and(|(deadline, _)| Instant::now() > *deadline)
                 {
-                    continue;
+                    return Err(TradeXError::new("PROVIDER_STREAM_STALE"));
                 }
-                Err(
-                    tungstenite::Error::Capacity(_)
-                    | tungstenite::Error::Protocol(_)
-                    | tungstenite::Error::Utf8(_)
-                    | tungstenite::Error::AttackAttempt,
-                ) => return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID")),
-                Err(tungstenite::Error::WriteBufferFull(_)) => {
-                    return Err(TradeXError::new("PROVIDER_BACKPRESSURE"));
-                }
-                Err(_) => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
-            };
-            let text = match message {
-                Message::Text(text) => text,
-                Message::Ping(bytes) => {
+                if ping_at.elapsed() > Duration::from_secs(20) && pending_ping.is_none() {
+                    let nonce = uuid::Uuid::new_v4().as_bytes().to_vec();
                     socket
-                        .send(Message::Pong(bytes))
+                        .send(Message::Ping(nonce.clone().into()))
                         .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-                    continue;
+                    pending_ping = Some((Instant::now() + Duration::from_secs(10), nonce));
+                    ping_at = Instant::now();
                 }
-                Message::Pong(bytes) => {
-                    if pending_ping
-                        .as_ref()
-                        .is_some_and(|(_, nonce)| nonce.as_slice() == bytes.as_ref())
+                let message = match socket.read() {
+                    Ok(message) => message,
+                    Err(tungstenite::Error::Io(error))
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                        ) =>
                     {
-                        pending_ping = None;
+                        continue;
                     }
-                    continue;
-                }
-                Message::Close(_) => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
-                _ => return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID")),
-            };
-            let received = job
-                .control
-                .lock()
-                .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?
-                .time
-                .status(&job.lease.binding.workspace_id)?;
-            let raw_frames: Vec<Box<serde_json::value::RawValue>> = serde_json::from_str(&text)
-                .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
-            let value: Value = serde_json::from_str(&text)
-                .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
-            let frames = value
-                .as_array()
-                .filter(|frames| !frames.is_empty() && frames.len() <= 64)
-                .ok_or_else(|| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
-            if frames.len() != 1
-                && frames.iter().any(|frame| {
-                    matches!(
-                        frame["T"].as_str(),
-                        Some("success" | "subscription" | "error")
-                    )
-                })
-            {
-                return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
-            }
-            for (frame, raw_frame) in frames.iter().zip(&raw_frames) {
-                match frame["T"].as_str() {
-                    Some("success") if frame["msg"] == "connected" && !authenticated => (),
-                    Some("success") if frame["msg"] == "authenticated" && !authenticated => {
-                        authenticated = true;
-                        deadline = Instant::now() + Duration::from_secs(10);
-                        transition(
-                            &job,
-                            HotQuoteStatus::Subscribing,
-                            true,
-                            false,
-                            "Authenticated; waiting for complete quote subscription confirmation.",
-                        )?;
+                    Err(
+                        tungstenite::Error::Capacity(_)
+                        | tungstenite::Error::Protocol(_)
+                        | tungstenite::Error::Utf8(_)
+                        | tungstenite::Error::AttackAttempt,
+                    ) => return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID")),
+                    Err(tungstenite::Error::WriteBufferFull(_)) => {
+                        return Err(TradeXError::new("PROVIDER_BACKPRESSURE"));
+                    }
+                    Err(_) => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
+                };
+                let text = match message {
+                    Message::Text(text) => text,
+                    Message::Ping(bytes) => {
                         socket
-                            .send(Message::text(
-                                json!({"action":"subscribe","quotes":[symbol]}).to_string(),
-                            ))
+                            .send(Message::Pong(bytes))
                             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+                        continue;
                     }
-                    Some("subscription") if authenticated => {
-                        if frame["quotes"] != json!([symbol])
-                            || frame.as_object().is_none_or(|fields| {
-                                fields.iter().any(|(field, items)| {
-                                    !matches!(field.as_str(), "T" | "quotes")
-                                        && (!matches!(
-                                            field.as_str(),
-                                            "trades"
-                                                | "bars"
-                                                | "updatedBars"
-                                                | "dailyBars"
-                                                | "statuses"
-                                                | "lulds"
-                                                | "corrections"
-                                                | "cancelErrors"
-                                        ) || items
-                                            .as_array()
-                                            .is_none_or(|items| !items.is_empty()))
-                                })
-                            })
+                    Message::Pong(bytes) => {
+                        if pending_ping
+                            .as_ref()
+                            .is_some_and(|(_, nonce)| nonce.as_slice() == bytes.as_ref())
                         {
-                            return Err(TradeXError::new("PROVIDER_SUBSCRIPTION_INVALID"));
+                            pending_ping = None;
                         }
-                        subscribed = true;
-                        transition(
-                            &job,
-                            HotQuoteStatus::AwaitingQuote,
-                            true,
-                            true,
-                            "Subscription confirmed; waiting for an actual provider quote.",
-                        )?;
+                        continue;
                     }
-                    Some("q") if authenticated && subscribed => {
-                        if frame["S"] != symbol {
-                            return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
-                        }
-                        validate_quote_numeric_tokens(raw_frame.get().as_bytes())?;
-                        let body = serde_json::to_vec(&json!({"quotes":{symbol.clone():frame}}))
-                            .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
-                        let quote = parse_latest_response(&body, &symbol)?;
-                        if quote.tape != "C"
-                            || job.lease.instrument.exchange.as_deref() != Some("XNAS")
-                        {
-                            return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
-                        }
-                        if dictionaries.is_none() {
-                            let live = || current(&job, stop);
-                            let shared = SharedHttp(job.http.clone());
-                            let http = crate::provider_io::p3_provider_http(
-                                &shared,
-                                &live,
-                                job.lease.binding.reference.as_deref().unwrap(),
-                            );
-                            let headers = source_headers(&credentials)?;
-                            dictionaries = Some((
-                                metadata(
-                                    &read_data(
-                                        &http,
-                                        "/v2/stocks/meta/conditions/quote?tape=C",
-                                        headers.clone(),
-                                    )?,
-                                    &values,
-                                )?,
-                                metadata(
-                                    &read_data(&http, "/v2/stocks/meta/exchanges", headers)?,
-                                    &values,
-                                )?,
-                            ));
-                        }
-                        let (conditions, exchanges) = dictionaries.as_ref().unwrap();
-                        let evidence = quote_evidence(
-                            &job.lease.binding,
-                            &job.lease.instrument,
-                            &quote,
-                            conditions,
-                            exchanges,
-                        )?;
-                        let mut control = job
-                            .control
-                            .lock()
-                            .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
-                        if !job.lease.current(&control) {
-                            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-                        }
-                        let now = control.time.status(&job.lease.binding.workspace_id)?;
-                        let snapshot = accept_snapshot(
-                            &control,
-                            &job.lease.binding,
-                            &job.lease.projection.instrument_id,
-                            quote,
-                            evidence,
-                            &received,
-                        )?;
-                        control
-                            .hot_quote
-                            .as_mut()
-                            .and_then(HotLeaseState::stock_mut)
-                            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?
-                            .stream_snapshot_id =
-                            Some(snapshot.provenance.market_snapshot_id.clone());
-                        control.quote_source_access_binding = Some(job.lease.binding.clone());
-                        control.quote_observations.insert(
-                            job.lease.projection.instrument_id.clone(),
-                            AcceptedQuote {
-                                binding: job.lease.binding.clone(),
-                                snapshot,
-                                failure: None,
-                            },
-                        );
-                        let mut source =
-                            configured_entry(&control, &job.lease.binding.workspace_id)?;
-                        source.status = crate::protocol::DataSourceStatus::Available;
-                        source.checked_at = Some(now.wall_clock.clone());
-                        source.observed_at = Some(now.wall_clock.clone());
-                        source.verified_at = Some(now.wall_clock);
-                        source.availability_reason="Authenticated quote stream and metadata verified. Freshness and financial guards remain separate.".into();
-                        control.data_source_observations.insert(
-                            (job.lease.binding.workspace_id.clone(), "OD-001".into()),
-                            source,
-                        );
-                        drop(control);
-                        transition(
-                            &job,
-                            HotQuoteStatus::Streaming,
-                            true,
-                            true,
-                            "Actual quote received on the authenticated, confirmed subscription.",
-                        )?;
-                    }
-                    Some("error") => {
-                        return Err(TradeXError::new(match frame["code"].as_u64() {
-                            Some(401 | 402) => "PROVIDER_AUTH_FAILED",
-                            Some(403) => "PROVIDER_ALREADY_AUTHENTICATED",
-                            Some(404) => "PROVIDER_AUTH_TIMEOUT",
-                            Some(406) => "PROVIDER_CONNECTION_LIMIT",
-                            Some(405) => "PROVIDER_SYMBOL_LIMIT",
-                            Some(407) => "PROVIDER_STREAM_STALE",
-                            Some(409) => "DATA_SOURCE_FEED_DENIED",
-                            Some(500) => "PROVIDER_UNAVAILABLE",
-                            _ => "PROVIDER_RESPONSE_INVALID",
-                        }));
-                    }
+                    Message::Close(_) => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
                     _ => return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID")),
+                };
+                let received = job
+                    .control
+                    .lock()
+                    .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?
+                    .time
+                    .status(&job.lease.binding.workspace_id)?;
+                let raw_frames: Vec<Box<serde_json::value::RawValue>> = serde_json::from_str(&text)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                let value: Value = serde_json::from_str(&text)
+                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                let frames = value
+                    .as_array()
+                    .filter(|frames| !frames.is_empty() && frames.len() <= 64)
+                    .ok_or_else(|| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                if frames.len() != 1
+                    && frames.iter().any(|frame| {
+                        matches!(
+                            frame["T"].as_str(),
+                            Some("success" | "subscription" | "error")
+                        )
+                    })
+                {
+                    return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+                }
+                for (frame, raw_frame) in frames.iter().zip(&raw_frames) {
+                    match frame["T"].as_str() {
+                        Some("success") if frame["msg"] == "connected" && !authenticated => (),
+                        Some("success") if frame["msg"] == "authenticated" && !authenticated => {
+                            authenticated = true;
+                            deadline = Instant::now() + Duration::from_secs(10);
+                            transition(
+                                &job,
+                                HotQuoteStatus::Subscribing,
+                                true,
+                                false,
+                                "Authenticated; waiting for complete quote subscription confirmation.",
+                            )?;
+                            socket
+                                .send(Message::text(
+                                    json!({"action":"subscribe","quotes":[symbol]}).to_string(),
+                                ))
+                                .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+                        }
+                        Some("subscription") if authenticated => {
+                            if frame["quotes"] != json!([symbol])
+                                || frame.as_object().is_none_or(|fields| {
+                                    fields.iter().any(|(field, items)| {
+                                        !matches!(field.as_str(), "T" | "quotes")
+                                            && (!matches!(
+                                                field.as_str(),
+                                                "trades"
+                                                    | "bars"
+                                                    | "updatedBars"
+                                                    | "dailyBars"
+                                                    | "statuses"
+                                                    | "lulds"
+                                                    | "corrections"
+                                                    | "cancelErrors"
+                                            ) || items
+                                                .as_array()
+                                                .is_none_or(|items| !items.is_empty()))
+                                    })
+                                })
+                            {
+                                return Err(TradeXError::new("PROVIDER_SUBSCRIPTION_INVALID"));
+                            }
+                            subscribed = true;
+                            transition(
+                                &job,
+                                HotQuoteStatus::AwaitingQuote,
+                                true,
+                                true,
+                                "Subscription confirmed; waiting for an actual provider quote.",
+                            )?;
+                        }
+                        Some("q") if authenticated && subscribed => {
+                            if frame["S"] != symbol {
+                                return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+                            }
+                            validate_quote_numeric_tokens(raw_frame.get().as_bytes())?;
+                            let body =
+                                serde_json::to_vec(&json!({"quotes":{symbol.clone():frame}}))
+                                    .map_err(|_| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                            let quote = parse_latest_response(&body, &symbol)?;
+                            if quote.tape != "C"
+                                || job.lease.instrument.exchange.as_deref() != Some("XNAS")
+                            {
+                                return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+                            }
+                            if dictionaries.is_none() {
+                                let live = || current(&job, stop);
+                                let shared = SharedHttp(job.http.clone());
+                                let http = crate::provider_io::p3_provider_http(
+                                    &shared,
+                                    &live,
+                                    job.lease.binding.reference.as_deref().unwrap(),
+                                );
+                                let headers = source_headers(&credentials)?;
+                                dictionaries = Some((
+                                    metadata(
+                                        &read_data(
+                                            &http,
+                                            "/v2/stocks/meta/conditions/quote?tape=C",
+                                            headers.clone(),
+                                        )?,
+                                        &values,
+                                    )?,
+                                    metadata(
+                                        &read_data(&http, "/v2/stocks/meta/exchanges", headers)?,
+                                        &values,
+                                    )?,
+                                ));
+                            }
+                            let (conditions, exchanges) = dictionaries.as_ref().unwrap();
+                            let evidence = quote_evidence(
+                                &job.lease.binding,
+                                &job.lease.instrument,
+                                &quote,
+                                conditions,
+                                exchanges,
+                            )?;
+                            let mut control = job
+                                .control
+                                .lock()
+                                .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
+                            if !job.lease.current(&control) {
+                                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                            }
+                            let now = control.time.status(&job.lease.binding.workspace_id)?;
+                            let snapshot = accept_snapshot(
+                                &control,
+                                &job.lease.binding,
+                                &job.lease.projection.instrument_id,
+                                quote,
+                                evidence,
+                                &received,
+                            )?;
+                            control
+                                .hot_quote
+                                .as_mut()
+                                .and_then(HotLeaseState::stock_mut)
+                                .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?
+                                .stream_snapshot_id =
+                                Some(snapshot.provenance.market_snapshot_id.clone());
+                            control.quote_source_access_binding = Some(job.lease.binding.clone());
+                            control.quote_observations.insert(
+                                job.lease.projection.instrument_id.clone(),
+                                AcceptedQuote {
+                                    binding: job.lease.binding.clone(),
+                                    snapshot,
+                                    failure: None,
+                                },
+                            );
+                            let mut source =
+                                configured_entry(&control, &job.lease.binding.workspace_id)?;
+                            source.status = crate::protocol::DataSourceStatus::Available;
+                            source.checked_at = Some(now.wall_clock.clone());
+                            source.observed_at = Some(now.wall_clock.clone());
+                            source.verified_at = Some(now.wall_clock);
+                            source.availability_reason="Authenticated quote stream and metadata verified. Freshness and financial guards remain separate.".into();
+                            control.data_source_observations.insert(
+                                (job.lease.binding.workspace_id.clone(), "OD-001".into()),
+                                source,
+                            );
+                            drop(control);
+                            transition(
+                                &job,
+                                HotQuoteStatus::Streaming,
+                                true,
+                                true,
+                                "Actual quote received on the authenticated, confirmed subscription.",
+                            )?;
+                        }
+                        Some("error") => {
+                            return Err(TradeXError::new(match frame["code"].as_u64() {
+                                Some(401 | 402) => "PROVIDER_AUTH_FAILED",
+                                Some(403) => "PROVIDER_ALREADY_AUTHENTICATED",
+                                Some(404) => "PROVIDER_AUTH_TIMEOUT",
+                                Some(406) => "PROVIDER_CONNECTION_LIMIT",
+                                Some(405) => "PROVIDER_SYMBOL_LIMIT",
+                                Some(407) => "PROVIDER_STREAM_STALE",
+                                Some(409) => "DATA_SOURCE_FEED_DENIED",
+                                Some(500) => "PROVIDER_UNAVAILABLE",
+                                _ => "PROVIDER_RESPONSE_INVALID",
+                            }));
+                        }
+                        _ => return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID")),
+                    }
                 }
             }
-        }
-        Ok(())
+            Ok(())
+        })
     })();
     if let Some(mut socket) = socket {
         let _ = socket.close(None);

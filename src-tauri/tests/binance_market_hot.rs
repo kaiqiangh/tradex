@@ -94,12 +94,18 @@ struct DepthPeer {
     connector: BinanceStreamConnector,
     requests: Arc<Mutex<Vec<String>>>,
     events: std::sync::mpsc::Sender<Value>,
+    connections: Arc<std::sync::atomic::AtomicUsize>,
+    pings: std::sync::mpsc::Sender<Vec<u8>>,
+    pongs: Arc<Mutex<Vec<Vec<u8>>>>,
 }
 impl DepthPeer {
     fn new() -> Self {
         Self::with_initial(None)
     }
     fn with_initial(initial: Option<Value>) -> Self {
+        Self::with_snapshots(initial, Vec::new())
+    }
+    fn with_snapshots(initial: Option<Value>, snapshots: Vec<Value>) -> Self {
         use std::{
             io::{Read, Write},
             sync::atomic::{AtomicBool, Ordering},
@@ -124,9 +130,11 @@ impl DepthPeer {
         .unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let requests = Arc::new(Mutex::new(Vec::new()));
+        let connections = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let halt = stop.clone();
         let ledger = requests.clone();
         let rest = std::thread::spawn(move || {
+            let mut snapshots = std::collections::VecDeque::from(snapshots);
             let deadline = Instant::now() + Duration::from_secs(8);
             while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
                 let (mut socket, _) = match http_listener.accept() {
@@ -164,7 +172,7 @@ impl DepthPeer {
                         json!({"serverTime":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})
                     }
                     "/api/v3/depth?symbol=BTCUSDT&limit=1000" => {
-                        json!({"lastUpdateId":START,"bids":[["60000","1"],["59900","2"]],"asks":[["60001","1"],["60100","2"]]})
+                        snapshots.pop_front().unwrap_or_else(||json!({"lastUpdateId":START,"bids":[["60000","1"],["59900","2"]],"asks":[["60001","1"],["60100","2"]]}))
                     }
                     _ => panic!("Unexpected public source request {path}"),
                 };
@@ -178,7 +186,11 @@ impl DepthPeer {
             }
         });
         let halt = stop.clone();
+        let connection_ledger = connections.clone();
         let (events, next_event) = std::sync::mpsc::channel::<Value>();
+        let (pings, next_ping) = std::sync::mpsc::channel::<Vec<u8>>();
+        let pongs = Arc::new(Mutex::new(Vec::new()));
+        let pong_ledger = pongs.clone();
         let stream = std::thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(8);
             while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
@@ -206,6 +218,7 @@ impl DepthPeer {
                     },
                 )
                 .unwrap();
+                connection_ledger.fetch_add(1, Ordering::AcqRel);
                 socket
                     .get_mut()
                     .set_read_timeout(Some(Duration::from_millis(200)))
@@ -215,6 +228,11 @@ impl DepthPeer {
                     .send(tungstenite::Message::Text(event.to_string().into()))
                     .unwrap();
                 while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
+                    while let Ok(ping) = next_ping.try_recv() {
+                        socket
+                            .send(tungstenite::Message::Ping(ping.into()))
+                            .unwrap();
+                    }
                     while let Ok(event) = next_event.try_recv() {
                         socket
                             .send(tungstenite::Message::Text(event.to_string().into()))
@@ -222,6 +240,9 @@ impl DepthPeer {
                     }
                     match socket.read() {
                         Ok(tungstenite::Message::Close(_)) => break,
+                        Ok(tungstenite::Message::Pong(payload)) => {
+                            pong_ledger.lock().unwrap().push(payload.to_vec())
+                        }
                         Ok(_) => (),
                         Err(tungstenite::Error::Io(e))
                             if matches!(
@@ -243,6 +264,9 @@ impl DepthPeer {
             connector,
             requests,
             events,
+            connections,
+            pings,
+            pongs,
         }
     }
 }
@@ -307,6 +331,15 @@ impl HotView {
             );
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
+    }
+    fn acquire(&mut self, version: &Value) -> Value {
+        let acquired=self.supervisor.dispatch_with(&self.control,&json!({"requestId":"replace-view","schemaVersion":1,"command":"market.hot.acquire","payload":{"workspaceId":self.workspace,"instrumentId":"crypto:BTC/USDT:spot","expectedSourceVersion":version}}),"main",Arc::new(NoTradingKey),self.peer.http.clone(),QuoteStreamConnectors{stock:StockStreamConnector::default(),binance:self.peer.connector.clone()});
+        assert_eq!(acquired["ok"], true, "{acquired}");
+        self.query = json!({"workspaceId":self.workspace,"leaseId":acquired["data"]["leaseId"],"generation":acquired["data"]["generation"]});
+        acquired
+    }
+    fn release(&self, query: &Value) -> Value {
+        self.supervisor.dispatch_with(&self.control,&json!({"requestId":"release-view","schemaVersion":1,"command":"market.hot.release","payload":query}),"main",Arc::new(NoTradingKey),self.peer.http.clone(),QuoteStreamConnectors{stock:StockStreamConnector::default(),binance:self.peer.connector.clone()})
     }
 }
 impl Drop for HotView {
@@ -442,7 +475,14 @@ fn repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailabi
             .iter()
             .filter(|p| p.as_str() == "/api/v3/depth?symbol=BTCUSDT&limit=1000")
             .count(),
-        4
+        8
+    );
+    assert_eq!(
+        view.peer
+            .connections
+            .load(std::sync::atomic::Ordering::Acquire),
+        4,
+        "Each of four connections permits only one bounded extra REST snapshot"
     );
     let source = command(
         &view.control,
@@ -560,6 +600,233 @@ fn obsolete_update_ids_do_not_hide_malformed_original_depth_values() {
     assert_eq!(
         retired["data"]["detail"]["status"], "UNAVAILABLE",
         "Original malformed quantities must not be hidden by an obsolete cursor: {retired}"
+    );
+}
+
+#[test]
+fn a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection() {
+    let event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_997u64,"u":9_007_199_254_740_998u64,"b":[["60000","0.5"]],"a":[]});
+    let snapshots = [9_007_199_254_740_992u64,9_007_199_254_740_997u64].map(|id|json!({"lastUpdateId":id,"bids":[["60000","1"],["59900","2"]],"asks":[["60001","1"],["60100","2"]]}));
+    let view = HotView::with_peer(DepthPeer::with_snapshots(Some(event), snapshots.into()));
+    let ready = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(
+        ready["data"]["reconnectAttempt"], 0,
+        "A lagging snapshot needs bounded REST resnapshot on the already-buffering stream: {ready}"
+    );
+    assert_eq!(
+        view.peer
+            .connections
+            .load(std::sync::atomic::Ordering::Acquire),
+        1
+    );
+    assert_eq!(ready["data"]["detail"]["snapshot"]["bidSize"], "0.5");
+    assert_eq!(
+        ready["data"]["detail"]["snapshot"]["provenance"]["binance"]["bookUpdateId"],
+        "9007199254740998"
+    );
+    assert_eq!(
+        view.peer
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|p| p.as_str() == "/api/v3/depth?symbol=BTCUSDT&limit=1000")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom() {
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let payloads = (0..6)
+        .map(|n| format!("binance-ping-{n}").into_bytes())
+        .collect::<Vec<_>>();
+    for payload in &payloads {
+        view.peer.pings.send(payload.clone()).unwrap();
+    }
+    let failed = view.wait(|v| v["data"]["status"] == "FAILED");
+    assert_eq!(
+        failed["data"]["reconnectAttempt"], 0,
+        "A control limit must not automatically hammer a new connection"
+    );
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+    while view.peer.pongs.lock().unwrap().len() < 4 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert_eq!(
+        *view.peer.pongs.lock().unwrap(),
+        payloads[..4],
+        "Actual wire Pongs must preserve each payload and reserve headroom below5 controls/second"
+    );
+    assert_eq!(failed["data"]["detail"]["status"], "UNAVAILABLE");
+    assert_eq!(
+        failed["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        "Ping health cannot renew quote material"
+    );
+}
+
+#[test]
+fn a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason() {
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    view.peer.events.send(json!({"e":"serverShutdown","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})).unwrap();
+    let retired =
+        view.wait(|v| v["data"]["connectionGeneration"] != first["data"]["connectionGeneration"]);
+    assert!(
+        retired["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_STREAM_SHUTDOWN"),
+        "A documented shutdown is distinct from malformed provider data: {retired}"
+    );
+    assert_eq!(retired["data"]["detail"]["status"], "UNAVAILABLE");
+    let recovered = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(recovered["data"]["reconnectAttempt"], 1);
+    assert_eq!(
+        view.peer
+            .connections
+            .load(std::sync::atomic::Ordering::Acquire),
+        2
+    );
+    assert_ne!(
+        recovered["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
+}
+
+#[test]
+fn original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material() {
+    let cases: [(&str, fn(&mut Value)); 6] = [
+        ("event time string", |v| v["E"] = json!("1791450000000")),
+        ("floating update id", |v| {
+            v["U"] = json!(9_007_199_254_740_994.0f64)
+        }),
+        ("update id string", |v| v["u"] = json!("9007199254740994")),
+        ("numeric quantity", |v| v["b"] = json!([["60000", 0.5]])),
+        ("duplicate canonical price", |v| {
+            v["a"] = json!([["60001", "1"], ["60001.00", "2"]])
+        }),
+        ("unknown provider field", |v| {
+            v["unsupportedAuthority"] = json!(true)
+        }),
+    ];
+    for (name, corrupt) in cases {
+        let view = HotView::open();
+        let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+        let mut event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_994u64,"u":9_007_199_254_740_994u64,"b":[["60000","0.25"]],"a":[]});
+        corrupt(&mut event);
+        view.peer.events.send(event).unwrap();
+        let retired = view
+            .wait(|v| v["data"]["connectionGeneration"] != first["data"]["connectionGeneration"]);
+        assert!(
+            retired["data"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("PROVIDER_RESPONSE_INVALID"),
+            "{name} must fail because of original provider data, not a quota or unrelated fault: {retired}"
+        );
+        assert_eq!(retired["data"]["detail"]["status"], "UNAVAILABLE", "{name}");
+        assert_eq!(
+            retired["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+            first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity() {
+    let bids = (0..21)
+        .map(|n| json!([(60000 - n).to_string(), "2"]))
+        .collect::<Vec<_>>();
+    let snapshot = json!({"lastUpdateId":9_007_199_254_740_992u64,"bids":bids,"asks":[["60001","2"],["60100","2"]]});
+    let view = HotView::with_peer(DepthPeer::with_snapshots(None, vec![snapshot]));
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let first_evidence = &first["data"]["detail"]["snapshot"]["provenance"]["binance"];
+    assert_eq!(first_evidence["knownBidLevels"], 21);
+    assert_eq!(first_evidence["bids"].as_array().unwrap().len(), 20);
+    assert_eq!(first_evidence["bidKnownFloor"], "59980");
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_994u64,"u":9_007_199_254_740_994u64,"b":[["59980","3"]],"a":[]})).unwrap();
+    let after = view.wait(|v| {
+        v["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+            != first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    });
+    let changed = &after["data"]["detail"]["snapshot"]["provenance"]["binance"];
+    assert_eq!(
+        changed["bids"], first_evidence["bids"],
+        "Displayed levels do not include the changed21st level"
+    );
+    assert_ne!(
+        changed["materialHash"], first_evidence["materialHash"],
+        "Identity covers all retained known depth, not only the UI slice"
+    );
+    assert_eq!(changed["depthCoverage"], "KNOWN_PRICE_BANDS");
+    assert_eq!(changed["knownBidLevels"], 21);
+}
+
+#[test]
+fn source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease() {
+    let mut view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let old_query = view.query.clone();
+    let source = command(
+        &view.control,
+        "data.binance_market.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    let changed = command(
+        &view.control,
+        "data.binance_market.configure",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":source["data"]["stateVersion"]}),
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    assert_eq!(changed["data"]["source"]["status"], "UNVERIFIED");
+    let retired = command(&view.control, "market.hot.get", old_query.clone());
+    assert_eq!(retired["data"]["status"], "STALE");
+    assert_eq!(retired["data"]["detail"]["status"], "UNAVAILABLE");
+    view.acquire(&changed["data"]["stateVersion"]);
+    let current = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_ne!(current["data"]["leaseId"], first["data"]["leaseId"]);
+    assert_eq!(
+        current["data"]["detail"]["snapshot"]["provenance"]["binance"]["sourceVersion"],
+        changed["data"]["stateVersion"]
+    );
+    let late = view.release(&old_query);
+    assert_eq!(late["ok"], true, "{late}");
+    assert_eq!(late["data"]["released"], false);
+    let after = command(&view.control, "market.hot.get", view.query.clone());
+    assert_eq!(
+        after["data"]["status"], "STREAMING",
+        "Old view cleanup cannot release its replacement: {after}"
+    );
+    assert_eq!(
+        command(&view.control, "workspace.open", json!({}))["data"]["workspaceId"],
+        view.workspace
+    );
+    assert_eq!(
+        command(&view.control, "market.hot.get", view.query.clone())["error"]["code"],
+        "STATE_VERSION_CONFLICT"
+    );
+    let detail = command(
+        &view.control,
+        "market.get",
+        json!({"workspaceId":view.workspace,"instrumentId":"crypto:BTC/USDT:spot","tier":"HOT"}),
+    );
+    assert_eq!(detail["ok"], true, "{detail}");
+    assert!(
+        detail["data"]["snapshot"].is_null(),
+        "Reopen restores selection only: {detail}"
+    );
+    assert_eq!(
+        command(
+            &view.control,
+            "data.binance_market.connection",
+            json!({"workspaceId":view.workspace})
+        )["data"]["configured"],
+        true
     );
 }
 impl Drop for DepthPeer {

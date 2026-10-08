@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.78s
+     Running tests/binance_market_stream_limits.rs (target/debug/deps/binance_market_stream_limits-1c1f4fba85e8c83e)
+
+running 1 test
+test public_stream_connection_headroom_is_shared_across_source_and_workspace_changes ... FAILED
+
+failures:
+
+---- public_stream_connection_headroom_is_shared_across_source_and_workspace_changes stdout ----
+
+thread 'public_stream_connection_headroom_is_shared_across_source_and_workspace_changes' (9411969) panicked at src-tauri/tests/binance_market_stream_limits.rs:87:5:
+assertion `left == right` failed: The31st actual connection must be blocked before I/O even after reselect/reopen: {"data":{"authenticated":false,"connectionGeneration":"51d1d60c-8e72-4d31-ad24-6d7341da432b","detail":{"adjustmentStatus":"UNKNOWN","availabilityReason":"Continuous Spot book unavailable (DATA_SOURCE_FEED_DENIED). Retry the selected source; retained observations are unavailable.","corporateActions":[],"instrument":{"assetClass":"CRYPTO_SPOT","base":"BTC","currency":"USDT","displayName":"Bitcoin / Tether spot","instrumentId":"crypto:BTC/USDT:spot","providers":[{"providerId":"binance","providerSymbol":"BTCUSDT"},{"providerId":"bitget","providerSymbol":"BTCUSDT"}],"quote":"USDT","symbol":"BTC/USDT"},"marketState":{"observedAt":"2026-10-08T10:30:54.815Z","reason":"No crypto venue-state source is selected in the S06 authorization catalog.","session":"UNKNOWN","sourceStatus":"UNAVAILABLE","timeConfidence":"TRUSTED","venue":"UNSELECTED"},"status":"UNAVAILABLE","tier":"HOT","workspaceId":"4dd8200c-5d3d-4911-955e-90dde3bde9f4"},"generation":"51d1d60c-8e72-4d31-ad24-6d7341da432b","instrumentId":"crypto:BTC/USDT:spot","leaseId":"b5444b90-cc48-43a9-aaf1-a00045e68def","reason":"Continuous Spot book unavailable (DATA_SOURCE_FEED_DENIED). Retry the selected source; retained observations are unavailable.","reconnectAttempt":0,"sequence":1,"sourceId":"BINANCE_SPOT_PUBLIC","sourceVersion":"binance-market:4dd8200c-5d3d-4911-955e-90dde3bde9f4:2","status":"FAILED","subscribed":false,"workspaceId":"4dd8200c-5d3d-4911-955e-90dde3bde9f4"},"ok":true,"requestId":"stream-budget","schemaVersion":1}
+  left: 31
+ right: 30
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    public_stream_connection_headroom_is_shared_across_source_and_workspace_changes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+error: test failed, to rerun pass `--test binance_market_stream_limits`

@@ -3064,9 +3064,11 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 沿用 `market.hot.acquire/get/release`，持有一个普通公开 BTCUSDT 或 ETHUSDT diff-depth 流，与任何执行凭据无关。原始 `E/U/u` 和 REST `lastUpdateId` 按有界原始整数解析，不做浮点/字符串类型强转；提供方 ID 以十进制字符串投影。原始十进制字符串须验证并精确规范化。REST 快照没有事件时间，缓冲增量对齐前不得成为报价。缓冲事件全部过期时，在初始化总期限内等待之后的对齐事件。重复/过期事件不续期材料；已接受但未改变材料的更新只推进租约健康/序号。原始非法值和未来/过期事件时间须在丢弃游标或比较材料前拒绝。缺口终止连续性，恢复须新连接代次与新快照；最多3次重连，退避250/500/1000ms。网络 I/O、深度解析和材料哈希期间不得持有 Control Plane 锁。
 
+快照落后于第一条缓冲范围时，允许在同一连接上重读一次 REST，保留原始缓冲/接收时间，仍受同一个10s 连接/初始化期限及既有共享公开读取限额约束。已接纳读取使用 scoped 中断守卫：为既有正常关闭路径保留250ms，然后中断持续缓慢发送的残缺帧；唯一工作线程移交替代页面前须 join 守卫。股票和 Binance 读取均使用此取消边界。精确符号原始流不发送订阅 JSON；提供方 Pong 须回显原始 payload，客户端每滚动秒最多4次控制回复。普通主机连接尝试按单调时间，在符号/来源代次/工作区之间共享每滚动300s 最多30次的余量。合法原始 `serverShutdown {e, E}` 没有符号，以 `PROVIDER_STREAM_SHUTDOWN` 终止连续性，并进入同一最多3次重连/重新初始化路径。关闭通知或 Pong 均不得续期报价材料。
+
 可选 `MarketSnapshotProvenance.binance: BinanceSpotQuoteEvidence` 记录 `workspaceId`、`sessionId`、`timeGeneration`、`leaseId`、`environment: ORDINARY`、`providerSymbol`、`baseAsset`、`quoteAsset`、`sourceVersion`、`connectionGeneration`、`bookUpdateId`（材料的更新）、`providerEventTimeMs`、`depthUnit: BASE`、`depthCoverage: KNOWN_PRICE_BANDS`、`knownBidLevels`、`knownAskLevels`、`bidKnownFloor`、`askKnownCeiling`、每侧最多20条 `bids/asks {price, quantity}`、64字符小写 SHA-256 `materialHash`、`dataUseRights: UNVERIFIED`。哈希覆盖 canonical 来源/符号/BASE、已知边界以及所有保留的已知层级，按精确 bid 降序/ask 升序，包括显示20层之外的层级。删除边界价位不得扩大已知边界。初始快照每侧最多1000层、保留已知层级每侧最多5000层、帧最多512KiB、初始化缓冲最多256帧/4MiB。不虚构完整订单簿、最后成交、USD/USDT 等价或数据使用许可。
 
-完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)。生产者与 #124 验收仍 IN_PROGRESS：传输控制/连接配额、其余故障/生命周期、受保护消费者和实际 React UI 仍须所属验收。本地 loopback 生产者证明与普通原生/提供方/金融验收及父项关闭分开。原型代码未改。
+完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)。生产者与 #124 验收仍 IN_PROGRESS：其余深度/资源/时钟/生命周期故障、计划轮换、受保护消费者和实际 React UI 仍须所属验收。传输配额、快照重读、类型化关闭通知和取消已有聚焦外部协议证明，不表示完整验收。本地 loopback 生产者证明与普通原生/提供方/金融验收及父项关闭分开。原型代码未改。
 
 ## 42. Backend-to-Frontend Event Surface
 

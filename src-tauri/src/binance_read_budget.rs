@@ -9,6 +9,29 @@ struct ReadBudget {
     calls: VecDeque<(Instant, Option<String>, u32)>,
 }
 static READ_BUDGET: OnceLock<Mutex<ReadBudget>> = OnceLock::new();
+static STREAM_CONNECTIONS: OnceLock<Mutex<VecDeque<Instant>>> = OnceLock::new();
+
+/// Client-owned ordinary-host headroom, shared by every Spot symbol, source
+/// generation and workspace. Local wall-clock changes cannot reset the window.
+pub(crate) fn reserve_stream_connection() -> Result<()> {
+    let now = Instant::now();
+    let mut attempts = STREAM_CONNECTIONS
+        .get_or_init(|| Mutex::new(VecDeque::new()))
+        .lock()
+        .map_err(|_| TradeXError::new("PROVIDER_BACKPRESSURE"))?;
+    while attempts
+        .front()
+        .is_some_and(|at| now.saturating_duration_since(*at) >= Duration::from_secs(300))
+    {
+        attempts.pop_front();
+    }
+    // Leave most of the documented shared-IP allowance for other clients.
+    if attempts.len() >= 30 {
+        return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
+    }
+    attempts.push_back(now);
+    Ok(())
+}
 pub(crate) fn reserve(account: Option<&str>, weight: u32) -> Result<()> {
     let now = Instant::now();
     let mut b = READ_BUDGET

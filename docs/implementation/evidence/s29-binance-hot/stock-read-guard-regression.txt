@@ -1,0 +1,100 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.50s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-a66707bb4eff5ed9)
+
+running 19 tests
+test an_unrequested_subscription_channel_cannot_confirm_the_hot_lease_or_create_quotes ... ok
+test cancelled_secure_vault_read_preserves_selection_and_never_opens_a_provider_socket ... ok
+test explicit_stop_closes_the_connection_and_rejected_acquire_preserves_the_retired_lease ... FAILED
+test feed_authentication_and_connection_limits_are_terminal_and_cannot_become_acknowledgements ... ok
+test hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket ... FAILED
+test identical_stream_events_keep_first_receipt_and_unordered_conflicts_retire_current_evidence ... ok
+test last_supervisor_owner_closes_the_socket_and_retires_the_public_hot_projection ... FAILED
+test malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence ... ok
+test oversized_provider_frames_fail_once_without_retrying_or_creating_quotes ... ok
+test pending_metadata_does_not_block_public_commands_and_old_feed_cannot_publish_after_source_change ... ok
+test public_session_safety_trigger_retires_pending_stream_authentication_and_keeps_source_selection ... ok
+test repeated_provider_internal_errors_stop_after_three_retries_without_feed_fallback ... ok
+test replacement_closes_old_socket_and_late_auth_or_old_release_cannot_activate_or_stop_new_lease ... FAILED
+test slow_client_errors_stop_after_three_retries_without_feed_fallback ... ok
+test source_disconnect_and_workspace_reopen_close_the_socket_before_late_authentication_can_subscribe ... ok
+test stream_receipt_precedes_slow_metadata_and_future_on_arrival_stays_rejected ... FAILED
+test transient_reconnect_keeps_view_ownership_but_invalidates_quotes_until_new_acknowledged_frame ... FAILED
+test trickling_upgrade_has_total_deadline_and_release_cancels_the_actual_socket ... ok
+test unrelated_pongs_do_not_acknowledge_our_heartbeat_or_keep_a_dead_connection_current ... FAILED
+
+failures:
+
+---- explicit_stop_closes_the_connection_and_rejected_acquire_preserves_the_retired_lease stdout ----
+
+thread '<unnamed>' (9604369) panicked at src-tauri/tests/quote_hot.rs:1395:9:
+assertion failed: matches!(socket.read(), Ok(Message::Close(_)) |
+    Err(tungstenite::Error::ConnectionClosed))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'explicit_stop_closes_the_connection_and_rejected_acquire_preserves_the_retired_lease' (9604359) panicked at src-tauri/tests/quote_hot.rs:1422:17:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket stdout ----
+
+thread '<unnamed>' (9604452) panicked at src-tauri/tests/quote_hot.rs:527:31:
+Peer did not observe released connection: WebSocket protocol error: Connection reset without closing handshake
+
+thread 'hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket' (9604444) panicked at src-tauri/tests/quote_hot.rs:619:10:
+called `Result::unwrap()` on an `Err` value: Disconnected
+
+---- last_supervisor_owner_closes_the_socket_and_retires_the_public_hot_projection stdout ----
+
+thread '<unnamed>' (9604506) panicked at src-tauri/tests/quote_hot.rs:1306:22:
+Dropping the final owner left the provider socket open: Err(Protocol(ResetWithoutClosingHandshake))
+
+thread 'last_supervisor_owner_closes_the_socket_and_retires_the_public_hot_projection' (9604495) panicked at src-tauri/tests/quote_hot.rs:1331:10:
+Final supervisor owner must close the actual provider socket: Disconnected
+
+---- replacement_closes_old_socket_and_late_auth_or_old_release_cannot_activate_or_stop_new_lease stdout ----
+
+thread '<unnamed>' (9604972) panicked at src-tauri/tests/quote_hot.rs:679:21:
+Cancelled lease sent a subscription or left its socket open: Err(Protocol(ResetWithoutClosingHandshake))
+
+thread 'replacement_closes_old_socket_and_late_auth_or_old_release_cannot_activate_or_stop_new_lease' (9604959) panicked at src-tauri/tests/quote_hot.rs:707:17:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- stream_receipt_precedes_slow_metadata_and_future_on_arrival_stays_rejected stdout ----
+
+thread '<unnamed>' (9605156) panicked at src-tauri/tests/quote_hot.rs:255:13:
+assertion failed: matches!(socket.read(), Ok(Message::Close(_)) |
+    Err(tungstenite::Error::ConnectionClosed))
+
+thread 'stream_receipt_precedes_slow_metadata_and_future_on_arrival_stays_rejected' (9605148) panicked at src-tauri/tests/quote_hot.rs:292:21:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- transient_reconnect_keeps_view_ownership_but_invalidates_quotes_until_new_acknowledged_frame stdout ----
+
+thread '<unnamed>' (9605189) panicked at src-tauri/tests/quote_hot.rs:813:26:
+Socket did not close: Err(Protocol(ResetWithoutClosingHandshake))
+
+thread 'transient_reconnect_keeps_view_ownership_but_invalidates_quotes_until_new_acknowledged_frame' (9605180) panicked at src-tauri/tests/quote_hot.rs:873:17:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- unrelated_pongs_do_not_acknowledge_our_heartbeat_or_keep_a_dead_connection_current stdout ----
+
+thread '<unnamed>' (9605392) panicked at src-tauri/tests/quote_hot.rs:1622:9:
+assertion failed: matches!(socket.read(), Ok(Message::Close(_)) |
+    Err(tungstenite::Error::ConnectionClosed))
+
+thread 'unrelated_pongs_do_not_acknowledge_our_heartbeat_or_keep_a_dead_connection_current' (9605384) panicked at src-tauri/tests/quote_hot.rs:1658:17:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+
+failures:
+    explicit_stop_closes_the_connection_and_rejected_acquire_preserves_the_retired_lease
+    hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket
+    last_supervisor_owner_closes_the_socket_and_retires_the_public_hot_projection
+    replacement_closes_old_socket_and_late_auth_or_old_release_cannot_activate_or_stop_new_lease
+    stream_receipt_precedes_slow_metadata_and_future_on_arrival_stays_rejected
+    transient_reconnect_keeps_view_ownership_but_invalidates_quotes_until_new_acknowledged_frame
+    unrelated_pongs_do_not_acknowledge_our_heartbeat_or_keep_a_dead_connection_current
+
+test result: FAILED. 12 passed; 7 failed; 0 ignored; 0 measured; 0 filtered out; finished in 46.83s
+
+error: test failed, to rerun pass `--test quote_hot`

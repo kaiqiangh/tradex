@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.75s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection ... FAILED
+
+failures:
+
+---- a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection stdout ----
+
+thread 'a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection' (9397028) panicked at src-tauri/tests/binance_market_hot.rs:581:5:
+assertion `left == right` failed: A lagging snapshot needs bounded REST resnapshot on the already-buffering stream: {"data":{"authenticated":false,"connectionGeneration":"8afd293e-e59a-4417-b9b2-b3af2be2cd76","detail":{"adjustmentStatus":"UNKNOWN","availabilityReason":"Current continuous public Spot book within known price bands. Data-use rights, rules and all financial authority remain separate.","corporateActions":[],"instrument":{"assetClass":"CRYPTO_SPOT","base":"BTC","currency":"USDT","displayName":"Bitcoin / Tether spot","instrumentId":"crypto:BTC/USDT:spot","providers":[{"providerId":"binance","providerSymbol":"BTCUSDT"},{"providerId":"bitget","providerSymbol":"BTCUSDT"}],"quote":"USDT","symbol":"BTC/USDT"},"marketState":{"observedAt":"2026-10-08T10:23:16.839Z","reason":"No crypto venue-state source is selected in the S06 authorization catalog.","session":"UNKNOWN","sourceStatus":"UNAVAILABLE","timeConfidence":"TRUSTED","venue":"UNSELECTED"},"snapshot":{"ask":"60001","askSize":"1","bid":"60000","bidSize":"0.5","instrumentId":"crypto:BTC/USDT:spot","provenance":{"binance":{"askKnownCeiling":"60100","asks":[{"price":"60001","quantity":"1"},{"price":"60100","quantity":"2"}],"baseAsset":"BTC","bidKnownFloor":"59900","bids":[{"price":"60000","quantity":"0.5"},{"price":"59900","quantity":"2"}],"bookUpdateId":"9007199254740998","connectionGeneration":"8afd293e-e59a-4417-b9b2-b3af2be2cd76","dataUseRights":"UNVERIFIED","depthCoverage":"KNOWN_PRICE_BANDS","depthUnit":"BASE","environment":"ORDINARY","knownAskLevels":2,"knownBidLevels":2,"leaseId":"b22a24ef-82b1-4ee6-be25-6929c7d86eaa","materialHash":"a7a3d7217a5ccae16416e400151318e7fd1f403ef7a5f3b429d8b06e449a5b33","providerEventTimeMs":"1791454996066","providerSymbol":"BTCUSDT","quoteAsset":"USDT","sessionId":"daff7cb2-995e-4b24-81d6-cf0d85638407","sourceVersion":"binance-market:40f205b7-46ba-4aa1-82cb-2c036c19442d:1","timeGeneration":"14713ec0-595f-4054-b407-fd72f92c5fb5","workspaceId":"40f205b7-46ba-4aa1-82cb-2c036c19442d"},"entitlement":"REALTIME","freshness":"HEALTHY","marketSnapshotId":"746e2b4d-112f-4f29-ad5d-7a8045ed0bc3","providerTimestamp":"2026-10-08T10:23:16.066Z","receivedTimestamp":"2026-10-08T10:23:16.621Z","source":"BINANCE_SPOT_PUBLIC","venue":"BINANCE"}},"status":"AVAILABLE","tier":"HOT","workspaceId":"40f205b7-46ba-4aa1-82cb-2c036c19442d"},"generation":"454c4137-5079-44ee-a80e-027411549563","instrumentId":"crypto:BTC/USDT:spot","leaseId":"b22a24ef-82b1-4ee6-be25-6929c7d86eaa","reason":"Verified continuous public Spot book within known price bands; financial data-use rights remain unverified.","reconnectAttempt":1,"sequence":4,"sourceId":"BINANCE_SPOT_PUBLIC","sourceVersion":"binance-market:40f205b7-46ba-4aa1-82cb-2c036c19442d:1","status":"STREAMING","subscribed":true,"workspaceId":"40f205b7-46ba-4aa1-82cb-2c036c19442d"},"ok":true,"requestId":"spot-hot","schemaVersion":1}
+  left: Number(1)
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.96s
+
+error: test failed, to rerun pass `--test binance_market_hot`

@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.65s
+     Running tests/binance_market_stream_limits.rs (target/debug/deps/binance_market_stream_limits-1c1f4fba85e8c83e)
+
+running 1 test
+test public_stream_connection_headroom_is_shared_across_source_and_workspace_changes ... FAILED
+
+failures:
+
+---- public_stream_connection_headroom_is_shared_across_source_and_workspace_changes stdout ----
+
+thread 'public_stream_connection_headroom_is_shared_across_source_and_workspace_changes' (9409206) panicked at src-tauri/tests/binance_market_stream_limits.rs:70:13:
+assertion `left == right` failed
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    public_stream_connection_headroom_is_shared_across_source_and_workspace_changes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `--test binance_market_stream_limits`

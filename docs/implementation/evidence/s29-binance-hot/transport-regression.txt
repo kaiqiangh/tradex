@@ -1,0 +1,29 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.18s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 15 tests
+test a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable ... ok
+test a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation ... ok
+test a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection ... ok
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ... ok
+test a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason ... ok
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ... ok
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... ok
+test obsolete_update_ids_do_not_hide_malformed_original_depth_values ... ok
+test original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material ... ok
+test provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom ... ok
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ... ok
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ... ok
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ... ok
+test stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io ... ok
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.84s
+
+     Running tests/binance_market_stream_limits.rs (target/debug/deps/binance_market_stream_limits-1c1f4fba85e8c83e)
+
+running 1 test
+test public_stream_connection_headroom_is_shared_across_source_and_workspace_changes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s

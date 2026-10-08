@@ -11,6 +11,54 @@ use std::{
 };
 use tungstenite::{WebSocket, protocol::WebSocketConfig, stream::MaybeTlsStream};
 pub(crate) type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
+
+/// Interrupt an admitted socket even when a peer keeps an individual read alive
+/// by trickling bytes. One scoped guard is joined before handing the worker on.
+pub(crate) fn guarded_read<T>(
+    socket: &mut Socket,
+    current: &(impl Fn() -> bool + Sync),
+    work: impl FnOnce(&mut Socket) -> Result<T>,
+) -> Result<T> {
+    let tcp = match socket.get_ref() {
+        MaybeTlsStream::Plain(tcp) => tcp,
+        MaybeTlsStream::NativeTls(tls) => tls.get_ref(),
+        _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
+    };
+    let interrupt = tcp
+        .try_clone()
+        .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+    thread::scope(|scope| {
+        let (finished, completion) = mpsc::sync_channel(1);
+        thread::Builder::new()
+            .name("tradex-quote-read".into())
+            .spawn_scoped(scope, move || {
+                let mut retired_at = None;
+                loop {
+                    if !current() {
+                        // Ordinary reads time out within200ms and can send the
+                        // existing closing handshake. Force only a stuck read.
+                        let at = retired_at.get_or_insert_with(Instant::now);
+                        if at.elapsed() >= Duration::from_millis(250) {
+                            let _ = interrupt.shutdown(std::net::Shutdown::Both);
+                            break;
+                        }
+                    } else {
+                        retired_at = None;
+                    }
+                    if !matches!(
+                        completion.recv_timeout(Duration::from_millis(50)),
+                        Err(mpsc::RecvTimeoutError::Timeout)
+                    ) {
+                        break;
+                    }
+                }
+            })
+            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+        let result = work(socket);
+        let _ = finished.send(());
+        result
+    })
+}
 static RESOLUTION_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 struct ResolutionPermit;
 impl Drop for ResolutionPermit {
