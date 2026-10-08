@@ -1,6 +1,6 @@
 # S29 — Binance Spot Live 串行计划
 
-父规范：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。当前票：[核验 Binance Live 账户交易状态](https://github.com/kaiqiangh/tradex/issues/122)。起点：dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9。
+父规范：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。当前票：[精确 Spot 规则来源与账户准入](https://github.com/kaiqiangh/tradex/issues/123)。诊断 #122 已 CLOSED；规则来源 #123 为 IN_PROGRESS。起点：dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9。
 
 用户于 2026-10-07 选择先做 S29，S28 验收仍开放；仅变更调度。S17、物理 S27 及 S28 全部金融门禁保持此前记录的未验证状态。最终目标仍是完整 RevC 应用，在 dev 完整验证后提交 dev→main PR，由本人 review，禁止自动合并。
 
@@ -16,3 +16,5 @@
 父项完成须满足完整规范的每项用户故事以及 provider/金融/UX/架构门禁；关闭只读前置票不能关闭 S29。
 
 2026-10-07 核对的官方接口参考：[账户交易状态与 API 权限](https://developers.binance.com/en/docs/catalog/core-trading-wallet/api/rest-api/account)、[系统状态](https://developers.binance.com/en/docs/catalog/core-trading-wallet/api/rest-api/others)、[Spot 规则](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/general)、[Spot 流](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~)。后续端点核查归所属切片；这些参考不证明用户的数据许可、地区访问或真实就绪。
+
+当前串行票为 [#123 精确 Spot 规则来源与账户准入](https://github.com/kaiqiangh/tradex/issues/123)，状态 IN_PROGRESS；诊断 #122 已 CLOSED。#123 只完成规则来源纵向切片，报价/深度/权利与完整金融生命周期继续由后续所属工作承担，父项 #121 保持 OPEN。

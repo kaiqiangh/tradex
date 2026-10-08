@@ -1,4 +1,4 @@
-import { MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
+import { FinancialEvidencePanel, MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,6 +63,7 @@ function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; o
     <dl className="market-identity"><div><dt>Symbol</dt><dd>{instrument.symbol}</dd></div><div><dt>Asset class</dt><dd>{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</dd></div><div><dt>Venue</dt><dd>{instrument.exchange ?? 'Provider venue selected at fetch'}</dd></div><div><dt>Currency</dt><dd>{instrument.currency}</dd></div><div><dt>Access tier</dt><dd>{detail.tier}</dd></div></dl>
     <div className={`market-status market-status-${detail.status.toLowerCase()}`} role="status"><strong>{statusLabel[detail.status]}</strong><p>{detail.availabilityReason}</p><small>Source: {detail.sourceId ?? 'No source selected'}</small></div>
     <MarketStatePanel state={detail.marketState} adjustmentStatus={detail.adjustmentStatus} actions={detail.corporateActions} onOpenDataSources={onOpenDataSources} />
+    {detail.spotRuleEvidence && <section aria-label="Spot rule evidence"><h3>Spot rule evidence</h3><FinancialEvidencePanel source={detail.spotRuleEvidence} instrumentId={instrument.instrumentId} /></section>}
     {detail.financialEvidence && <MarketFinancialEvidencePanel evidence={detail.financialEvidence} instrumentId={instrument.instrumentId} />}
     {quote ? <section className="market-quote" aria-label="Market quote">
       <h3>Bid / ask quote</h3>
@@ -103,7 +104,7 @@ function InstrumentDetail({ workspaceId, instrumentId, onBack, onOpenDataSources
   const [hotError, setHotError] = useState<unknown>();
   const [revision, setRevision] = useState(0);
   const [visible, setVisible] = useState(document.visibilityState !== 'hidden');
-  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && (!instrumentId.startsWith('equity:') || source.isSuccess), retry: false, refetchInterval: instrumentId.startsWith('equity:') ? 1000 : false });
+  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && (!instrumentId.startsWith('equity:') || source.isSuccess), retry: false, refetchInterval: query => instrumentId.startsWith('equity:') || query.state.data?.spotRuleEvidence ? 1000 : false });
   useEffect(() => {
     const changed = () => setVisible(document.visibilityState !== 'hidden');
     document.addEventListener('visibilitychange', changed);

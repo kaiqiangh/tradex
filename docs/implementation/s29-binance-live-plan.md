@@ -1,6 +1,6 @@
 # S29 — Binance Spot Live serial plan
 
-Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Current ticket: [Inspect Binance Live account trading state](https://github.com/kaiqiangh/tradex/issues/122). Start: dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9.
+Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Current ticket: [Exact Spot rule-source and account admission](https://github.com/kaiqiangh/tradex/issues/123). Diagnostic #122 is CLOSED; rule-source #123 is IN_PROGRESS. Start: dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9.
 
 The user selected S29 on 2026-10-07 while S28 acceptance remains open. This changes scheduling only. S17, physical S27 and all S28 financial gates remain unverified where previously recorded. The final outcome remains the complete RevC application, validated on dev, followed by a dev→main PR for human review only.
 
@@ -9,7 +9,7 @@ The parent issue contains the full requirement list and implementation decisions
 Work one complete implementation ticket at a time:
 
 1. **Account trading-state observation and safety consumption** (#122): public connect/probe/refresh → fixed ordinary Binance HTTP/signature/current-job adapter → typed persisted status → Accounts projection and Arm/PLACE health guard. No open technical blocker. Real-provider financial acceptance is outside this child and remains required by the parent.
-2. **Configured venue/rule/market evidence**: exact canonical BASE/QUOTE, status/permission sets/filters, authentic bid/ask and depth, timestamps/sequencing/freshness, source generations and explicit data rights. Reassess the next narrow complete slice after #122 review; do not infer current quotes from ticker/REST receipt times or invent a crypto equity calendar.
+2. **Configured venue/rule/market evidence**: exact canonical BASE/QUOTE, status/permission sets/filters, authentic bid/ask and depth, timestamps/sequencing/freshness, source generations and explicit data rights. The exact rule-source/admission slice is #123; quote/depth/rights remain later owning work; do not infer current quotes from ticker/REST receipt times or invent a crypto equity calendar.
 3. **Live PLACE and private-stream lifecycle**: actual account capabilities, immediate preflight and genuinely needed execution FX, immutable financial intent/approval/capacity, authenticated Gateway, one mutation, exact client/order identity, query-first uncertainty, exact cancellation/fills/fees and recovery. Depends only on the evidence gates it actually consumes.
 4. **Ordinary-native and authorized external acceptance**: safe saved-key reads first; actual financial actions require a concrete separately approved transaction/cancel plan and human action. No Testnet or demo hosted substitute, access bypass or automatic main merge.
 

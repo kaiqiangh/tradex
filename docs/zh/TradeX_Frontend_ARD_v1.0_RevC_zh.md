@@ -720,6 +720,11 @@ Portfolio 显示后端导出的金额币种需求，包括已观察余额单位�
 
 Accounts 显示选中 Binance Live 连接在 Backend §41.41 定义的可选观察：采样系统状态、API 交易锁、保守的首个响应接收时间、提供方锁更新时间及可空预计恢复时间。历史状态缺失时显示不可用，并引导用户使用现有 Refresh。正常/未锁定只表示最近一次读取，明确提示 30 秒过期及不完整读取保留旧观察。不得断言标的流动性、数据权利或 Live-ready。Arm/PLACE 使用后端健康门禁；浏览器时间或这些标签不能赋权。保留独立受限撤单/对账、键盘导航及窄屏换行。S29 实际金融验收另行完成。
 
+### 13.27 精确 Binance Spot 规则来源展示（S29.2 #123）
+
+Settings Data & Storage 选择已有普通 Live 账户和 BTC/USDT 或 ETH/USDT，提供显式 Save、Refresh、Disconnect 和恢复控件。未保存选择禁用 Refresh；展示观察仍标明属于已保存选择。Disconnect 保留账户/密钥。分开展示后端采集/准入/执行/权利能力、原始/保留接收时间、类型化分层约束、禁用项、不支持字段和逐项剩余义务。Settings 元数据轮询不请求提供方。Markets 使用后端精确标的 `spotRuleEvidence`，轮询投影反映过期；主 Trade Proposal 视图要求精确账户及标的匹配。捕获的审批/武装前证据保留捕获时间边界。重开只有元数据。保留股票来源面板、键盘控件及 1280/768/390 布局。Renderer 时间、成功读取或 TRADING 永不授予 Arm/审批/PLACE 或报价/深度/许可权限。参见 Backend §41.42；原型 fixture 代码未改。
+
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

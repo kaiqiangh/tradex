@@ -1,10 +1,41 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { explainError, request } from './client.ts';
-import type { FxReviewEvidence, BrokerInstrumentMetadata, FinancialSourceConnection, FxRequirements, KnownCompanyEvent, MarketFinancialEvidence } from '../shared/ipc-types.ts';
+import type { FinancialSourceEvidence, FxReviewEvidence, BrokerInstrumentMetadata, FinancialSourceConnection, FxRequirements, KnownCompanyEvent, MarketFinancialEvidence } from '../shared/ipc-types.ts';
+
+type BinanceSpotRuleEvidence = Extract<FinancialSourceEvidence, { kind: 'BINANCE_SPOT_RULES' }>;
 
 const human = (value: string) => value.toLowerCase().replaceAll('_', ' ');
 const pageSize = 25;
+
+function SpotRules({ evidence }: { evidence: BinanceSpotRuleEvidence }) {
+  return <section aria-label="Binance exact Spot rule evidence">
+    <h4>{evidence.providerSymbol} · {human(evidence.symbolStatus)}</h4>
+    <p>Read-only rule collection. The reviewed order, references, current balances/counts, quotes and data rights still need independent checks.</p>
+    <dl className="data-source-details">
+      <div><dt>Canonical instrument</dt><dd>{evidence.instrumentId}</dd></div>
+      <div><dt>BASE / QUOTE</dt><dd>{evidence.baseAsset} / {evidence.quoteAsset} — USDT is not USD</dd></div>
+      <div><dt>Native precision</dt><dd>BASE {evidence.baseAssetPrecision} · QUOTE {evidence.quoteAssetPrecision}</dd></div>
+      <div><dt>Account type / can trade</dt><dd>{evidence.accountType} · {String(evidence.accountCanTrade)}</dd></div>
+      <div><dt>Account permission-set membership</dt><dd>{String(evidence.permissionSetsSatisfied)} · OR inside each set, AND between sets</dd></div>
+      <div><dt>Account permissions</dt><dd>{evidence.accountPermissions.join(', ') || 'No permissions supplied'}</dd></div>
+      <div><dt>Required permission sets</dt><dd>{evidence.permissionSets.map(set => `(${set.join(' OR ')})`).join(' AND ') || 'No additional sets supplied'}</dd></div>
+      <div><dt>Spot / quote Market quantity</dt><dd>{String(evidence.spotTradingAllowed)} / {String(evidence.quoteOrderQtyMarketAllowed)}</dd></div>
+      <div><dt>Order forms</dt><dd>{evidence.orderTypes.join(', ')}</dd></div>
+      <div><dt>Self-trade prevention</dt><dd>{evidence.defaultSelfTradePreventionMode} · {evidence.allowedSelfTradePreventionModes.join(', ')} · account requirement {evidence.accountRequiresSelfTradePrevention == null ? 'Not supplied' : String(evidence.accountRequiresSelfTradePrevention)}</dd></div>
+      <div><dt>System / API lock</dt><dd>{evidence.tradingStatus.systemStatus} / {evidence.tradingStatus.apiTradingLocked ? 'LOCKED' : 'UNLOCKED'}</dd></div>
+      <div><dt>Provider clock sample</dt><dd>{evidence.providerClockSample} — not a rule update or quote timestamp</dd></div>
+    </dl>
+    {evidence.admissionBlockers.length > 0 && <div role="status"><strong>Admission blockers</strong><ul>{evidence.admissionBlockers.map(code => <li key={code}>{human(code)}</li>)}</ul></div>}
+    <details><summary>{evidence.constraints.length} scoped constraints</summary>{evidence.constraints.map((constraint, index) => <section key={index}>
+      <h5>{constraint.ruleType} · {human(constraint.scope)} · {human(constraint.origin)}</h5>
+      <p>{constraint.knownSchema ? 'Known field schema; execution qualification remains pending.' : 'Unsupported schema — cannot qualify an order.'}</p>
+      <dl className="data-source-details">{constraint.fields.map(field => <div key={field.name}><dt>{field.name}</dt><dd>{String(field.value.value)}{field.disabled ? ' · disabled component' : ''}</dd></div>)}</dl>
+      {constraint.unsupportedFields.length > 0 && <p>Unqualified fields: {constraint.unsupportedFields.join(', ')}</p>}
+    </section>)}</details>
+    <h5>Unresolved execution obligations</h5><ul>{evidence.unresolvedObligations.map(code => <li key={code}>{human(code)}</li>)}</ul>
+  </section>;
+}
 
 function CompanyEvents({ actions, instrumentId }: { actions: KnownCompanyEvent[]; instrumentId?: string }) {
   const [page, setPage] = useState(0);
@@ -56,18 +87,19 @@ export function FinancialEvidencePanel({ source, instrumentId, capturedAt, showR
     <p role="status"><strong>{capturedAt ? 'Captured status: ' : ''}{human(source.status)}</strong> · {capturedAt ? 'Captured assessment: ' : ''}{source.availabilityReason}</p>
     <dl className="data-source-details">
       <div><dt>Saved account</dt><dd>{source.connectionId ?? 'None selected'}</dd></div>
+      {source.instrumentId && <div><dt>Selected rule instrument</dt><dd>{source.instrumentId}</dd></div>}
       <div><dt>First receipt</dt><dd>{source.observedAt ?? 'Not checked'}</dd></div>
       {source.capabilityStatuses.map(capability => <div key={capability.capability}><dt>{human(capability.capability)}</dt><dd>{capturedAt ? 'Captured status: ' : ''}{human(capability.status)} · {capability.reason}</dd></div>)}
     </dl>
     {showRequirements && source.fxRequirements && <FxRequirementsPanel requirements={source.fxRequirements} />}
     {evidence && <>
       {source.status !== 'AVAILABLE' && <p className="error-text">{capturedAt ? 'This observation was unavailable when the review was captured.' : 'Retained observation is unavailable for current decisions.'} Refresh the saved source to obtain new evidence.</p>}
-      <dl className="data-source-details"><div><dt>Provider quality</dt><dd>{evidence.providerQuality === 'TEN_MINUTE_METADATA' ? 'Ten-minute provider metadata' : evidence.providerQuality === 'UNQUALIFIED_FX_RATE' ? 'Read-only FX rate; transaction-grade qualification unavailable' : 'Delayed process-date query'}. A recent receipt does not improve provider quality.</dd></div>
+      <dl className="data-source-details"><div><dt>Provider quality</dt><dd>{evidence.providerQuality === 'READ_ONLY_SPOT_RULES' ? 'Read-only Spot rules; per-order execution qualification pending' : evidence.providerQuality === 'TEN_MINUTE_METADATA' ? 'Ten-minute provider metadata' : evidence.providerQuality === 'UNQUALIFIED_FX_RATE' ? 'Read-only FX rate; transaction-grade qualification unavailable' : 'Delayed process-date query'}. A recent receipt does not improve provider quality.</dd></div>
         <div><dt>Provider observation time</dt><dd>{evidence.providerObservedAt ?? 'Not supplied'}</dd></div>
         <div><dt>Account / source version</dt><dd className="identity">{evidence.binding.accountVersion} · {evidence.binding.sourceVersion}</dd></div>
         <div><dt>Material version</dt><dd className="identity">{evidence.materialVersion}</dd></div>
       </dl>
-      {evidence.kind === 'CORPORATE_ACTIONS' ? <>
+      {evidence.kind === 'BINANCE_SPOT_RULES' ? <SpotRules evidence={evidence} /> : evidence.kind === 'CORPORATE_ACTIONS' ? <>
         <p>Requested process dates: {evidence.coverageStart} – {evidence.coverageEnd}. Query {evidence.queryComplete ? 'exhausted all returned pages' : 'incomplete'}; complete action coverage and historical adjustment remain unavailable.</p>
         <CompanyEvents key={`${evidence.materialVersion}:${instrumentId ?? 'all'}`} actions={evidence.actions} instrumentId={instrumentId} />
       </> : evidence.kind === 'BROKER_INSTRUMENTS' ? <><p>Account currency: {evidence.accountCurrency}. Current account tradability and exchange halts remain unavailable.</p>{evidence.instruments.filter(instrument => !instrumentId || instrument.instrumentId === instrumentId).map(instrument => <BrokerInstrument key={`${evidence.materialVersion}:${instrument.instrumentId}`} instrument={instrument} />)}</> : <><p>Observed routes belong to {evidence.requirements.proposalId ? 'the captured immutable proposal and portfolio context' : 'the captured portfolio context'}. Changing the intent or refreshing in Settings requires a new read for that context.</p><ul>{evidence.rates.map(rate => <li key={rate.providerPair}><strong>{rate.fromCurrency} → {rate.toCurrency}</strong><dl className="data-source-details"><div><dt>Bid / ask</dt><dd>{rate.bid} / {rate.ask}</dd></div><div><dt>Provider mid</dt><dd>{rate.mid} — supplied independently; not a funding conversion</dd></div><div><dt>Provider rate time</dt><dd>{rate.providerTimestamp}</dd></div></dl></li>)}</ul></>}
@@ -120,4 +152,11 @@ export function FxSourceContext({ workspaceId, proposalId }: { workspaceId: stri
 
 export function CapturedCurrencyEvidence({ evidence, reviewedAt }: { evidence: FxReviewEvidence; reviewedAt: string }) {
   return <section aria-label="Captured currency evidence"><h3>Captured currency evidence</h3><p className="muted">Captured at: <time dateTime={reviewedAt}>{reviewedAt}</time></p><p>This immutable review retains the original rates and assessment. Polling does not renew consent; the backend checks current material again before a protected action.</p><FxRequirementsPanel requirements={evidence.requirements} /><FinancialEvidencePanel source={evidence.source} capturedAt={reviewedAt} showRequirements={false} /></section>;
+}
+
+export function SpotRuleContext({ workspaceId, accountId, instrumentId }: { workspaceId: string; accountId?: string; instrumentId: string }) {
+  const source = useQuery({ queryKey: ['binance-rule-source', workspaceId], queryFn: () => request('data.binance_rules.connection', { workspaceId }), retry: false, refetchInterval: 1000 });
+  return <section className="card" aria-label="Spot rule evidence for current intent"><h3>Spot rule evidence for current intent</h3>
+    {source.isPending ? <p role="status">Loading saved Spot rule source…</p> : source.isError ? <div role="alert"><p>{explainError(source.error)}</p><button type="button" onClick={() => void source.refetch()}>Reload Spot rule evidence</button></div> : source.data.connectionId === accountId && source.data.instrumentId === instrumentId ? <FinancialEvidencePanel source={source.data} instrumentId={instrumentId} /> : <p>No rule source matches this exact account and instrument. Select and refresh it in Settings. Other saved rule observations cannot qualify this intent.</p>}
+  </section>;
 }

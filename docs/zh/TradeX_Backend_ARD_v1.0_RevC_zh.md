@@ -3041,11 +3041,17 @@ FX 来源投影增加可选 fxRequirements 及四项独立 typed capabilities：
 
 系统正常与 API 未锁定只是只读诊断，不等于完整权限、标的/规则/报价/FX/数据权利/私有流就绪。维护、锁定、缺失观察、无法解析/未来接收时间或接收时间超过 30 秒，阻断 Arm 与 PLACE 的账户健康判断。适用时沿用账户降级路径解除武装并使未消费权限失效；正常读取永不自动重新武装。失败或过时任务保留此前可信数据、状态及成功同步时间，但不得恢复当前健康。重开保留状态供参考，仍执行启动失效与解除武装/对账。S29 父项的普通数据源、Live PLACE/私有流及经授权外部生命周期验收保持开放；S28/S17/物理 S27 发布门禁不变。
 
-### 41.42 Binance 普通 Spot 规则来源目标（S29.2 #123）
+### 41.42 Binance 普通 Spot 规则来源（S29.2 #123）
 
-本票仍为 IN_PROGRESS；元数据选择增量本身不表示 Provider 读取或金融验收。`data.binance_rules.connection {workspaceId}` 返回 kind 为 `BINANCE_SPOT_RULES`、带可选标准 `instrumentId` 的 `FinancialSourceConnection`。`data.binance_rules.configure {workspaceId, expectedStateVersion, connectionId, instrumentId}` 选择符合条件的已保存普通 Binance Live 账户，以及唯一支持的 `crypto:BTC/USDT:spot` 或 `crypto:ETH/USDT:spot`；`data.binance_rules.disconnect {workspaceId, expectedStateVersion}` 移除该选择并保留借用账户/密钥。Save/disconnect 不访问 Provider。SQLite schema 36 扩展既有金融来源选择/审计表并保留原记录；历史选择省略新增可选标的字段。重开只恢复元数据，不恢复活跃规则资格或 Arm 权威。
+`data.binance_rules.connection {workspaceId}` 返回 kind 为 `BINANCE_SPOT_RULES` 的 `FinancialSourceConnection`，含可选规范 `instrumentId`。`data.binance_rules.configure {workspaceId, expectedStateVersion, connectionId, instrumentId}` 选择符合条件的已保存普通 Binance Live 账户，只允许 `crypto:BTC/USDT:spot` 或 `crypto:ETH/USDT:spot`；`data.binance_rules.refresh {workspaceId, expectedStateVersion}` 显式读取已保存选择；`data.binance_rules.disconnect {workspaceId, expectedStateVersion}` 移除选择并保留借用的账户/密钥。Save/disconnect 不请求提供方。SQLite schema 36 保留历史来源记录；重开只恢复配置，不恢复运行时观察或武装权限。
 
-当前完整票仍需有界的原始 token 类型化账户/密钥/交易状态、精确标的 exchangeInfo/executionRules 与签名 myFilters 观察、独立约束范围及首个接收/代次/身份绑定、保留/时效/故障处理、真实 Settings/Markets/Trade 投影和负向安全消费。缺失/未知活跃约束或逐 Proposal 参考/动态义务保持未合格。元数据成功不提供无条件 InstrumentRules PASS、报价/深度/使用权/FX、股票日历/公司行为完整性、审批、Live PLACE 或私有流权威。精确 CANCEL/对账及 S28/S17/物理 S27 门禁保持独立。运行时采集/UI/普通 Provider 证明仍等待 #123 自身验收完成。
+Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 秒，固定 `api.binance.com` GET 路由，无替代主机/Testnet/写操作。先取得受限服务器时钟采样，再读取签名账户、密钥限制、交易状态及精确标的 myFilters；精确 exchangeInfo 显式请求 `showPermissionSets=true`，executionRules 独立公开读取。投影前执行 HMAC 与密钥/签名反射保护。采集器按进程保留滚动 60 秒的元数据余量：IP 权重 3000、已认证 UID 权重 1500；切换来源/账户/workspace 无法重置。不声称覆盖全部提供方/IP 流量。每个响应最多 512 KiB，总计 4 MiB。身份必须匹配已连接远程 UID 和规范 symbol/BASE/QUOTE；USDT 永不视作 USD。
+
+证据 kind `BINANCE_SPOT_RULES`、quality `READ_ONLY_SPOT_RULES`，包含 `binding`、`materialVersion`、保守首次 `observedAt`、可空 `providerObservedAt`（规则未提供时间则为 null）及独立 `providerClockSample`。绑定 workspace/session/clock/sequence 和 source/account/credential 版本。包括报告及类型化标的状态、精度、Spot/报价数量标志、订单形式/STP 模式、类型化账户类型/canTrade/permissions、权限集合/成员判断、可选账户 STP 要求、密钥审查、交易状态观察、分层约束、`admissionBlockers` 和 `unresolvedObligations`。必须使用原始 JSON 布尔/整数/十进制字符串；非负 int64 规则限制以精确字符串投影，涵盖 JavaScript 安全整数范围之外的值。十进制不经浮点往返。重复字段/同层规则、错误层级/身份、无效范围、超长值及数字哨兵均失败关闭。PRICE_FILTER 的零值禁用相应单项。只有文档明确的 PRICE_FILTER.priceExponent 和 MAX_ASSET.qtyExponent 作为可选受限原始整数接受；未知有效规则/字段显式保留为不支持义务。MAX_ASSET 限制单笔订单资产量，与 MAX_POSITION 独立。
+
+权限集合内部 OR、集合之间 AND。账户类型/canTrade、密钥范围、Spot 支持、HALT/BREAK/未知标的状态、维护及 API 锁保留不同负面诊断。采集成功只代表技术可用。准入按独立墙钟/单调时钟最多 30 秒有效；缓存读取不更新接收时间。新的来源/账户/时间/sequence/session 代使资格失效；刷新失败保留此前成功观察，明确不可用且不续期。MarketDetail 的可选 `spotRuleEvidence` 只投影精确已选规范标的；Trade 还要求精确已选账户。当前负面准入进入后端 InstrumentRules 拒绝及 market/approval 摘要；正常元数据对逐 Proposal 资格仍为 UNAVAILABLE。选择此来源也使旧合成 crypto 权限失效，包括断开后。
+
+按实际约束逐项列出价格/数量网格、名义金额/市场参考、提供方参考或加权均价、当前仓位/订单计数、精确单笔资产量、PRICE_RANGE 盘口参考、订单形式及不支持约束的剩余义务。采集不授予无条件 InstrumentRules PASS、执行级报价/深度、许可、FX/费用、股票日历/公司行为完整性、审批、Arm、PLACE 或私有流权限。精确 CANCEL/对账保持独立。#123 验收、完整父项 #121 和 S28/S17/物理 S27 门禁分开；文档契约不等于普通提供方或金融运行时证明。
 
 ## 42. Backend-to-Frontend Event Surface
 

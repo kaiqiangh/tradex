@@ -1,4 +1,4 @@
-import type { FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
+import type { BinanceRuleSourceConfigure, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { subscribeBrowserEvents } from './browserEvents.ts';
 import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, DataSourceConnection, CalendarConnection, CalendarConfigure, DataSourceConfigure, DataSourceMutation, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, HotQuoteAcquire, HotQuoteQuery, HotQuoteProjection, HotQuoteRelease, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, LiveOrderRefreshRequest, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
@@ -86,6 +86,10 @@ interface Inputs {
   'data.actions.configure': FinancialSourceConfigure;
   'data.actions.disconnect': DataSourceMutation;
   'data.actions.refresh': DataSourceMutation;
+  'data.binance_rules.connection': WorkspaceQuery;
+  'data.binance_rules.configure': BinanceRuleSourceConfigure;
+  'data.binance_rules.disconnect': DataSourceMutation;
+  'data.binance_rules.refresh': DataSourceMutation;
   'data.instrument.connection': WorkspaceQuery;
   'data.instrument.configure': FinancialSourceConfigure;
   'data.instrument.disconnect': DataSourceMutation;
@@ -234,6 +238,10 @@ interface Outputs {
   'data.actions.configure': FinancialSourceConnection;
   'data.actions.disconnect': FinancialSourceConnection;
   'data.actions.refresh': FinancialSourceConnection;
+  'data.binance_rules.connection': FinancialSourceConnection;
+  'data.binance_rules.configure': FinancialSourceConnection;
+  'data.binance_rules.disconnect': FinancialSourceConnection;
+  'data.binance_rules.refresh': FinancialSourceConnection;
   'data.instrument.connection': FinancialSourceConnection;
   'data.instrument.configure': FinancialSourceConnection;
   'data.instrument.disconnect': FinancialSourceConnection;
@@ -382,6 +390,10 @@ const definitions = {
   'data.actions.configure': ['FinancialSourceConfigure', 'FinancialSourceConnection'],
   'data.actions.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
   'data.actions.refresh': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.binance_rules.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
+  'data.binance_rules.configure': ['BinanceRuleSourceConfigure', 'FinancialSourceConnection'],
+  'data.binance_rules.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.binance_rules.refresh': ['DataSourceMutation', 'FinancialSourceConnection'],
   'data.instrument.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
   'data.instrument.configure': ['FinancialSourceConfigure', 'FinancialSourceConnection'],
   'data.instrument.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],

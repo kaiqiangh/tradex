@@ -1,4 +1,4 @@
-import { CapturedCurrencyEvidence, FxSourceContext, MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
+import { SpotRuleContext, FinancialEvidencePanel, CapturedCurrencyEvidence, FxSourceContext, MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -1503,6 +1503,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           {selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}
           {selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}
           {proposalDetail.data && <>
+            {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <SpotRuleContext workspaceId={workspaceId} accountId={proposalDetail.data.fields.accountId ?? undefined} instrumentId={proposalDetail.data.fields.instrumentId} />}
             <FxSourceContext workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
             <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
@@ -1799,6 +1800,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <h3>Quote evidence before arming</h3>
         <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
         {liveArmReview.quoteReview?.currencyEvidence && <CapturedCurrencyEvidence evidence={liveArmReview.quoteReview.currencyEvidence} reviewedAt={liveArmReview.quoteReview.reviewedAt} />}
+        {liveArmReview.quoteReview?.market.spotRuleEvidence && <FinancialEvidencePanel source={liveArmReview.quoteReview.market.spotRuleEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview?.market.financialEvidence && <MarketFinancialEvidencePanel evidence={liveArmReview.quoteReview.market.financialEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {preArmQuote ? <dl className="proposal-fields approval-review-fields">
           <div><dt>Snapshot / source</dt><dd className="identity">{preArmQuote.provenance.marketSnapshotId} · {preArmQuote.provenance.source}</dd></div>
@@ -1834,6 +1836,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </dl>
       {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
+      {approvalReview.market.spotRuleEvidence && <FinancialEvidencePanel source={approvalReview.market.spotRuleEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       {approvalReview.market.financialEvidence && <MarketFinancialEvidencePanel evidence={approvalReview.market.financialEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       {approvalReview.currencyEvidence && <CapturedCurrencyEvidence evidence={approvalReview.currencyEvidence} reviewedAt={approvalReview.reviewedAt} />}
       <section aria-labelledby="approval-quote-title"><h3 id="approval-quote-title">Quote provenance</h3>

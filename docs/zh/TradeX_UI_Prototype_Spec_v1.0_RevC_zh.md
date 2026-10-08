@@ -1006,6 +1006,10 @@ Settings → Data & Storage 分别提供“Alpaca known company events”和“T
 
 Portfolio 显示后端导出的金额币种需求，包括已观察余额单位的 BALANCE_WORKSPACE 具名路由；未知账户主币种仍独立保持未知；Trade 加入所选不可变 Proposal 的 policy/funding 路由及明确的“Refresh rates for this proposal”读取。区分所选 intent 上下文与已观察读取上下文。显示原始 bid/ask/provider-mid、方向、各 provider timestamp、首次 receipt/material/source binding、UNQUALIFIED_FX_RATE 和独立 transaction qualification、broker costs、monetary completeness 阻塞。不得把上下文变成组合金额权威、funding bounds 或 consent。仅轮询本地投影更新过期状态，不读 provider、不续 receipt。过期证据保留但不可用。预 Arm review 与不可变审批窗口均仅显示捕获的 currencyEvidence、capture time 和捕获状态，不能把轮询写进这些捕获 review。预 Arm 证据保持只读，不能批准 Proposal。保留所有既有门禁、Local Paper 与保护性 CANCEL。以真实 Rust 验证键盘/status/errors/reload 及390/768/1280px。此目标契约不是 runtime 或 prototype PASS。
 
-### 14.17 Binance Live 交易状态诊断（S29.1 #122）
+## 14.25 Binance Live 交易状态诊断（S29.1 #122）
 
 Accounts 按 Backend §41.41 显示采样系统状态、API 交易锁及分别记录的接收/提供方更新/恢复时间。缺失状态不可用；维护、交易锁或超过 30 秒阻断 Arm/新订单。读取失败后保留的观察仅供参考。正常/未锁定不等于完整 Live 就绪。沿用现有 Refresh 与权限审阅，不隐式重新武装、授予同意或变更提供方。保持键盘与桌面/768/390 展示可读。
+
+## 14.26 精确 Spot 规则、保留证据与恢复（S29.2 #123）
+
+Settings 提供显式已保存普通 Binance Live 规则账户及精确 BTC/USDT 或 ETH/USDT 选择。Save 不读取提供方；未保存修改禁用 Refresh。Disconnect 保留账户/密钥。后端投影展示首次接收时间、新鲜度、精确账户/标的绑定、类型化层级/约束、禁用/不支持项、权限成员判断、不同准入阻断及逐单未决义务。刷新失败将此前观察保留为不可用；正常恢复不自动武装。Markets 只展示精确规范来源；Trade 展示精确 Proposal 账户/标的匹配，否则解释不匹配。轮询后端元数据反映过期，不自动读取提供方；捕获的审批证据仍标明捕获时间。控件支持键盘，1280/768/390 无横向溢出。采集/准入可用不能授予执行资格、报价/深度/许可或金融权限。参见 Backend §41.42 和 Frontend §13.27。原型代码未改；需求文字不建立运行时 PASS。

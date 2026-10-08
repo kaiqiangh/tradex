@@ -11,3 +11,9 @@
 读取/准入证据与逐 Proposal 执行资格分开。当前禁止/不支持权限、维护/锁定、HALT/BREAK、错误身份/权限成员资格、过期/未来证据以及来源/账户/材料/代次变化，均使新订单资格失效。精确 CANCEL/对账保持独立。报价/深度/使用权、实际所需 FX/费用、真实规则解释及 Gateway 即时复核、Live PLACE/私有流和单独授权的外部验收仍属于 S29 后续必要工作。USDT 不等于 USD；不虚构 crypto 股票日历或公司行为完整性。
 
 沿用已确认公开 React → 真实类型化 Control Plane → 临时 SQLite/outbox → 外部假 vault/HTTP/WS 边界。先记录真实公开来源选择 RED 再 GREEN，然后补齐采集、解析、故障/当前任务/时效/恢复、真实响应式键盘 UI 和适当既有回归；不新增正向金融快照/权威种子。同步英文/中文 IPC 与 UI 契约，完成当前票后才处理下一实现项。独立 Standards → Spec 串行审查绑定本基线及实际交付；本切片不触发 main 操作或免除 S28/S17/物理 S27。
+
+## 规则来源实现与剩余门禁
+
+已实现采集器和生成 wire 契约见 Backend ARD §41.42、Frontend §13.27 与 UI Spec §14.26。当前 #123 在完整检查、真实 Rust 支持的 UI 及独立串行审查证据记录完成前仍为 IN_PROGRESS。原始 int64 限制以无损字符串保存；可选价格/资产指数为受限整数。MAX_ASSET 是单笔订单金额限制，不等于 MAX_POSITION。已知约束族逐项列明未决逐单输入；未知类型/字段保持未获资格。2026-10-08 重新核对官方 schema/filter（[General API](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/general)、[官方 filters 来源](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/filters.md)）。
+
+技术采集和精确账户准入有独立能力状态。执行资格与 Spot 数据使用权仍为 UNVERIFIED。签名读取不授予市场数据 entitlement、许可/再分发权或地区资格。报价/深度来源、执行级时效、条款/保留及实际所需 FX/费用必须由后续所属 S29 工作建立。当前假提供方证据只证明公开本地边界；普通原生/提供方/金融执行与物理 OS Sleep/Wake 分开。原型代码未改。
