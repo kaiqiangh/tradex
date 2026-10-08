@@ -5,7 +5,7 @@ use std::{
     net::TcpListener,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread,
     time::Duration,
@@ -34,6 +34,7 @@ struct Ledger {
     connections: AtomicU64,
     closed: AtomicU64,
     frames: AtomicU64,
+    gap: AtomicBool,
     snapshot_base: AtomicU64,
     requests: Mutex<Vec<String>>,
     streams: Mutex<Vec<String>>,
@@ -44,6 +45,9 @@ pub struct Fixture {
     ledger: Arc<Ledger>,
 }
 impl Fixture {
+    pub fn set_gap(&self, enabled: bool) {
+        self.ledger.gap.store(enabled, Ordering::Release);
+    }
     pub fn connector(&self, instrument: &str) -> Result<BinanceStreamConnector> {
         let symbol = match instrument {
             "crypto:BTC/USDT:spot" => "btcusdt",
@@ -162,7 +166,13 @@ pub fn start() -> io::Result<Fixture> {
             };
             let mut cursor = base;
             loop {
-                let event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64,"s":symbol,"U":cursor,"u":cursor+1,"b":[[bid,"0.5"]],"a":[[ask,"0.75"]]});
+                let first = cursor
+                    + if observed.gap.load(Ordering::Acquire) {
+                        100
+                    } else {
+                        0
+                    };
+                let event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64,"s":symbol,"U":first,"u":first+1,"b":[[bid,"0.5"]],"a":[[ask,"0.75"]]});
                 if socket
                     .send(tungstenite::Message::Text(event.to_string().into()))
                     .is_err()

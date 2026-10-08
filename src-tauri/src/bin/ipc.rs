@@ -1281,6 +1281,25 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.market.fixture.gap") {
+                let result = match (
+                    binance_market_fixture.as_ref(),
+                    request["payload"]["enabled"].as_bool(),
+                ) {
+                    (Some(fixture), Some(enabled)) => {
+                        fixture.set_gap(enabled);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                    }
+                    _ => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.market.fixture.inspect") {
                 let result = match binance_market_fixture.as_ref() {
                     Some(fixture) => {
