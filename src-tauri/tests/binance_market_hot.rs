@@ -2256,6 +2256,72 @@ fn public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_re
 }
 
 #[test]
+fn current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs() {
+    // Regression proof of an existing boundary, not a fabricated RED/GREEN repair.
+    let view = HotView::open();
+    let book = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(book["data"]["detail"]["status"], "AVAILABLE");
+    let research = command(
+        &view.control,
+        "research.run",
+        json!({"workspaceId":view.workspace,"agentMode":"ASK","executionContext":"NONE_READ_ONLY","attachedContexts":[],"toolId":"public_market_read","focus":"CRYPTO_SPOT","query":"BTC"}),
+    );
+    assert_eq!(research["ok"], true, "{research}");
+    let result = &research["data"];
+    assert_eq!(result["payload"]["state"], "UNAVAILABLE");
+    assert!(result["payload"]["fixtureLabel"].is_null());
+    assert!(result["payload"]["marketSnapshotRefs"].is_null());
+    assert!(
+        result["payload"]["instrumentRefs"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("crypto:BTC/USDT:spot"))
+    );
+    for venue in result["payload"]["spotVenues"].as_array().unwrap() {
+        for field in ["bid", "ask", "spread", "depth", "quoteAge"] {
+            assert!(
+                venue[field].is_null(),
+                "Live book must not enter research: {venue}"
+            );
+        }
+    }
+    let thread = command(
+        &view.control,
+        "thread.create",
+        json!({"workspaceId":view.workspace,"title":"Public book boundary","defaultAgentMode":"ASK","defaultExecutionContext":"NONE_READ_ONLY","model":{"provider":"CHATGPT","modelId":"gpt-5.6-sol"},"linkedContexts":[]}),
+    );
+    assert_eq!(thread["ok"], true, "{thread}");
+    let mut injected = result.clone();
+    injected["payload"]["spotVenues"][0]["bid"] = book["data"]["detail"]["snapshot"]["bid"].clone();
+    let rejected = command(
+        &view.control,
+        "turn.start",
+        json!({"workspaceId":view.workspace,"threadId":thread["data"]["threadId"],"expectedStateVersion":thread["data"]["stateVersion"],"message":"Use the typed research result","agentMode":"ASK","executionContext":"NONE_READ_ONLY","attachedContexts":[],"researchInvocation":{"toolId":"public_market_read","focus":"CRYPTO_SPOT","query":"BTC"},"researchResult":injected}),
+    );
+    assert_eq!(
+        rejected["error"]["code"], "RESEARCH_RESULT_INVALID",
+        "{rejected}"
+    );
+    // Neither public artifact operation accepts a caller-supplied live snapshot.
+    for (name, payload) in [
+        (
+            "artifact.save",
+            json!({"workspaceId":view.workspace,"threadId":thread["data"]["threadId"],"turnId":"no-completed-turn","itemId":"no-completed-item","kind":"RESEARCH","title":"Unlicensed book","snapshot":book["data"]["detail"]["snapshot"]}),
+        ),
+        (
+            "artifact.export",
+            json!({"workspaceId":view.workspace,"artifactId":"no-saved-artifact","snapshot":book["data"]["detail"]["snapshot"]}),
+        ),
+    ] {
+        let rejected = command(&view.control, name, payload);
+        assert_eq!(
+            rejected["error"]["code"], "IPC_PAYLOAD_INVALID",
+            "{name}: {rejected}"
+        );
+    }
+}
+
+#[test]
 fn captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references() {
     let view = HotView::open();
     let current = view.wait(|v| v["data"]["status"] == "STREAMING");
