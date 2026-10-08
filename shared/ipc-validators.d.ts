@@ -71,6 +71,7 @@ declare const validators: {
   BinanceMarketSourceConnection: (value: unknown) => boolean;
   BinanceRuleSourceConfigure: (value: unknown) => boolean;
   BinanceSpotOrderFormFlags: (value: unknown) => boolean;
+  BinanceSpotQuoteEvidence: (value: unknown) => boolean;
   BinanceSpotSymbolStatus: (value: unknown) => boolean;
   BinanceSystemStatus: (value: unknown) => boolean;
   BinanceTestnetBalance: (value: unknown) => boolean;
@@ -391,6 +392,9 @@ declare const validators: {
   SetFallbackPolicy: (value: unknown) => boolean;
   SetOnboardingStep: (value: unknown) => boolean;
   Snapshot: (value: unknown) => boolean;
+  SpotDepthCoverage: (value: unknown) => boolean;
+  SpotDepthLevel: (value: unknown) => boolean;
+  SpotMarketEnvironment: (value: unknown) => boolean;
   SpotRuleConstraint: (value: unknown) => boolean;
   SpotRuleField: (value: unknown) => boolean;
   SpotRuleOrigin: (value: unknown) => boolean;

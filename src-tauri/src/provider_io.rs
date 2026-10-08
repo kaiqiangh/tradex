@@ -31,6 +31,8 @@ use zeroize::Zeroizing;
 
 #[path = "binance.rs"]
 pub(crate) mod binance;
+#[path = "binance_read_budget.rs"]
+pub(crate) mod binance_read_budget;
 #[path = "bitget.rs"]
 mod bitget;
 #[path = "trading212.rs"]

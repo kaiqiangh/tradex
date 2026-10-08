@@ -1,4 +1,6 @@
 //! Public Spot source selection; configuration performs no provider I/O.
+mod book;
+pub mod stream;
 use crate::protocol::{
     BinanceMarketSourceConnection, CommandEnvelope, DataSourceEntry, DataSourceMutation,
     DataSourceProbeKind, DataSourceQuery, DataSourceStatus, MAX_SEQUENCE, Result, TradeXError,
@@ -59,15 +61,17 @@ pub(crate) fn connection(
 ) -> Result<BinanceMarketSourceConnection> {
     control.require_workspace(workspace)?;
     let saved = control.store.as_ref().unwrap().binance_market_source()?;
+    let version = saved.state_version(workspace);
     let mut source = policy();
     source.configured = saved.configured;
     if saved.configured {
         source.status = DataSourceStatus::Unverified;
         source.availability_reason = "Public Spot source selected; no continuous Hot book is verified. Open a supported Hot view to start a lease.".into();
+        stream::project_source(control, &version, &mut source);
     }
     Ok(BinanceMarketSourceConnection {
         workspace_id: workspace.into(),
-        state_version: saved.state_version(workspace),
+        state_version: version,
         configured: saved.configured,
         source,
     })

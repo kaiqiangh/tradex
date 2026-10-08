@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.85s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ... FAILED
+
+failures:
+
+---- real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key stdout ----
+
+thread 'real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key' (9321934) panicked at src-tauri/tests/binance_market_hot.rs:279:5:
+assertion `left == right` failed: Actual continuous collection must be reflected by the same saved-source projection: {"data":{"configured":true,"source":{"availabilityReason":"Public Spot source selected; no continuous Hot book is verified. Open a supported Hot view to start a lease.","capabilities":["BTC/USDT and ETH/USDT Hot quotes and bounded depth"],"commercialUse":"UNVERIFIED; no user-specific commercial or financial-use determination.","configured":true,"coverage":"Only canonical BTC/USDT and ETH/USDT on BINANCE; BASE depth, with explicit known price bands. USDT is not USD.","entitlement":"Public endpoints require no trading credentials. Access alone does not prove permitted financial use.","jurisdictions":"UNVERIFIED for this user; current agreement, local terms and regional access restrictions apply. No host fallback or bypass.","latency":"Realtime diff-depth events; usable continuity and actual timestamps must be proven.","officialUrl":"https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~","probeKind":"PUBLIC_METADATA","provider":"Binance ordinary public Spot market data","redistribution":"UNVERIFIED; no redistribution permission is inferred from public access.","retention":"Ephemeral in-memory book only; permitted durable retention remains UNVERIFIED. No raw tick/book export is granted.","reviewedAt":"2026-10-08","sourceId":"BINANCE_SPOT_PUBLIC","status":"UNVERIFIED","termsUrl":"https://www.binance.com/en/terms"},"stateVersion":"binance-market:0418fcd7-3342-45ca-b4b1-019abcd13e5f:1","workspaceId":"0418fcd7-3342-45ca-b4b1-019abcd13e5f"},"ok":true,"requestId":"spot-hot","schemaVersion":1,"stateVersion":"binance-market:0418fcd7-3342-45ca-b4b1-019abcd13e5f:1"}
+  left: String("UNVERIFIED")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.29s
+
+error: test failed, to rerun pass `--test binance_market_hot`

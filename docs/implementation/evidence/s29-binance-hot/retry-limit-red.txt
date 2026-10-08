@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ... FAILED
+
+failures:
+
+---- repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability stdout ----
+
+thread 'repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability' (9345213) panicked at src-tauri/tests/binance_market_hot.rs:347:5:
+assertion `left == right` failed: A failed acquisition must report its failure even when no quote was ever accepted: {"data":{"configured":true,"source":{"availabilityReason":"Public Spot source selected; no continuous Hot book is verified. Open a supported Hot view to start a lease.","capabilities":["BTC/USDT and ETH/USDT Hot quotes and bounded depth"],"commercialUse":"UNVERIFIED; no user-specific commercial or financial-use determination.","configured":true,"coverage":"Only canonical BTC/USDT and ETH/USDT on BINANCE; BASE depth, with explicit known price bands. USDT is not USD.","entitlement":"Public endpoints require no trading credentials. Access alone does not prove permitted financial use.","jurisdictions":"UNVERIFIED for this user; current agreement, local terms and regional access restrictions apply. No host fallback or bypass.","latency":"Realtime diff-depth events; usable continuity and actual timestamps must be proven.","officialUrl":"https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~","probeKind":"PUBLIC_METADATA","provider":"Binance ordinary public Spot market data","redistribution":"UNVERIFIED; no redistribution permission is inferred from public access.","retention":"Ephemeral in-memory book only; permitted durable retention remains UNVERIFIED. No raw tick/book export is granted.","reviewedAt":"2026-10-08","sourceId":"BINANCE_SPOT_PUBLIC","status":"UNVERIFIED","termsUrl":"https://www.binance.com/en/terms"},"stateVersion":"binance-market:8a5e13ba-d3fc-4866-8a08-796f0b72132b:1","workspaceId":"8a5e13ba-d3fc-4866-8a08-796f0b72132b"},"ok":true,"requestId":"spot-hot","schemaVersion":1,"stateVersion":"binance-market:8a5e13ba-d3fc-4866-8a08-796f0b72132b:1"}
+  left: String("UNVERIFIED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2.69s
+
+error: test failed, to rerun pass `--test binance_market_hot`

@@ -377,6 +377,16 @@ export type QuoteDepthUnit = "BASE" | "UNAVAILABLE";
 export type AlpacaFeed = "iex" | "sip" | "delayed_sip";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotDepthCoverage".
+ */
+export type SpotDepthCoverage = "KNOWN_PRICE_BANDS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotMarketEnvironment".
+ */
+export type SpotMarketEnvironment = "ORDINARY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketEntitlement".
  */
 export type MarketEntitlement = "REALTIME" | "DELAYED" | "UNKNOWN";
@@ -2819,6 +2829,7 @@ export interface MarketSnapshot {
  */
 export interface MarketSnapshotProvenance {
   alpaca?: AlpacaQuoteEvidence | null;
+  binance?: BinanceSpotQuoteEvidence | null;
   entitlement: MarketEntitlement;
   freshness: MarketFreshness;
   marketSnapshotId: string;
@@ -2991,6 +3002,480 @@ export interface AlpacaQuoteEvidence {
 export interface QuoteCondition {
   code: string;
   name: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSpotQuoteEvidence".
+ */
+export interface BinanceSpotQuoteEvidence {
+  askKnownCeiling: string;
+  /**
+   * @maxItems 20
+   */
+  asks:
+    | []
+    | [SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ];
+  baseAsset: string;
+  bidKnownFloor: string;
+  /**
+   * @maxItems 20
+   */
+  bids:
+    | []
+    | [SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ];
+  bookUpdateId: string;
+  connectionGeneration: string;
+  dataUseRights: DataSourceStatus;
+  depthCoverage: SpotDepthCoverage;
+  depthUnit: QuoteDepthUnit;
+  environment: SpotMarketEnvironment;
+  knownAskLevels: number;
+  knownBidLevels: number;
+  leaseId: string;
+  materialHash: string;
+  providerEventTimeMs: string;
+  providerSymbol: string;
+  quoteAsset: string;
+  sessionId: string;
+  sourceVersion: string;
+  timeGeneration: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotDepthLevel".
+ */
+export interface SpotDepthLevel {
+  price: string;
+  quantity: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

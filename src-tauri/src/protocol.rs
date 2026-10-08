@@ -2636,6 +2636,8 @@ pub struct Instrument {
 pub struct MarketSnapshotProvenance {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alpaca: Option<AlpacaQuoteEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binance: Option<BinanceSpotQuoteEvidence>,
     #[schemars(length(min = 1, max = 128))]
     pub market_snapshot_id: String,
     #[schemars(length(min = 1, max = 32))]
@@ -2701,6 +2703,65 @@ pub struct AlpacaQuoteEvidence {
     pub source_version: String,
     #[schemars(length(min = 1, max = 128))]
     pub connection_generation: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotDepthLevel {
+    #[schemars(length(min = 1, max = 64))]
+    pub price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotMarketEnvironment { Ordinary }
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotDepthCoverage { KnownPriceBands }
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceSpotQuoteEvidence {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub session_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub time_generation: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    pub environment: SpotMarketEnvironment,
+    pub depth_coverage: SpotDepthCoverage,
+    #[schemars(range(min = 1, max = 5000))]
+    pub known_bid_levels: u32,
+    #[schemars(range(min = 1, max = 5000))]
+    pub known_ask_levels: u32,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub material_hash: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub provider_event_time_ms: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub base_asset: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub quote_asset: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_generation: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub book_update_id: String,
+    pub depth_unit: QuoteDepthUnit,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid_known_floor: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask_known_ceiling: String,
+    #[schemars(length(max = 20))]
+    pub bids: Vec<SpotDepthLevel>,
+    #[schemars(length(max = 20))]
+    pub asks: Vec<SpotDepthLevel>,
+    pub data_use_rights: DataSourceStatus,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]

@@ -1,0 +1,69 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0753]: expected outer doc comment
+ --> src-tauri/src/financial_sources.rs:2:1
+  |
+2 | //! Explicit saved-account selections for read-only company events, broker metadata and FX.
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+3 | mod binance_rules;
+  | ------------------ the inner doc comment doesn't annotate this module
+  |
+help: to annotate the module, change the doc comment from inner to outer style
+  |
+2 - //! Explicit saved-account selections for read-only company events, broker metadata and FX.
+2 + /// Explicit saved-account selections for read-only company events, broker metadata and FX.
+  |
+
+error[E0609]: no field `manager_stop` on type `&binance_market::stream::Job`
+   --> src-tauri/src/binance_market/stream.rs:175:112
+    |
+175 | ...e.clone();let http=self.http.clone();let stop=self.manager_stop.clone();let symbol=self.symbol;
+    |                                                       ^^^^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `control`, `lease`, `http`, `connector`, `symbol`
+
+error[E0282]: type annotations needed for `std::option::Option<_>`
+   --> src-tauri/src/binance_market/stream.rs:215:65
+    |
+215 | ...   let deadline=Instant::now()+Duration::from_secs(10);let mut receiver=None;let mut book=None;let mut buffer=std::collections::...
+    |                                                               ^^^^^^^^^^^^
+...
+218 | ...       if let Some(rx)=receiver.as_ref(){match rx.try_recv(){
+    |                                                   -- type must be known at this point
+    |
+help: consider giving `receiver` an explicit type, where the placeholder `_` is specified
+    |
+215 |         let deadline=Instant::now()+Duration::from_secs(10);let mut receiver: std::option::Option<T>=None;let mut book=None;let mut buffer=std::collections::VecDeque::new();let mut buffered_bytes=0usize;
+    |                                                                             ++++++++++++++++++++++++
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src-tauri/src/binance_market/stream.rs:219:78
+    |
+219 | ...   Ok(result)=> {let mut candidate=super::book::Book::snapshot(&result?)?;while buffer.front().is_some_and(|(event,_,_)|event.u<...
+    |                                                                    ^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `[u8]`
+    = note: all local variables must have a statically known size
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src-tauri/src/binance_market/stream.rs:219:84
+    |
+219 | ...   Ok(result)=> {let mut candidate=super::book::Book::snapshot(&result?)?;while buffer.front().is_some_and(|(event,_,_)|event.u<...
+    |                                                                          ^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `[u8]`
+note: required by an implicit `Sized` bound in `ControlFlow`
+   --> /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/control_flow.rs:89:0
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src-tauri/src/binance_market/stream.rs:219:78
+    |
+219 | ...   Ok(result)=> {let mut candidate=super::book::Book::snapshot(&result?)?;while buffer.front().is_some_and(|(event,_,_)|event.u<...
+    |                                                                    ^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `[u8]`
+note: required by an implicit `Sized` bound in `ControlFlow`
+   --> /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/ops/control_flow.rs:89:0
+
+Some errors have detailed explanations: E0277, E0282, E0609, E0753.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `tradex` (lib) due to 6 previous errors

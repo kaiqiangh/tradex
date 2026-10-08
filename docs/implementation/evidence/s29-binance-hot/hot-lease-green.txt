@@ -1,0 +1,28 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `http` is never read
+  --> src-tauri/src/binance_market/stream.rs:99:5
+   |
+96 | pub(crate) struct Job {
+   |                   --- field in this struct
+...
+99 |     http: Arc<dyn ProviderHttp + Send + Sync>,
+   |     ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `missing_quote_reason` is never used
+  --> src-tauri/src/quote_source/hot.rs:79:19
+   |
+78 | impl StockLeaseState {
+   | -------------------- method in this implementation
+79 |     pub(crate) fn missing_quote_reason(&self, instrument_id: &str) -> Option<&str> {
+   |                   ^^^^^^^^^^^^^^^^^^^^
+
+warning: `tradex` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.16s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s

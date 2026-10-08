@@ -15,6 +15,7 @@ struct Reading {
     provider_offset_ms: Option<i64>,
 }
 
+#[derive(Clone)]
 pub struct TimeService {
     workspace_id: Option<String>,
     baseline: Option<Reading>,
@@ -80,6 +81,12 @@ impl TimeService {
     pub fn status(&mut self, workspace_id: &str) -> Result<TimeStatus> {
         self.ensure_workspace(workspace_id)?;
         Ok(self.observe_reading(workspace_id, self.reading()))
+    }
+
+    /// Read-only source projections use the same observed-clock checks without
+    /// revalidating time or changing the owning service's generation.
+    pub(crate) fn preview_status(&self, workspace_id: &str) -> Result<TimeStatus> {
+        self.clone().status(workspace_id)
     }
 
     pub fn revalidate(&mut self, workspace_id: &str) -> Result<TimeStatus> {

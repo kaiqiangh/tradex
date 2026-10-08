@@ -1,4 +1,5 @@
 pub mod hot;
+pub(crate) mod transport;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -1374,6 +1375,7 @@ fn accept_snapshot(
             },
             freshness: MarketFreshness::ClockUncertain,
             alpaca: Some(evidence),
+            binance: None,
         },
         last_price: None,
         bid: Some(quote.bid),

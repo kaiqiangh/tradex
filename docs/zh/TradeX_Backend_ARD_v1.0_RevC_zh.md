@@ -3060,7 +3060,13 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 `data.binance_market.connection {workspaceId}`、`data.binance_market.configure {workspaceId, expectedStateVersion}` 和 `data.binance_market.disconnect {workspaceId, expectedStateVersion}` 返回类型化 `BinanceMarketSourceConnection {workspaceId, stateVersion, configured, source: DataSourceEntry}`。元数据命令须可信 main 消费者（沿用 feature-gated 验证 stdio，仅集成构建允许），绝不读取 HTTP/WS 或凭据。来源 ID `BINANCE_SPOT_PUBLIC` 与 OD-001/Alpaca、执行密钥分开；目标覆盖仅 canonical BTC/USDT、ETH/USDT。SQLite schema37 增加版本化配置/审计，保留 schema36 规则选择和更早历史，重开只恢复选择。选择/断开此来源不得恢复历史合成 crypto 权威。
 
-配置选择仍为 UNVERIFIED，直到所属连续 Hot 生产者提供真实证据。来源目录记录公开技术访问、实时目标、临时内存，以及明确未验证的保留/再分发/商业/用户地区权利，官方/条款 URL 审阅于2026-10-08。公开读取/勾选不授予权利、Arm 或审批。完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)；生产者实现和 #124 验收仍 IN_PROGRESS。本段元数据不证明运行时报价、普通原生/提供方/金融验收或父项关闭。
+配置选择仍为 UNVERIFIED，直到所属连续 Hot 生产者提供真实证据。来源 AVAILABLE 仅表示当前技术采集：可信 wall/provider/monotonic 年龄均不超过30s，精确当前来源/所有者/连接绑定，以及已对齐且连续的已知订单簿。失败/停止/失去绑定/过期采集为 UNAVAILABLE；保留读取不续期材料接收时间。来源目录记录公开技术访问、实时目标、临时内存，以及明确未验证的保留/再分发/商业/用户地区权利，官方/条款 URL 审阅于2026-10-08。公开读取/勾选不授予权利、Arm 或审批。
+
+沿用 `market.hot.acquire/get/release`，持有一个普通公开 BTCUSDT 或 ETHUSDT diff-depth 流，与任何执行凭据无关。原始 `E/U/u` 和 REST `lastUpdateId` 按有界原始整数解析，不做浮点/字符串类型强转；提供方 ID 以十进制字符串投影。原始十进制字符串须验证并精确规范化。REST 快照没有事件时间，缓冲增量对齐前不得成为报价。缓冲事件全部过期时，在初始化总期限内等待之后的对齐事件。重复/过期事件不续期材料；已接受但未改变材料的更新只推进租约健康/序号。原始非法值和未来/过期事件时间须在丢弃游标或比较材料前拒绝。缺口终止连续性，恢复须新连接代次与新快照；最多3次重连，退避250/500/1000ms。网络 I/O、深度解析和材料哈希期间不得持有 Control Plane 锁。
+
+可选 `MarketSnapshotProvenance.binance: BinanceSpotQuoteEvidence` 记录 `workspaceId`、`sessionId`、`timeGeneration`、`leaseId`、`environment: ORDINARY`、`providerSymbol`、`baseAsset`、`quoteAsset`、`sourceVersion`、`connectionGeneration`、`bookUpdateId`（材料的更新）、`providerEventTimeMs`、`depthUnit: BASE`、`depthCoverage: KNOWN_PRICE_BANDS`、`knownBidLevels`、`knownAskLevels`、`bidKnownFloor`、`askKnownCeiling`、每侧最多20条 `bids/asks {price, quantity}`、64字符小写 SHA-256 `materialHash`、`dataUseRights: UNVERIFIED`。哈希覆盖 canonical 来源/符号/BASE、已知边界以及所有保留的已知层级，按精确 bid 降序/ask 升序，包括显示20层之外的层级。删除边界价位不得扩大已知边界。初始快照每侧最多1000层、保留已知层级每侧最多5000层、帧最多512KiB、初始化缓冲最多256帧/4MiB。不虚构完整订单簿、最后成交、USD/USDT 等价或数据使用许可。
+
+完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)。生产者与 #124 验收仍 IN_PROGRESS：传输控制/连接配额、其余故障/生命周期、受保护消费者和实际 React UI 仍须所属验收。本地 loopback 生产者证明与普通原生/提供方/金融验收及父项关闭分开。原型代码未改。
 
 ## 42. Backend-to-Frontend Event Surface
 

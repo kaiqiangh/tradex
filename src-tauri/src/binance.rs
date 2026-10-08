@@ -105,6 +105,14 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     if endpoint == ProviderEndpoint::BinanceLive && path == "/sapi/v1/system/status" {
         return true;
     }
+    if endpoint == ProviderEndpoint::BinanceLive
+        && matches!(
+            path,
+            "/api/v3/depth?symbol=BTCUSDT&limit=1000" | "/api/v3/depth?symbol=ETHUSDT&limit=1000"
+        )
+    {
+        return true;
+    }
     if path == "/api/v3/time" {
         return true;
     }

@@ -3718,6 +3718,143 @@
       },
       "additionalProperties": false
     },
+    "BinanceSpotQuoteEvidence": {
+      "type": "object",
+      "properties": {
+        "askKnownCeiling": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "asks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotDepthLevel"
+          },
+          "maxItems": 20
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bidKnownFloor": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotDepthLevel"
+          },
+          "maxItems": 20
+        },
+        "bookUpdateId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "dataUseRights": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "depthCoverage": {
+          "$ref": "#/$defs/SpotDepthCoverage"
+        },
+        "depthUnit": {
+          "$ref": "#/$defs/QuoteDepthUnit"
+        },
+        "environment": {
+          "$ref": "#/$defs/SpotMarketEnvironment"
+        },
+        "knownAskLevels": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 5000,
+          "minimum": 1
+        },
+        "knownBidLevels": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 5000,
+          "minimum": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "providerEventTimeMs": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "timeGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sessionId",
+        "timeGeneration",
+        "leaseId",
+        "environment",
+        "depthCoverage",
+        "knownBidLevels",
+        "knownAskLevels",
+        "materialHash",
+        "providerEventTimeMs",
+        "providerSymbol",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "connectionGeneration",
+        "bookUpdateId",
+        "depthUnit",
+        "bidKnownFloor",
+        "askKnownCeiling",
+        "bids",
+        "asks",
+        "dataUseRights"
+      ]
+    },
     "BinanceSpotSymbolStatus": {
       "type": "string",
       "enum": [
@@ -10866,6 +11003,16 @@
             }
           ]
         },
+        "binance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceSpotQuoteEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "entitlement": {
           "$ref": "#/$defs/MarketEntitlement"
         },
@@ -16037,6 +16184,38 @@
         "aggregateId",
         "projection",
         "lastSequence"
+      ]
+    },
+    "SpotDepthCoverage": {
+      "type": "string",
+      "enum": [
+        "KNOWN_PRICE_BANDS"
+      ]
+    },
+    "SpotDepthLevel": {
+      "type": "object",
+      "properties": {
+        "price": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "price",
+        "quantity"
+      ]
+    },
+    "SpotMarketEnvironment": {
+      "type": "string",
+      "enum": [
+        "ORDINARY"
       ]
     },
     "SpotRuleConstraint": {

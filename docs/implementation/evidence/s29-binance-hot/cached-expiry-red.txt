@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.70s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ... FAILED
+
+failures:
+
+---- cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried stdout ----
+
+thread 'cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried' (9335623) panicked at src-tauri/tests/binance_market_hot.rs:314:5:
+assertion `left == right` failed: The same source registry cannot keep an expired material observation available: {"data":{"configured":true,"source":{"availabilityReason":"Current continuous public Spot collection within known bands. Financial use, retention, redistribution, commercial use and regional eligibility remain UNVERIFIED.","capabilities":["BTC/USDT and ETH/USDT Hot quotes and bounded depth"],"commercialUse":"UNVERIFIED; no user-specific commercial or financial-use determination.","configured":true,"coverage":"Only canonical BTC/USDT and ETH/USDT on BINANCE; BASE depth, with explicit known price bands. USDT is not USD.","entitlement":"Public endpoints require no trading credentials. Access alone does not prove permitted financial use.","jurisdictions":"UNVERIFIED for this user; current agreement, local terms and regional access restrictions apply. No host fallback or bypass.","latency":"Realtime diff-depth events; usable continuity and actual timestamps must be proven.","observedAt":"2026-10-08T09:52:48.034Z","officialUrl":"https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~","probeKind":"PUBLIC_METADATA","provider":"Binance ordinary public Spot market data","redistribution":"UNVERIFIED; no redistribution permission is inferred from public access.","retention":"Ephemeral in-memory book only; permitted durable retention remains UNVERIFIED. No raw tick/book export is granted.","reviewedAt":"2026-10-08","sourceId":"BINANCE_SPOT_PUBLIC","status":"AVAILABLE","termsUrl":"https://www.binance.com/en/terms"},"stateVersion":"binance-market:e40ac352-2f97-4b89-ade2-982cb737c25e:1","workspaceId":"e40ac352-2f97-4b89-ade2-982cb737c25e"},"ok":true,"requestId":"spot-hot","schemaVersion":1,"stateVersion":"binance-market:e40ac352-2f97-4b89-ade2-982cb737c25e:1"}
+  left: String("AVAILABLE")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.31s
+
+error: test failed, to rerun pass `--test binance_market_hot`

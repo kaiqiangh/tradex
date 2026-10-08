@@ -27,6 +27,7 @@ pub mod paper;
 pub mod portfolio;
 pub mod protocol;
 pub mod provider_io;
+pub(crate) mod provider_json;
 pub mod providers;
 pub mod quote_source;
 pub mod research;
@@ -2387,6 +2388,7 @@ pub struct ControlPlane {
     quote_source_probe_sequence: u64,
     quote_source_access_binding: Option<quote_source::SourceReadBinding>,
     quote_observations: HashMap<String, quote_source::AcceptedQuote>,
+    binance_market_observations: HashMap<String, binance_market::stream::Observation>,
     hot_quote: Option<quote_source::hot::HotLeaseState>,
     selected_local_paper_proposal: Option<(String, String)>,
     session: String,
@@ -2415,6 +2417,7 @@ impl ControlPlane {
             quote_source_probe_sequence: 0,
             quote_source_access_binding: None,
             quote_observations: HashMap::new(),
+            binance_market_observations: HashMap::new(),
             hot_quote: None,
             selected_local_paper_proposal: None,
             session: uuid::Uuid::new_v4().to_string(),
@@ -3430,6 +3433,7 @@ impl ControlPlane {
                     self.quote_source_probe_sequence = 0;
                     self.quote_source_access_binding = None;
                     self.quote_observations.clear();
+                    self.binance_market_observations.clear();
                     self.hot_quote = None;
                     self.data_source_observations
                         .retain(|(_, source), _| source != "OD-001");
@@ -3483,6 +3487,7 @@ impl ControlPlane {
                     self.quote_source_probe_sequence = 0;
                     self.quote_source_access_binding = None;
                     self.quote_observations.clear();
+                    self.binance_market_observations.clear();
                     self.hot_quote = None;
                     self.data_source_observations
                         .retain(|(_, source), _| source != "OD-001");
@@ -7653,8 +7658,17 @@ impl ControlPlane {
             instrument_id: instrument_id.into(),
             tier: tier.clone(),
         };
-        let source = market::source_id_for_instrument(instrument_id, tier)
-            .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
+        let source = if input.instrument_id.starts_with("crypto:")
+            && binance_market::selected_once(self)?
+            && *tier != MarketTier::Cold
+        {
+            sources
+                .iter()
+                .find(|entry| entry.source_id == binance_market::SOURCE_ID)
+        } else {
+            market::source_id_for_instrument(instrument_id, tier)
+                .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id))
+        };
         let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
         let time_status = self.time.status(workspace_id)?;
         let configured =
@@ -7684,6 +7698,7 @@ impl ControlPlane {
         }
         calendar_source::project(self, &time_status, &mut detail);
         financial_sources::project(self, &mut detail)?;
+        binance_market::stream::project(self, &time_status, &mut detail);
         Ok(detail)
     }
 

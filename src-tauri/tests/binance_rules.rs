@@ -814,7 +814,7 @@ fn unpopulated_permission_sets_never_grant_account_admission() {
     let rig = RuleRig::new();
     let external = RuleHttp::default();
     let good = rig.refresh(&external);
-    assert_eq!(good["data"]["status"], "AVAILABLE");
+    assert_eq!(good["data"]["status"], "AVAILABLE", "{good}");
     external.edit.set(Some(|route, body| match route {
         "/api/v3/exchangeInfo" => body["symbols"][0]["permissionSets"] = json!([]),
         "/api/v3/account" => body["permissions"] = json!([]),
@@ -842,7 +842,8 @@ fn unpopulated_permission_sets_never_grant_account_admission() {
     let empty_inner = rig.refresh(&external);
     assert_eq!(empty_inner["data"]["status"], "UNAVAILABLE");
     external.edit.set(None);
-    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let recovered = rig.refresh(&external);
+    assert_eq!(recovered["data"]["status"], "AVAILABLE", "{recovered}");
     assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
 }
 

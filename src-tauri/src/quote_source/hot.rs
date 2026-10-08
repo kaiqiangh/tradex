@@ -1,34 +1,37 @@
 //! Ephemeral, single-worker stock quote leases. Provider bytes enter the shared quote cache.
+use super::transport::Socket;
 use super::*;
 use crate::protocol::{
     HotQuoteAcquire, HotQuoteProjection, HotQuoteQuery, HotQuoteRelease, HotQuoteStatus,
     Instrument, MarketTier,
 };
 use std::{
-    net::{TcpStream, ToSocketAddrs},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc,
-    },
+    sync::atomic::{AtomicBool, Ordering},
     thread,
     time::{Duration, Instant},
 };
-use tungstenite::{Message, WebSocket, protocol::WebSocketConfig, stream::MaybeTlsStream};
+use tungstenite::Message;
 use zeroize::Zeroizing;
-type Socket = WebSocket<MaybeTlsStream<TcpStream>>;
-static RESOLUTION_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
-struct ResolutionPermit;
-impl Drop for ResolutionPermit {
-    fn drop(&mut self) {
-        RESOLUTION_IN_FLIGHT.store(false, Ordering::Release);
-    }
-}
 
 #[derive(Clone, Default)]
 pub struct StockStreamConnector {
     #[cfg(feature = "integration-test")]
     loopback: Option<String>,
 }
+#[derive(Clone, Default)]
+pub struct QuoteStreamConnectors {
+    pub stock: StockStreamConnector,
+    pub binance: crate::binance_market::stream::BinanceStreamConnector,
+}
+impl From<StockStreamConnector> for QuoteStreamConnectors {
+    fn from(stock: StockStreamConnector) -> Self {
+        Self {
+            stock,
+            binance: Default::default(),
+        }
+    }
+}
+
 impl StockStreamConnector {
     #[cfg(feature = "integration-test")]
     pub fn for_loopback_test(url: &str) -> Result<Self> {
@@ -53,15 +56,6 @@ impl StockStreamConnector {
         })
     }
     fn connect(&self, feed: &AlpacaFeed, current: &(impl Fn() -> bool + Sync)) -> Result<Socket> {
-        let deadline = Instant::now() + Duration::from_secs(4);
-        let remaining = || {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() || !current() {
-                Err(TradeXError::new("PROVIDER_UNAVAILABLE"))
-            } else {
-                Ok(remaining)
-            }
-        };
         let url = format!("wss://stream.data.alpaca.markets/v2/{}", feed_name(feed));
         #[cfg(feature = "integration-test")]
         let url = self.loopback.clone().unwrap_or(url);
@@ -70,127 +64,26 @@ impl StockStreamConnector {
         if parsed.path() != format!("/v2/{}", feed_name(feed)) {
             return Err(TradeXError::new("DATA_SOURCE_FEED_DENIED"));
         }
-        let host = parsed
-            .host_str()
-            .ok_or_else(|| TradeXError::new("PROVIDER_UNAVAILABLE"))?
-            .to_owned();
-        let port = parsed
-            .port_or_known_default()
-            .ok_or_else(|| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        // One deadline covers resolution, TCP, TLS and upgrade; no redirects/proxies.
-        // An OS resolver may outlive our wait. Limit it to one thread across all lease attempts.
-        let addresses = if let Ok(ip) = host.parse::<std::net::IpAddr>() {
-            vec![std::net::SocketAddr::new(ip, port)]
-        } else {
-            RESOLUTION_IN_FLIGHT
-                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-                .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-            let permit = ResolutionPermit;
-            let (sender, receiver) = mpsc::sync_channel(1);
-            thread::Builder::new()
-                .name("tradex-quote-dns".into())
-                .spawn(move || {
-                    let _permit = permit;
-                    let addresses = (host.as_str(), port)
-                        .to_socket_addrs()
-                        .map(|it| it.take(2).collect::<Vec<_>>());
-                    let _ = sender.send(addresses);
-                })
-                .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-            loop {
-                match receiver.recv_timeout(remaining()?.min(Duration::from_millis(50))) {
-                    Ok(result) => {
-                        break result.map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-                    }
-                    Err(mpsc::RecvTimeoutError::Timeout) => (),
-                    Err(_) => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
-                }
-            }
-        };
-        let tcp = addresses
-            .iter()
-            .find_map(|address| TcpStream::connect_timeout(address, remaining().ok()?).ok())
-            .ok_or_else(|| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        tcp.set_read_timeout(Some(remaining()?))
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        tcp.set_write_timeout(Some(remaining()?))
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        let config = WebSocketConfig::default()
-            .write_buffer_size(8192)
-            .max_write_buffer_size(524288)
-            .max_message_size(Some(262_144))
-            .max_frame_size(Some(262_144));
-        // Closing a cloned descriptor interrupts both native TLS and HTTP upgrade even
-        // when the peer supplies bytes often enough to reset per-operation timeouts.
-        // The scoped guard is joined before returning; at most one belongs to our worker.
-        let interrupt = tcp
-            .try_clone()
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        let (mut socket, _) = thread::scope(|scope| {
-            let (finished, completion) = mpsc::sync_channel(1);
-            thread::Builder::new()
-                .name("tradex-quote-handshake".into())
-                .spawn_scoped(scope, move || {
-                    loop {
-                        if Instant::now() >= deadline || !current() {
-                            let _ = interrupt.shutdown(std::net::Shutdown::Both);
-                            break;
-                        }
-                        if !matches!(
-                            completion.recv_timeout(Duration::from_millis(50)),
-                            Err(mpsc::RecvTimeoutError::Timeout)
-                        ) {
-                            break;
-                        }
-                    }
-                })
-                .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-            let result = tungstenite::client_tls_with_config(url.as_str(), tcp, Some(config), None)
-                .map_err(|error| match error {
-                    tungstenite::HandshakeError::Failure(tungstenite::Error::Http(response)) => {
-                        TradeXError::new(match response.status().as_u16() {
-                            401 => "PROVIDER_AUTH_FAILED",
-                            403 => "DATA_SOURCE_FEED_DENIED",
-                            429 => "PROVIDER_RATE_LIMITED",
-                            _ => "PROVIDER_UNAVAILABLE",
-                        })
-                    }
-                    _ => TradeXError::new("PROVIDER_UNAVAILABLE"),
-                });
-            let _ = finished.send(());
-            remaining()?;
-            result
-        })?;
-        let tcp = match socket.get_mut() {
-            MaybeTlsStream::Plain(tcp) => tcp,
-            MaybeTlsStream::NativeTls(tls) => tls.get_mut(),
-            _ => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
-        };
-        tcp.set_read_timeout(Some(Duration::from_millis(200)))
-            .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        Ok(socket)
+        super::transport::connect(&url, 262_144, current)
     }
 }
 
 #[derive(Clone)]
-pub(crate) struct HotLeaseState {
+pub(crate) struct StockLeaseState {
     binding: SourceReadBinding,
     instrument: Instrument,
     projection: HotQuoteProjection,
     stream_snapshot_id: Option<String>,
 }
-impl HotLeaseState {
-    pub(crate) fn missing_quote_reason(&self, instrument_id: &str) -> Option<&str> {
-        (self.projection.instrument_id == instrument_id).then_some(self.projection.reason.as_str())
-    }
+impl StockLeaseState {
     fn current(&self, control: &ControlPlane) -> bool {
         self.binding.current_source(control)
             && self.binding.connection_generation == control.quote_connection_generation
             && control.hot_quote.as_ref().is_some_and(|lease| {
-                lease.projection.lease_id == self.projection.lease_id
-                    && lease.projection.generation == self.projection.generation
+                lease.projection().lease_id == self.projection.lease_id
+                    && lease.projection().generation == self.projection.generation
                     && !matches!(
-                        lease.projection.status,
+                        lease.projection().status,
                         HotQuoteStatus::Closed | HotQuoteStatus::Failed
                     )
             })
@@ -217,6 +110,58 @@ impl HotLeaseState {
     }
 }
 
+#[derive(Clone)]
+pub(crate) enum HotLeaseState {
+    Stock(StockLeaseState),
+    Binance(crate::binance_market::stream::Lease),
+}
+impl HotLeaseState {
+    pub(crate) fn projection(&self) -> &HotQuoteProjection {
+        match self {
+            Self::Stock(v) => &v.projection,
+            Self::Binance(v) => &v.projection,
+        }
+    }
+    fn projection_mut(&mut self) -> &mut HotQuoteProjection {
+        match self {
+            Self::Stock(v) => &mut v.projection,
+            Self::Binance(v) => &mut v.projection,
+        }
+    }
+    fn stock_mut(&mut self) -> Option<&mut StockLeaseState> {
+        match self {
+            Self::Stock(v) => Some(v),
+            _ => None,
+        }
+    }
+    pub(crate) fn current(&self, control: &ControlPlane) -> bool {
+        match self {
+            Self::Stock(v) => v.current(control),
+            Self::Binance(v) => v.current(control),
+        }
+    }
+    pub(crate) fn missing_quote_reason(&self, instrument: &str) -> Option<&str> {
+        (self.projection().instrument_id == instrument).then_some(self.projection().reason.as_str())
+    }
+    pub(crate) fn streaming_for(
+        &self,
+        instrument: &str,
+        generation: &str,
+        control: &ControlPlane,
+    ) -> bool {
+        match self {
+            Self::Stock(v) => v.streaming_for(instrument, generation, control),
+            Self::Binance(_) => false,
+        }
+    }
+    fn clear_snapshot(&mut self) {
+        match self {
+            Self::Stock(v) => v.stream_snapshot_id = None,
+            Self::Binance(v) => v.stream_snapshot_id = None,
+        }
+    }
+}
+
 pub(crate) fn projection(
     control: &mut ControlPlane,
     input: HotQuoteQuery,
@@ -227,13 +172,13 @@ pub(crate) fn projection(
         .as_ref()
         .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?
         .clone();
-    if input.workspace_id != lease.projection.workspace_id
-        || input.lease_id != lease.projection.lease_id
-        || input.generation != lease.projection.generation
+    if input.workspace_id != lease.projection().workspace_id
+        || input.lease_id != lease.projection().lease_id
+        || input.generation != lease.projection().generation
     {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
-    let mut result = lease.projection.clone();
+    let mut result = lease.projection().clone();
     if !matches!(
         result.status,
         HotQuoteStatus::Closed | HotQuoteStatus::Failed
@@ -257,29 +202,43 @@ pub(crate) fn retire_for_session(control: &mut ControlPlane) {
     invalidate_quotes(control, "DATA_SOURCE_SESSION_CHANGED");
     control.quote_source_access_binding = None;
     if let Some(lease) = control.hot_quote.as_mut() {
-        lease.stream_snapshot_id = None;
-        lease.projection.status = HotQuoteStatus::Stale;
-        lease.projection.authenticated = false;
-        lease.projection.subscribed = false;
-        lease.projection.reason =
-            "Session safety changed; reacquire and verify the selected source.".into();
-        lease.projection.sequence = lease
-            .projection
-            .sequence
-            .saturating_add(1)
-            .min(MAX_SEQUENCE);
+        lease.clear_snapshot();
+        let lease = lease.projection_mut();
+        lease.status = HotQuoteStatus::Stale;
+        lease.authenticated = false;
+        lease.subscribed = false;
+        lease.reason = "Session safety changed; reacquire and verify the selected source.".into();
+        lease.sequence = lease.sequence.saturating_add(1).min(MAX_SEQUENCE);
     }
 }
 
 struct Job {
     control: Arc<Mutex<ControlPlane>>,
-    lease: HotLeaseState,
+    lease: StockLeaseState,
     vault: Arc<dyn CredentialVault + Send + Sync>,
     http: Arc<dyn ProviderHttp + Send + Sync>,
     connector: StockStreamConnector,
 }
+enum PendingJob {
+    Stock(Job),
+    Binance(crate::binance_market::stream::Job),
+}
+impl PendingJob {
+    fn run(&mut self, stop: &AtomicBool) {
+        match self {
+            Self::Stock(v) => run(v, stop),
+            Self::Binance(v) => v.run(stop),
+        }
+    }
+    fn retire(&self) {
+        match self {
+            Self::Stock(v) => retire_stopped(v),
+            Self::Binance(v) => v.retire_stopped(),
+        }
+    }
+}
 struct Worker {
-    pending: Arc<(Mutex<Option<Job>>, std::sync::Condvar)>,
+    pending: Arc<(Mutex<Option<PendingJob>>, std::sync::Condvar)>,
     stop: Arc<AtomicBool>,
 }
 impl Drop for Worker {
@@ -315,8 +274,9 @@ impl QuoteHotSupervisor {
         consumer: &str,
         vault: Arc<V>,
         http: Arc<H>,
-        connector: StockStreamConnector,
+        connectors: impl Into<QuoteStreamConnectors>,
     ) -> Value {
+        let connectors = connectors.into();
         let result = (|| {
             if !provider_order_consumer_allowed(consumer) {
                 return Err(TradeXError::new("IPC_ACCESS_DENIED"));
@@ -335,20 +295,18 @@ impl QuoteHotSupervisor {
                     .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
                 control.require_workspace(&input.workspace_id)?;
                 let released = if let Some(lease) = control.hot_quote.as_mut().filter(|lease| {
-                    lease.projection.lease_id == input.lease_id
-                        && lease.projection.generation == input.generation
-                        && lease.projection.workspace_id == input.workspace_id
+                    lease.projection().lease_id == input.lease_id
+                        && lease.projection().generation == input.generation
+                        && lease.projection().workspace_id == input.workspace_id
                 }) {
-                    let changed = lease.projection.status != HotQuoteStatus::Closed;
-                    lease.projection.status = HotQuoteStatus::Closed;
-                    lease.projection.authenticated = false;
-                    lease.projection.subscribed = false;
-                    lease.projection.reason = "Quote lease released.".into();
-                    lease.projection.sequence = lease
-                        .projection
-                        .sequence
-                        .saturating_add(1)
-                        .min(MAX_SEQUENCE);
+                    lease.clear_snapshot();
+                    let lease = lease.projection_mut();
+                    let changed = lease.status != HotQuoteStatus::Closed;
+                    lease.status = HotQuoteStatus::Closed;
+                    lease.authenticated = false;
+                    lease.subscribed = false;
+                    lease.reason = "Quote lease released.".into();
+                    lease.sequence = lease.sequence.saturating_add(1).min(MAX_SEQUENCE);
                     changed
                 } else {
                     false
@@ -382,56 +340,81 @@ impl QuoteHotSupervisor {
                 &MarketTier::Hot,
                 false,
             )?;
-            if detail.instrument.asset_class != crate::protocol::AssetClass::Equity {
-                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
-            }
-            let mut binding = SourceReadBinding::capture(&mut locked, &input.workspace_id)?;
-            if binding.source_version != input.expected_source_version {
-                return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-            }
-            if binding.reference.is_none() || binding.saved.feed.is_none() {
-                return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
-            }
-            let generation = uuid::Uuid::new_v4().to_string();
-            locked.quote_connection_generation = generation.clone();
-            binding.connection_generation = generation.clone();
-            let lease = HotLeaseState {
-                binding: binding.clone(),
-                instrument: detail.instrument,
-                stream_snapshot_id: None,
-                projection: HotQuoteProjection {
-                    workspace_id: input.workspace_id.clone(),
-                    source_id: "OD-001".into(),
-                    instrument_id: input.instrument_id,
-                    lease_id: uuid::Uuid::new_v4().to_string(),
-                    connection_generation: generation.clone(),
-                    reconnect_attempt: 0,
-                    generation,
-                    source_version: binding.source_version,
-                    sequence: 0,
-                    status: HotQuoteStatus::Connecting,
-                    authenticated: false,
-                    subscribed: false,
-                    reason: "Connecting to the explicitly selected stock feed.".into(),
-                    detail: None,
-                },
+            let pending_job = match detail.instrument.asset_class {
+                crate::protocol::AssetClass::Equity => {
+                    let mut binding = SourceReadBinding::capture(&mut locked, &input.workspace_id)?;
+                    if binding.source_version != input.expected_source_version {
+                        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                    }
+                    if binding.reference.is_none() || binding.saved.feed.is_none() {
+                        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+                    }
+                    let generation = uuid::Uuid::new_v4().to_string();
+                    locked.quote_connection_generation = generation.clone();
+                    binding.connection_generation = generation.clone();
+                    let lease = StockLeaseState {
+                        binding: binding.clone(),
+                        instrument: detail.instrument,
+                        stream_snapshot_id: None,
+                        projection: HotQuoteProjection {
+                            workspace_id: input.workspace_id.clone(),
+                            source_id: "OD-001".into(),
+                            instrument_id: input.instrument_id,
+                            lease_id: uuid::Uuid::new_v4().to_string(),
+                            connection_generation: generation.clone(),
+                            reconnect_attempt: 0,
+                            generation,
+                            source_version: binding.source_version,
+                            sequence: 0,
+                            status: HotQuoteStatus::Connecting,
+                            authenticated: false,
+                            subscribed: false,
+                            reason: "Connecting to the explicitly selected stock feed.".into(),
+                            detail: None,
+                        },
+                    };
+                    locked.hot_quote = Some(HotLeaseState::Stock(lease.clone()));
+                    let pending_job = PendingJob::Stock(Job {
+                        control: control.clone(),
+                        lease,
+                        vault,
+                        http,
+                        connector: connectors.stock,
+                    });
+                    pending_job
+                }
+                crate::protocol::AssetClass::CryptoSpot => {
+                    PendingJob::Binance(crate::binance_market::stream::Job::prepare(
+                        &mut locked,
+                        control.clone(),
+                        &input,
+                        detail.instrument,
+                        http,
+                        connectors.binance,
+                        self.stopped.clone(),
+                    )?)
+                }
             };
-            locked.hot_quote = Some(lease.clone());
+            let owner = locked
+                .hot_quote
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?
+                .clone();
             let result = projection(
                 &mut locked,
                 HotQuoteQuery {
-                    workspace_id: input.workspace_id,
-                    lease_id: lease.projection.lease_id.clone(),
-                    generation: lease.projection.generation.clone(),
+                    workspace_id: input.workspace_id.clone(),
+                    lease_id: owner.projection().lease_id.clone(),
+                    generation: owner.projection().generation.clone(),
                 },
             )?;
             drop(locked);
             // Concurrent acquire completion must not replace a newer pending job with an old lease.
-            if !control.lock().is_ok_and(|control| lease.current(&control)) {
+            if !control.lock().is_ok_and(|control| owner.current(&control)) {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
             if worker.is_none() {
-                let pending = Arc::new((Mutex::new(None::<Job>), std::sync::Condvar::new()));
+                let pending = Arc::new((Mutex::new(None::<PendingJob>), std::sync::Condvar::new()));
                 let stop = self.stopped.clone();
                 let stopped = stop.clone();
                 let jobs = pending.clone();
@@ -451,15 +434,15 @@ impl QuoteHotSupervisor {
                             let cancelled = next.take();
                             drop(next);
                             if let Some(job) = cancelled {
-                                retire_stopped(&job);
+                                job.retire();
                             }
                             break;
                         }
                         let mut job = next.take().unwrap();
                         drop(next);
-                        run(&mut job, &stopped);
+                        job.run(&stopped);
                         if stopped.load(Ordering::Acquire) {
-                            retire_stopped(&job);
+                            job.retire();
                         }
                     }
                 });
@@ -471,13 +454,8 @@ impl QuoteHotSupervisor {
                 .pending
                 .0
                 .lock()
-                .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))? = Some(Job {
-                control: control.clone(),
-                lease,
-                vault,
-                http,
-                connector,
-            });
+                .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))? =
+                Some(pending_job);
             worker.pending.1.notify_one();
             Ok(json!(result))
         })();
@@ -491,7 +469,10 @@ impl QuoteHotSupervisor {
 fn retire_stopped(job: &Job) {
     if let Ok(mut control) = job.control.lock()
         && job.lease.current(&control)
-        && let Some(lease) = control.hot_quote.as_mut()
+        && let Some(lease) = control
+            .hot_quote
+            .as_mut()
+            .and_then(HotLeaseState::stock_mut)
     {
         lease.stream_snapshot_id = None;
         lease.projection.status = HotQuoteStatus::Closed;
@@ -556,7 +537,11 @@ fn transition(
     if !job.lease.current(&control) {
         return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
     }
-    let lease = control.hot_quote.as_mut().unwrap();
+    let lease = control
+        .hot_quote
+        .as_mut()
+        .and_then(HotLeaseState::stock_mut)
+        .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
     lease.projection.sequence = lease
         .projection
         .sequence
@@ -821,7 +806,12 @@ fn run_connection(job: &Job, stop: &AtomicBool) -> Result<()> {
                             evidence,
                             &received,
                         )?;
-                        control.hot_quote.as_mut().unwrap().stream_snapshot_id =
+                        control
+                            .hot_quote
+                            .as_mut()
+                            .and_then(HotLeaseState::stock_mut)
+                            .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?
+                            .stream_snapshot_id =
                             Some(snapshot.provenance.market_snapshot_id.clone());
                         control.quote_source_access_binding = Some(job.lease.binding.clone());
                         control.quote_observations.insert(
@@ -897,7 +887,11 @@ fn mark_failed(job: &Job, error: &TradeXError) {
         for accepted in control.quote_observations.values_mut() {
             accepted.failure = Some(error.code.clone());
         }
-        if let Some(lease) = control.hot_quote.as_mut() {
+        if let Some(lease) = control
+            .hot_quote
+            .as_mut()
+            .and_then(HotLeaseState::stock_mut)
+        {
             lease.projection.status = HotQuoteStatus::Failed;
             lease.projection.authenticated = false;
             lease.projection.subscribed = false;
@@ -958,7 +952,11 @@ fn run(job: &mut Job, stop: &AtomicBool) {
             }
             let generation = uuid::Uuid::new_v4().to_string();
             control.quote_connection_generation = generation.clone();
-            let lease = control.hot_quote.as_mut().unwrap();
+            let lease = control
+                .hot_quote
+                .as_mut()
+                .and_then(HotLeaseState::stock_mut)
+                .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
             lease.binding.connection_generation = generation.clone();
             lease.stream_snapshot_id = None;
             lease.projection.connection_generation = generation;

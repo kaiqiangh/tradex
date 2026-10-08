@@ -2,7 +2,7 @@
 
 Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Starting implementation/review baseline: dev@5edf18d01122d1871b6c94aeafefe708435b7f38. Previous rule-source/admission ticket #123 is CLOSED; parent S29 remains OPEN. This specification advances parent stories 9–12 and 27 without removing its full execution/hosted acceptance requirements.
 
-Current single implementation ticket: [Provide Binance Spot Hot quote and continuous-depth source](https://github.com/kaiqiangh/tradex/issues/124). Assigned, ready-for-agent; published spec/acceptance contract only, producer implementation pending.
+Current single implementation ticket: [Provide Binance Spot Hot quote and continuous-depth source](https://github.com/kaiqiangh/tradex/issues/124). Assigned, ready-for-agent, IN_PROGRESS. Selection and the first actual loopback HTTP/WS producer are implemented; remaining transport/lifecycle, protected-consumer and UI work plus full acceptance/reviews/delivery remain required. No ticket or parent closure is implied.
 
 ## Problem Statement
 

@@ -6,45 +6,9 @@ use crate::protocol::{
 };
 use crate::provider_io::{ProviderHttpMethod, contains_secret};
 use serde_json::value::RawValue;
-use std::{
-    collections::{BTreeMap, HashSet, VecDeque},
-    sync::{Mutex, OnceLock},
-};
+use std::collections::{BTreeMap, HashSet};
 use zeroize::Zeroizing;
 
-#[derive(Default)]
-struct ReadBudget {
-    calls: VecDeque<(Instant, String, u32)>,
-}
-static READ_BUDGET: OnceLock<Mutex<ReadBudget>> = OnceLock::new();
-fn charge(account: &str, weight: u32) -> Result<()> {
-    let now = Instant::now();
-    let mut b = READ_BUDGET
-        .get_or_init(|| Mutex::new(ReadBudget::default()))
-        .lock()
-        .map_err(|_| TradeXError::new("PROVIDER_BACKPRESSURE"))?;
-    while b
-        .calls
-        .front()
-        .is_some_and(|(at, _, _)| now.duration_since(*at) >= StdDuration::from_secs(60))
-    {
-        b.calls.pop_front();
-    }
-    let total: u32 = b.calls.iter().map(|(_, _, w)| w).sum();
-    let own: u32 = b
-        .calls
-        .iter()
-        .filter(|(_, a, _)| a == account)
-        .map(|(_, _, w)| w)
-        .sum();
-    // Reserve ordinary-host P3 metadata headroom rather than assuming the whole
-    // provider/IP allowance is ours. Account/source/workspace changes cannot reset it.
-    if total.saturating_add(weight) > 3000 || own.saturating_add(weight) > 1500 {
-        return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
-    }
-    b.calls.push_back((now, account.into(), weight));
-    Ok(())
-}
 fn token(s: &str, max: usize) -> Result<String> {
     if s.is_empty()
         || s.len() > max
@@ -413,7 +377,7 @@ pub(super) fn read(
         if !current() {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        charge(&expected, weight)?;
+        crate::provider_io::binance_read_budget::reserve(Some(&expected), weight)?;
         let (r, rate) = http.request_with_rate_limit(
             ProviderEndpoint::BinanceLive,
             ProviderHttpMethod::Get,
@@ -456,7 +420,7 @@ pub(super) fn read(
             if !current() {
                 return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
             }
-            charge(&expected, weight)?;
+            crate::provider_io::binance_read_budget::reserve(Some(&expected), weight)?;
             let r = crate::provider_io::binance::signed_request_for(
                 ProviderEndpoint::BinanceLive,
                 &http,
