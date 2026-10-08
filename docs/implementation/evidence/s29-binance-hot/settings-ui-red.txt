@@ -1,0 +1,7 @@
+AssertionError [ERR_ASSERTION]: An explicit public source Save action must exist independently of rule/trading-key configuration
+
+0 !== 1
+
+    at Module.checkBinanceMarketSourceSettingsUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-market-source-ui.mjs:52:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_129.mjs:25:501

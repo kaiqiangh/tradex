@@ -1301,3 +1301,10 @@ Settings offers explicit saved ordinary Binance Live rule-account and exact BTC/
 
 
 Show each provider order-form flag as true/false/Not supplied. Explain that provider support does not enable TradeX advanced forms (iceberg, trailing, lists, cancel-replace, amend or peg). Unpopulated permission evidence fails collection and is never shown as successful admission.
+
+
+## 14.27 Public Binance Spot market source and owned Hot views (S29.3 #124, IN_PROGRESS)
+
+Settings provides explicit Save/Disconnect for the ordinary public BTC/USDT and ETH/USDT market source, independently of account/rule-source credentials. Neither action reads providers or starts a lease; source replacement/disconnect retires current evidence. Show selection, technical collection and unverified user-specific financial-use/retention/redistribution/commercial/regional rights separately. Keep official/terms/review-date policy visible; no read/checkbox becomes a rights grant. Do not offer this source an unsupported generic endpoint probe. Reload/remount preserves configuration only and leaves Alpaca/account keys unchanged.
+
+Visible Markets and a selected Trade Proposal must own independent leases through the same Hot lifecycle. Display actual BINANCE provenance, exact BASE best-side quantities, bounded known/displayed depth and bands, original provider event time/first receipt, material identity and separate stream/quote/failure/recovery state. Trade cannot reuse a released Markets lease; captured reviews stay capture-labelled. Navigation, document hiding, workspace/source/instrument changes and late results release/retire ownership. Technical quote checks and exact-account Spot admission remain separate from complete order rules, genuine reference-dependent deviation, rights, health, Arm, FX/fees and approval/dispatch. No OPEN/equity calendar/last trade/whole-book depth/USD parity or overall financial PASS is invented. Verify keyboard and1280/768/390 through real React→Rust/external producers. Focused Settings proof is not the pending full Hot/Trade/source acceptance. See Backend §41.43 and Frontend §13.28. Prototype code unchanged; this target is not runtime PASS.

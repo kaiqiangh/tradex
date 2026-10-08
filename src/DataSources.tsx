@@ -1,5 +1,6 @@
 import { FinancialSourceSettings } from './FinancialSourceSettings.tsx';
 import { BinanceRuleSourceSettings } from './BinanceRuleSourceSettings.tsx';
+import { BinanceMarketSourceSettings } from './BinanceMarketSourceSettings.tsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { AlpacaFeed, DataSourceCredentialKind, DataSourceEntry, DataSourceStatus } from '../shared/ipc-types.ts';
@@ -22,7 +23,7 @@ function statusClass(status: DataSourceStatus, stale: boolean) {
   return `badge data-source-status data-source-status-${status.toLowerCase()}${stale ? ' data-source-status-stale' : ''}`;
 }
 
-function SourceCard({ source, stale, busy, onProbe, error }: { source: DataSourceEntry; stale: boolean; busy: boolean; onProbe: () => void; error?: string }) {
+function SourceCard({ source, stale, busy, onProbe, error }: { source: DataSourceEntry; stale: boolean; busy: boolean; onProbe?: () => void; error?: string }) {
   return <article className="data-source-card" aria-labelledby={`data-source-${source.sourceId}`}>
     <div className="data-source-heading">
       <div><h3 id={`data-source-${source.sourceId}`}>{source.sourceId}</h3><p>{source.provider}</p></div>
@@ -43,7 +44,7 @@ function SourceCard({ source, stale, busy, onProbe, error }: { source: DataSourc
     </div>
     <p className={source.status === 'AVAILABLE' ? 'success-text' : 'data-source-reason'}>{source.availabilityReason}{stale && !source.availabilityReason.includes(staleReason) ? ` ${staleReason}` : ''}</p>
     {error && <p className="error-text" role="alert">{error}</p>}
-    <button type="button" onClick={onProbe} disabled={busy}>{busy ? 'Checking…' : source.probeKind === 'PUBLIC_METADATA' ? 'Check public endpoint' : 'Check entitlement'}</button>
+    {onProbe && <button type="button" onClick={onProbe} disabled={busy}>{busy ? 'Checking…' : source.probeKind === 'PUBLIC_METADATA' ? 'Check public endpoint' : 'Check entitlement'}</button>}
   </article>;
 }
 
@@ -192,6 +193,7 @@ export function DataSources({ workspaceId }: { workspaceId: string }) {
       setProbeErrors(current => ({ ...current, 'OD-005': '' }));
     }} />)}
     <BinanceRuleSourceSettings key={`binance-rules-${workspaceId}`} workspaceId={workspaceId} />
-    <div className="data-source-grid">{catalog.data.sources.map(source => { const current = overrides[source.sourceId] ?? source; const stale = staleSources[source.sourceId] === true || sourceIsStale(current); return <SourceCard key={source.sourceId} source={current} stale={stale} busy={probing !== undefined} onProbe={() => void probe(current)} error={probeErrors[source.sourceId] || undefined} />; })}</div>
+    <BinanceMarketSourceSettings key={`binance-market-${workspaceId}`} workspaceId={workspaceId} />
+    <div className="data-source-grid">{catalog.data.sources.map(source => { const current = overrides[source.sourceId] ?? source; const stale = staleSources[source.sourceId] === true || sourceIsStale(current); return <SourceCard key={source.sourceId} source={current} stale={stale} busy={probing !== undefined} onProbe={source.sourceId === 'BINANCE_SPOT_PUBLIC' ? undefined : () => void probe(current)} error={probeErrors[source.sourceId] || undefined} />; })}</div>
   </section>;
 }

@@ -1,0 +1,9 @@
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ undefined
+- null
+
+    at Module.checkBinanceMarketSourceSettingsUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-market-source-ui.mjs:60:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_130.mjs:27:76

@@ -728,6 +728,13 @@ Settings Data & Storage selects an existing ordinary Live account and BTC/USDT o
 Display each backend `orderFormFlags` boolean as true/false/Not supplied and the explicit unsupported advanced-form boundary; never infer support from omission. Empty permission sets do not describe permission-free access.
 
 
+### 13.28 Ordinary public Spot market source (S29.3 #124, IN_PROGRESS)
+
+Consume Backend §41.43 through generated IPC. Settings Data & Storage owns explicit Save/Disconnect without account/key input, provider requests or leases. Show saved selection, technical collection and UNVERIFIED financial-use/retention/redistribution/commercial/regional rights separately; registry policy retains official/terms links and review date. This source has no generic PUBLIC_METADATA probe: collection belongs to its visible Hot producer, not a button that silently manufactures connectivity or permission. CAS failures reload authoritative configuration. Reopen/remount restores selection only; preserve Alpaca settings and account keys.
+
+The full UI target in UI §14.27 remains IN_PROGRESS. Markets and the selected Trade Proposal must each own the same bounded acquire/get/release view lifecycle with exact backend generations. Trade cannot borrow a released Markets lease. Render BINANCE provenance, exact best prices/BASE quantities, known bands/displayed levels, first receipt/provider event time, continuity/failure/recovery and immutable material identity. Stream connection is not authentication, quote authority or rights. Captured reviews keep their capture label; local projection polling does not read providers, renew age or grant financial authority. Navigation/hidden/workspace/source/instrument changes and late acquire completions retire/release ownership. Keep keyboard and1280/768/390 metadata/blockers readable; preserve equity Hot behavior. Settings focused public React→Rust proof is separate from the pending full Hot/Trade/UI acceptance. Prototype code unchanged.
+
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

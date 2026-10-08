@@ -15,6 +15,8 @@ export function integrationBridge(): Plugin {
     configureServer(server) {
       const directory = realpathSync(mkdtempSync(join(tmpdir(), 'tradex-browser-')));
       const childEnv: NodeJS.ProcessEnv = { ...process.env, TRADEX_BACKTEST_FIXTURE: '1', TRADEX_MARKET_FIXTURE: '1', TRADEX_RESEARCH_FIXTURE: '1', TRADEX_SCREENER_FIXTURE: '1', TRADEX_STRATEGY_FIXTURE: '1' };
+      // New source acceptance uses external producers, never the historical positive market seam.
+      if (process.env.TRADEX_SOURCE_ONLY_FIXTURE === '1') delete childEnv.TRADEX_MARKET_FIXTURE;
       // Local Paper is the default browser portfolio; broker fixtures stay an explicit regression mode.
       if (process.env.TRADEX_PORTFOLIO_FIXTURE === '1') childEnv.TRADEX_PORTFOLIO_FIXTURE = '1';
       if (process.env.TRADEX_LIVE_APPROVAL_FIXTURE === '1') childEnv.TRADEX_LIVE_APPROVAL_FIXTURE = '1';
