@@ -88,6 +88,9 @@ fn configured_public_spot_source_can_acquire_a_hot_lease_without_execution_crede
 }
 
 struct DepthPeer {
+    symbol: &'static str,
+    sent_events: Arc<std::sync::atomic::AtomicUsize>,
+    responses: Arc<std::sync::atomic::AtomicUsize>,
     stop: Arc<std::sync::atomic::AtomicBool>,
     threads: Vec<std::thread::JoinHandle<()>>,
     http: Arc<tradex::provider_io::BrokerHttp>,
@@ -106,6 +109,34 @@ impl DepthPeer {
         Self::with_snapshots(initial, Vec::new())
     }
     fn with_snapshots(initial: Option<Value>, snapshots: Vec<Value>) -> Self {
+        Self::with_symbol("BTCUSDT", initial, snapshots)
+    }
+    fn with_symbol(symbol: &'static str, initial: Option<Value>, snapshots: Vec<Value>) -> Self {
+        Self::with_clock(symbol, initial, snapshots, 0)
+    }
+    fn with_clock(
+        symbol: &'static str,
+        initial: Option<Value>,
+        snapshots: Vec<Value>,
+        clock_offset_ms: i64,
+    ) -> Self {
+        Self::with_protocol(symbol, initial, snapshots, clock_offset_ms, None)
+    }
+    fn with_snapshot_gate() -> (Self, std::sync::mpsc::Sender<()>) {
+        let (release, gate) = std::sync::mpsc::channel();
+        (
+            Self::with_protocol("BTCUSDT", None, Vec::new(), 0, Some(gate)),
+            release,
+        )
+    }
+    fn with_protocol(
+        symbol: &'static str,
+        initial: Option<Value>,
+        snapshots: Vec<Value>,
+        clock_offset_ms: i64,
+        mut snapshot_gate: Option<std::sync::mpsc::Receiver<()>>,
+    ) -> Self {
+        assert!(matches!(symbol, "BTCUSDT" | "ETHUSDT"));
         use std::{
             io::{Read, Write},
             sync::atomic::{AtomicBool, Ordering},
@@ -124,13 +155,17 @@ impl DepthPeer {
             .unwrap(),
         );
         let connector = BinanceStreamConnector::for_loopback_test(&format!(
-            "ws://127.0.0.1:{}/ws/btcusdt@depth@100ms",
-            ws_listener.local_addr().unwrap().port()
+            "ws://127.0.0.1:{}/ws/{}@depth@100ms",
+            ws_listener.local_addr().unwrap().port(),
+            symbol.to_ascii_lowercase()
         ))
         .unwrap();
         let stop = Arc::new(AtomicBool::new(false));
         let requests = Arc::new(Mutex::new(Vec::new()));
         let connections = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let sent_events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let responses = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let response_ledger = responses.clone();
         let halt = stop.clone();
         let ledger = requests.clone();
         let rest = std::thread::spawn(move || {
@@ -169,10 +204,17 @@ impl DepthPeer {
                 ledger.lock().unwrap().push(path.clone());
                 let body = match path.as_str() {
                     "/api/v3/time" => {
-                        json!({"serverTime":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})
+                        json!({"serverTime":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64+clock_offset_ms})
                     }
-                    "/api/v3/depth?symbol=BTCUSDT&limit=1000" => {
-                        snapshots.pop_front().unwrap_or_else(||json!({"lastUpdateId":START,"bids":[["60000","1"],["59900","2"]],"asks":[["60001","1"],["60100","2"]]}))
+                    path if path == format!("/api/v3/depth?symbol={symbol}&limit=1000") => {
+                        if let Some(gate) = snapshot_gate.take() {
+                            let _ = gate.recv_timeout(Duration::from_secs(5));
+                        }
+                        snapshots.pop_front().unwrap_or_else(|| if symbol=="BTCUSDT" {
+                            json!({"lastUpdateId":START,"bids":[["60000","1"],["59900","2"]],"asks":[["60001","1"],["60100","2"]]})
+                        } else {
+                            json!({"lastUpdateId":START,"bids":[["3500","1"],["3499","2"]],"asks":[["3501","1"],["3502","2"]]})
+                        })
                     }
                     _ => panic!("Unexpected public source request {path}"),
                 };
@@ -181,12 +223,19 @@ impl DepthPeer {
                     "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
                 );
-                socket.write_all(response.as_bytes()).unwrap();
-                socket.write_all(&body).unwrap();
+                if socket
+                    .write_all(response.as_bytes())
+                    .and_then(|_| socket.write_all(&body))
+                    .is_err()
+                {
+                    continue;
+                }
+                response_ledger.fetch_add(1, Ordering::AcqRel);
             }
         });
         let halt = stop.clone();
         let connection_ledger = connections.clone();
+        let event_ledger = sent_events.clone();
         let (events, next_event) = std::sync::mpsc::channel::<Value>();
         let (pings, next_ping) = std::sync::mpsc::channel::<Vec<u8>>();
         let pongs = Arc::new(Mutex::new(Vec::new()));
@@ -212,7 +261,10 @@ impl DepthPeer {
                     tcp,
                     |request: &tungstenite::handshake::server::Request,
                      response: tungstenite::handshake::server::Response| {
-                        assert_eq!(request.uri().path(), "/ws/btcusdt@depth@100ms");
+                        assert_eq!(
+                            request.uri().path(),
+                            format!("/ws/{}@depth@100ms", symbol.to_ascii_lowercase())
+                        );
                         assert!(!request.headers().contains_key("x-mbx-apikey"));
                         Ok(response)
                     },
@@ -223,10 +275,11 @@ impl DepthPeer {
                     .get_mut()
                     .set_read_timeout(Some(Duration::from_millis(200)))
                     .unwrap();
-                let event = initial.clone().unwrap_or_else(||json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START,"u":START+1,"b":[["60000","0.5"]],"a":[["60001","0.75"]]}));
+                let event = initial.clone().unwrap_or_else(||json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":symbol,"U":START,"u":START+1,"b":[[if symbol=="BTCUSDT" {"60000"} else {"3500"},"0.5"]],"a":[[if symbol=="BTCUSDT" {"60001"} else {"3501"},"0.75"]]}));
                 socket
                     .send(tungstenite::Message::Text(event.to_string().into()))
                     .unwrap();
+                event_ledger.fetch_add(1, Ordering::AcqRel);
                 while !halt.load(Ordering::Acquire) && Instant::now() < deadline {
                     while let Ok(ping) = next_ping.try_recv() {
                         socket
@@ -234,9 +287,13 @@ impl DepthPeer {
                             .unwrap();
                     }
                     while let Ok(event) = next_event.try_recv() {
-                        socket
+                        if socket
                             .send(tungstenite::Message::Text(event.to_string().into()))
-                            .unwrap();
+                            .is_err()
+                        {
+                            return;
+                        }
+                        event_ledger.fetch_add(1, Ordering::AcqRel);
                     }
                     match socket.read() {
                         Ok(tungstenite::Message::Close(_)) => break,
@@ -258,6 +315,9 @@ impl DepthPeer {
             }
         });
         Self {
+            symbol,
+            sent_events,
+            responses,
             stop,
             threads: vec![rest, stream],
             http,
@@ -305,7 +365,12 @@ impl HotView {
             json!({"workspaceId":workspace}),
         );
         let supervisor = QuoteHotSupervisor::new();
-        let acquired = supervisor.dispatch_with(&control,&json!({"requestId":"depth-view","schemaVersion":1,"command":"market.hot.acquire","payload":{"workspaceId":workspace,"instrumentId":"crypto:BTC/USDT:spot","expectedSourceVersion":selected["data"]["stateVersion"]}}),"main",Arc::new(NoTradingKey),peer.http.clone(),QuoteStreamConnectors{stock:StockStreamConnector::default(),binance:peer.connector.clone()});
+        let instrument = if peer.symbol == "BTCUSDT" {
+            "crypto:BTC/USDT:spot"
+        } else {
+            "crypto:ETH/USDT:spot"
+        };
+        let acquired = supervisor.dispatch_with(&control,&json!({"requestId":"depth-view","schemaVersion":1,"command":"market.hot.acquire","payload":{"workspaceId":workspace,"instrumentId":instrument,"expectedSourceVersion":selected["data"]["stateVersion"]}}),"main",Arc::new(NoTradingKey),peer.http.clone(),QuoteStreamConnectors{stock:StockStreamConnector::default(),binance:peer.connector.clone()});
         assert_eq!(acquired["ok"], true, "{acquired}");
         let query = json!({"workspaceId":workspace,"leaseId":acquired["data"]["leaseId"],"generation":acquired["data"]["generation"]});
         Self {
@@ -926,4 +991,401 @@ fn real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_witho
             .iter()
             .any(|p| p == "/api/v3/depth?symbol=BTCUSDT&limit=1000")
     );
+}
+
+#[test]
+fn eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity() {
+    let view = HotView::with_peer(DepthPeer::with_symbol("ETHUSDT", None, Vec::new()));
+    let state = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let snapshot = &state["data"]["detail"]["snapshot"];
+    let evidence = &snapshot["provenance"]["binance"];
+    assert_eq!(state["data"]["instrumentId"], "crypto:ETH/USDT:spot");
+    assert_eq!(snapshot["bid"], "3500");
+    assert_eq!(snapshot["ask"], "3501");
+    assert_eq!(snapshot["bidSize"], "0.5");
+    assert_eq!(snapshot["askSize"], "0.75");
+    assert_eq!(evidence["providerSymbol"], "ETHUSDT");
+    assert_eq!(evidence["baseAsset"], "ETH");
+    assert_eq!(evidence["quoteAsset"], "USDT");
+    assert_eq!(evidence["depthUnit"], "BASE");
+    assert_eq!(evidence["bidKnownFloor"], "3499");
+    assert_eq!(evidence["askKnownCeiling"], "3502");
+    assert_eq!(evidence["bookUpdateId"], "9007199254740993");
+    assert_eq!(snapshot["provenance"]["venue"], "BINANCE");
+    assert_eq!(evidence["dataUseRights"], "UNVERIFIED");
+    assert_eq!(state["data"]["detail"]["status"], "AVAILABLE");
+    assert!(snapshot["lastPrice"].is_null());
+    let paths = view.peer.requests.lock().unwrap();
+    assert_eq!(
+        paths.as_slice(),
+        ["/api/v3/time", "/api/v3/depth?symbol=ETHUSDT&limit=1000"]
+    );
+}
+
+#[test]
+fn overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material()
+{
+    const START: u64 = 9_007_199_254_740_992;
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START,"u":START+2,"b":[["60000","0"],["59950","3"],["59800","900"]],"a":[["60001","0"],["60050","4"],["60200","900"]]})).unwrap();
+    let replaced = view.wait(|v| {
+        v["data"]["detail"]["snapshot"]["provenance"]["binance"]["bookUpdateId"]
+            == "9007199254740994"
+    });
+    let snapshot = &replaced["data"]["detail"]["snapshot"];
+    assert_eq!(snapshot["bid"], "59950");
+    assert_eq!(snapshot["ask"], "60050");
+    assert_eq!(snapshot["bidSize"], "3");
+    assert_eq!(snapshot["askSize"], "4");
+    assert_eq!(snapshot["provenance"]["binance"]["knownBidLevels"], 2);
+    assert_eq!(snapshot["provenance"]["binance"]["knownAskLevels"], 2);
+    assert_eq!(
+        snapshot["provenance"]["binance"]["bids"],
+        json!([{"price":"59950","quantity":"3"},{"price":"59900","quantity":"2"}])
+    );
+    assert_eq!(
+        snapshot["provenance"]["binance"]["asks"],
+        json!([{"price":"60050","quantity":"4"},{"price":"60100","quantity":"2"}])
+    );
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START+3,"u":START+3,"b":[["59900","0"]],"a":[["60100","0"]]})).unwrap();
+    let narrowed = view.wait(|v| {
+        v["data"]["detail"]["snapshot"]["provenance"]["binance"]["bookUpdateId"]
+            == "9007199254740995"
+    });
+    let material = &narrowed["data"]["detail"]["snapshot"];
+    let evidence = &material["provenance"]["binance"];
+    assert_eq!(evidence["knownBidLevels"], 1);
+    assert_eq!(evidence["knownAskLevels"], 1);
+    assert_eq!(evidence["bidKnownFloor"], "59900");
+    assert_eq!(evidence["askKnownCeiling"], "60100");
+    assert_ne!(
+        material["provenance"]["marketSnapshotId"],
+        first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START+4,"u":START+4,"b":[["59800","1"]],"a":[["60200","1"]]})).unwrap();
+    let unchanged =
+        view.wait(|v| v["data"]["sequence"].as_u64() > narrowed["data"]["sequence"].as_u64());
+    assert_eq!(
+        unchanged["data"]["detail"]["snapshot"], *material,
+        "Unproved outside bands cannot expand coverage or freshen known material"
+    );
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START+5,"u":START+5,"b":[["59950","0"]],"a":[["60050","0"]]})).unwrap();
+    let exhausted =
+        view.wait(|v| v["data"]["connectionGeneration"] != first["data"]["connectionGeneration"]);
+    assert_eq!(exhausted["data"]["detail"]["status"], "UNAVAILABLE");
+    assert!(
+        exhausted["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_RESPONSE_INVALID"),
+        "{exhausted}"
+    );
+    assert_eq!(
+        exhausted["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        material["provenance"]["marketSnapshotId"]
+    );
+}
+
+#[test]
+fn five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating() {
+    const START: u64 = 9_007_199_254_740_992;
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let additions = (1..=4998)
+        .map(|i| json!([format!("59950.{i:04}"), "1"]))
+        .collect::<Vec<_>>();
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START+2,"u":START+2,"b":additions,"a":[]})).unwrap();
+    let full = view.wait(|v| {
+        v["data"]["detail"]["snapshot"]["provenance"]["binance"]["knownBidLevels"] == 5000
+    });
+    assert_eq!(full["data"]["detail"]["status"], "AVAILABLE");
+    let material = &full["data"]["detail"]["snapshot"];
+    let evidence = &material["provenance"]["binance"];
+    assert_eq!(evidence["bids"].as_array().unwrap().len(), 20);
+    assert_eq!(evidence["knownAskLevels"], 2);
+    assert_eq!(evidence["bidKnownFloor"], "59900");
+    assert_eq!(material["bid"], "60000");
+    assert_eq!(evidence["bids"][1]["price"], "59950.4998");
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START+3,"u":START+3,"b":[["59950.4999","1"]],"a":[]})).unwrap();
+    let exhausted =
+        view.wait(|v| v["data"]["connectionGeneration"] != first["data"]["connectionGeneration"]);
+    assert!(
+        exhausted["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_BACKPRESSURE"),
+        "{exhausted}"
+    );
+    assert_eq!(exhausted["data"]["detail"]["status"], "UNAVAILABLE");
+    assert_eq!(
+        exhausted["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+        material["provenance"]["marketSnapshotId"]
+    );
+    assert_eq!(
+        exhausted["data"]["detail"]["snapshot"]["provenance"]["binance"]["knownBidLevels"], 5000,
+        "No silent truncation may hide the capacity fault"
+    );
+}
+
+#[test]
+fn skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection() {
+    for offset in [-10_000, 10_000] {
+        let view = HotView::with_peer(DepthPeer::with_clock("BTCUSDT", None, Vec::new(), offset));
+        let state = view.wait(|v| v["data"]["status"] == "FAILED");
+        assert!(
+            state["data"]["reason"]
+                .as_str()
+                .unwrap()
+                .contains("CLOCK_SKEW"),
+            "{state}"
+        );
+        assert_eq!(state["data"]["reconnectAttempt"], 0);
+        assert_eq!(state["data"]["detail"]["status"], "UNAVAILABLE");
+        assert!(state["data"]["detail"]["snapshot"].is_null());
+        assert_eq!(
+            view.peer.requests.lock().unwrap().as_slice(),
+            ["/api/v3/time"],
+            "A bad provider clock cannot start depth bootstrap"
+        );
+        assert_eq!(
+            view.peer
+                .connections
+                .load(std::sync::atomic::Ordering::Acquire),
+            1
+        );
+        let source = command(
+            &view.control,
+            "data.binance_market.connection",
+            json!({"workspaceId":view.workspace}),
+        );
+        assert_eq!(source["data"]["configured"], true);
+        assert_eq!(source["data"]["source"]["status"], "UNAVAILABLE");
+        assert!(
+            source["data"]["source"]["availabilityReason"]
+                .as_str()
+                .unwrap()
+                .contains("CLOCK_SKEW"),
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition() {
+    for reason in [
+        "OS_SLEEP",
+        "SESSION_INACTIVE",
+        "SESSION_RESUMED",
+        "TIME_REVALIDATE",
+    ] {
+        let mut view = HotView::open();
+        let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+        let version = first["data"]["sourceVersion"].clone();
+        let old_query = view.query.clone();
+        if reason == "TIME_REVALIDATE" {
+            assert_eq!(
+                command(
+                    &view.control,
+                    "time.revalidate",
+                    json!({"workspaceId":view.workspace})
+                )["ok"],
+                true
+            );
+        } else {
+            // Public native safety handler; this does not assert physical OS Sleep/Wake.
+            view.control
+                .lock()
+                .unwrap()
+                .disarm_live_for_safety(reason)
+                .unwrap();
+        }
+        let retired = command(&view.control, "market.hot.get", old_query.clone());
+        assert_eq!(retired["data"]["status"], "STALE", "{reason}: {retired}");
+        assert_eq!(retired["data"]["detail"]["status"], "UNAVAILABLE");
+        assert_eq!(
+            retired["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"],
+            first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+        );
+        let source = command(
+            &view.control,
+            "data.binance_market.connection",
+            json!({"workspaceId":view.workspace}),
+        );
+        assert_eq!(source["data"]["stateVersion"], version);
+        assert_eq!(source["data"]["configured"], true);
+        assert_eq!(source["data"]["source"]["status"], "UNAVAILABLE");
+        assert_eq!(
+            command(
+                &view.control,
+                "time.revalidate",
+                json!({"workspaceId":view.workspace})
+            )["ok"],
+            true
+        );
+        let new = view.acquire(&version);
+        assert_ne!(new["data"]["leaseId"], first["data"]["leaseId"]);
+        let recovered = view.wait(|v| v["data"]["status"] == "STREAMING");
+        let material = &recovered["data"]["detail"]["snapshot"];
+        assert_ne!(
+            material["provenance"]["marketSnapshotId"],
+            first["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+        );
+        assert_ne!(
+            material["provenance"]["binance"]["timeGeneration"],
+            first["data"]["detail"]["snapshot"]["provenance"]["binance"]["timeGeneration"]
+        );
+        assert_eq!(
+            view.peer
+                .connections
+                .load(std::sync::atomic::Ordering::Acquire),
+            2
+        );
+        assert_eq!(view.release(&old_query)["data"]["released"], false);
+        let current = command(&view.control, "market.hot.get", view.query.clone());
+        assert_eq!(current["data"]["detail"]["status"], "AVAILABLE");
+    }
+}
+
+#[test]
+fn bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source() {
+    use std::{
+        sync::atomic::Ordering,
+        time::{Duration, Instant},
+    };
+    const START: u64 = 9_007_199_254_740_992;
+    let (peer, resume) = DepthPeer::with_snapshot_gate();
+    let view = HotView::with_peer(peer);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while view.peer.requests.lock().unwrap().len() < 2 {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    for id in START + 2..=START + 256 {
+        view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":id,"u":id,"b":[],"a":[]})).unwrap();
+    }
+    while view.peer.sent_events.load(Ordering::Acquire) < 256 {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    std::thread::sleep(Duration::from_millis(150));
+    let bounded = command(&view.control, "market.hot.get", view.query.clone());
+    assert_eq!(
+        bounded["data"]["status"], "AWAITING_QUOTE",
+        "256 real buffered frames are permitted: {bounded}"
+    );
+    assert!(bounded["data"]["detail"]["snapshot"].is_null());
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":START+257,"u":START+257,"b":[],"a":[]})).unwrap();
+    let exhausted = view.wait(|v| v["data"]["reconnectAttempt"] == 1);
+    assert!(
+        exhausted["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_BACKPRESSURE"),
+        "{exhausted}"
+    );
+    assert_eq!(exhausted["data"]["detail"]["status"], "UNAVAILABLE");
+    assert!(exhausted["data"]["detail"]["snapshot"].is_null());
+    let started = Instant::now();
+    let changed = command(
+        &view.control,
+        "data.binance_market.configure",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":bounded["data"]["sourceVersion"]}),
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    assert!(
+        started.elapsed() < Duration::from_millis(750),
+        "Pending HTTP must not hold the Control Plane lock"
+    );
+    view.supervisor.stop_all();
+    resume.send(()).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while view.peer.responses.load(Ordering::Acquire) < 2 {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    std::thread::sleep(Duration::from_millis(100));
+    let detail = command(
+        &view.control,
+        "market.get",
+        json!({"workspaceId":view.workspace,"instrumentId":"crypto:BTC/USDT:spot","tier":"HOT"}),
+    );
+    assert!(
+        detail["data"]["snapshot"].is_null(),
+        "Late actual HTTP cannot publish through retired ownership: {detail}"
+    );
+    assert_eq!(detail["data"]["status"], "UNAVAILABLE");
+    let source = command(
+        &view.control,
+        "data.binance_market.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    assert_eq!(
+        source["data"]["stateVersion"],
+        changed["data"]["stateVersion"]
+    );
+    assert_eq!(source["data"]["source"]["status"], "UNVERIFIED");
+}
+
+#[test]
+fn bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit() {
+    use std::{
+        sync::atomic::Ordering,
+        time::{Duration, Instant},
+    };
+    const START: u64 = 9_007_199_254_740_992;
+    let (peer, resume) = DepthPeer::with_snapshot_gate();
+    let view = HotView::with_peer(peer);
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while view.peer.requests.lock().unwrap().len() < 2 {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let levels = (1..=500)
+        .map(|i| {
+            json!([
+                format!("59950.{i:04}"),
+                "1.0000000000000000000000000000000000001"
+            ])
+        })
+        .collect::<Vec<_>>();
+    let event = |id: u64| json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":id,"u":id,"b":levels,"a":[]});
+    let frame_bytes = event(START + 2).to_string().len();
+    assert!(frame_bytes < 512 * 1024);
+    assert!(frame_bytes * 110 < 4 * 1024 * 1024);
+    assert!(frame_bytes * 150 > 4 * 1024 * 1024);
+    for id in START + 2..=START + 111 {
+        view.peer.events.send(event(id)).unwrap();
+    }
+    while view.peer.sent_events.load(Ordering::Acquire) < 111 {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    std::thread::sleep(Duration::from_millis(250));
+    let bounded = command(&view.control, "market.hot.get", view.query.clone());
+    assert_eq!(
+        bounded["data"]["status"], "AWAITING_QUOTE",
+        "Below4MiB and256frames remains a pending bootstrap: {bounded}"
+    );
+    assert!(bounded["data"]["detail"]["snapshot"].is_null());
+    for id in START + 112..=START + 151 {
+        view.peer.events.send(event(id)).unwrap();
+    }
+    let exhausted = view.wait(|v| v["data"]["reconnectAttempt"] == 1);
+    let frames = view.peer.sent_events.load(Ordering::Acquire);
+    assert!(
+        frames < 256,
+        "The byte limit must be independent of the256 frame limit: {frames}"
+    );
+    assert!(
+        exhausted["data"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("PROVIDER_BACKPRESSURE"),
+        "{exhausted}"
+    );
+    assert_eq!(exhausted["data"]["detail"]["status"], "UNAVAILABLE");
+    assert!(exhausted["data"]["detail"]["snapshot"].is_null());
+    view.supervisor.stop_all();
+    resume.send(()).unwrap();
 }
