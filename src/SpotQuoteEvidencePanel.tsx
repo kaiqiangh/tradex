@@ -1,13 +1,14 @@
 import type { MarketDetail } from '../shared/ipc-types.ts';
 
-export function SpotQuoteEvidencePanel({ detail }: { detail: MarketDetail }) {
+export function SpotQuoteEvidencePanel({ detail, capturedAt }: { detail: MarketDetail; capturedAt?: string }) {
   const snapshot = detail.snapshot;
   const evidence = snapshot?.provenance.binance;
   if (!snapshot || !evidence) return null;
   const current = detail.status === 'AVAILABLE' && snapshot.provenance.freshness === 'HEALTHY';
   return <section className="spot-depth-evidence" aria-label="Binance Spot depth evidence">
     <h3>Binance Spot depth evidence</h3>
-    <p role="status"><strong>{current ? 'Current continuous quote' : 'Retained quote — not current'}</strong></p>
+    <p role="status"><strong>{capturedAt ? 'Captured quote' : current ? 'Current continuous quote' : 'Retained quote — not current'}</strong></p>
+    {capturedAt && <p>Captured at {capturedAt}. This review does not poll or renew the captured material.</p>}
     <p>Known price bands only. Displayed levels do not establish whole-book liquidity or a deeper executable fill.</p>
     <dl className="market-provenance">
       <div><dt>Venue / provider symbol</dt><dd>BINANCE · {evidence.providerSymbol}</dd></div>
@@ -22,6 +23,7 @@ export function SpotQuoteEvidencePanel({ detail }: { detail: MarketDetail }) {
       <div><dt>Lease / session</dt><dd>{evidence.leaseId} · {evidence.sessionId}</dd></div>
       <div><dt>Time generation</dt><dd>{evidence.timeGeneration}</dd></div>
       <div><dt>Material hash</dt><dd>{evidence.materialHash}</dd></div>
+      <div><dt>Snapshot ID</dt><dd>{snapshot.provenance.marketSnapshotId}</dd></div>
       <div><dt>Financial data use</dt><dd>{evidence.dataUseRights}</dd></div>
     </dl>
     <p className="muted">Technical collection does not verify financial use, permitted retention, redistribution, commercial use or regional eligibility. No last trade, reference price or USD / USDT equivalence is supplied.</p>

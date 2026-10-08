@@ -1,0 +1,2 @@
+Traceability OK: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.
+This checks the plan and source inventory; it does not prove application behavior.

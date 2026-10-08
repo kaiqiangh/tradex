@@ -1,0 +1,9 @@
+Error: Error: Playwright selector deadline exceeded
+locator.waitFor(visible) timed out for selector internal:role=dialog[name="Review Live approval"s]
+Locator diagnostics: {"kind":"no_matches","action":"waitFor","locator":"internal:role=dialog[name=\"Review Live approval\"s]","matchCount":0,"matches":[],"visibleCount":0,"truncated":false}
+    at bl (/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua/dist/lib/js/oai_js_browser/dist/skill/scripts/browser-client.js:1:103734)
+    at e.actionError (/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua/dist/lib/js/oai_js_browser/dist/skill/scripts/browser-client.js:1:112361)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async e.waitFor (/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua/dist/lib/js/oai_js_browser/dist/skill/scripts/browser-client.js:1:109764)
+    at async Module.checkBinanceTradeHotUI (/private/tmp/tradex-s29-trade-current.mjs:85:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_151.mjs:41:394

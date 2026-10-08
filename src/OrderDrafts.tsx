@@ -44,6 +44,8 @@ import { CommandError, explainError, request } from './client.ts';
 import { liveExecutionStatus } from './liveExecution.ts';
 import { fromAccountSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
+import { TradeHotQuote } from './TradeHotQuote.tsx';
+import { SpotQuoteEvidencePanel } from './SpotQuoteEvidencePanel.tsx';
 
 const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'LOCAL_PAPER', label: 'Local Paper' },
@@ -1503,6 +1505,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
           {selectedProposalId && proposalDetail.isPending && <p role="status">Loading proposal…</p>}
           {selectedProposalId && proposalDetail.isError && <p className="error-text" role="alert">{explainError(proposalDetail.error)}</p>}
           {proposalDetail.data && <>
+            <TradeHotQuote key={`${workspaceId}:${proposalDetail.data.proposalId}:${proposalDetail.data.proposalHash}`} proposal={proposalDetail.data} />
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <SpotRuleContext workspaceId={workspaceId} accountId={proposalDetail.data.fields.accountId ?? undefined} instrumentId={proposalDetail.data.fields.instrumentId} />}
             <FxSourceContext workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
@@ -1801,6 +1804,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
         {liveArmReview.quoteReview?.currencyEvidence && <CapturedCurrencyEvidence evidence={liveArmReview.quoteReview.currencyEvidence} reviewedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview?.market.spotRuleEvidence && <FinancialEvidencePanel source={liveArmReview.quoteReview.market.spotRuleEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
+        {liveArmReview.quoteReview && <SpotQuoteEvidencePanel detail={liveArmReview.quoteReview.market} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview?.market.financialEvidence && <MarketFinancialEvidencePanel evidence={liveArmReview.quoteReview.market.financialEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {preArmQuote ? <dl className="proposal-fields approval-review-fields">
           <div><dt>Snapshot / source</dt><dd className="identity">{preArmQuote.provenance.marketSnapshotId} · {preArmQuote.provenance.source}</dd></div>
@@ -1837,6 +1841,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
       {approvalReview.market.spotRuleEvidence && <FinancialEvidencePanel source={approvalReview.market.spotRuleEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
+      <SpotQuoteEvidencePanel detail={approvalReview.market} capturedAt={approvalReview.reviewedAt} />
       {approvalReview.market.financialEvidence && <MarketFinancialEvidencePanel evidence={approvalReview.market.financialEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       {approvalReview.currencyEvidence && <CapturedCurrencyEvidence evidence={approvalReview.currencyEvidence} reviewedAt={approvalReview.reviewedAt} />}
       <section aria-labelledby="approval-quote-title"><h3 id="approval-quote-title">Quote provenance</h3>

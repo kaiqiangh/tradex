@@ -17,10 +17,10 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | `docs/zh/README.md` | 中文文档目录 | 57 | `223863b6afc0ae0084e0eaaafa945b6e3f5f785516e01968b6b2f5ed2959ef44` |
 | `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3669 | `dd0a7737604ce0bdc39dde33c52a7ca760483b84567267ed00ff0a2a65169cea` |
 | `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3661 | `32cf80c6bca84df0f68eb68da704aab158c980dbea978019f7eaf92e44ac6e11` |
-| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1310 | `7aa492355251650e144a91c956ae214134e5556cfc7018f115fbf8d8059da0b0` |
-| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 1025 | `cedd1bf50a29214a4c6db403c1f5e3b02350baab89c608a112f469bba0a8b513` |
-| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1185 | `20d9ccaea5b00865bc28ba412674f069358fad8f121844617221ced083f02b09` |
-| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1183 | `78e982ad012f187c59e83525cb1338822ec934763709ec39c5f76307622b472e` |
+| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1310 | `4efde95a9d6fb18af075e00d548727034b704775f21bb1b91a5cc59215164955` |
+| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 1025 | `a9d1e05937663c0937a0114eb11d9960fb98c25a1540eb7d58ed0adca863a875` |
+| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1185 | `1f6108512e85d1149e8568f36d25d735aad5a6bcc95510989dd3b305e5ef4846` |
+| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1183 | `a2c5a42507771b67ab61222162654c373c6a81cf3b4ebd5eb5589de0e92967d7` |
 | `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3376 | `f4c0b26d1cfabba92eef7f2f19dfbad2085c27fa8738b099202e27b87d7cdc77` |
 | `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3374 | `190a22af5d4e380c2773c0ab2a16c9c557be3cf4780d96dfa2041bd98b921e00` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 214 | `3dcf4b201c135468a113c760d02e51ffac0268daaeca5595f09f08a281463f7c` |
