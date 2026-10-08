@@ -14,6 +14,6 @@
 
 ## 规则来源实现与剩余门禁
 
-已实现采集器和生成 wire 契约见 Backend ARD §41.42、Frontend §13.27 与 UI Spec §14.26。当前 #123 在完整检查、真实 Rust 支持的 UI 及独立串行审查证据记录完成前仍为 IN_PROGRESS。原始 int64 限制以无损字符串保存；可选价格/资产指数为受限整数。MAX_ASSET 是单笔订单金额限制，不等于 MAX_POSITION。已知约束族逐项列明未决逐单输入；未知类型/字段保持未获资格。2026-10-08 重新核对官方 schema/filter（[General API](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/general)、[官方 filters 来源](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/filters.md)）。
+已实现采集器和生成 wire 契约见 Backend ARD §41.42、Frontend §13.27 与 UI Spec §14.26。#123 已在完整检查、真实 Rust 支持 UI、独立串行复审及源码/证据远端交付核对后 CLOSED；详见配对验收报告。原始 int64 限制以无损字符串保存；可选价格/资产指数为受限整数。MAX_ASSET 是单笔订单金额限制，不等于 MAX_POSITION。已知约束族逐项列明未决逐单输入；未知类型/字段保持未获资格。2026-10-08 重新核对官方 schema/filter（[General API](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/general)、[官方 filters 来源](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/filters.md)）。
 
 技术采集和精确账户准入有独立能力状态。执行资格与 Spot 数据使用权仍为 UNVERIFIED。签名读取不授予市场数据 entitlement、许可/再分发权或地区资格。报价/深度来源、执行级时效、条款/保留及实际所需 FX/费用必须由后续所属 S29 工作建立。当前假提供方证据只证明公开本地边界；普通原生/提供方/金融执行与物理 OS Sleep/Wake 分开。原型代码未改。

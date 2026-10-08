@@ -16,6 +16,8 @@ The PRD wins on product/safety meaning. The UI Spec owns user-visible behavior, 
 
 ## Current handoff status
 
+S29.2 #123 exact ordinary Binance Spot rule-source/admission is closed; [paired acceptance evidence](implementation/s29-spot-rule-evidence.md) binds source `b726bb3`, independent reviews, local checks/build/UI and verified source/evidence delivery `21a6659`. Full S29 #121, S28/S17/physical S27 remain open. This does not establish quote/depth/data rights or real-provider financial acceptance; prototype code is unchanged.
+
 The 2026-09-05 documentation revision clarifies expiry/reservation rules, Gateway process isolation and dispatch, canonical IPC, operation-preserving cancellation, evidence-based resolution, immutable history/proposals, and complete interaction expectations.
 
 Prototype interaction/handoff remains **NOT PASS**: HTML/CSS/JS were not changed in this documentation revision. QA-13 records that the clickable prototype has no permanent eligible-account removal path; S18 #66 runtime implementation evidence is separate. Use the QA Report for observations and the UI Spec for intended behavior. This does not certify other broker/runtime integrations or close existing open product decisions.

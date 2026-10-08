@@ -139,7 +139,7 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 | S26 | 刷新并审批撤单与处理成交竞态 | S22、S24、S25 | 精确不可变 CANCEL intent、Arm 后回到撤单且刷新、不同撤单资格、approval/reject/expire、CANCEL_PENDING→provider truth；ACK 不释放，部分成交/费用/剩余容量恰好一次处理；修改仅确认撤单后新 proposal。 |
 | S27 | 恢复崩溃、休眠、断流并中断未派发工作 | S24–S26 | 全 Live restart/sleep/lock/Disable All disarm，account fault 指定作用域、共享政策全部绑定账户；未知保留；P0/P1 优先于 research/backtest，bounded queues；模型故障下监控/撤单/对账仍有效。 |
 | S28 | 验证 Trading 212 Live 可信执行 | S06、S08、S18、S21–S27 | Live adapter 与 trusted chain 贯通、最新 entitlement/calendar/账户能力门槛、真实查询与明确用户交易授权的验收；没有实际授权不发 Live order，保留该验收阻塞。 |
-| S29 | 验证 Binance Spot Live 可信执行（父规范 #121；#122 诊断已关闭，当前单票 #123） | S06、S08、S19、S21–S27 | Live spot 单独连接、permissions/rules/time/FX、受信下单/撤单/对账全链，account-specific readiness；contract/fault 与授权外部验收分别记录。 |
+| S29 | 验证 Binance Spot Live 可信执行（父规范 #121；#122 诊断与 #123 规则来源已关闭） | S06、S08、S19、S21–S27 | Live spot 单独连接、permissions/rules/time/FX、受信下单/撤单/对账全链，account-specific readiness；contract/fault 与授权外部验收分别记录。 |
 | S30 | 验证 Bitget Spot Live 可信执行 | S06、S08、S20、S21–S27 | Live/Demo 绝不混路由，签名/身份/权限/成交/撤单证据与 trusted authority；只有该 provider 完整 gate 通过才开放对应能力。 |
 | S31 | 验证工作区备份、导入、迁移与保留 | S12、S15、S25、S27 | 非秘密 export manifest、路径/归档/schema 校验、恢复前备份、事务迁移/integrity、Keychain 引用检查、恢复全 Live disarmed/reconcile；未解决金融证据不可自动清理。 |
 | S32 | 完成设置、健康诊断与隐私控制 | S03、S27、S31 | Providers/Models/Risk/Data/Health/Appearance/About、版本来源/配额/日志/诊断、auto-update/crash-report 明确界面与 opt-in、默认无 telemetry；敏感字段序列化前脱敏。 |
@@ -202,3 +202,5 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 2026-10-07恢复跟进：同一次Trading212已有密钥只读Refresh已完成，既有同scope确认保留，本地连接恢复CONNECTED/UNVERIFIED/DISARMED；三项读取能力已观察，无新权限验证或金融动作。当前XNAS日历认证刷新成功；已知公司行为查询完成，采样时已不可用；精确账户元数据AVAILABLE后保留原receipt而转为UNAVAILABLE（过期/绑定原因）；FX重读仍返回脱敏端点拒绝，无汇率/执行资格。最新主程序/Gateway/20runtime输入及父子关系一致，Keychain等待已结束。原报价正向AC4及金融父项仍未通过；[恢复证据](evidence/s28-return/recovery-audit.md)更新初始检查点，不关闭原票。后续串行调度仍等待先前选择。
 
 当前原报价票内的[原始数字token修复](s28-quote-token-evidence.md)/[中文](s28-quote-token-evidence_zh.md)已真实复现HTTP对象bid→AVAILABLE/HEALTHY与Hot对象bid→STREAMING（该Hot时钟不可信，非金融资格）。原始RawValue守卫修复HTTP/Hot价格和深度类型；8HTTP/8Hot字段/转义回归、相关35项、17Node/387普通Rust/426integration/23实际Gateway通过，39忽略保留。正确隔离Hot界面及来源键盘/窄屏通过；旧按需UI模式尝试保留为未覆盖。当前普通桌面构建及75构建输入/主程序-Gateway固定哈希/实际父子关系通过；当前新二进制在本人认证后通过已有IEX技术读取（状态游标恢复后重新验证），不证明时效/覆盖/许可/交易资格。75输入及二进制哈希一致；操作后进程采样无匹配，此前父子关系为独立历史证据。独立Standards PASS0缺陷/建议；Spec修复PASS0缺陷/扩张，但原票NOT PASS1正向缺口。源码已提交`953cbacc99d3f0662dba69ba1baf0cf14f8bef71`，冻结证据`a3370be7d510d392bf9b18229ce1aca7523f96c3`已正常推送并核对23文件与远端dev；delivery.json记录交付，早期checkpoint保留。原金融AC4/父项不关闭。
+
+S29.2 #123 已关闭：[精确规则来源与账户准入验收](s29-spot-rule-evidence_zh.md)。源码 `b726bb3`；完整本地检查、普通构建、Rust-backed UI 与串行 Standards/Spec 复审通过，源码/证据远端交付 `21a6659` 已核对。S29 #121 继续 OPEN，下一步先规范报价/深度/权利来源，不跳过金融门禁。

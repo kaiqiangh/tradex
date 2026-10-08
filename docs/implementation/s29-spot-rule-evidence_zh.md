@@ -2,7 +2,7 @@
 
 单票 [#123](https://github.com/kaiqiangh/tradex/issues/123)，父项 [#121](https://github.com/kaiqiangh/tradex/issues/121)。基线 `4388d9c4ae460ee5f4d8a6a21b0ced5cfa3fe374`；源码 `b726bb38df9280cb290d8efedc72cc2f2dbbff95`。[English](s29-spot-rule-evidence.md)。
 
-状态 LOCAL_ACCEPTANCE_PASS；远端交付与 tracker 收口待完成。当前源码已本地提交。完整检查、普通桌面构建、实际 Rust-backed UI 复测及独立 Standards → Spec 串行复审通过。父项和金融门禁保持 OPEN。
+状态 CLOSED（#123）；源码/证据远端交付已核对 `21a6659`。完整检查、普通构建、Rust-backed UI 和独立串行复审通过。父项 #121 与独立金融/提供方门禁保持 OPEN。
 
 公开规则来源借用符合条件的已保存普通 Binance Live 账户/密钥；无 I/O 保存精确 BTC/USDT 或 ETH/USDT，然后有界读取固定主机的签名/公开观察，经真实 Control Plane 返回类型化证据。配置持久化；运行时资格不随重开恢复。负向准入进入 InstrumentRules 拒绝；成功元数据不授予逐 Proposal PASS。契约见配对 Backend §41.42、Frontend §13.27、UI §14.26。此前诊断章节重复编号在两语言修正为 UI §14.25；原型代码未改。
 
@@ -16,7 +16,7 @@
 | 6 | Settings/Markets/Trade 已实现；中间真实 UI 发现 schema-36 与 Markets 缓存过期缺口并修复。最终当前构建 Settings/Markets/Trade 的 1280/768/390 无溢出、Enter 操作、失败保留、BTC/ETH 精确绑定、错误标的拒绝、HALT 风险拒绝、不匹配、自动过期及断开/重新选择/读取恢复记录于 final-ui.json。 |
 | 7 | 精确后端 market/proposal 账户绑定与负向检查；逐单参考/网格/名义金额/计数/仓位/资产/PRICE_RANGE 义务逐项未决。无正向金融种子。 |
 | 8 | 公开边界 RED/GREEN 与故障测试；最终真实 React→Rust 记录于 final-ui.json。普通提供方/原生读取/金融写操作分开，未声称通过。 |
-| 9 | 生成 IPC 与中英文契约同步；完整检查/Gateway 已通过，普通桌面构建及匹配固定 Gateway 字节已通过；审查/远程交付待完成。 |
+| 9 | 生成 IPC 与中英文契约同步；完整检查/Gateway 已通过，普通桌面构建及匹配固定 Gateway 字节已通过；串行复审与源码/证据远程交付已通过。 |
 
 不变源码树检查：schema/typecheck/前端构建、17 项 Node、408 项普通 Rust、203 条需求追踪；447 项 integration-feature Rust；真实子 Gateway 专项 23 项。普通和集成各保留 39 项既有 ignored，不计 PASS。见[原始证据](evidence/s29-spot-rules/)。历史完整检查失败来自固定迁移测试期望（35→36、未来 36→37），未发现数据丢失。初始限额测试错误认为两个 UID 不能在 IP 余量耗尽前各自耗尽；修正后的第三 UID 验证共享 IP 耗尽。失败尝试明确保留，未伪装通过。
 
@@ -29,8 +29,10 @@
 
 初次 Standards 为 PASS，含 1 条非阻断私有描述符启发式建议；独立 Spec 为 NOT PASS：空权限集合被隐含视为满足成员要求，订单形式标志遗漏。现已逐项通过公开刷新边界的真实 RED/GREEN 修复。空外层/内层集合采集失败，并保留不可用旧观察。8 个原始可空布尔订单形式标志得到保留；提供类型畸形则失败，缺失保持未观察，高级形式保持明确不支持。双语契约同步。初次报告见 `review-initial.md`；修复日志见 `review-permission-red-actual.txt` / `review-permission-green.txt` 与 `review-order-flags-red.txt` / `review-order-flags-green.txt`。
 
-当前源码 `b726bb3`：完整本地检查通过（410 Rust / 17 Node，39 既有 ignored），集成模式 449 Rust 通过（39 既有 ignored），Gateway 23 通过，公开规则来源 15 用例通过。普通桌面构建与修复后的针对性 UI 复测已通过；串行独立复审及远端交付仍待完成。`review-permission-before-test-write.txt` 执行 0 用例，不构成 RED；`review-typecheck-before-generation.txt` 检查尚未生成的类型，由成功 `review-typecheck.txt` 取代。此前 `final-ui.json` 仍绑定 `1d20747`，不得重标为当前源码证据。
+当前源码 `b726bb3`：完整本地检查通过（410 Rust / 17 Node，39 既有 ignored），集成模式 449 Rust 通过（39 既有 ignored），Gateway 23 通过，公开规则来源 15 用例通过。普通桌面构建与修复后的针对性 UI 复测已通过；串行独立复审及源码/证据远端交付随后通过。`review-permission-before-test-write.txt` 执行 0 用例，不构成 RED；`review-typecheck-before-generation.txt` 检查尚未生成的类型，由成功 `review-typecheck.txt` 取代。此前 `final-ui.json` 仍绑定 `1d20747`，不得重标为当前源码证据。
 
 当前普通桌面构建通过；`review-desktop-build-inputs.json` 确认程序包含交付 Gateway 文件的固定 SHA-256。`b726bb3` 的 `review-ui.json` 复测 Settings/Markets/Trade 八项标志和高级形式不支持边界，各页 1280/768/390 均无溢出；公开 Enter 保存/刷新/草稿/提案操作及空 console 捕获通过。临时页面/服务停止、viewport 复位。此证据补充此前 `1d20747` 更广的故障/恢复 UI 证据，不将旧证据重标。
 
 最终[串行双轴复审](evidence/s29-spot-rules/review-final.md)：Standards PASS（0 硬性违规、1 非阻断私有描述符建议）；Spec PASS（0 可执行问题）。[验收清单](evidence/s29-spot-rules/acceptance-manifest.json)记录源码、检查、各类未验证边界。
+
+[Tracker closure / 收口记录](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-6052549325). Source `b726bb38df9280cb290d8efedc72cc2f2dbbff95`; source/evidence delivery `21a665919d540caf730e5b6c1b2a35d72af826b0` verified against origin/dev. This final closure documentation is an additional documentation-only commit; the reviewed application source tree remains unchanged.

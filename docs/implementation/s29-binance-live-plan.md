@@ -1,6 +1,6 @@
 # S29 — Binance Spot Live serial plan
 
-Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Current ticket: [Exact Spot rule-source and account admission](https://github.com/kaiqiangh/tradex/issues/123). Diagnostic #122 is CLOSED; rule-source #123 is IN_PROGRESS. Start: dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9.
+Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Completed rule-source ticket: [Exact Spot rule-source and account admission](https://github.com/kaiqiangh/tradex/issues/123). Diagnostic #122 is CLOSED; rule-source #123 is CLOSED. Start: dev@fe20d0aae1c0eea9df43c1e24f32199a92ff30b9.
 
 The user selected S29 on 2026-10-07 while S28 acceptance remains open. This changes scheduling only. S17, physical S27 and all S28 financial gates remain unverified where previously recorded. The final outcome remains the complete RevC application, validated on dev, followed by a dev→main PR for human review only.
 
@@ -16,3 +16,5 @@ Work one complete implementation ticket at a time:
 Parent completion requires every user story and provider/financial/UX/architecture gate in the parent spec; a closed read-only prerequisite does not close S29.
 
 Primary API references checked 2026-10-07: [account trading status and API restrictions](https://developers.binance.com/en/docs/catalog/core-trading-wallet/api/rest-api/account), [system status](https://developers.binance.com/en/docs/catalog/core-trading-wallet/api/rest-api/others), [Spot rules](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/general), [Spot streams](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~). Further endpoint-specific research belongs to its owning slice. These references do not establish this user's licence, regional access or hosted readiness.
+
+S29.2 [closure](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-6052549325): source `b726bb38df9280cb290d8efedc72cc2f2dbbff95`, evidence delivery `21a665919d540caf730e5b6c1b2a35d72af826b0`; current local checks, ordinary build, actual Rust-backed UI and independent serial reviews passed. Parent #121 remains OPEN; quote/depth/rights is the next owning source slice to specify before implementation.

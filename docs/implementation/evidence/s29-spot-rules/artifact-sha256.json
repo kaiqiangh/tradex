@@ -1,7 +1,7 @@
 {
   "meaning": "Integrity inventory; authoritative current-source checks are in acceptance-manifest.json. Historical artifacts retain their original statuses/source bindings.",
   "sha256": {
-    "acceptance-manifest.json": "94bec1548beacc79d4d0a14c309fdc3df3f8e1284df1d1784fe86c5dbdd22aac",
+    "acceptance-manifest.json": "60679c37551b71829535be50665ca27806f00f2d9a804015722a8ee1a145db16",
     "admission-green.txt": "0b901518e6c67f5dea27a55e645f8928162237163d8abf128548c9b693a339fa",
     "admission-matrix-regression.txt": "84b68431d4cc4ac5714a347ab1bd6d69b7fbe419ccea8f8ae4f71053c913f955",
     "admission-red.txt": "b438efa42e33bb033405c36552dcb6f5291bbdb8c07b328c87fea58179ca0014",
