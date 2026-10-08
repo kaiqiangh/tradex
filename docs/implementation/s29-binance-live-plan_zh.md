@@ -22,3 +22,5 @@
 S29.2 [收口](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-6052549325)：源码 `b726bb38df9280cb290d8efedc72cc2f2dbbff95`，证据交付 `21a665919d540caf730e5b6c1b2a35d72af826b0`；当前完整检查、普通构建、真实 Rust-backed UI 和独立串行复审通过。父项 #121 保持 OPEN。
 
 已完成单来源票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124#issuecomment-6069229563)已 CLOSED。[配对验收](s29-binance-hot-source-evidence_zh.md)：运行时d9abe24、复审4898850、交付dc51bd7已核对 origin/dev；九项来源标准、当前检查、独立串行复审通过。父项保持 OPEN；下一步先细化逐 Proposal 精确规则/参考/动态输入及实际需要的费用/FX，再完成所属审批/Prepare/Gateway/私有生命周期验收；不并行实施或跳过权威门禁。
+
+当前下一张单票：[核验 Proposal 静态 Spot 规则与所需参考输入](https://github.com/kaiqiangh/tradex/issues/125)，[规范](s29-spot-proposal-rules-spec_zh.md)。已领取/ready-for-agent，S29原生子票，记录已关闭规则源与Hot来源依赖；无开放阻塞。实现/复审起点2368e22，仅交付规划，未实施/验收。
