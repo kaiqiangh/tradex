@@ -13632,6 +13632,11 @@ mod thread_tests {
             )
             .unwrap();
         migration_database
+            .execute_batch(
+                "DROP TABLE binance_market_source_config; DROP TABLE binance_market_source_config_audit;",
+            )
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
