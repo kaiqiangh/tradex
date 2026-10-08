@@ -3053,6 +3053,9 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 按实际约束逐项列出价格/数量网格、名义金额/市场参考、提供方参考或加权均价、当前仓位/订单计数、精确单笔资产量、PRICE_RANGE 盘口参考、订单形式及不支持约束的剩余义务。采集不授予无条件 InstrumentRules PASS、执行级报价/深度、许可、FX/费用、股票日历/公司行为完整性、审批、Arm、PLACE 或私有流权限。精确 CANCEL/对账保持独立。#123 验收、完整父项 #121 和 S28/S17/物理 S27 门禁分开；文档契约不等于普通提供方或金融运行时证明。
 
+
+`orderFormFlags` 保留可空原始布尔 `icebergAllowed`、`ocoAllowed`、`otoAllowed`、`opoAllowed`、`allowTrailingStop`、`cancelReplaceAllowed`、`amendAllowed` 和 `pegInstructionsAllowed`。缺失/null 保留为未观察（`ORDER_FORM_FLAGS_UNOBSERVED`）；提供的类型畸形则采集失败。`ADVANCED_ORDER_FORMS_UNSUPPORTED` 明确保留 TradeX Market/Limit 意图边界：提供方支持不能启用冰山、追踪、列表、撤单替换、改单或挂钩订单。空外层或内层权限集合属于未填充证据，采集失败，绝不隐含成功成员判断。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

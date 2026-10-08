@@ -1,8 +1,8 @@
 //! Bounded ordinary Spot metadata; this collector never qualifies a financial intent.
 use super::*;
 use crate::protocol::{
-    BinanceSpotRuleEvidence, BinanceSpotSymbolStatus, SpotRuleConstraint, SpotRuleField,
-    SpotRuleOrigin, SpotRuleScope, SpotRuleValue,
+    BinanceSpotOrderFormFlags, BinanceSpotRuleEvidence, BinanceSpotSymbolStatus,
+    SpotRuleConstraint, SpotRuleField, SpotRuleOrigin, SpotRuleScope, SpotRuleValue,
 };
 use crate::provider_io::{ProviderHttpMethod, contains_secret};
 use serde_json::value::RawValue;
@@ -132,6 +132,14 @@ struct Symbol {
     is_spot_trading_allowed: bool,
     quote_order_qty_market_allowed: bool,
     order_types: Vec<String>,
+    iceberg_allowed: Option<bool>,
+    oco_allowed: Option<bool>,
+    oto_allowed: Option<bool>,
+    opo_allowed: Option<bool>,
+    allow_trailing_stop: Option<bool>,
+    cancel_replace_allowed: Option<bool>,
+    amend_allowed: Option<bool>,
+    peg_instructions_allowed: Option<bool>,
     permission_sets: Vec<Vec<String>>,
     default_self_trade_prevention_mode: String,
     allowed_self_trade_prevention_modes: Vec<String>,
@@ -517,7 +525,12 @@ pub(super) fn read(
     if s.symbol != symbol || s.base_asset != base || s.quote_asset != "USDT" {
         return Err(TradeXError::new("PROVIDER_IDENTITY_CHANGED"));
     }
-    if s.base_asset_precision > 64 || s.quote_asset_precision > 64 || s.permission_sets.len() > 64 {
+    if s.base_asset_precision > 64
+        || s.quote_asset_precision > 64
+        || s.permission_sets.is_empty()
+        || s.permission_sets.len() > 64
+        || s.permission_sets.iter().any(Vec::is_empty)
+    {
         return Err(invalid());
     }
     let order_types = tokens(s.order_types, 32)?;
@@ -662,6 +675,32 @@ pub(super) fn read(
     if a.require_self_trade_prevention.is_none() {
         obligations.push("ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED".into());
     }
+    let order_form_flags = BinanceSpotOrderFormFlags {
+        iceberg_allowed: s.iceberg_allowed,
+        oco_allowed: s.oco_allowed,
+        oto_allowed: s.oto_allowed,
+        opo_allowed: s.opo_allowed,
+        allow_trailing_stop: s.allow_trailing_stop,
+        cancel_replace_allowed: s.cancel_replace_allowed,
+        amend_allowed: s.amend_allowed,
+        peg_instructions_allowed: s.peg_instructions_allowed,
+    };
+    if [
+        s.iceberg_allowed,
+        s.oco_allowed,
+        s.oto_allowed,
+        s.opo_allowed,
+        s.allow_trailing_stop,
+        s.cancel_replace_allowed,
+        s.amend_allowed,
+        s.peg_instructions_allowed,
+    ]
+    .iter()
+    .any(Option::is_none)
+    {
+        obligations.push("ORDER_FORM_FLAGS_UNOBSERVED".into());
+    }
+    obligations.push("ADVANCED_ORDER_FORMS_UNSUPPORTED".into());
     let provider_clock_sample =
         OffsetDateTime::from_unix_timestamp_nanos(i128::from(clock.server_time) * 1_000_000)
             .map_err(|_| invalid())?
@@ -687,6 +726,7 @@ pub(super) fn read(
         spot_trading_allowed: s.is_spot_trading_allowed,
         quote_order_qty_market_allowed: s.quote_order_qty_market_allowed,
         order_types,
+        order_form_flags,
         default_self_trade_prevention_mode: s.default_self_trade_prevention_mode,
         allowed_self_trade_prevention_modes: allowed_stp,
         account_permissions,

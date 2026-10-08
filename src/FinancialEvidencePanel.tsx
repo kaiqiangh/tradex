@@ -19,9 +19,11 @@ function SpotRules({ evidence }: { evidence: BinanceSpotRuleEvidence }) {
       <div><dt>Account type / can trade</dt><dd>{evidence.accountType} · {String(evidence.accountCanTrade)}</dd></div>
       <div><dt>Account permission-set membership</dt><dd>{String(evidence.permissionSetsSatisfied)} · OR inside each set, AND between sets</dd></div>
       <div><dt>Account permissions</dt><dd>{evidence.accountPermissions.join(', ') || 'No permissions supplied'}</dd></div>
-      <div><dt>Required permission sets</dt><dd>{evidence.permissionSets.map(set => `(${set.join(' OR ')})`).join(' AND ') || 'No additional sets supplied'}</dd></div>
+      <div><dt>Required permission sets</dt><dd>{evidence.permissionSets.map(set => `(${set.join(' OR ')})`).join(' AND ') || 'Permission evidence not supplied'}</dd></div>
       <div><dt>Spot / quote Market quantity</dt><dd>{String(evidence.spotTradingAllowed)} / {String(evidence.quoteOrderQtyMarketAllowed)}</dd></div>
       <div><dt>Order forms</dt><dd>{evidence.orderTypes.join(', ')}</dd></div>
+      <div><dt>Provider order-form flags</dt><dd>{Object.entries(evidence.orderFormFlags).map(([name, value]) => <span key={name} style={{ display: 'block' }}>{name}: {value == null ? 'Not supplied' : String(value)}</span>)}</dd></div>
+      <div><dt>TradeX order-form boundary</dt><dd>Only supported Market and Limit intents can proceed to independent checks. Iceberg, trailing, order lists, cancel-replace, amend and pegged forms remain unsupported.</dd></div>
       <div><dt>Self-trade prevention</dt><dd>{evidence.defaultSelfTradePreventionMode} · {evidence.allowedSelfTradePreventionModes.join(', ')} · account requirement {evidence.accountRequiresSelfTradePrevention == null ? 'Not supplied' : String(evidence.accountRequiresSelfTradePrevention)}</dd></div>
       <div><dt>System / API lock</dt><dd>{evidence.tradingStatus.systemStatus} / {evidence.tradingStatus.apiTradingLocked ? 'LOCKED' : 'UNLOCKED'}</dd></div>
       <div><dt>Provider clock sample</dt><dd>{evidence.providerClockSample} — not a rule update or quote timestamp</dd></div>

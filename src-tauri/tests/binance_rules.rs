@@ -1,5 +1,8 @@
 use serde_json::{Value, json};
-use tradex::{ControlPlane, provider_io::CredentialVault};
+use tradex::{
+    ControlPlane,
+    provider_io::{CredentialVault, ProviderHttp},
+};
 #[path = "support/provider_fixtures.rs"]
 #[allow(dead_code)]
 mod fixtures;
@@ -804,4 +807,124 @@ fn rule_counts_preserve_large_integers_but_reject_values_outside_documented_int6
     );
     assert_eq!(failed["data"]["evidence"], good["data"]["evidence"]);
     assert_ne!(rule_check(&rig.decision())["outcome"], "PASS");
+}
+
+#[test]
+fn unpopulated_permission_sets_never_grant_account_admission() {
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    let good = rig.refresh(&external);
+    assert_eq!(good["data"]["status"], "AVAILABLE");
+    external.edit.set(Some(|route, body| match route {
+        "/api/v3/exchangeInfo" => body["symbols"][0]["permissionSets"] = json!([]),
+        "/api/v3/account" => body["permissions"] = json!([]),
+        _ => (),
+    }));
+    let empty = rig.refresh(&external);
+    assert_eq!(
+        empty["data"]["status"], "UNAVAILABLE",
+        "Unpopulated permissions are not admission evidence: {empty}"
+    );
+    assert_eq!(empty["data"]["evidence"], good["data"]["evidence"]);
+    assert!(
+        empty["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c["status"] != "AVAILABLE")
+    );
+    assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/exchangeInfo" {
+            body["symbols"][0]["permissionSets"] = json!([[]]);
+        }
+    }));
+    let empty_inner = rig.refresh(&external);
+    assert_eq!(empty_inner["data"]["status"], "UNAVAILABLE");
+    external.edit.set(None);
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
+}
+
+#[test]
+fn original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms()
+{
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/exchangeInfo" {
+            for (name, enabled) in [
+                ("icebergAllowed", true),
+                ("ocoAllowed", false),
+                ("otoAllowed", true),
+                ("opoAllowed", false),
+                ("allowTrailingStop", true),
+                ("cancelReplaceAllowed", false),
+                ("amendAllowed", true),
+                ("pegInstructionsAllowed", false),
+            ] {
+                body["symbols"][0][name] = json!(enabled);
+            }
+        }
+    }));
+    let good = rig.refresh(&external);
+    assert_eq!(good["data"]["status"], "AVAILABLE");
+    assert_eq!(
+        good["data"]["evidence"]["orderFormFlags"],
+        json!({"icebergAllowed":true,"ocoAllowed":false,"otoAllowed":true,"opoAllowed":false,"allowTrailingStop":true,"cancelReplaceAllowed":false,"amendAllowed":true,"pegInstructionsAllowed":false})
+    );
+    assert!(
+        good["data"]["evidence"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("ADVANCED_ORDER_FORMS_UNSUPPORTED"))
+    );
+    let raw = external
+        .get(
+            tradex::provider_io::ProviderEndpoint::BinanceLive,
+            "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true",
+            reqwest::header::HeaderMap::new(),
+        )
+        .unwrap();
+    for name in [
+        "icebergAllowed",
+        "ocoAllowed",
+        "otoAllowed",
+        "opoAllowed",
+        "allowTrailingStop",
+        "cancelReplaceAllowed",
+        "amendAllowed",
+        "pegInstructionsAllowed",
+    ] {
+        let mut malformed: Value = serde_json::from_slice(&raw).unwrap();
+        malformed["symbols"][0][name] = json!(1);
+        *external.raw.borrow_mut() = Some((
+            "/api/v3/exchangeInfo".into(),
+            serde_json::to_vec(&malformed).unwrap(),
+        ));
+        let rejected = rig.refresh(&external);
+        assert_eq!(
+            rejected["data"]["status"], "UNAVAILABLE",
+            "Nonboolean {name} must fail closed: {rejected}"
+        );
+        assert_eq!(rejected["data"]["evidence"], good["data"]["evidence"]);
+    }
+    *external.raw.borrow_mut() = None;
+    external.edit.set(None);
+    let absent = rig.refresh(&external);
+    assert_eq!(absent["data"]["status"], "AVAILABLE");
+    assert!(
+        absent["data"]["evidence"]["orderFormFlags"]
+            .as_object()
+            .unwrap()
+            .values()
+            .all(Value::is_null)
+    );
+    assert!(
+        absent["data"]["evidence"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("ORDER_FORM_FLAGS_UNOBSERVED"))
+    );
+    assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
 }

@@ -174,6 +174,7 @@ export type FinancialSourceEvidence =
       kind: "BINANCE_SPOT_RULES";
       materialVersion: string;
       observedAt: string;
+      orderFormFlags: BinanceSpotOrderFormFlags;
       /**
        * @maxItems 32
        */
@@ -2494,6 +2495,20 @@ export interface SpotRuleField {
   disabled: boolean;
   name: string;
   value: SpotRuleValue;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSpotOrderFormFlags".
+ */
+export interface BinanceSpotOrderFormFlags {
+  allowTrailingStop?: boolean | null;
+  amendAllowed?: boolean | null;
+  cancelReplaceAllowed?: boolean | null;
+  icebergAllowed?: boolean | null;
+  ocoAllowed?: boolean | null;
+  opoAllowed?: boolean | null;
+  otoAllowed?: boolean | null;
+  pegInstructionsAllowed?: boolean | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

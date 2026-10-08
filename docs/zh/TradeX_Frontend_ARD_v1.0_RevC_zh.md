@@ -725,6 +725,9 @@ Accounts 显示选中 Binance Live 连接在 Backend §41.41 定义的可选观�
 Settings Data & Storage 选择已有普通 Live 账户和 BTC/USDT 或 ETH/USDT，提供显式 Save、Refresh、Disconnect 和恢复控件。未保存选择禁用 Refresh；展示观察仍标明属于已保存选择。Disconnect 保留账户/密钥。分开展示后端采集/准入/执行/权利能力、原始/保留接收时间、类型化分层约束、禁用项、不支持字段和逐项剩余义务。Settings 元数据轮询不请求提供方。Markets 使用后端精确标的 `spotRuleEvidence`，轮询投影反映过期；主 Trade Proposal 视图要求精确账户及标的匹配。捕获的审批/武装前证据保留捕获时间边界。重开只有元数据。保留股票来源面板、键盘控件及 1280/768/390 布局。Renderer 时间、成功读取或 TRADING 永不授予 Arm/审批/PLACE 或报价/深度/许可权限。参见 Backend §41.42；原型 fixture 代码未改。
 
 
+逐项展示后端 `orderFormFlags` 为 true/false/未提供，并展示高级订单形式不支持边界；不得从缺失推断支持。空权限集合不表示无需权限即可访问。
+
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

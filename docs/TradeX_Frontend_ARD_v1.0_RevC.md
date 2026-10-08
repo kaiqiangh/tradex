@@ -725,6 +725,9 @@ Accounts shows the optional Backend §41.41 observation for the selected Binance
 Settings Data & Storage selects an existing ordinary Live account and BTC/USDT or ETH/USDT, with explicit Save, Refresh, Disconnect and recovery controls. Unsaved selections disable Refresh; displayed observations remain labelled as belonging to the saved selection. Disconnect retains the account/key. Show backend collection/admission/execution/rights capabilities separately, original/retained receipt, typed scoped constraints, disabled components, unsupported fields and individual remaining duties. Settings metadata polling makes no provider request. Markets uses backend exact-instrument `spotRuleEvidence`, polling its projection to reflect expiry; the main Trade Proposal view requires exact account and instrument match. Captured approval/pre-arm evidence retains its captured-time boundary. Reopen has metadata only. Keep equity source panels, keyboard controls and 1280/768/390 layouts intact. Renderer time, successful reads or TRADING never grant Arm/approval/PLACE or quote/depth/licence authority. See Backend §41.42; prototype fixture code remains unchanged.
 
 
+Display each backend `orderFormFlags` boolean as true/false/Not supplied and the explicit unsupported advanced-form boundary; never infer support from omission. Empty permission sets do not describe permission-free access.
+
+
 ## 14. Live Execution UI Architecture
 
 ### 14.1 Principle

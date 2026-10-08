@@ -2266,6 +2266,19 @@ pub struct SpotRuleConstraint {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceSpotOrderFormFlags {
+    pub iceberg_allowed: Option<bool>,
+    pub oco_allowed: Option<bool>,
+    pub oto_allowed: Option<bool>,
+    pub opo_allowed: Option<bool>,
+    pub allow_trailing_stop: Option<bool>,
+    pub cancel_replace_allowed: Option<bool>,
+    pub amend_allowed: Option<bool>,
+    pub peg_instructions_allowed: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct BinanceSpotRuleEvidence {
     pub binding: FinancialEvidenceBinding,
     #[schemars(length(min = 64, max = 64))]
@@ -2295,6 +2308,7 @@ pub struct BinanceSpotRuleEvidence {
     pub quote_order_qty_market_allowed: bool,
     #[schemars(length(max = 32))]
     pub order_types: Vec<String>,
+    pub order_form_flags: BinanceSpotOrderFormFlags,
     #[schemars(length(min = 1, max = 32))]
     pub default_self_trade_prevention_mode: String,
     #[schemars(length(max = 32))]

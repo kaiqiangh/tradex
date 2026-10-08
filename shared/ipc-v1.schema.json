@@ -3632,6 +3632,60 @@
         "instrumentId"
       ]
     },
+    "BinanceSpotOrderFormFlags": {
+      "type": "object",
+      "properties": {
+        "allowTrailingStop": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "amendAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "cancelReplaceAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "icebergAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ocoAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "opoAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "otoAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "pegInstructionsAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "BinanceSpotSymbolStatus": {
       "type": "string",
       "enum": [
@@ -8383,6 +8437,9 @@
               "maxLength": 64,
               "minLength": 1
             },
+            "orderFormFlags": {
+              "$ref": "#/$defs/BinanceSpotOrderFormFlags"
+            },
             "orderTypes": {
               "type": "array",
               "items": {
@@ -8482,6 +8539,7 @@
             "spotTradingAllowed",
             "quoteOrderQtyMarketAllowed",
             "orderTypes",
+            "orderFormFlags",
             "defaultSelfTradePreventionMode",
             "allowedSelfTradePreventionModes",
             "accountPermissions",

@@ -3053,6 +3053,9 @@ Permission membership is OR within each permission set and AND across sets. Acco
 
 Individual remaining duties name price/quantity grids, notional/market reference, provider reference or weighted-average price, current position/order counts, exact order asset amount, PRICE_RANGE book reference, order forms and unsupported constraints where applicable. Collection cannot grant unconditional InstrumentRules PASS, executable quote/depth, licence, FX/fees, equity-calendar/corporate-action completeness, approval, Arm, PLACE or private-stream authority. Exact CANCEL/reconciliation remains independent. #123 acceptance, full parent #121 and S28/S17/physical S27 gates remain separate; documentation is a contract, not ordinary-provider or financial runtime proof.
 
+
+`orderFormFlags` preserves nullable original booleans `icebergAllowed`, `ocoAllowed`, `otoAllowed`, `opoAllowed`, `allowTrailingStop`, `cancelReplaceAllowed`, `amendAllowed` and `pegInstructionsAllowed`. Missing/null values remain unobserved (`ORDER_FORM_FLAGS_UNOBSERVED`); malformed supplied types fail collection. `ADVANCED_ORDER_FORMS_UNSUPPORTED` explicitly preserves the TradeX Market/Limit intent boundary: provider support cannot enable iceberg, trailing, lists, cancel-replace, amend or peg. Empty outer or inner permission sets are unpopulated evidence and fail collection; they never imply successful membership.
+
 ## 42. Backend-to-Frontend Event Surface
 
 Representative events:
