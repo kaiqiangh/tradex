@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.95s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade ... FAILED
+
+failures:
+
+---- authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade stdout ----
+
+thread 'authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade' (9642552) panicked at src-tauri/tests/binance_market_hot.rs:1458:5:
+assertion `left == right` failed: A actual continuous depth source needs no last trade to establish quote freshness: {"checkId":"QUOTE_FRESHNESS","outcome":"UNAVAILABLE","reason":"Market entitlement or time confidence is not trusted.","reasonCode":"EVIDENCE_UNTRUSTED"}
+  left: String("UNAVAILABLE")
+ right: "PASS"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `--test binance_market_hot`

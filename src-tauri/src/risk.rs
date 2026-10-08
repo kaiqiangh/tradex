@@ -778,6 +778,7 @@ pub enum RiskCheckId {
     MarketOrderSlippage,
     PriceDeviation,
     QuoteFreshness,
+    MarketDataUse,
     MarketSession,
     InstrumentRules,
     CorporateActionCoverage,
@@ -801,6 +802,7 @@ pub enum RiskDecisionReasonCode {
     EvidenceMissing,
     EvidenceStale,
     EvidenceUntrusted,
+    DataUseRightsUnverified,
     AccountUnavailable,
     AccountMismatch,
     AccountUnhealthy,
@@ -1905,11 +1907,9 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::NotApplicable,
         )
     } else if market.is_some_and(|market| {
-        market
-            .snapshot
-            .as_ref()
-            .is_some_and(|snapshot| snapshot.provenance.alpaca.is_some())
-            && !execution_quote_matches(proposal, market)
+        market.snapshot.as_ref().is_some_and(|snapshot| {
+            snapshot.provenance.alpaca.is_some() || snapshot.provenance.binance.is_some()
+        }) && !execution_quote_matches(proposal, market)
     }) {
         (
             RiskCheckOutcome::Unavailable,
@@ -1939,6 +1939,26 @@ pub(crate) fn evaluate(
                 "The application clock is not trusted for a freshness check."
             }
             _ => "A required current market quote is unavailable.",
+        },
+    );
+    let requires_public_spot_rights = !local_simulation
+        && market.is_some_and(|m| m.source_id.as_deref() == Some(crate::binance_market::SOURCE_ID));
+    push!(
+        RiskCheckId::MarketDataUse,
+        if requires_public_spot_rights {
+            RiskCheckOutcome::Unavailable
+        } else {
+            RiskCheckOutcome::Pass
+        },
+        if requires_public_spot_rights {
+            RiskDecisionReasonCode::DataUseRightsUnverified
+        } else {
+            RiskDecisionReasonCode::NotApplicable
+        },
+        if requires_public_spot_rights {
+            "Public Spot technical collection establishes no user-specific financial-use, retention, redistribution, commercial or regional permission. Those data-use rights remain UNVERIFIED."
+        } else {
+            "The ordinary public Spot financial data-use gate is not applicable to this source/context."
         },
     );
     let (outcome, reason) = if local_simulation {
@@ -2458,9 +2478,110 @@ fn execution_quote_matches(
     }
     if let Some(evidence) = snapshot.provenance.alpaca.as_ref() {
         verified_sip_quote(market, snapshot) && proposal.fields.venue == evidence.listing_venue
+    } else if snapshot.provenance.binance.is_some() {
+        verified_binance_quote(market, snapshot)
+            && proposal.fields.venue == "BINANCE"
+            && proposal.fields.environment == crate::protocol::ExecutionContext::BinanceLive
     } else {
         snapshot.provenance.venue.as_deref() == Some(proposal.fields.venue.as_str())
     }
+}
+
+/// The producer's AVAILABLE projection already enforces current runtime ownership
+/// and monotonic age. Consumers additionally qualify exact canonical provenance;
+/// quote collection does not establish permitted use or execution authority.
+fn verified_binance_quote(
+    market: &crate::protocol::MarketDetail,
+    snapshot: &crate::protocol::MarketSnapshot,
+) -> bool {
+    use crate::protocol::{AssetClass, QuoteDepthUnit, SpotDepthCoverage, SpotMarketEnvironment};
+    use std::cmp::Ordering;
+    let Some(e) = snapshot.provenance.binance.as_ref() else {
+        return false;
+    };
+    let (base, symbol) = match market.instrument.instrument_id.as_str() {
+        "crypto:BTC/USDT:spot" => ("BTC", "BTCUSDT"),
+        "crypto:ETH/USDT:spot" => ("ETH", "ETHUSDT"),
+        _ => return false,
+    };
+    let positive = |value: &str| {
+        value.len() <= 64
+            && crate::provider_io::decimal_cmp(value, "0").ok() == Some(Ordering::Greater)
+    };
+    let version_prefix = format!("binance-market:{}:", market.workspace_id);
+    let event_time = e.provider_event_time_ms.parse::<i64>().ok();
+    let provider_time = time::OffsetDateTime::parse(
+        &snapshot.provenance.provider_timestamp,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .ok();
+    market.source_id.as_deref() == Some(crate::binance_market::SOURCE_ID)
+        && market.instrument.asset_class == AssetClass::CryptoSpot
+        && market.instrument.currency == "USDT"
+        && market.instrument.base.as_deref() == Some(base)
+        && market.instrument.quote.as_deref() == Some("USDT")
+        && market
+            .instrument
+            .providers
+            .iter()
+            .any(|p| p.provider_id == "binance" && p.provider_symbol == symbol)
+        && snapshot.instrument_id == market.instrument.instrument_id
+        && snapshot.provenance.source == crate::binance_market::SOURCE_ID
+        && snapshot.provenance.venue.as_deref() == Some("BINANCE")
+        && snapshot.provenance.alpaca.is_none()
+        && snapshot.last_price.is_none()
+        && e.workspace_id == market.workspace_id
+        && e.environment == SpotMarketEnvironment::Ordinary
+        && e.provider_symbol == symbol
+        && e.base_asset == base
+        && e.quote_asset == "USDT"
+        && e.depth_unit == QuoteDepthUnit::Base
+        && e.depth_coverage == SpotDepthCoverage::KnownPriceBands
+        && [
+            &e.session_id,
+            &e.time_generation,
+            &e.lease_id,
+            &e.connection_generation,
+        ]
+        .iter()
+        .all(|id| uuid::Uuid::parse_str(id).is_ok())
+        && e.source_version
+            .strip_prefix(&version_prefix)
+            .and_then(|n| n.parse::<u64>().ok())
+            .is_some_and(|n| (1..=crate::protocol::MAX_SEQUENCE).contains(&n))
+        && e.book_update_id.parse::<i64>().is_ok_and(|n| n > 0)
+        && event_time.is_some_and(|n| {
+            n > 0
+                && provider_time
+                    .is_some_and(|p| p.unix_timestamp_nanos() == i128::from(n) * 1_000_000)
+        })
+        && e.material_hash.len() == 64
+        && e.material_hash
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && (1..=5000).contains(&e.known_bid_levels)
+        && (1..=5000).contains(&e.known_ask_levels)
+        && e.bids.len() == (e.known_bid_levels as usize).min(20)
+        && e.asks.len() == (e.known_ask_levels as usize).min(20)
+        && e.bids
+            .iter()
+            .chain(&e.asks)
+            .all(|l| positive(&l.price) && positive(&l.quantity))
+        && e.bids.first().is_some_and(|l| {
+            Some(l.price.as_str()) == snapshot.bid.as_deref()
+                && Some(l.quantity.as_str()) == snapshot.bid_size.as_deref()
+        })
+        && e.asks.first().is_some_and(|l| {
+            Some(l.price.as_str()) == snapshot.ask.as_deref()
+                && Some(l.quantity.as_str()) == snapshot.ask_size.as_deref()
+        })
+        && snapshot
+            .bid
+            .as_deref()
+            .zip(snapshot.ask.as_deref())
+            .is_some_and(|(bid, ask)| {
+                crate::provider_io::decimal_cmp(bid, ask).is_ok_and(|o| o != Ordering::Greater)
+            })
 }
 
 fn verified_sip_quote(
@@ -2551,6 +2672,8 @@ fn market_freshness(
         || snapshot.provenance.freshness != MarketFreshness::Healthy
         || if snapshot.provenance.alpaca.is_some() {
             !verified_sip_quote(market, snapshot)
+        } else if snapshot.provenance.binance.is_some() {
+            !verified_binance_quote(market, snapshot)
         } else {
             snapshot.last_price.is_none()
         }

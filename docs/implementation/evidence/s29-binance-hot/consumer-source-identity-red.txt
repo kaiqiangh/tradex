@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.30s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test selected_public_spot_source_is_explicit_in_current_and_retired_market_details ... FAILED
+
+failures:
+
+---- selected_public_spot_source_is_explicit_in_current_and_retired_market_details stdout ----
+
+thread 'selected_public_spot_source_is_explicit_in_current_and_retired_market_details' (9650764) panicked at src-tauri/tests/binance_market_hot.rs:1487:5:
+assertion `left == right` failed: Current detail must name its selected source independently of raw snapshot presence
+  left: Null
+ right: "BINANCE_SPOT_PUBLIC"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    selected_public_spot_source_is_explicit_in_current_and_retired_market_details
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `--test binance_market_hot`

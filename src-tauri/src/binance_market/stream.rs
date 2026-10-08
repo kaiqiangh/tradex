@@ -713,6 +713,7 @@ pub(crate) fn project(
     if !super::selected_once(control).unwrap_or(true) {
         return;
     }
+    detail.source_id = Some(super::SOURCE_ID.into());
     let Some(observation) = control
         .binance_market_observations
         .get(&detail.instrument.instrument_id)

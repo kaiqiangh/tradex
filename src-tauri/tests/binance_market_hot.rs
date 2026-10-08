@@ -9,6 +9,10 @@ use tradex::{
     provider_io::{CredentialVault, Credentials, ProviderEndpoint, ProviderHttp},
 };
 
+#[path = "support/provider_fixtures.rs"]
+#[allow(dead_code)]
+mod account_fixtures;
+
 struct NoTradingKey;
 impl CredentialVault for NoTradingKey {
     fn put(&self, _: &str, _: &Credentials) -> Result<()> {
@@ -1388,4 +1392,379 @@ fn bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit
     assert!(exhausted["data"]["detail"]["snapshot"].is_null());
     view.supervisor.stop_all();
     resume.send(()).unwrap();
+}
+
+fn connected_binance_proposal(view: &HotView) -> (Value, account_fixtures::Vault) {
+    let vault = account_fixtures::Vault::default();
+    let http = account_fixtures::Http::default();
+    let request = json!({"requestId":"quote-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":view.workspace,"providerId":"binance","environment":"LIVE","label":"Quote consumer account"}});
+    let job = view
+        .control
+        .lock()
+        .unwrap()
+        .prepare_provider_for(&request, "main")
+        .unwrap()
+        .unwrap();
+    let observed = job.run(
+        &vault,
+        |_| account_fixtures::credentials(),
+        &http,
+        || view.control.lock().unwrap().provider_job_current(&job),
+    );
+    let tested = view
+        .control
+        .lock()
+        .unwrap()
+        .complete_provider(&job, observed);
+    assert_eq!(tested["ok"], true, "{tested}");
+    let account = command(
+        &view.control,
+        "provider.connect",
+        json!({"step":"confirm","workspaceId":view.workspace,"connectionId":tested["data"]["connectionId"],"expectedStateVersion":tested["data"]["stateVersion"],"acknowledgeUnverified":false}),
+    );
+    assert_eq!(account["ok"], true, "{account}");
+    let draft = command(
+        &view.control,
+        "trade.save_draft",
+        json!({"workspaceId":view.workspace,"fields":{"accountId":account["data"]["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &view.control,
+        "trade.generate_proposal",
+        json!({"workspaceId":view.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    (proposal["data"].clone(), vault)
+}
+
+#[test]
+fn authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade() {
+    let view = HotView::open();
+    let current = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert!(current["data"]["detail"]["snapshot"]["lastPrice"].is_null());
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    let quote = checks
+        .iter()
+        .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+        .unwrap();
+    assert_eq!(
+        quote["outcome"], "PASS",
+        "A actual continuous depth source needs no last trade to establish quote freshness: {quote}"
+    );
+    assert_eq!(quote["reasonCode"], "WITHIN_LIMIT");
+    assert_ne!(
+        decision["data"]["status"], "ALLOWED",
+        "Technical collection does not establish financial authority"
+    );
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "ACCOUNT_ARMING")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+    assert_ne!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "INSTRUMENT_RULES")
+            .unwrap()["outcome"],
+        "PASS"
+    );
+}
+
+#[test]
+fn selected_public_spot_source_is_explicit_in_current_and_retired_market_details() {
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    assert_eq!(
+        first["data"]["detail"]["sourceId"], "BINANCE_SPOT_PUBLIC",
+        "Current detail must name its selected source independently of raw snapshot presence"
+    );
+    let changed = command(
+        &view.control,
+        "data.binance_market.configure",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":first["data"]["sourceVersion"]}),
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    let retired = command(
+        &view.control,
+        "market.get",
+        json!({"workspaceId":view.workspace,"instrumentId":"crypto:BTC/USDT:spot","tier":"CENSUS"}),
+    );
+    assert_eq!(retired["data"]["sourceId"], "BINANCE_SPOT_PUBLIC");
+    assert_eq!(retired["data"]["status"], "UNAVAILABLE");
+    assert_eq!(
+        retired["data"]["snapshot"]["provenance"]["freshness"],
+        "STALE"
+    );
+}
+
+#[test]
+fn public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes()
+ {
+    let view = HotView::open();
+    let current = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    let evaluate = || {
+        command(
+            &view.control,
+            "risk.evaluate_proposal",
+            json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+        )
+    };
+    let decision = evaluate();
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    let rights = checks
+        .iter()
+        .find(|c| c["checkId"] == "MARKET_DATA_USE")
+        .expect("Technical access must have a separate financial data-use gate");
+    assert_eq!(rights["outcome"], "UNAVAILABLE");
+    assert_eq!(rights["reasonCode"], "DATA_USE_RIGHTS_UNVERIFIED");
+    assert!(rights["reason"].as_str().unwrap().contains("UNVERIFIED"));
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "PASS"
+    );
+    assert_ne!(decision["data"]["status"], "ALLOWED");
+    let changed = command(
+        &view.control,
+        "data.binance_market.configure",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":current["data"]["sourceVersion"]}),
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    let retired = evaluate();
+    assert_eq!(retired["ok"], true, "{retired}");
+    let checks = retired["data"]["checks"].as_array().unwrap();
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "MARKET_DATA_USE")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+}
+
+#[test]
+fn captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references() {
+    let view = HotView::open();
+    let current = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    let query = json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]});
+    let review = command(&view.control, "trade.request_approval", query.clone());
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(review["data"]["eligible"], false);
+    assert_eq!(
+        review["data"]["market"]["snapshot"]["provenance"]["marketSnapshotId"],
+        current["data"]["detail"]["snapshot"]["provenance"]["marketSnapshotId"]
+    );
+    assert_eq!(
+        review["data"]["market"]["snapshot"]["provenance"]["binance"]["dataUseRights"],
+        "UNVERIFIED"
+    );
+    let before = command(&view.control, "risk.decision.list", query.clone());
+    assert_eq!(before["ok"], true, "{before}");
+    assert_eq!(before["data"]["decisions"].as_array().unwrap().len(), 1);
+    let encoded = before["data"].to_string();
+    for raw_field in [
+        "bids",
+        "asks",
+        "bid",
+        "ask",
+        "bidSize",
+        "askSize",
+        "snapshot",
+        "provenance",
+    ] {
+        assert!(
+            !encoded.contains(&format!("\"{raw_field}\":")),
+            "Persisted risk history must not retain raw public book fields: {raw_field}"
+        );
+    }
+    let market_reference = before["data"]["decisions"][0]["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["kind"] == "MARKET")
+        .unwrap();
+    assert!(
+        market_reference["digest"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
+    assert_eq!(
+        command(&view.control, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(&view.control, "risk.decision.list", query.clone());
+    assert_eq!(restored["ok"], true, "{restored}");
+    assert_eq!(
+        restored["data"], before["data"],
+        "Captured decision history remains the originally evaluated metadata"
+    );
+    let detail = command(
+        &view.control,
+        "market.get",
+        json!({"workspaceId":view.workspace,"instrumentId":"crypto:BTC/USDT:spot","tier":"HOT"}),
+    );
+    assert_eq!(detail["data"]["sourceId"], "BINANCE_SPOT_PUBLIC");
+    assert!(detail["data"]["snapshot"].is_null());
+    command(
+        &view.control,
+        "time.revalidate",
+        json!({"workspaceId":view.workspace}),
+    );
+    let fresh = command(&view.control, "risk.evaluate_proposal", query);
+    assert_eq!(fresh["ok"], true, "{fresh}");
+    let checks = fresh["data"]["checks"].as_array().unwrap();
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+    assert_eq!(
+        checks
+            .iter()
+            .find(|c| c["checkId"] == "MARKET_DATA_USE")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+}
+
+#[test]
+fn protected_market_digest_keeps_unchanged_material_and_retires_on_depth_or_source_change() {
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    let evaluate = || {
+        let reply = command(
+            &view.control,
+            "risk.evaluate_proposal",
+            json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(reply["ok"], true, "{reply}");
+        reply["data"].clone()
+    };
+    let digest = |decision: &Value| {
+        decision["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["kind"] == "MARKET")
+            .unwrap()["digest"]
+            .clone()
+    };
+    let initial = evaluate();
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_994u64,"u":9_007_199_254_740_994u64,"b":[["60000","0.5"]],"a":[["60001","0.75"]]})).unwrap();
+    let unchanged =
+        view.wait(|v| v["data"]["sequence"].as_u64() > first["data"]["sequence"].as_u64());
+    assert_eq!(
+        unchanged["data"]["detail"]["snapshot"],
+        first["data"]["detail"]["snapshot"]
+    );
+    assert_eq!(
+        digest(&evaluate()),
+        digest(&initial),
+        "Advancing stream health cannot renew protected material"
+    );
+    view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_995u64,"u":9_007_199_254_740_995u64,"b":[["60000","0.4"]],"a":[]})).unwrap();
+    view.wait(|v| {
+        v["data"]["detail"]["snapshot"]["provenance"]["binance"]["bookUpdateId"]
+            == "9007199254740995"
+    });
+    let changed = evaluate();
+    assert_ne!(digest(&changed), digest(&initial));
+    let configured = command(
+        &view.control,
+        "data.binance_market.configure",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":first["data"]["sourceVersion"]}),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    let retired = evaluate();
+    assert_ne!(digest(&retired), digest(&changed));
+    assert_eq!(
+        retired["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "UNAVAILABLE"
+    );
+}
+
+#[test]
+fn financial_quote_ttl_is_stricter_than_collection_age_and_cached_reads_cannot_renew_it() {
+    let view = HotView::open();
+    let first = view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    // Existing integration clock boundary advances both wall and monotonic time;
+    // this is freshness logic proof, not physical clock or Sleep/Wake evidence.
+    view.control
+        .lock()
+        .unwrap()
+        .advance_test_clock_fixture(view.workspace.as_str().unwrap(), 4000)
+        .unwrap();
+    let source = command(
+        &view.control,
+        "data.binance_market.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    assert_eq!(
+        source["data"]["source"]["status"], "AVAILABLE",
+        "Collection remains within30s"
+    );
+    let detail = command(
+        &view.control,
+        "market.get",
+        json!({"workspaceId":view.workspace,"instrumentId":"crypto:BTC/USDT:spot","tier":"HOT"}),
+    );
+    assert_eq!(detail["data"]["status"], "AVAILABLE");
+    assert_eq!(
+        detail["data"]["snapshot"], first["data"]["detail"]["snapshot"],
+        "Cache reads preserve the original event and receipt"
+    );
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let check = decision["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
+        .unwrap();
+    assert_eq!(check["outcome"], "UNAVAILABLE");
+    assert_eq!(
+        check["reasonCode"], "EVIDENCE_STALE",
+        "Default financial TTL is3s, independent of collection30s: {check}"
+    );
+    let cached = command(&view.control, "market.hot.get", view.query.clone());
+    assert_eq!(
+        cached["data"]["detail"]["snapshot"],
+        first["data"]["detail"]["snapshot"]
+    );
 }
