@@ -2,7 +2,7 @@
 
 父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。实现/复审起点：dev@5edf18d01122d1871b6c94aeafefe708435b7f38。前票 #123 规则来源/准入已 CLOSED；S29 保持 OPEN。此规范推进父项故事 9–12、27，不移除完整执行及真实外部验收要求。[English](s29-binance-hot-source-spec.md)。
 
-当前单实现票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124)。已领取、ready-for-agent、IN_PROGRESS。已实现选择、连续 loopback HTTP/WS 生产者、有界传输/轮换、所属报价/准入检查和实际 Settings/Markets/Trade 来源流程。其余生命周期/真实隐藏与边界证据，以及完整验收/复审/交付仍须完成。不表示当前票或父项关闭。
+当前单实现票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124)。已领取、ready-for-agent、IN_PROGRESS。已实现选择、连续 loopback HTTP/WS 生产者、有界传输/轮换、所属报价/准入检查和实际 Settings/Markets/Trade 来源流程。已记录原生 Chrome 隐藏视图的释放/恢复及当前公开研究/artifact 输入边界证据；最终检查、独立复审和交付仍须完成。不表示当前票或父项关闭。
 
 ## 问题
 

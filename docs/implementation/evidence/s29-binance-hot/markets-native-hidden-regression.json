@@ -1,0 +1,75 @@
+{
+  "sourceSha": "d9abe2470ed0b5d69b08c645625a4aa30d988511",
+  "deliverySha": "11a27a449bd82107aa7d186e4e18e64675b1204e",
+  "method": "Native Chrome Minimise after cancelling the test debugger; only external peer/public Rust requests sampled while hidden; native observation returns the window",
+  "beforeStatus": "AVAILABLE",
+  "beforePeer": {
+    "closedConnections": 2,
+    "connections": 3,
+    "frames": 474,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "hiddenPeer": {
+    "closedConnections": 3,
+    "connections": 3,
+    "frames": 478,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "hiddenStatus": "UNAVAILABLE",
+  "beforeLease": "e1993cf7-df56-4b6f-b778-f27ed55c948b",
+  "beforeGeneration": "63b7561b-7437-47dc-a53d-902671f51ad6",
+  "beforeMaterial": "7e054ce3-1c5d-4c5f-b9ef-37c58e4fa895",
+  "returnStatus": "AVAILABLE",
+  "returnPeer": {
+    "closedConnections": 3,
+    "connections": 4,
+    "frames": 601,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "returnLease": "ae461885-18b4-4cae-acb6-1490a3fe8192",
+  "returnGeneration": "b5782021-fa53-4558-8d3e-ef62cd1df2b6",
+  "returnMaterial": "49661944-753b-4f76-8109-45d3b443506a",
+  "syntheticVisibilityEvent": false,
+  "seededAuthority": false,
+  "directHiddenDomSample": false,
+  "nativeUiAndExternalWorkerEvidence": true
+}

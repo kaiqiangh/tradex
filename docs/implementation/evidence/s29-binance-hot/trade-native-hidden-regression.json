@@ -1,0 +1,96 @@
+{
+  "sourceSha": "d9abe2470ed0b5d69b08c645625a4aa30d988511",
+  "deliverySha": "11a27a449bd82107aa7d186e4e18e64675b1204e",
+  "method": "Native Chrome Minimise after cancelling the test debugger; only external peer/public Rust requests sampled while hidden; native observation returns the window",
+  "beforeStatus": "AVAILABLE",
+  "beforePeer": {
+    "closedConnections": 4,
+    "connections": 5,
+    "frames": 821,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "hiddenPeer": {
+    "closedConnections": 5,
+    "connections": 5,
+    "frames": 825,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "hiddenStatus": "UNAVAILABLE",
+  "beforeLease": "51b924d7-db9b-499b-9503-d4c80f5b0c2b",
+  "beforeGeneration": "8ef2095f-39e3-4220-bd96-d21e218808a5",
+  "beforeMaterial": "4f0cf884-1c3f-4a5b-a011-90bea7cf453b",
+  "returnStatus": "AVAILABLE",
+  "returnPeer": {
+    "closedConnections": 5,
+    "connections": 6,
+    "frames": 831,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "returnLease": "78e599f0-6500-4da0-b3ae-1639f867e465",
+  "returnGeneration": "568fc15d-7961-49c9-b3c4-022a3fd2a0e5",
+  "returnMaterial": "664a99c8-8c18-4156-b2cc-c3863bbb0285",
+  "syntheticVisibilityEvent": false,
+  "seededAuthority": false,
+  "view": "Selected Trade Proposal",
+  "proposalId": "proposal:7ed7f029-47fe-41c4-b32e-089a9fdfebc5",
+  "financialMutation": false,
+  "directHiddenDomSample": false,
+  "nativeUiAndExternalWorkerEvidence": true
+}
