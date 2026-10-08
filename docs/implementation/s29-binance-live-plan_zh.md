@@ -20,3 +20,5 @@
 已完成串行票为 [#123 精确 Spot 规则来源与账户准入](https://github.com/kaiqiangh/tradex/issues/123)，状态 CLOSED；诊断 #122 已 CLOSED。#123 只完成规则来源纵向切片，报价/深度/权利与完整金融生命周期继续由后续所属工作承担，父项 #121 保持 OPEN。
 
 S29.2 [收口](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-6052549325)：源码 `b726bb38df9280cb290d8efedc72cc2f2dbbff95`，证据交付 `21a665919d540caf730e5b6c1b2a35d72af826b0`；当前完整检查、普通构建、真实 Rust-backed UI 和独立串行复审通过。父项 #121 保持 OPEN。
+
+当前单实现票：[提供 Binance Spot Hot 报价与连续深度来源](https://github.com/kaiqiangh/tradex/issues/124)，[配对规范](s29-binance-hot-source-spec_zh.md)。起始基线 `5edf18d`；已发布/领取，实现待完成。准确 venue/消费者证据复用已关闭 #123 原生依赖，无开放技术阻塞。

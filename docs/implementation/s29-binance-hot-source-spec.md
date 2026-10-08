@@ -1,0 +1,66 @@
+# S29.3 — Binance Spot Hot quote and continuous-depth source
+
+Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Starting implementation/review baseline: dev@5edf18d01122d1871b6c94aeafefe708435b7f38. Previous rule-source/admission ticket #123 is CLOSED; parent S29 remains OPEN. This specification advances parent stories 9–12 and 27 without removing its full execution/hosted acceptance requirements.
+
+Current single implementation ticket: [Provide Binance Spot Hot quote and continuous-depth source](https://github.com/kaiqiangh/tradex/issues/124). Assigned, ready-for-agent; published spec/acceptance contract only, producer implementation pending.
+
+## Problem Statement
+
+The ordinary Binance connection and exact Spot rule source cannot supply current bid/ask liquidity. The production Hot source currently handles Alpaca equities only. A Binance account link, last trade, public book ticker or unsequenced REST snapshot cannot provide a timestamped continuous book. Users need exact venue/source provenance and clear lifecycle/failure/rights states before later financial checks can consume authentic liquidity evidence.
+
+## Solution
+
+Configure the ordinary Binance public Spot market source independently of execution credentials. In a visible Hot BTC/USDT or ETH/USDT view, acquire one bounded, versioned quote lease, bootstrap a provider depth snapshot against buffered live updates, maintain a demonstrably continuous known book, and project exact prices, BASE sizes, coverage bands, original provider event time and first TradeX receipt. Expose technical collection separately from user-specific permitted data use. Retire evidence on discontinuity or source/time/lifecycle changes and recover through explicit, bounded operations. Reuse the existing typed Control Plane, source registry, Hot ownership and protected consumers.
+
+## User Stories
+
+1. As a user, I want a saved ordinary Binance Spot market-source selection, so that research does not silently fall back to Testnet or another host.
+2. As a user, I want source settings independent of execution credentials, so that public market reads do not borrow or transmit my trading key.
+3. As a user, I want Save and Disconnect to make no network request, so that choosing a source does not start hidden subscriptions.
+4. As a user, I want explicit source coverage for canonical BTC/USDT and ETH/USDT, so that unsupported assets remain unavailable.
+5. As a user, I want a visible Hot view to own one bounded lease, so that background universes do not consume tick subscriptions.
+6. As a user, I want a connected socket distinguished from a usable continuous book, so that a handshake alone does not produce a quote.
+7. As a user, I want original provider event time, TradeX receipt and update identity separately retained, so that cache reads cannot manufacture freshness.
+8. As a user, I want exact best bid/ask and BASE quantities, so that quote amounts never become invented USD values.
+9. As a user, I want bounded depth and known coverage bands visible, so that a partial initial snapshot is not described as the entire order book.
+10. As a user, I want gaps, malformed/crossed books and time faults to retire usable evidence, so that later checks fail closed.
+11. As a user, I want duplicate or obsolete events ignored without freshening prior material, so that replay cannot renew consent.
+12. As a user, I want disconnect/reconnect to bootstrap a new generation before showing current liquidity, so that old quotes do not survive a stream gap.
+13. As a user, I want stop, navigation, hidden view, source change and workspace close to release ownership, so that late workers cannot publish into another context.
+14. As a user, I want retry limits, cooldowns and terminal access failures explained, so that the app cannot repeatedly hammer a denied endpoint.
+15. As a user, I want live technical latency distinguished from data-use permission, retention, redistribution, commercial use and regional eligibility, so that public access does not imply a licence.
+16. As a user, I want source generations and immutable quote/depth identities included in backend reviews, so that source or material changes invalidate old evidence where applicable.
+17. As a user, I want owning quote checks to consume authentic Binance provenance without requiring an invented last trade, so that later financial execution can use the intended source.
+18. As a user, I want crypto venue/admission checks to consume actual exact-account rule evidence, so that an equity calendar is never fabricated for crypto.
+19. As a user, I want rules, account health, fees/FX, permitted use, Arm, approval and Gateway preflight to remain separate, so that market access cannot authorize an order.
+20. As a user, I want Settings/Markets/Trade recovery and depth evidence accessible by keyboard and narrow screens, so that important blockers remain readable.
+21. As a reviewer, I want real React/Rust and external HTTP/WS proof with exact source bindings, so that a synthetic financial snapshot cannot count as producer acceptance.
+22. As a reviewer, I want ordinary-native/real-provider/financial/physical-sleep gates labelled independently, so that local source delivery cannot close the full parent.
+
+## Implementation Decisions
+
+- Reuse the accepted single-ticket serial workflow, public UI → real typed Control Plane → temporary SQLite/outbox → external fake vault/HTTP/WS seam and existing Hot acquire/get/release ownership pattern. The starting dev SHA is the fixed review baseline; standing seam/granularity approval remains applicable.
+- Add an ordinary Binance public market-source selection to the source registry/settings. Selection persists with CAS versions; ephemeral books/leases and financial authority do not persist across reopen. Public acquisition sends no trading credentials. Keep the Alpaca selection, coverage/credential lifecycle and stock behavior correct.
+- Use fixed ordinary `api.binance.com` REST and `stream.binance.com:9443` WSS with exact canonical registry symbols and no renderer-selected URLs, alternate regional hosts, Testnet or market-data-only-host fallback. Public REST snapshot/time reads use existing P3/shared-IP body/deadline/redirect/cooldown boundaries; no mutation/private-stream endpoint is part of this source.
+- Use one raw exact-symbol diff-depth stream and bounded REST depth bootstrap. Bootstrap is not usable until the current official snapshot/buffer bridge is proven. Subsequent continuity permits overlap, drops obsolete updates and fails closed on missing ranges; zero quantity deletes a level. Preserve original integer IDs losslessly and original exact decimal strings without f64 or rounding.
+- Initial snapshot limit1000 per side; retain a complete known price band established by that snapshot and subsequent continuous updates. Maximum5000 known levels per side; bootstrap buffer maximum256 frames/4MiB; frame maximum512KiB. Capacity exhaustion, exhausted bands or an unproved best side retire the book and require bounded resynchronization; do not silently drop levels and claim completeness. Project best sides plus at most20 known levels per side and explicit coverage boundaries. Partial bands never establish whole-book liquidity.
+- Use a total bounded connection/bootstrap deadline, immediate cancellation checks and no global Control Plane lock held over I/O/parsing. Reconnect at most3 attempts with backoff; actual denied/banned/rate-limited and unsupported failures retain their separate meanings. Respect provider control-message limits, echoed ping payloads and planned/actual shutdown; a new socket/bootstrap creates a new generation before any new usable quote.
+- Quote material has its own first receipt/provider event time and immutable identity. Duplicate/obsolete/unchanged accepted material and cached reads do not renew those times. Stream cursor/health may advance separately. Freshness uses trusted current provider/wall/monotonic evidence, no more than30s for source projection and the stricter configured financial threshold for consumers. REST snapshots/bookTicker/partial-depth frames without provider event time never substitute local receipt as that time.
+- Typed Binance provenance records canonical symbol/BASE/QUOTE, exact BINANCE venue, source/connection/session/time generations, material-update ID, receipt, event time, bounded known depth and current continuity/quality. No fake last trade, weighted-average/reference price, equity calendar/action completeness, whole-book depth, stablecoin parity or quote-age renewal.
+- A visible selected Trade Proposal owns its Hot lease through the same view-lifecycle path as Markets; navigating from Markets cannot make Trade borrow an expired/released lease. Markets and Trade use the same backend producer projection and capture boundary. Valid source liquidity may satisfy only its owning technical coverage/freshness/spread/displayed-depth checks; missing rights or other duties cannot become overall financial PASS. A configured last-trade deviation requirement remains unavailable without its actual reference. Rule/permission/venue negatives consume current exact-account #123 evidence, without pretending it is complete per-Proposal rules. Later owning interpretation/preflight work retains quantity-walk/fees/FX and dispatch responsibility.
+- Explicit source policy metadata includes technical public access, realtime semantics, in-memory/short-buffer behavior, official/terms URLs and review date. User-specific financial use, redistribution/commercial rights, permitted retention and regional eligibility remain UNVERIFIED where not established; no checkbox or successful read becomes VERIFIED. Prevent this source from creating durable raw tick/book caches or exports beyond established rights. No legal agreement is accepted by implementation/testing.
+- Synchronize English/Chinese financial/wire/UI contracts. Existing historical synthetic regression fixtures remain isolated; no new positive quote/rule/financial authority snapshot may be directly seeded.
+
+## Testing Decisions
+
+Use the established highest public seam and external fakes only. Start with a genuine failing public source-selection test, implement it, then advance one behavior at a time. Test observable CAS/no-I/O/reopen, genuine HTTP+WS bootstrap and quotes, lossless original types, coverage bands/deletes/overlap/duplicates/gaps, wrong source/symbol/environment, future/stale provider/receipt/monotonic time, no cached renewal, out-of-order/late completion, size/resource limits, ping/close/denial/cooldown/bounded recovery, release/navigation/workspace/source invalidation and exact protected-consumer binding. Exercise real loopback sockets where transport/lifecycle is material. Demo the actual React Settings/Markets/Trade flow against real Rust and external fake provider responses, including keyboard and1280/768/390. Do not seed CP market snapshots or authority. Run generated schema/typechecking, full local tests, affected Hot/Gateway regressions and ordinary desktop build; finish with independent Standards then Spec reviews, exact source/evidence/remote bindings and tracker resolution.
+
+## Out of Scope
+
+This source ticket does not complete Live PLACE/private account streams, full per-Proposal filter interpretation/reference-price/FX/fees, whole-book liquidity, historical bars, always-on Warm/Census ticks, rights purchases or jurisdiction bypass, ordinary-provider financial acceptance, Bitget S30, S28/S17/physical S27 waivers, prototype fixes or any main action. These remain required owning parent/release work where in scope of the full goal.
+
+## Further Notes
+
+Current primary sources checked2026-10-08: [REST depth](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market), [market stream schema](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-streams/~), [official continuity recipe](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/web-socket-streams.md), [Spot product-terms pointer](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/PROD-TERMS-OF-USE.md), [terms page](https://www.binance.com/en/terms). The terms page currently embeds [effective2026-07-21 ADGM text](https://bin.bnbstatic.com/static/cms/cg08ou2ak0tn7mcplvfg/file/bf4879710c904b991848972ec4818ba2cf9e4ce314c09adae84fa2750d3477f7.pdf); local terms can supplement it. This inspection is not a determination of this user's agreement, permitted market-data use or regional eligibility.
+
+Current discovery is limited to source implementation; full parent #121 remains the destination. The next implementation is one complete vertical source slice, with no open technical blocker. It reuses the completed rule/admission contract for exact venue/consumer checks. No other implementation ticket is worked in parallel.
