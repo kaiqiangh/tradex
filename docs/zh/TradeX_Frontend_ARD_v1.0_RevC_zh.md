@@ -732,7 +732,7 @@ Settings Data & Storage 选择已有普通 Live 账户和 BTC/USDT 或 ETH/USDT�
 
 通过生成 IPC 消费 Backend §41.43。Settings Data & Storage 显式 Save/Disconnect，不输入账户/密钥，不请求提供方或创建租约。分开展示已保存选择、技术采集及 UNVERIFIED 的金融用途/保留/再分发/商业/地区权利；来源目录保留官方/条款链接和审阅日期。本来源没有通用 PUBLIC_METADATA probe：采集属于可见 Hot 生产者，不由按钮暗中制造连通/许可。CAS 失败重载权威配置。重开/重新挂载只恢复选择，保留 Alpaca 设置与账户密钥。
 
-UI §14.27 完整目标仍 IN_PROGRESS。Markets 与所选 Trade Proposal 必须分别使用同一有界 acquire/get/release 页面生命周期并绑定精确后端代次；Trade 不得借用已释放 Markets 租约。展示 BINANCE 来源、精确最佳价格/BASE 数量、已知区间/显示层级、首次接收/提供方事件时间、连续性/失败/恢复和不可变材料身份。流连接不表示认证、报价权威或权利。捕获评审保留捕获标签；本地投影轮询不读提供方、不续年龄、不授予金融权限。导航/隐藏/工作区/来源/标的变更及迟到 acquire 必须终止/释放所属租约。保持键盘和1280/768/390 元数据/阻断可读，保留股票 Hot 行为。Settings 聚焦公开 React→Rust 证明与待完成的完整 Hot/Trade/UI 验收分开。原型代码未改。
+UI §14.27 完整目标仍 IN_PROGRESS。Markets 与所选 Trade Proposal 必须分别使用同一有界 acquire/get/release 页面生命周期并绑定精确后端代次；Trade 不得借用已释放 Markets 租约。展示 BINANCE 来源、精确最佳价格/BASE 数量、已知区间/显示层级、首次接收/提供方事件时间、连续性/失败/恢复和不可变材料身份。流连接不表示认证、报价权威或权利。捕获评审保留捕获标签；本地投影轮询不读提供方、不续年龄、不授予金融权限。导航/隐藏/工作区/来源/标的变更及迟到 acquire 必须终止/释放所属租约。保持键盘和1280/768/390 元数据/阻断可读，保留股票 Hot 行为。Settings 与 Markets 聚焦公开 React→Rust/外部 HTTP/WS 证明覆盖 BTC/ETH 所属 Hot 页面、精确深度/来源、导航与标的替换，并通过原股票 Hot 回归；与待完成的所选 Trade 租约、其余生命周期/故障及完整来源验收分开。原型代码未改。
 
 
 ## 14. Live Execution UI 架构

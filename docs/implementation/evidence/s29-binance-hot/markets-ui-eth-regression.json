@@ -1,0 +1,35 @@
+{
+  "workspaceId": "085e489d-516e-4232-86c5-2050381639ba",
+  "instrumentId": "crypto:ETH/USDT:spot",
+  "materialId": "39580072-757d-40b6-882d-bf367440de19",
+  "peer": {
+    "closedConnections": 5,
+    "connections": 5,
+    "frames": 707,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=ETHUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/ethusdt@depth@100ms"
+    ]
+  },
+  "widths": [
+    1280,
+    768,
+    390
+  ],
+  "seededAuthority": false
+}

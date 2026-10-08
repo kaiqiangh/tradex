@@ -2,9 +2,11 @@ import { FinancialEvidencePanel, MarketFinancialEvidencePanel } from './Financia
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { HotQuoteProjection, HotQuoteQuery, AdjustmentStatus, CorporateAction, FilterSpec, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState, RankSpec, ScreenerAttachment, ScreenerDefinition, ScreenerDirection, ScreenerFeature, ScreenerFeatureField, ScreenerLibrary, ScreenerOperator, ScreenerPredicateField, ScreenerResult, ScreenerResultState, ScreenerUniverse, ThreadContextRef } from '../shared/ipc-types.ts';
+import type { AdjustmentStatus, CorporateAction, FilterSpec, Instrument, MarketDataStatus, MarketDetail, MarketSession, MarketState, RankSpec, ScreenerAttachment, ScreenerDefinition, ScreenerDirection, ScreenerFeature, ScreenerFeatureField, ScreenerLibrary, ScreenerOperator, ScreenerPredicateField, ScreenerResult, ScreenerResultState, ScreenerUniverse, ThreadContextRef } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
 import { ErrorRecoveryPanel } from './ErrorRecoveryPanel.tsx';
+import { useOwnedHotQuote } from './useOwnedHotQuote.ts';
+import { SpotQuoteEvidencePanel } from './SpotQuoteEvidencePanel.tsx';
 
 const statusLabel: Record<MarketDataStatus, string> = {
   AVAILABLE: 'Available',
@@ -60,9 +62,9 @@ function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; o
   const evidence = quote?.provenance.alpaca;
   return <section className="card market-detail" aria-labelledby="market-detail-title">
     <div className="market-detail-heading"><div><p className="eyebrow">Instrument detail</p><h2 id="market-detail-title">{instrument.displayName}</h2><p className="identity">{instrument.instrumentId}</p></div><button type="button" onClick={onBack}>Back to results</button></div>
-    <dl className="market-identity"><div><dt>Symbol</dt><dd>{instrument.symbol}</dd></div><div><dt>Asset class</dt><dd>{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</dd></div><div><dt>Venue</dt><dd>{instrument.exchange ?? 'Provider venue selected at fetch'}</dd></div><div><dt>Currency</dt><dd>{instrument.currency}</dd></div><div><dt>Access tier</dt><dd>{detail.tier}</dd></div></dl>
+    <dl className="market-identity"><div><dt>Symbol</dt><dd>{instrument.symbol}</dd></div><div><dt>Asset class</dt><dd>{instrument.assetClass === 'EQUITY' ? 'US equity' : 'Crypto spot'}</dd></div><div><dt>Venue</dt><dd>{instrument.exchange ?? quote?.provenance.venue ?? 'Unavailable'}</dd></div><div><dt>Currency</dt><dd>{instrument.currency}</dd></div><div><dt>Access tier</dt><dd>{detail.tier}</dd></div></dl>
     <div className={`market-status market-status-${detail.status.toLowerCase()}`} role="status"><strong>{statusLabel[detail.status]}</strong><p>{detail.availabilityReason}</p><small>Source: {detail.sourceId ?? 'No source selected'}</small></div>
-    <MarketStatePanel state={detail.marketState} adjustmentStatus={detail.adjustmentStatus} actions={detail.corporateActions} onOpenDataSources={onOpenDataSources} />
+    {instrument.assetClass === 'CRYPTO_SPOT' ? <section aria-label="Spot venue admission"><h3>Spot venue admission</h3><p>Venue state: {sessionLabel[detail.marketState.session]}.</p><p>An equity calendar does not qualify this Spot venue. Current exact-account and symbol admission remains separate from quote collection, complete order rules and execution authority.</p></section> : <MarketStatePanel state={detail.marketState} adjustmentStatus={detail.adjustmentStatus} actions={detail.corporateActions} onOpenDataSources={onOpenDataSources} />}
     {detail.spotRuleEvidence && <section aria-label="Spot rule evidence"><h3>Spot rule evidence</h3><FinancialEvidencePanel source={detail.spotRuleEvidence} instrumentId={instrument.instrumentId} /></section>}
     {detail.financialEvidence && <MarketFinancialEvidencePanel evidence={detail.financialEvidence} instrumentId={instrument.instrumentId} />}
     {quote ? <section className="market-quote" aria-label="Market quote">
@@ -93,55 +95,24 @@ function Detail({ detail, onBack, onOpenDataSources }: { detail: MarketDetail; o
         <div><dt>Snapshot ID</dt><dd>{quote.provenance.marketSnapshotId}</dd></div>
       </dl>
     </section> : <div className="market-unavailable"><p className="muted">No quote or chart is shown until the selected source is entitled and the adapter returns a validated snapshot.</p><button type="button" onClick={onOpenDataSources}>Open Data &amp; Storage settings</button></div>}
+    <SpotQuoteEvidencePanel detail={detail} />
   </section>;
 }
 
 // A view owns its quote lease. Cleanup also covers acquire completing after navigation.
 function InstrumentDetail({ workspaceId, instrumentId, onBack, onOpenDataSources }: { workspaceId: string; instrumentId: string; onBack: () => void; onOpenDataSources: () => void }) {
-  const source = useQuery({ queryKey: ['data-source-connection', workspaceId], queryFn: () => request('data.source.connection', { workspaceId }), enabled: instrumentId.startsWith('equity:'), retry: false });
-  const configured = instrumentId.startsWith('equity:') && Boolean(source.data?.feed && source.data?.credentialKind);
-  const [hot, setHot] = useState<HotQuoteProjection>();
-  const [hotError, setHotError] = useState<unknown>();
-  const [revision, setRevision] = useState(0);
-  const [visible, setVisible] = useState(document.visibilityState !== 'hidden');
-  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && (!instrumentId.startsWith('equity:') || source.isSuccess), retry: false, refetchInterval: query => instrumentId.startsWith('equity:') || query.state.data?.spotRuleEvidence ? 1000 : false });
-  useEffect(() => {
-    const changed = () => setVisible(document.visibilityState !== 'hidden');
-    document.addEventListener('visibilitychange', changed);
-    return () => document.removeEventListener('visibilitychange', changed);
-  }, []);
-  useEffect(() => {
-    setHot(undefined); setHotError(undefined);
-    if (!configured || !visible || !source.data) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let lease: HotQuoteQuery | undefined;
-    const release = () => { if (lease) void request('market.hot.release', lease).catch(() => {}); };
-    const poll = async () => {
-      if (cancelled || !lease) return;
-      try {
-        const current = await request('market.hot.get', lease);
-        if (cancelled) return;
-        setHot(current);
-        if (!['CLOSED', 'FAILED', 'STALE'].includes(current.status)) timer = setTimeout(() => void poll(), 500);
-      } catch (error) { if (!cancelled) { setHotError(error); release(); } }
-    };
-    void request('market.hot.acquire', { workspaceId, instrumentId, expectedSourceVersion: source.data.stateVersion }).then(current => {
-      lease = { workspaceId, leaseId: current.leaseId, generation: current.generation };
-      if (cancelled) { release(); return; }
-      setHot(current); void poll();
-    }).catch(error => { if (!cancelled) setHotError(error); });
-    return () => { cancelled = true; if (timer) clearTimeout(timer); release(); };
-  }, [workspaceId, instrumentId, configured, source.data?.stateVersion, visible, revision]);
-  const error = source.error ?? hotError ?? detail.error;
-  const retry = () => { void source.refetch(); if (configured) setRevision(value => value + 1); else void detail.refetch(); };
+  const owned = useOwnedHotQuote(workspaceId, instrumentId);
+  const { configured, hot, visible } = owned;
+  const detail = useQuery({ queryKey: ['market-detail', workspaceId, instrumentId], queryFn: () => request('market.get', { workspaceId, instrumentId, tier: 'HOT' }), enabled: !configured && owned.sourceReady, retry: false, refetchInterval: query => instrumentId.startsWith('equity:') || query.state.data?.spotRuleEvidence ? 1000 : false });
+  const error = owned.error ?? detail.error;
+  const retry = () => { owned.retry(); if (!configured) void detail.refetch(); };
   if (error) return <div className="error-banner" role="alert"><p>{explainError(error)}</p><button type="button" onClick={retry}>Retry instrument data</button><button type="button" onClick={onOpenDataSources}>Review quote source</button></div>;
   const current = configured ? hot?.detail : detail.data;
   return <div className="market-detail-container">
     {configured && <section className="card hot-quote-status" aria-label="Hot quote subscription">
       <h3>Hot quote subscription</h3><strong>{hot?.status ?? (visible ? 'CONNECTING' : 'PAUSED')}</strong>
       <p>{hot?.reason ?? (visible ? 'Acquiring a quote subscription for this instrument.' : 'This hidden view has released its quote subscription.')}</p>
-      <p className="muted">Feed {source.data?.feed?.toUpperCase()} · Authentication {hot?.authenticated ? 'confirmed' : 'pending'} · Subscription {hot?.subscribed ? 'confirmed' : 'pending'}. Quote freshness and trading eligibility are evaluated separately.</p>
+      <p className="muted">{owned.publicSpot ? `Public Spot stream · Authentication not used · Continuous book ${hot?.subscribed ? 'confirmed' : 'pending'}` : `Feed ${owned.feed?.toUpperCase()} · Authentication ${hot?.authenticated ? 'confirmed' : 'pending'} · Subscription ${hot?.subscribed ? 'confirmed' : 'pending'}`}. Quote freshness and trading eligibility are evaluated separately.</p>
       {hot && <p className="identity">Connection generation {hot.connectionGeneration} · Sequence {hot.sequence}</p>}
       {hot && hot.reconnectAttempt > 0 && <p>Automatic reconnect {hot.reconnectAttempt} of 3.</p>}
       {hot && ['FAILED', 'STALE', 'CLOSED'].includes(hot.status) && <button type="button" onClick={retry}>Retry selected feed</button>}

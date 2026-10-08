@@ -1,0 +1,27 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.07s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-a66707bb4eff5ed9)
+
+running 19 tests
+test an_unrequested_subscription_channel_cannot_confirm_the_hot_lease_or_create_quotes ... ok
+test cancelled_secure_vault_read_preserves_selection_and_never_opens_a_provider_socket ... ok
+test explicit_stop_closes_the_connection_and_rejected_acquire_preserves_the_retired_lease ... ok
+test feed_authentication_and_connection_limits_are_terminal_and_cannot_become_acknowledgements ... ok
+test hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket ... ok
+test identical_stream_events_keep_first_receipt_and_unordered_conflicts_retire_current_evidence ... ok
+test last_supervisor_owner_closes_the_socket_and_retires_the_public_hot_projection ... ok
+test malformed_crossed_future_and_unbound_stream_quotes_never_create_execution_evidence ... ok
+test oversized_provider_frames_fail_once_without_retrying_or_creating_quotes ... ok
+test pending_metadata_does_not_block_public_commands_and_old_feed_cannot_publish_after_source_change ... ok
+test public_session_safety_trigger_retires_pending_stream_authentication_and_keeps_source_selection ... ok
+test repeated_provider_internal_errors_stop_after_three_retries_without_feed_fallback ... ok
+test replacement_closes_old_socket_and_late_auth_or_old_release_cannot_activate_or_stop_new_lease ... ok
+test slow_client_errors_stop_after_three_retries_without_feed_fallback ... ok
+test source_disconnect_and_workspace_reopen_close_the_socket_before_late_authentication_can_subscribe ... ok
+test stream_receipt_precedes_slow_metadata_and_future_on_arrival_stays_rejected ... ok
+test transient_reconnect_keeps_view_ownership_but_invalidates_quotes_until_new_acknowledged_frame ... ok
+test trickling_upgrade_has_total_deadline_and_release_cancels_the_actual_socket ... ok
+test unrelated_pongs_do_not_acknowledge_our_heartbeat_or_keep_a_dead_connection_current ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 49.23s
+

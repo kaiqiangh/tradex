@@ -1,0 +1,36 @@
+{
+  "workspaceId": "085e489d-516e-4232-86c5-2050381639ba",
+  "retiredLease": "ce465eff-1c15-4eac-a70f-fcc349e16390",
+  "newLease": "2adf2636-a6d3-4162-ae72-0f7d070d2e19",
+  "peer": {
+    "closedConnections": 6,
+    "connections": 7,
+    "frames": 715,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=ETHUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "/api/v3/time",
+      "/api/v3/depth?symbol=ETHUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/ethusdt@depth@100ms",
+      "/ws/btcusdt@depth@100ms",
+      "/ws/ethusdt@depth@100ms"
+    ]
+  },
+  "seededAuthority": false
+}

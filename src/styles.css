@@ -648,3 +648,10 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 
 .market-detail-container { min-width: 0; display: grid; gap: 1rem; }
 .hot-quote-status { overflow-wrap: anywhere; }
+
+.spot-depth-evidence { min-width: 0; margin-top: 16px; overflow-wrap: anywhere; }
+.spot-depth-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.spot-depth-grid table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 10px; }
+.spot-depth-grid caption { text-align: left; margin-bottom: 6px; }
+.spot-depth-grid th, .spot-depth-grid td { padding: 6px; border-bottom: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
+@media (max-width: 768px) { .spot-depth-grid { grid-template-columns: minmax(0, 1fr); } }

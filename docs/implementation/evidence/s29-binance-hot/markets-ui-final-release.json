@@ -1,0 +1,30 @@
+{
+  "closedConnections": 7,
+  "connections": 7,
+  "frames": 715,
+  "requests": [
+    "/api/v3/time",
+    "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+    "/api/v3/time",
+    "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+    "/api/v3/time",
+    "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+    "/api/v3/time",
+    "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+    "/api/v3/time",
+    "/api/v3/depth?symbol=ETHUSDT&limit=1000",
+    "/api/v3/time",
+    "/api/v3/depth?symbol=BTCUSDT&limit=1000",
+    "/api/v3/time",
+    "/api/v3/depth?symbol=ETHUSDT&limit=1000"
+  ],
+  "streams": [
+    "/ws/btcusdt@depth@100ms",
+    "/ws/btcusdt@depth@100ms",
+    "/ws/btcusdt@depth@100ms",
+    "/ws/btcusdt@depth@100ms",
+    "/ws/ethusdt@depth@100ms",
+    "/ws/btcusdt@depth@100ms",
+    "/ws/ethusdt@depth@100ms"
+  ]
+}

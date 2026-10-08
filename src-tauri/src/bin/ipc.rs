@@ -16,6 +16,9 @@ mod fake_live_provider;
 mod fixtures;
 
 #[cfg(feature = "integration-test")]
+#[path = "../../tests/support/binance_market_stream_fixture.rs"]
+mod binance_market_stream_fixture;
+#[cfg(feature = "integration-test")]
 #[path = "../../tests/support/quote_stream_fixture.rs"]
 mod quote_stream_fixture;
 #[cfg(feature = "integration-test")]
@@ -95,6 +98,13 @@ fn main() -> io::Result<()> {
     } else {
         None
     };
+    #[cfg(feature = "integration-test")]
+    let binance_market_fixture =
+        if std::env::var_os("TRADEX_BINANCE_MARKET_STREAM_FIXTURE").is_some() {
+            Some(binance_market_stream_fixture::start()?)
+        } else {
+            None
+        };
     let supervisor = RuntimeSupervisor::new();
     let strategy_supervisor = StrategySupervisor::new();
     let backtest_supervisor = BacktestSupervisor::new();
@@ -1271,8 +1281,54 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.market.fixture.inspect") {
+                let result = match binance_market_fixture.as_ref() {
+                    Some(fixture) => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":fixture.inspect()})
+                    }
+                    None => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if matches!(command, Some("market.hot.acquire" | "market.hot.release")) {
-                let result = if let Some(connector) = quote_connector.as_ref() {
+                let instrument = request["payload"]["instrumentId"].as_str();
+                let binance = instrument.is_some_and(|id| id.starts_with("crypto:"));
+                let result = if binance && binance_market_fixture.is_some() {
+                    let fixture = binance_market_fixture.as_ref().unwrap();
+                    match fixture.connector(instrument.unwrap()) {
+                        Ok(connector) => quote_hot.dispatch_with(
+                            &control,
+                            &request,
+                            "stdio",
+                            Arc::new(binance_market_stream_fixture::NoTradingKey),
+                            fixture.http.clone(),
+                            tradex::quote_source::hot::QuoteStreamConnectors {
+                                stock: Default::default(),
+                                binance: connector,
+                            },
+                        ),
+                        Err(error) => {
+                            json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
+                        }
+                    }
+                } else if command == Some("market.hot.release") && binance_market_fixture.is_some()
+                {
+                    // Release carries lease identity only; the manager owns its transport.
+                    quote_hot.dispatch_with(
+                        &control,
+                        &request,
+                        "stdio",
+                        Arc::new(binance_market_stream_fixture::NoTradingKey),
+                        binance_market_fixture.as_ref().unwrap().http.clone(),
+                        tradex::quote_source::hot::QuoteStreamConnectors::default(),
+                    )
+                } else if !binance && let Some(connector) = quote_connector.as_ref() {
                     quote_hot.dispatch_with(
                         &control,
                         &request,
