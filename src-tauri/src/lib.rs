@@ -8552,6 +8552,11 @@ impl ControlPlane {
                         .unwrap_or("SPOT_FEE_FX_QUALIFICATION_BLOCKED"),
                     statement.reason
                 )),
+                // Defensive only, and unreachable on the delivered seam: `spot_capacity` is always
+                // `Some` for a valid Spot intent (its rules are captured lazily), so a statement is
+                // always derived whenever `owning_required` holds. This mirrors the equally
+                // unreachable `SPOT_OWNING_QUALIFICATION_UNAVAILABLE` arm of the sibling S29.8 gate
+                // above and is kept as insurance if a future seam ever withholds the capacity input.
                 None => blockers.push(
                     "SPOT_FEE_FX_QUALIFICATION_UNAVAILABLE: The venue's declared fee and genuinely-required execution-conversion evidence cannot currently qualify this intent."
                         .into(),

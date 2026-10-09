@@ -575,7 +575,10 @@ export type SpotCapacityPurpose = "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" |
  */
 export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
 /**
- * The declared commission basis actually used for the expected fee. Always the conservative one.
+ * The conservative declared basis this statement relies on; present whenever the venue declares
+ * commission rates, even when no fee amount can be stated because the fee-charging asset is
+ * undeclared. It is always the **larger** of the declared maker and taker rates, compared as exact
+ * decimals (never `f64`), so it can never understate the fee.
  *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotFeeRateBasis".
@@ -3840,8 +3843,9 @@ export interface SpotCapacityCounts {
 export interface SpotDeclaredCommission {
   buyer: string;
   /**
-   * Unknown `commissionRates` keys, recorded as an obligation and listed verbatim. They are
-   * never projected into a rate and never promoted into a hidden gate.
+   * At most 16 unknown commission keys, sorted; the delivered unknown-key obligation is
+   * unaffected by this bound. They are never projected into a rate and never promoted into a
+   * hidden gate.
    *
    * @maxItems 16
    */

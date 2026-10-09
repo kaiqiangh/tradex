@@ -126,8 +126,9 @@ pub struct SpotDeclaredCommission {
     pub buyer: String,
     #[schemars(length(min = 1, max = 64))]
     pub seller: String,
-    /// Unknown `commissionRates` keys, recorded as an obligation and listed verbatim. They are
-    /// never projected into a rate and never promoted into a hidden gate.
+    /// At most 16 unknown commission keys, sorted; the delivered unknown-key obligation is
+    /// unaffected by this bound. They are never projected into a rate and never promoted into a
+    /// hidden gate.
     #[schemars(length(max = 16), inner(length(min = 1, max = 64)))]
     pub extension_keys: Vec<String>,
 }

@@ -16726,7 +16726,7 @@
           "minLength": 1
         },
         "extensionKeys": {
-          "description": "Unknown `commissionRates` keys, recorded as an obligation and listed verbatim. They are\nnever projected into a rate and never promoted into a hidden gate.",
+          "description": "At most 16 unknown commission keys, sorted; the delivered unknown-key obligation is\nunaffected by this bound. They are never projected into a rate and never promoted into a\nhidden gate.",
           "type": "array",
           "items": {
             "type": "string",
@@ -17049,7 +17049,7 @@
       ]
     },
     "SpotFeeRateBasis": {
-      "description": "The declared commission basis actually used for the expected fee. Always the conservative one.",
+      "description": "The conservative declared basis this statement relies on; present whenever the venue declares\ncommission rates, even when no fee amount can be stated because the fee-charging asset is\nundeclared. It is always the **larger** of the declared maker and taker rates, compared as exact\ndecimals (never `f64`), so it can never understate the fee.",
       "type": "string",
       "enum": [
         "MAKER",

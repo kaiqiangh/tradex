@@ -2,6 +2,7 @@ import { CurrentSpotOrderIntervals, SpotOrderIntervalExplanation } from './SpotO
 import { CurrentSpotCapacity, SpotCapacityExplanation } from './SpotCapacityInputs.tsx';
 import { CurrentSpotRules, SpotRulesExplanation } from './SpotProposalRules.tsx';
 import { SpotOwningExplanation } from './SpotOwningAdmission.tsx';
+import { SpotFeeFxExplanation } from './SpotFeeFxExplanation.tsx';
 import { SpotRuleContext, FinancialEvidencePanel, CapturedCurrencyEvidence, FxSourceContext, MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -1813,6 +1814,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {liveArmReview.quoteReview?.riskDecision.spotCapacity && <SpotCapacityExplanation inputs={liveArmReview.quoteReview.riskDecision.spotCapacity} captured />}
         {liveArmReview.quoteReview?.riskDecision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={liveArmReview.quoteReview.riskDecision.spotOrderIntervals} captured />}
         {liveArmReview.quoteReview?.riskDecision.spotOwning && <SpotOwningExplanation qualification={liveArmReview.quoteReview.riskDecision.spotOwning} />}
+        {liveArmReview.quoteReview?.riskDecision.spotFeeFx && <SpotFeeFxExplanation statement={liveArmReview.quoteReview.riskDecision.spotFeeFx} />}
         {liveArmReview.quoteReview?.currencyEvidence && <CapturedCurrencyEvidence evidence={liveArmReview.quoteReview.currencyEvidence} reviewedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview?.market.spotRuleEvidence && <FinancialEvidencePanel source={liveArmReview.quoteReview.market.spotRuleEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview && <SpotQuoteEvidencePanel detail={liveArmReview.quoteReview.market} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
@@ -1855,6 +1857,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         {approvalReview.riskDecision.spotCapacity && <SpotCapacityExplanation inputs={approvalReview.riskDecision.spotCapacity} captured />}
         {approvalReview.riskDecision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={approvalReview.riskDecision.spotOrderIntervals} captured />}
         {approvalReview.riskDecision.spotOwning && <SpotOwningExplanation qualification={approvalReview.riskDecision.spotOwning} />}
+        {approvalReview.riskDecision.spotFeeFx && <SpotFeeFxExplanation statement={approvalReview.riskDecision.spotFeeFx} />}
       {approvalReview.market.spotRuleEvidence && <FinancialEvidencePanel source={approvalReview.market.spotRuleEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       <SpotQuoteEvidencePanel detail={approvalReview.market} capturedAt={approvalReview.reviewedAt} />
       {approvalReview.market.financialEvidence && <MarketFinancialEvidencePanel evidence={approvalReview.market.financialEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
@@ -1969,6 +1972,7 @@ function RiskDecisionPanel({ history, loading, error, busy, onEvaluate }: {
         {decision.spotCapacity && <SpotCapacityExplanation inputs={decision.spotCapacity} captured />}
         {decision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={decision.spotOrderIntervals} captured />}
         {decision.spotOwning && <SpotOwningExplanation qualification={decision.spotOwning} />}
+        {decision.spotFeeFx && <SpotFeeFxExplanation statement={decision.spotFeeFx} />}
         <details><summary>Input provenance ({decision.inputs.length})</summary><ul className="risk-decision-inputs">{decision.inputs.map(input => <li key={`${input.kind}-${input.referenceId}`}>
           <strong>{input.kind}</strong> · {input.referenceId} · {input.digest}{input.observedAt ? ` · ${input.observedAt}` : ''}
         </li>)}</ul></details>

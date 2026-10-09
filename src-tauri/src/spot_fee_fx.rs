@@ -17,6 +17,13 @@
 //! - When both facts hold, the single binding blocker is the route blocker (a structural
 //!   impossibility that precedes any fee arithmetic); the fee-currency fact is still reported.
 //!
+//! The approval gate in `lib.rs` also carries a `None` arm that fails closed with
+//! `SPOT_FEE_FX_QUALIFICATION_UNAVAILABLE`. That arm is **defensive only and unreachable on the
+//! delivered seam**: `spot_capacity` is always `Some` for a valid Spot intent (its rules are
+//! captured lazily), so `derive` is always reached and a visible statement is always produced. It
+//! mirrors the equally-unreachable `SPOT_OWNING_QUALIFICATION_UNAVAILABLE` arm of the sibling S29.8
+//! gate; keeping it is cheap insurance if a future seam ever withholds the capacity inputs.
+//!
 //! All `sha256:` binding versions are declared at exactly **71** characters (`sha256:` + 64 hex).
 //! Declaring the shorter 64 makes the generated wire schema reject the real value and the React
 //! decoder throws `IPC_SCHEMA_INCOMPATIBLE`; that is the S29.8 lesson and it is enforced here.
@@ -54,7 +61,10 @@ pub enum SpotFeeFxReasonCode {
     SpotRequiredFxUnsupportedRoute,
 }
 
-/// The declared commission basis actually used for the expected fee. Always the conservative one.
+/// The conservative declared basis this statement relies on; present whenever the venue declares
+/// commission rates, even when no fee amount can be stated because the fee-charging asset is
+/// undeclared. It is always the **larger** of the declared maker and taker rates, compared as exact
+/// decimals (never `f64`), so it can never understate the fee.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SpotFeeRateBasis {
@@ -529,4 +539,300 @@ pub(crate) fn derive(
         fee_evidence_version,
         route_evidence_version,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    //! Contract tests for [`super::derive`]'s decision table.
+    //!
+    //! Each test builds a **fully supported** intent route (an `INTENT_POLICY` `EUR -> USD`
+    //! requirement whose provider pair is `EURUSD`, with `base_currency = "USD"`) so that
+    //! [`super::route_blocker`] is empty, and then varies only the declared-commission evidence.
+    //! They pin the four fee-side outcomes of `derive` and prove that identity is bound rather than
+    //! silently succeeding.
+    //!
+    //! These are contract tests, not end-to-end reachability tests: no delivered host declares a
+    //! Spot account's fee-charging **asset**, so on the real seam the fee statement is permanently
+    //! non-`Pass` (see the module documentation and the S29.9 rulings).
+    use super::*;
+    use crate::protocol::{
+        ExecutionContext, FinancialEvidenceBinding, FinancialEvidenceQuality, FxObservedRate,
+        MarketDataStatus, OrderDraftFields, OrderProposalStatus, OrderQuantity, OrderQuantityType,
+        OrderType, ProposalReferenceStatus, TimeInForce,
+    };
+    use crate::risk::RiskCheckOutcome;
+    use crate::spot_capacity::{
+        SpotCapacityCounts, SpotCapacityObservation, SpotCapacityPurpose, SpotCapacityQuality,
+        SpotCapacityRead, SpotCapacityReadKind, SpotCapacityStatus, SpotDeclaredCommission,
+    };
+
+    /// A full 71-character `sha256:` binding version (`sha256:` + 64 identical hex digits), so the
+    /// declared wire bound and the real value agree in the test exactly as they must on the wire.
+    fn hash(fill: char) -> String {
+        format!("sha256:{}", fill.to_string().repeat(64))
+    }
+
+    fn proposal() -> OrderProposal {
+        OrderProposal {
+            proposal_id: "proposal-1".into(),
+            workspace_id: "workspace-1".into(),
+            draft_id: "draft-1".into(),
+            draft_version: 1,
+            proposal_hash: hash('1'),
+            fields: OrderDraftFields {
+                account_id: Some("account-1".into()),
+                venue: "binance".into(),
+                environment: ExecutionContext::BinanceLive,
+                instrument_id: "binance:sp:EUR/USD".into(),
+                side: OrderSide::Buy,
+                order_type: OrderType::Market,
+                quantity: OrderQuantity {
+                    r#type: OrderQuantityType::Quote,
+                    value: "100".into(),
+                },
+                limit_price: None,
+                maximum_spend: Some("100".into()),
+                time_in_force: TimeInForce::Ioc,
+                client_label: None,
+            },
+            estimated_notional: Some("100".into()),
+            estimated_notional_currency: Some("USD".into()),
+            estimated_notional_reason: None,
+            policy_version: None,
+            policy_state_version: None,
+            policy_status: ProposalReferenceStatus::Available,
+            policy_reference_reason: "Policy is available.".into(),
+            market_snapshot_id: None,
+            market_status: MarketDataStatus::Available,
+            market_reference_reason: "Market is available.".into(),
+            status: OrderProposalStatus::NeedsApproval,
+            invalidation_reason: None,
+            created_at: "2024-01-01T00:00:00Z".into(),
+            state_version: "state-1".into(),
+            history: Vec::new(),
+        }
+    }
+
+    fn requirements() -> FxRequirements {
+        FxRequirements {
+            workspace_id: "workspace-1".into(),
+            base_currency: "USD".into(),
+            proposal_id: Some("proposal-1".into()),
+            material_version: "2".repeat(64),
+            requirements: vec![FxRouteRequirement {
+                purpose: FxRequirementPurpose::IntentPolicy,
+                connection_id: None,
+                account_version: None,
+                from_currency: Some("EUR".into()),
+                to_currency: Some("USD".into()),
+                need: FxRequirementNeed::ExternalRate,
+                provider_pair: Some("EURUSD".into()),
+                reason: "The intent policy requires the EUR input to settle in USD.".into(),
+            }],
+        }
+    }
+
+    fn evidence() -> FxRateEvidence {
+        FxRateEvidence {
+            binding: FinancialEvidenceBinding {
+                connection_id: "connection-1".into(),
+                account_version: "1".into(),
+                source_version: "1".into(),
+                binding_version: "3".repeat(64),
+            },
+            material_version: "4".repeat(64),
+            provider_quality: FinancialEvidenceQuality::UnqualifiedFxRate,
+            observed_at: "2024-01-01T00:00:01Z".into(),
+            provider_observed_at: None,
+            requirements: requirements(),
+            rates: vec![FxObservedRate {
+                provider_pair: "EURUSD".into(),
+                from_currency: "EUR".into(),
+                to_currency: "USD".into(),
+                bid: "1.0800".into(),
+                ask: "1.0801".into(),
+                mid: "1.08005".into(),
+                provider_timestamp: "2024-01-01T00:00:00Z".into(),
+            }],
+        }
+    }
+
+    fn commission(maker: &str, taker: &str) -> SpotDeclaredCommission {
+        SpotDeclaredCommission {
+            maker: maker.into(),
+            taker: taker.into(),
+            buyer: "0.0000".into(),
+            seller: "0.0000".into(),
+            extension_keys: Vec::new(),
+        }
+    }
+
+    fn capacity(declared_commission: Option<SpotDeclaredCommission>) -> SpotCapacityInputs {
+        SpotCapacityInputs {
+            workspace_id: "workspace-1".into(),
+            proposal_id: "proposal-1".into(),
+            proposal_hash: hash('1'),
+            account_id: "account-1".into(),
+            instrument_id: "binance:sp:EUR/USD".into(),
+            base_asset: "EUR".into(),
+            quote_asset: "USD".into(),
+            source_version: "1".into(),
+            rule_material_version: None,
+            purposes: vec![SpotCapacityPurpose::OpenOrdersAccount],
+            status: SpotCapacityStatus::Observed,
+            qualification: RiskCheckOutcome::Pass,
+            qualification_reason: "The declared capacity is observed.".into(),
+            observation: Some(SpotCapacityObservation {
+                collection_id: "collection-1".into(),
+                quality: SpotCapacityQuality::ReadOnlySpotCapacity,
+                atomic: false,
+                provider_observed_at: Some("2024-01-01T00:00:00Z".into()),
+                counts: SpotCapacityCounts {
+                    account_open_orders: Some("0".into()),
+                    symbol_open_orders: "0".into(),
+                    account_algo_orders: None,
+                    symbol_algo_orders: None,
+                    account_iceberg_orders: None,
+                    symbol_iceberg_orders: "0".into(),
+                    classifications_complete: true,
+                    order_coverage_complete: true,
+                    account_open_order_lists: None,
+                    symbol_open_order_lists: None,
+                    missing_list_legs: None,
+                    list_coverage_complete: None,
+                },
+                base_balance: None,
+                position: None,
+                declared_commission,
+                unresolved_obligations: vec![
+                    "NON_ATOMIC_PROVIDER_SNAPSHOT".into(),
+                    "DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED".into(),
+                ],
+                reads: vec![SpotCapacityRead {
+                    kind: SpotCapacityReadKind::Account,
+                    started_at: "2024-01-01T00:00:00Z".into(),
+                    received_at: "2024-01-01T00:00:01Z".into(),
+                    digest: "a".repeat(64),
+                    oldest_provider_update_time_ms: None,
+                    latest_provider_update_time_ms: None,
+                    oldest_provider_transaction_time_ms: None,
+                    latest_provider_transaction_time_ms: None,
+                }],
+            }),
+            failure: None,
+            binding_version: "binding-1".into(),
+            state_version: "state-1".into(),
+        }
+    }
+
+    /// Derive against the supported `EUR -> USD` route, returning the always-visible statement.
+    fn derive_supported(declared_commission: Option<SpotDeclaredCommission>) -> SpotFeeFxStatement {
+        let capacity = capacity(declared_commission);
+        let requirements = requirements();
+        let evidence = evidence();
+        derive(
+            &capacity,
+            &requirements,
+            Some(&evidence),
+            &proposal(),
+            OrderSide::Buy,
+            "USD",
+        )
+        .expect("derive never fails for a bound identity")
+        .expect("a bound identity always yields a visible statement")
+    }
+
+    #[test]
+    fn fails_closed_with_currency_unknown_when_rates_are_valid_but_the_fee_asset_is_undeclared() {
+        let statement = derive_supported(Some(commission("0.0010", "0.0015")));
+        assert_eq!(
+            statement.reason_code,
+            SpotFeeFxReasonCode::SpotFeeCurrencyUnknown
+        );
+        assert_eq!(statement.outcome, RiskCheckOutcome::Unavailable);
+        assert_eq!(
+            statement.binding_blocker.as_deref(),
+            Some("SPOT_FEE_CURRENCY_UNKNOWN")
+        );
+        assert_eq!(statement.fee_currency, "UNKNOWN");
+        assert_eq!(statement.fee_currency_origin, "UNKNOWN");
+        // The larger declared rate is the conservative basis, compared as exact decimals.
+        assert_eq!(statement.fee_rate_basis, Some(SpotFeeRateBasis::Taker));
+        // No amount is fabricated from an undeclared fee asset.
+        assert!(statement.expected_fee.is_none());
+        assert_eq!(statement.declared_maker_rate.as_deref(), Some("0.0010"));
+        assert_eq!(statement.declared_taker_rate.as_deref(), Some("0.0015"));
+        // The genuinely-required supported route is qualified, so it does not block.
+        assert_eq!(statement.routes.len(), 1);
+        assert_eq!(statement.routes[0].state, SpotRequiredRouteState::Qualified);
+    }
+
+    #[test]
+    fn fails_closed_with_rate_unsupported_when_the_declared_rates_are_not_exact_decimals() {
+        // A negative declared rate cannot be compared as an exact decimal, so the whole statement
+        // fails closed on the fee basis instead of silently ignoring the unusable rate.
+        let statement = derive_supported(Some(commission("-0.0010", "0.0015")));
+        assert_eq!(
+            statement.reason_code,
+            SpotFeeFxReasonCode::SpotFeeRateUnsupported
+        );
+        assert_eq!(statement.outcome, RiskCheckOutcome::Unavailable);
+        assert_eq!(
+            statement.binding_blocker.as_deref(),
+            Some("SPOT_FEE_RATE_UNSUPPORTED")
+        );
+        assert!(statement.fee_rate_basis.is_none());
+        // The unusable declared rate is still reported verbatim.
+        assert_eq!(statement.declared_maker_rate.as_deref(), Some("-0.0010"));
+    }
+
+    #[test]
+    fn fails_closed_with_evidence_unavailable_when_no_current_commission_is_bound() {
+        let statement = derive_supported(None);
+        assert_eq!(
+            statement.reason_code,
+            SpotFeeFxReasonCode::SpotFeeEvidenceUnavailable
+        );
+        assert_eq!(statement.outcome, RiskCheckOutcome::Unavailable);
+        assert_eq!(
+            statement.binding_blocker.as_deref(),
+            Some("SPOT_FEE_EVIDENCE_UNAVAILABLE")
+        );
+        assert!(statement.fee_rate_basis.is_none());
+        assert!(statement.declared_maker_rate.is_none());
+    }
+
+    #[test]
+    fn never_reaches_qualified_or_pass_even_when_every_declared_input_is_present() {
+        // `SPOT_FEE_FX_QUALIFIED` (the fourth fee-side code) and a `Pass` outcome are the future
+        // contract: they are unreachable through the delivered producers because no host declares
+        // the fee-charging asset. This pins that a complete input set still stays visibly non-Pass.
+        let statement = derive_supported(Some(commission("0.0010", "0.0015")));
+        assert_ne!(statement.reason_code, SpotFeeFxReasonCode::SpotFeeFxQualified);
+        assert_ne!(statement.outcome, RiskCheckOutcome::Pass);
+        assert!(statement.binding_blocker.is_some());
+        assert_eq!(statement.proposal_hash.len(), 71);
+        assert_eq!(statement.fee_evidence_version.len(), 71);
+        assert_eq!(statement.route_evidence_version.len(), 71);
+    }
+
+    #[test]
+    fn returns_none_when_the_capacity_does_not_describe_the_same_immutable_intent() {
+        let mut capacity = capacity(Some(commission("0.0010", "0.0015")));
+        // A differing proposal hash means the capacity and the intent are not the same object, so
+        // there is no identity to bind and nothing to state.
+        capacity.proposal_hash = hash('9');
+        let requirements = requirements();
+        let evidence = evidence();
+        let bound = derive(
+            &capacity,
+            &requirements,
+            Some(&evidence),
+            &proposal(),
+            OrderSide::Buy,
+            "USD",
+        )
+        .expect("derive never fails for a mismatched identity");
+        assert!(bound.is_none());
+    }
 }
