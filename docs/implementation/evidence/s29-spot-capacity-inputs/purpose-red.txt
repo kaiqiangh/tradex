@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.19s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection ... FAILED
+
+failures:
+
+failures:
+    capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.10s
+
+
+thread 'capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection' (11039370) panicked at src-tauri/tests/binance_rules.rs:470:5:
+assertion `left == right` failed: Symbol purpose missing: {"data":{"accountId":"344a7997-59fe-48fb-b59f-756beaac207e","baseAsset":"BTC","bindingVersion":"sha256:3b5bd25bd2b5eef64d4a5f89f8d628e314ee40cce25f481df47d46e2957af962","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":null,"proposalHash":"sha256:f58b0769c45e1320b726f6baabe9f0a1cdbae8d1c53c1739e598e225eec6d6e9","proposalId":"proposal:d0eece80-61da-4592-bd62-cd5f9ee58967","purposes":[],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"44cda78b1f5bd766d43bbbbbbe229d01462b3e6b5556243f75506eb3cfc5dc60","sourceVersion":"BINANCE_SPOT_RULES:6a73067d-c0f4-4ff7-9276-04ae805ded97:1","stateVersion":"sha256:772180eeaf880ff77cfdde61f1a9c57130d7ceb139e1051e89cafc36e3f3285a","status":"NOT_OBSERVED","workspaceId":"6a73067d-c0f4-4ff7-9276-04ae805ded97"},"ok":true,"requestId":"spot-rules","schemaVersion":1,"stateVersion":"sha256:772180eeaf880ff77cfdde61f1a9c57130d7ceb139e1051e89cafc36e3f3285a"}
+  left: Array []
+ right: Array [String("OPEN_ORDERS_SYMBOL")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection' (11039357) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection ... FAILED
+
+failures:
+
+failures:
+    capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.35s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

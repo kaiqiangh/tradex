@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.46s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test malformed_capacity_order_refresh_retires_previously_observed_inventory ... FAILED
+
+failures:
+
+failures:
+    malformed_capacity_order_refresh_retires_previously_observed_inventory
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.14s
+
+
+thread 'malformed_capacity_order_refresh_retires_previously_observed_inventory' (11023834) panicked at src-tauri/tests/binance_rules.rs:285:9:
+assertion `left == right` failed: Malformed inventory was accepted: {"data":{"accountId":"e1fd582e-e108-4196-aa91-cdfaf2d910fb","baseAsset":"BTC","bindingVersion":"sha256:7db5493c7295bdd78293beb4c336f9a8109f846929a4c8cf1e97b22bdcb4fdf9","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"89dfbf38-e28b-4715-be7b-97042238ab88","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrders":"2","classificationsComplete":true,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderUpdateTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T07:47:44.097Z","startedAt":"2026-10-09T07:47:44.093Z"},{"digest":"0f626f169af648ef57718ff46f67a916df96bf9772311a9f00bff7ea1ed8c73c","kind":"OPEN_ORDERS_ACCOUNT","latestProviderUpdateTimeMs":"1700000000000","oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T07:47:44.102Z","startedAt":"2026-10-09T07:47:44.098Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:eea30b0b6befe26335b4f2e76240d0504be3290d03a8bcd4ae6db7e9c7f95d02","proposalId":"proposal:8390b8df-4bf5-4da7-9ea8-1ee89d57a043","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"ad9cc51cba4f7af9991001e37bc5167008667bfcd7e9fad243d48bdca7f4c782","sourceVersion":"BINANCE_SPOT_RULES:356beb2c-a39e-499a-9b20-fda9d673e35e:1","stateVersion":"sha256:86da1f03a8b97c1f8d461e4a57cdbdf3a7c5a4f6fd9bddc3a4440ab9fc63489e","status":"OBSERVED","workspaceId":"356beb2c-a39e-499a-9b20-fda9d673e35e"},"ok":true,"requestId":"capacity-malformed","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'malformed_capacity_order_refresh_retires_previously_observed_inventory' (11023832) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: malformed_capacity_order_refresh_retires_previously_observed_inventory
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test malformed_capacity_order_refresh_retires_previously_observed_inventory ... FAILED
+
+failures:
+
+failures:
+    malformed_capacity_order_refresh_retires_previously_observed_inventory
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.38s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

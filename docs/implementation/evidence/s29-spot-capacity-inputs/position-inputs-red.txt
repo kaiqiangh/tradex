@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.47s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved ... FAILED
+
+failures:
+
+failures:
+    max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.10s
+
+
+thread 'max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved' (10938536) panicked at src-tauri/tests/binance_rules.rs:176:5:
+assertion `left == right` failed: Required position inputs are not derived from the actual rule: {"data":{"accountId":"59601d22-e078-4f89-b91d-e56b01e6fe3f","baseAsset":"BTC","bindingVersion":"sha256:566ce668f1497f2cb161f6b0ec06d4e154bdfcf93ddd8fac1efb9658e8739e99","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":null,"proposalHash":"sha256:85e442b07de0faa974a822715e75ad58bdb0a7d27a386dc85f5bd8fe6bc5daf2","proposalId":"proposal:e72d3c03-7bc9-4946-b712-31a0dc9c399f","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"50de5045f7e0e46145517676d1e7b2da949f2ceba1593df3e13db6ec106772d3","sourceVersion":"BINANCE_SPOT_RULES:5d44b728-386e-44f2-901e-e486926aa42f:1","stateVersion":"sha256:55621427fb4cb7c642bda60413efd2d44f9b6013a0fbc2121e73eced9d7062a9","status":"NOT_OBSERVED","workspaceId":"5d44b728-386e-44f2-901e-e486926aa42f"},"ok":true,"requestId":"spot-rules","schemaVersion":1,"stateVersion":"sha256:55621427fb4cb7c642bda60413efd2d44f9b6013a0fbc2121e73eced9d7062a9"}
+  left: Array [String("OPEN_ORDERS_ACCOUNT")]
+ right: Array [String("OPEN_ORDERS_ACCOUNT"), String("BASE_BALANCES")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved' (10938534) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved ... FAILED
+
+failures:
+
+failures:
+    max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -2,9 +2,9 @@
 
 **Generated / 生成日期:** 2026-10-09
 
-Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, S19 Binance Spot Testnet submission/recovery/private-stream/cancellation contracts, the 2026-09-25 account-interface scope update retiring dedicated Binance Testnet and Bitget Demo acceptance, S21 #82 workspace risk-policy change effects, S25.1–S25.4 Live reconciliation contracts, S26.2 #104 Trading 212 Live cancellation-history/fill-race contracts, and S27.1 #108 Live startup-recovery contracts, the S28 #118 authenticated XNAS calendar contract and S28 #119 known-event/exact-account metadata contract, plus the S28 #120 required-route/read-only FX contract and S29 account-state, exact-rule, Hot-source and #125 Proposal rule/reference contracts, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
+Paths below are relative to the repository root. Hashes describe the current local file bytes after the S01/S02 IPC additions, user-approved S03 DeepSeek model clarification, S08 market-state contract additions, S18 Trading 212 Demo wire/UI and local deletion contract, S19 Binance Spot Testnet submission/recovery/private-stream/cancellation contracts, the 2026-09-25 account-interface scope update retiring dedicated Binance Testnet and Bitget Demo acceptance, S21 #82 workspace risk-policy change effects, S25.1–S25.4 Live reconciliation contracts, S26.2 #104 Trading 212 Live cancellation-history/fill-race contracts, and S27.1 #108 Live startup-recovery contracts, the S28 #118 authenticated XNAS calendar contract and S28 #119 known-event/exact-account metadata contract, plus the S28 #120 required-route/read-only FX contract and S29 account-state, exact-rule, Hot-source and #125 Proposal rule/reference plus #126 read-only capacity contracts, not a released ZIP or a passing execution system. The unchanged prototype sources were reviewed at main@6c4b267. Regenerate this manifest whenever a listed file changes.
 
-以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约、S19 Binance Spot Testnet 提交/恢复/私有流/撤单契约，以及 2026-09-25 将专用 Binance Testnet 和 Bitget Demo 验收改为普通账户接口范围、S21 #82 工作区风险策略变更影响、S25.1–S25.4 Live 对账契约、S26.2 #104 Trading 212 Live 撤单历史/成交竞态契约及 S27.1 #108 Live 启动恢复契约以及 S28 #118 经认证的 XNAS 日历契约和 S28 #119 已知事件/精确账户元数据契约以及 S28 #120 所需路由/只读 FX 和 S29 账户状态、精确规则、Hot 来源及 #125 Proposal 规则/参考契约后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
+以下路径相对仓库根目录。哈希描述 S01/S02 IPC 增补、用户批准的 S03 DeepSeek 模型澄清、S08 市场状态契约增补、S18 Trading 212 Demo wire/UI 与本地账户删除契约、S19 Binance Spot Testnet 提交/恢复/私有流/撤单契约，以及 2026-09-25 将专用 Binance Testnet 和 Bitget Demo 验收改为普通账户接口范围、S21 #82 工作区风险策略变更影响、S25.1–S25.4 Live 对账契约、S26.2 #104 Trading 212 Live 撤单历史/成交竞态契约及 S27.1 #108 Live 启动恢复契约以及 S28 #118 经认证的 XNAS 日历契约和 S28 #119 已知事件/精确账户元数据契约以及 S28 #120 所需路由/只读 FX 和 S29 账户状态、精确规则、Hot 来源及 #125 Proposal 规则/参考和 #126 只读容量契约后的本地文件字节，不表示已打包发布或执行系统验收通过。未修改的原型源码审查基线为 main@6c4b267。清单中文件变化后须重新生成。
 
 This manifest excludes its own hash to avoid self-reference. Existing docs/agents workflow guides are outside this product-document manifest. The root README.md describes the application build; docs/implementation tracks delivery separately from this product-document manifest.
 
@@ -13,16 +13,16 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | File / 文件 | Purpose / 用途 | Lines / 行数 | SHA-256 |
 |---|---|---:|---|
 | `AGENTS.md` | Agent entry point / Agent 文档入口 | 30 | `c3242039e90c7f6c684b0de2fd3de2ad16132839293b508facb06ecbd14be9dc` |
-| `docs/README.md` | English documentation index | 60 | `02db9e68854620ab068c3907713643452096569f46b7afa13e9a52fe0605a5e2` |
-| `docs/zh/README.md` | 中文文档目录 | 57 | `223863b6afc0ae0084e0eaaafa945b6e3f5f785516e01968b6b2f5ed2959ef44` |
-| `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3671 | `d98faa345e3abaef8f8fa15c9b166d4661be930277111bfa37a235204989432c` |
-| `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3663 | `6a67f12bcb9371efb42554008d0e170ef557998061e76bceecb40da251d725e5` |
-| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1314 | `658c0273830e9327ad6e1a0b35800c2f28de4334a67cb48a4a516bee7ac76300` |
-| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 1029 | `1ae094adf648b84d97e1d7414e86050ec583685b1249da43057eb162bb5c7c13` |
-| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1189 | `084800ae84967bb0c622c156509d4398b76c247b545b498fd7986da4d462cccc` |
-| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1187 | `f371ffe5a5b465c0c63ee8454584f124135136ed9687942c846798f89c37ea4a` |
-| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3388 | `c6166c0ac87172e282432c60a7d8c477a622b3ff87981143373110bb4479d530` |
-| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3386 | `58a45795589d5cb83d9a6022a6b4cd5c2d80d998cf8b9cb905eda3f5ecf774ce` |
+| `docs/README.md` | English documentation index | 62 | `3e257ecbcccb7106c903f989167ef5230078283e545611962da8b6c2a3e6d97f` |
+| `docs/zh/README.md` | 中文文档目录 | 59 | `c13e1a2ebcd30df3e907c4a6ff7281f57e70e42c3ae4689bc344110572a6c731` |
+| `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3673 | `2d4a968ef7bc33c5de2b048de9718775a8f06da907cf9afbc2204f1ef60d5d4a` |
+| `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3665 | `7a2c0c77a6fd454ad9de8e7806c8bde3e661b65c9da01d8a1002b339a0081dfa` |
+| `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1319 | `6fe7ac1d16f6507092a12e8a98ed63ac3ba7a852fe0bd54f462e0ad511593c56` |
+| `docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md` | 中文 UI Spec | 1034 | `d8cf65cef39574570a4e6c417fcdd9c780d7b077bc5e060b7e65aea98b3b621c` |
+| `docs/TradeX_Frontend_ARD_v1.0_RevC.md` | English Frontend ARD | 1193 | `92cc635a84e0beaf0171b382f07cf477d18d1581f6a6bac816a31d8ddeba1a65` |
+| `docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md` | 中文 Frontend ARD | 1191 | `a90b06f4a121261432b02da6693f6ff09cf4d8603555c1fa369e7097ca1e3a57` |
+| `docs/TradeX_Backend_ARD_v1.0_RevC.md` | English Backend ARD | 3402 | `b9feae9b5d5bece52dfaca8fc19154a92f1ea106006f273663937d944025267b` |
+| `docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md` | 中文 Backend ARD | 3400 | `9e57e8468ce4d0d6b48a3f65efbf61eb52bceeb3289a8a5496ba89b4c1fe03a8` |
 | `docs/TradeX_Prototype_Coverage_Matrix_v1.0_RevC.md` | English Coverage Matrix | 214 | `3dcf4b201c135468a113c760d02e51ffac0268daaeca5595f09f08a281463f7c` |
 | `docs/zh/TradeX_Prototype_Coverage_Matrix_v1.0_RevC_zh.md` | 中文 Coverage Matrix | 214 | `e9080e0dc8189d39815b1ac78518dad93f3319190a5783978e30cca7620049b8` |
 | `docs/TradeX_Prototype_QA_Report_v1.0_RevC.md` | English QA Report | 188 | `5d1b2619f2fbe829a17684e1b2d32ca54c496386e5c32932d8c90c168178bc73` |

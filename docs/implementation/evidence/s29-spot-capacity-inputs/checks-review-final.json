@@ -1,0 +1,16 @@
+{
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "reviewRefactorValidated": true,
+  "publicRulesPassed": 68,
+  "fullNodePassed": 17,
+  "fullRustPassed": 466,
+  "rustIgnored": 39,
+  "failed": 0,
+  "binanceHotPassed": 49,
+  "stockHotPassed": 19,
+  "gatewayPassed": 23,
+  "remoteCi": "NO_WORKFLOWS_PRESENT_NOT_RUN",
+  "providerFinancialAcceptance": false,
+  "prototypeChanged": false,
+  "mainChanged": false
+}

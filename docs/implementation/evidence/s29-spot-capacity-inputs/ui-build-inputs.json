@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-10-09T13:05:46.581751+00:00",
+  "sourceCheckpoint": "implementation-checkpoint-before-review.json",
+  "publicSeam": true,
+  "externalProviderFixture": true,
+  "controlPlaneFinancialSeeds": false,
+  "gatewaySha256": "fedb5fe3039ecaa84e72a40e0afd8a86f8a1b70c7dbd05f3cc93fcb7057d132e",
+  "ipcSha256": "f99b267fdb7bbd278ec2bb0bd46c98b1cdda4a4df3d1cd6062ae746a301afa84",
+  "previousHostStopped": true,
+  "replayHelperSha256": "a2d7c0c20288ce77c4ef5107675ece7f74287d9cc662d10ac6c7831a1f5ea059",
+  "ownedHostStopped": true,
+  "ownedTabClosed": true,
+  "user1421Touched": false,
+  "stage": "verified before non-behavioral review refactor"
+}

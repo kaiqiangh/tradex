@@ -1,0 +1,86 @@
+{
+  "providerFixture": true,
+  "controlPlaneSeeds": false,
+  "financialMutation": false,
+  "currentObserved": true,
+  "baseBalance": true,
+  "missingListLegs": true,
+  "originalTransactionTime": true,
+  "capturedReadOnly": true,
+  "historyUnchangedOnFaultAndSourceChange": true,
+  "busyRetiresCurrentSuccess": true,
+  "faultRetiresCurrent": true,
+  "recovery": true,
+  "prearmObserved": true,
+  "prearmRefreshControls": 0,
+  "armEnabled": false,
+  "currentCapturedWidths": [
+    {
+      "body": 1280,
+      "client": 390,
+      "panel": 390,
+      "viewport": 1280
+    },
+    {
+      "body": 768,
+      "client": 422,
+      "panel": 422,
+      "viewport": 768
+    },
+    {
+      "body": 390,
+      "client": 268,
+      "panel": 268,
+      "viewport": 390
+    }
+  ],
+  "prearmWidths": [
+    {
+      "body": 1280,
+      "client": 608,
+      "panel": 608,
+      "viewport": 1280
+    },
+    {
+      "body": 768,
+      "client": 608,
+      "panel": 608,
+      "viewport": 768
+    },
+    {
+      "body": 390,
+      "client": 326,
+      "panel": 326,
+      "viewport": 390
+    }
+  ],
+  "applicationLogs": [],
+  "currentHostStartedAt": "2026-10-09T09:02:28Z",
+  "historicalApplicationLogsBeforeCurrentHost": [
+    {
+      "level": "error",
+      "message": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. proposal:8d16b98d-9b8b-4564-8eb3-506f81edd12c",
+      "timestamp": "2026-10-09T08:09:32.057Z",
+      "url": "http://127.0.0.1:1427/@vite/client"
+    },
+    {
+      "level": "error",
+      "message": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. proposal:8d16b98d-9b8b-4564-8eb3-506f81edd12c",
+      "timestamp": "2026-10-09T08:09:32.069Z",
+      "url": "http://127.0.0.1:1427/@vite/client"
+    },
+    {
+      "level": "error",
+      "message": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. proposal:8d16b98d-9b8b-4564-8eb3-506f81edd12c",
+      "timestamp": "2026-10-09T08:09:32.088Z",
+      "url": "http://127.0.0.1:1427/@vite/client"
+    },
+    {
+      "level": "error",
+      "message": "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. proposal:8d16b98d-9b8b-4564-8eb3-506f81edd12c",
+      "timestamp": "2026-10-09T08:09:32.102Z",
+      "url": "http://127.0.0.1:1427/@vite/client"
+    }
+  ],
+  "fullPageScreenshotAttempt": "Timed out; captured readable viewport instead"
+}

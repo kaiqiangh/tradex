@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0004]: non-exhaustive patterns: `RiskDecisionInputKind::SpotCapacity` not covered
+    --> src-tauri/src/risk.rs:1030:11
+     |
+1030 |     match kind {
+     |           ^^^^ pattern `RiskDecisionInputKind::SpotCapacity` not covered
+     |
+note: `RiskDecisionInputKind` defined here
+    --> src-tauri/src/risk.rs:835:10
+     |
+ 835 | pub enum RiskDecisionInputKind {
+     |          ^^^^^^^^^^^^^^^^^^^^^
+...
+ 846 |     SpotCapacity,
+     |     ------------ not covered
+     = note: the matched value is of type `RiskDecisionInputKind`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+     |
+1078 ~         | RiskDecisionInputKind::CurrencyRates => {},
+1079 +         RiskDecisionInputKind::SpotCapacity => todo!()
+     |
+
+For more information about this error, try `rustc --explain E0004`.
+error: could not compile `tradex` (lib) due to 1 previous error

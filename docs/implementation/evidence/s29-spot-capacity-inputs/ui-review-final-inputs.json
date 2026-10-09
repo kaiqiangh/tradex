@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-10-09T13:34:55.314824+00:00",
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "externalProviderFixture": true,
+  "controlPlaneFinancialSeeds": false,
+  "gatewaySha256": "f4efbb08f55666eb065d88b62b3210e85dd7a785af5d5a2c1ffe3a64c1f04226",
+  "ipcSha256": "81edf4d8296747435347c9ca8ff7a3f92850faf4fb5f81964ac1b3c71f0cb5c4",
+  "replayHelperSha256": "a2d7c0c20288ce77c4ef5107675ece7f74287d9cc662d10ac6c7831a1f5ea059",
+  "ownedTabClosed": true,
+  "user1421Touched": false,
+  "ownedHostStopped": true
+}

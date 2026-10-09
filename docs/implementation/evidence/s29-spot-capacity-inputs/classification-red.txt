@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.73s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders ... FAILED
+
+failures:
+
+failures:
+    capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.12s
+
+
+thread 'capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders' (11020669) panicked at src-tauri/tests/binance_rules.rs:237:5:
+assertion `left == right` failed: Missing account-wide algorithmic count: {"data":{"accountId":"a5e89990-c2b2-47b6-9fe8-2dd312683f74","baseAsset":"BTC","bindingVersion":"sha256:9816184ac9060076b45f399ad47e78df3c600e5dddcadcdadb5645588c4df47c","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"5437f42c-b0a1-4c08-9918-9c23782b5fd6","counts":{"accountOpenOrders":"2","symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderUpdateTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T07:46:23.572Z","startedAt":"2026-10-09T07:46:23.568Z"},{"digest":"fb63b06e7760db7f5296c1c36189bee085b111c8a62de39f09b634c1d8fef64f","kind":"OPEN_ORDERS_ACCOUNT","latestProviderUpdateTimeMs":"1700000000000","oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T07:46:23.577Z","startedAt":"2026-10-09T07:46:23.573Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:40375bd318267834a43af2c09b7c572a1ff50a9a8739c945249477ec556834fe","proposalId":"proposal:9c6fa057-5f23-4aae-90de-8d8524d04a66","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"827f24fc827f413631d7c50da5be56fcb9a57c22c6158d8b847f1e6dc2c723cc","sourceVersion":"BINANCE_SPOT_RULES:34c92787-489a-46c0-acce-c09011670cc5:1","stateVersion":"sha256:bd1de87d9a11c93e85aabadcf5292ac4db13eab6d8377da0de27e6f6f2ea2a56","status":"OBSERVED","workspaceId":"34c92787-489a-46c0-acce-c09011670cc5"},"ok":true,"requestId":"capacity-classifications","schemaVersion":1}
+  left: Null
+ right: "1"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders' (11020665) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders ... FAILED
+
+failures:
+
+failures:
+    capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.36s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.52s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+
+running 1 test
+test capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage ... FAILED
+
+failures:
+
+failures:
+    capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 54 filtered out; finished in 0.16s
+
+
+thread 'capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage' (11125587) panicked at src-tauri/tests/binance_rules.rs:1082:5:
+assertion `left == right` failed: Client identity contradiction hidden: {"data":{"accountId":"c4decad0-236d-46d5-9e30-5b55ed5213f5","baseAsset":"BTC","bindingVersion":"sha256:e5a64feab743c0419056984b7dba3a35ff0e6275ddc4ceca039c2fcf2b991a1a","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"5c337dcf-653e-4ded-857d-f4aa63eee119","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":"1","accountOpenOrders":"2","classificationsComplete":true,"listCoverageComplete":true,"missingListLegs":"0","orderCoverageComplete":true,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":"1","symbolOpenOrders":"2"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":null,"oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T08:40:16.399Z","startedAt":"2026-10-09T08:40:16.395Z"},{"digest":"5c87cf2423fae730a96ed54dd754fb0fe5d99188e49c782cb8d83a14c817c85a","kind":"OPEN_ORDERS_ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":"1700000000000","oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T08:40:16.404Z","startedAt":"2026-10-09T08:40:16.4Z"},{"digest":"0f87a8004c680425770c3ba741e513caab07ddd700c9ee9b9121909d1a2f7608","kind":"OPEN_ORDER_LISTS","latestProviderTransactionTimeMs":"1700000000000","latestProviderUpdateTimeMs":null,"oldestProviderTransactionTimeMs":"1700000000000","oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T08:40:16.411Z","startedAt":"2026-10-09T08:40:16.407Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:1e08b36246b9514da3b5821a3faef9a309dfafe75e5c0dd6c3051c77f840ed6a","proposalId":"proposal:081ffd15-b4a8-45d2-98f5-04b172f29693","purposes":["OPEN_ORDERS_ACCOUNT","OPEN_ORDER_LISTS"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"9fd5db66bbc9959bb774e4ab2f7f4018400709889a2758d994c71d27e9bcb692","sourceVersion":"BINANCE_SPOT_RULES:ba51fe2b-6ba7-4b5e-ad21-310c60c42612:1","stateVersion":"sha256:13f4a7295194d18176ecd41001620e17fcff8029b1079729faea8ed1b7fe60ff","status":"OBSERVED","workspaceId":"ba51fe2b-6ba7-4b5e-ad21-310c60c42612"},"ok":true,"requestId":"capacity-leg-identity","schemaVersion":1}
+  left: Bool(true)
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage' (11125584) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage ... FAILED
+
+failures:
+
+failures:
+    capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 54 filtered out; finished in 0.41s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

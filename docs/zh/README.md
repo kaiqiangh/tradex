@@ -55,3 +55,5 @@ S25.4 #100 已在收窄范围内于已审查的 `dev@f67463d` 关闭：新鲜且
 - 中英文必须具有相同 FR/AC、A–K 页面及 QA case ID 集合；Coverage 和 QA 的状态逐项一致。
 - 状态使用共同 token：FAILED / PARTIAL / SOURCE_ONLY / RUNTIME_PENDING / DEFERRED；SOURCE_ONLY 不等于通过。
 - ID 配对检查只证明结构；金融条件、权限作用域、失败恢复和动作语义必须逐段同步，英文变更在同次修改中更新中文。
+
+S29.5 #126来源实现及串行Standards/Spec复审PASS，源码`b4d137a`。[配对证据](../implementation/s29-spot-capacity-inputs-evidence_zh.md)绑定当前检查/构建/pin/UI及161源码哈希；远端/追踪交付待完成，票据仍OPEN。动态资格及父项/全图/原生/金融/物理门禁独立保留。原型和main未改。

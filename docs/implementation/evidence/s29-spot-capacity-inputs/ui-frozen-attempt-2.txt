@@ -1,0 +1,1 @@
+Replay setup attempted a second connection for the same provider UID in its retained disposable workspace. Public duplicate-account protection correctly returned PROVIDER_ALREADY_CONNECTED. Replay now reuses the existing saved DISARMED account via public account.list. No runtime change; not product RED or final UI PASS.

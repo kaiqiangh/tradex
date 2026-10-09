@@ -1,0 +1,19 @@
+{
+  "sourceCheckpoint": "implementation-checkpoint-before-review.json",
+  "command": "npm run desktop:build",
+  "ordinaryBuild": true,
+  "integrationFixtures": false,
+  "providerRead": false,
+  "financialMutation": false,
+  "success": true,
+  "gatewaySha256": "5f244a5b55db32cc16dca1abc2b76fe3cbd78e1626665af7abd4f9f3b05f8ed0",
+  "nativeSha256": "62c94b938da635045d146556d12788e267433c044b86865d90a3b9ecd44d655c",
+  "nativeContainsPinnedGatewaySha256": true,
+  "sourceInputsMatch": 160,
+  "buildInputExclusions": [
+    "tests/spot-capacity-inputs-ui.mjs"
+  ],
+  "replayHelperAdjustedAfterBuild": true,
+  "note": "Runtime, configuration, frontend and schema inputs remain byte-identical. The replay helper is not compiled into the desktop application and now waits for visible fresh source material.",
+  "stage": "verified before non-behavioral review refactor"
+}

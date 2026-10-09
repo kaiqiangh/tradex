@@ -209,4 +209,4 @@ S29.3 来源票的历史规划记录：[提供 Binance Spot Hot 报价与连续�
 
 S29.4 #125 已关闭：[Proposal 静态规则/参考输入验收](s29-spot-proposal-rules-evidence_zh.md)。源码 `ecc2860` 与19份冻结检查/复审文件逐一一致并已核对 origin/dev；完整436 Rust/17 Node、规则38、Binance Hot49、Stock Hot19、Gateway23、普通构建/pin 与最新1280/768/390 React→Rust UI 通过，39既有 ignored 单列。Standards/Spec 串行 PASS，尚无远端 CI 工作流。S29 #121 继续 OPEN：动态容量、费用/FX、即时认证 preflight、私有生命周期和真实金融验收待完成；S28/S17/物理 S27 未豁免。全局需求状态不提高，原型代码未改，main 未变。
 
-下一当前单票：[提供 Binance 精确账户开放订单与容量输入](https://github.com/kaiqiangh/tradex/issues/126)，[配对规范](s29-spot-capacity-inputs-spec_zh.md)，[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6075145431)。起始实现/复审基线 `4f06df6`；已领取并记录原生 completed dependency125，无开放 blocker。仅完成只读来源规划，尚未实施/验收；非原子观测不升级动态金融资格、资金/费用FX、Arm/同意或即时 preflight。沿用既有单票/公开接缝，不重新询问粒度。
+当前单票：[提供 Binance 精确账户开放订单与容量输入](https://github.com/kaiqiangh/tradex/issues/126)源码`b4d137a`及串行Standards/Spec均PASS；[配对验收证据](s29-spot-capacity-inputs-evidence_zh.md)绑定最终检查/构建/UI和161输入哈希。远端/追踪交付待完成，票据仍OPEN；父项/全图及原型/main边界保留。

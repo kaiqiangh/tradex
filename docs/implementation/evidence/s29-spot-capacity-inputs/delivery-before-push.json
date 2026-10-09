@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "b4d137a7b3064218da4a9e5e1147a980a7d0e810",
+  "reviewBaseline": "4f06df633832aa2ed89bf675bcb219a15c41731d",
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "all161SourceInputsMatchCommittedBytes": true,
+  "standards": "PASS",
+  "spec": "PASS",
+  "remoteVerified": false,
+  "trackerClosed": false,
+  "nativeLaunch": false,
+  "providerFinancialAcceptance": false,
+  "physicalAcceptance": false,
+  "prototypeChanged": false,
+  "mainChanged": false,
+  "deliveryState": "SOURCE_COMMITTED_REMOTE_AND_TRACKER_PENDING"
+}

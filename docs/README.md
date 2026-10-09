@@ -58,3 +58,5 @@ Both languages preserve requirement IDs, A–K screen IDs, QA case IDs/statuses,
 - UNKNOWN_RECONCILING: frozen capacity and evidence-based Manual Resolution.
 - Storage: SQLite transactional/domain, DuckDB MVP 1m+ analytics, filesystem artifacts; Parquet optional Phase 2+.
 - Coverage status: FAILED / PARTIAL / SOURCE_ONLY / RUNTIME_PENDING / DEFERRED.
+
+S29.5 #126 source implementation and serial Standards/Spec reviews PASS, with source `b4d137a`. [Paired evidence](implementation/s29-spot-capacity-inputs-evidence.md) binds current checks/build/pin/UI and161 source hashes; remote/tracker handoff remains pending and the ticket stays OPEN. Dynamic qualification and parent/map/native/financial/physical release gates remain separate. Prototype and main are unchanged.

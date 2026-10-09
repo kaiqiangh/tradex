@@ -1,0 +1,14 @@
+{
+  "parent": {
+    "number": 121,
+    "state": "open",
+    "title": "[Spec] \u9a8c\u8bc1 Binance Spot Live \u53ef\u4fe1\u6267\u884c\uff08S29\uff09"
+  },
+  "dependencies": [
+    {
+      "number": 125,
+      "state": "closed",
+      "title": "[S29.4] \u6838\u9a8c Proposal \u9759\u6001 Spot \u89c4\u5219\u4e0e\u6240\u9700\u53c2\u8003\u8f93\u5165"
+    }
+  ]
+}

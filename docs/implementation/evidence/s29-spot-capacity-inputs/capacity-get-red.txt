@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.61s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying ... FAILED
+
+failures:
+
+failures:
+    stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.10s
+
+
+thread 'stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying' (10924736) panicked at src-tauri/tests/binance_rules.rs:47:5:
+assertion `left == right` failed: The immutable Proposal has no capacity-input explanation: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"spot-rules","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying' (10924731) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying ... FAILED
+
+failures:
+
+failures:
+    stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

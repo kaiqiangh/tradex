@@ -1,0 +1,13 @@
+{
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "command": "npm run desktop:build",
+  "ordinaryBuild": true,
+  "integrationFixtures": false,
+  "providerRead": false,
+  "financialMutation": false,
+  "success": true,
+  "gatewaySha256": "5f244a5b55db32cc16dca1abc2b76fe3cbd78e1626665af7abd4f9f3b05f8ed0",
+  "nativeSha256": "3a2f5a134db15a75bd6caf8396bc0379dce8e8387644ae8ade463fb3e08483b7",
+  "nativeContainsPinnedGatewaySha256": true,
+  "sourceInputsMatch": 161
+}
