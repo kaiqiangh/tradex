@@ -1,0 +1,15 @@
+
+running 1 test
+
+running 1 test
+test interval_newer_public_refresh_owns_the_observation_and_late_collection_cannot_replace_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 80 filtered out; finished in 0.14s
+
+test interval_newer_public_refresh_owns_the_observation_and_late_collection_cannot_replace_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 80 filtered out; finished in 0.39s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.14s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)

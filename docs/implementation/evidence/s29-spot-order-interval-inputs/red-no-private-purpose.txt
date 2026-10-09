@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_definitions_without_an_order_purpose_cannot_collect_private_usage ... FAILED
+
+failures:
+
+failures:
+    interval_definitions_without_an_order_purpose_cannot_collect_private_usage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 70 filtered out; finished in 0.12s
+
+test interval_definitions_without_an_order_purpose_cannot_collect_private_usage ... FAILED
+
+failures:
+
+failures:
+    interval_definitions_without_an_order_purpose_cannot_collect_private_usage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 70 filtered out; finished in 0.38s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.44s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_definitions_without_an_order_purpose_cannot_collect_private_usage' (11593093) panicked at src-tauri/tests/binance_rules.rs:48:5:
+assertion `left == right` failed: Missing ORDERS definitions are not unlimited: {"data":{"accountId":"4605502a-81fd-4353-baab-36bf99f3552d","baseAsset":"BTC","bindingVersion":"sha256:88c9568169cf811bbf1fec3a1bca880bb4e0ee824e6f6d1a49d7e4df7fec12d8","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"receivedAt":"2026-10-09T15:24:01.346Z","serverTimeMs":"1791559441346","startedAt":"2026-10-09T15:24:01.343Z"},"collectionId":"ac612116-c47c-4543-ba03-f945c11f89c5","counters":[{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"9007199254740993","interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"coverageComplete":false,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"REQUEST_WEIGHT"}],"providerObservedAt":null,"reads":[{"digest":"320d037435e02f1baedd98f5e9efd03628d3044baab0ce36fc07d89c7a8c7598","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:24:01.348Z","startedAt":"2026-10-09T15:24:01.346Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:24:01.353Z","startedAt":"2026-10-09T15:24:01.35Z"},{"digest":"3e34ce73e5c92d1892953341110fa715844608af80cb0b5404f73cdd763d95bd","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:24:01.357Z","startedAt":"2026-10-09T15:24:01.354Z"}],"unresolvedObligations":["INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:c84ebe7ca66dc0d558e30975b5581443f4138959dbf2e6106ec4a3d7833406ac","proposalId":"proposal:929ec972-c4eb-4364-b8f3-d7479fde3316","qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"8f79c00d8c11e17d614523db09b5e8a2e3a1c45b80bf103846235abc3caa8db1","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:f5f86bb0-fb6f-4fb0-b12d-148da0e49f84:1","stateVersion":"sha256:6c245837b85dc568288d73928f2875865d1624e2ee05ab709ba3ee59df3a546e","status":"OBSERVED","workspaceId":"f5f86bb0-fb6f-4fb0-b12d-148da0e49f84"},"ok":true,"requestId":"no-interval-purpose","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_definitions_without_an_order_purpose_cannot_collect_private_usage' (11593088) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_definitions_without_an_order_purpose_cannot_collect_private_usage
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

@@ -1,0 +1,26 @@
+{
+  "text": "Captured Proposal order interval inputs\n\nobserved · Read-only inputs · Execution qualification unavailable\n\nSaved assessment. History does not refresh counters, renew receipts or restore consent. These observations do not approve or reserve an order.\n\nProposal\nproposal:d92a76e2-a09a-4a1f-a116-cec277e94dec · sha256:928157fa670048c3d7c4fd1dc36944247b9ccf3d97ad176792db9a42f10b10eb\nExact account\n353fde30-c80c-4986-b04c-ac641f071754\nAccount-wide interval scope\nAcross all keys, IPs and APIs for this account. Changing keys, workspaces or sources does not reset usage.\nInstrument / units\ncrypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. USDT is not USD.\nRule source / material\nBINANCE_SPOT_RULES:0b23fe4d-99e8-4722-b5d2-a29399a117d1:1 · 861c5f70047226cb95a5f781e358b449c922a974bae01df3148ee1c3ac0176e9\n\nOpen-order filter inventory, account interval usage, HTTP request budgets and local reservations are separate. A local fill, cancellation, expiry or absent response header cannot supply decrement credit or reset an observed counter. Rights, quotes, permissions, health, fees, FX, funding, Arm, consent and immediate authenticated preflight need their own checks.\n\nDefinition, identity and counter responses are non-atomic. Original provider clock samples and local read receipts are not a provider counter snapshot time. Derived time association is uncertain; a possible UTC interval boundary retires the current observation. No reset time, remaining slots or execution-qualified interval is inferred.\n\nCollection\n33ae88a5-0473-400f-95fe-2c1073538c63\nOriginal provider counter snapshot time\nNot supplied\nDeclared interval coverage\nComplete bounded tuple/limit coverage; execution qualification remains unavailable\nOriginal clock sample (milliseconds)\n1791572833619\nClock read start / original receipt\n2026-10-09T19:07:13.614Z / 2026-10-09T19:07:13.619Z\nDerived local clock round-trip bound (milliseconds)\n6. This bound is not a counter watermark or an admission promise.\nActual declared rate limits\n\nORDERS describes account interval usage. REQUEST_WEIGHT and RAW_REQUESTS describe transport budgets, rather than available order slots.\n\nDeclared type / interval\nREQUEST_WEIGHT · Every 1 MINUTE\nOriginal declared limit\n6000\nDeclared type / interval\nORDERS · Every 1 HOUR\nOriginal declared limit\n50\nDeclared type / interval\nORDERS · Every 1 DAY\nOriginal declared limit\n9223372036854775807\nOriginal account interval counters\nObserved type / interval\nORDERS · Every 1 HOUR\nOriginal count / reported limit\n0 / 50. A reported zero limit stays zero; at/above-limit usage is not clamped.\nObserved type / interval\nORDERS · Every 1 DAY\nOriginal count / reported limit\n9007199254740993 / 9223372036854775807. A reported zero limit stays zero; at/above-limit usage is not clamped.\nRead scope\ninterval definitions\nRead start / original receipt\n2026-10-09T19:07:13.619Z / 2026-10-09T19:07:13.623Z\nMaterial digest\n22921ef73c9bd8c747841fe206641cf47c8784db59b2d12b2ed9d4b6b7de368a\nRead scope\naccount identity\nRead start / original receipt\n2026-10-09T19:07:13.625Z / 2026-10-09T19:07:13.63Z\nMaterial digest\n8f6cc7476e2744dd3660315909117c444e6cadfb374fbcba422a08a8e06ed3c4\nRead scope\naccount interval counters\nRead start / original receipt\n2026-10-09T19:07:13.632Z / 2026-10-09T19:07:13.636Z\nMaterial digest\n3e34ce73e5c92d1892953341110fa715844608af80cb0b5404f73cdd763d95bd\nUnresolved interval obligations\ncounter snapshot time unavailable\nderived window association uncertain\ninterval inputs not execution qualified",
+  "widths": [
+    {
+      "body": 1265,
+      "client": 593,
+      "panel": 593,
+      "viewport": 1280
+    },
+    {
+      "body": 753,
+      "client": 593,
+      "panel": 593,
+      "viewport": 768
+    },
+    {
+      "body": 375,
+      "client": 296,
+      "panel": 296,
+      "viewport": 390
+    }
+  ],
+  "armEnabled": false,
+  "armingPerformed": false,
+  "capturedRefreshControls": 0
+}

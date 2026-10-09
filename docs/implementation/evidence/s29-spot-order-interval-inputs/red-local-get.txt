@@ -1,0 +1,35 @@
+
+running 1 test
+
+running 1 test
+test stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying ... FAILED
+
+failures:
+
+failures:
+    stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 68 filtered out; finished in 0.26s
+
+test stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying ... FAILED
+
+failures:
+
+failures:
+    stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 68 filtered out; finished in 0.54s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.53s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying' (11581526) panicked at src-tauri/tests/binance_rules.rs:47:5:
+assertion `left == right` failed: No immutable interval-input explanation: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"spot-rules","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying' (11581511) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

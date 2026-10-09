@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait ... FAILED
+
+failures:
+
+failures:
+    interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 76 filtered out; finished in 0.15s
+
+test interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait ... FAILED
+
+failures:
+
+failures:
+    interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 76 filtered out; finished in 0.40s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.51s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait' (11624545) panicked at src-tauri/tests/binance_rules.rs:75:5:
+assertion `left == right` failed: Original provider request cooldown must remain visible, distinct from interval reset: {"data":{"accountId":"4431da85-bb32-49cd-ac32-47e55604bfd1","baseAsset":"BTC","bindingVersion":"sha256:d41cbbdaf3740d6370e1c636bfc0dd85f8e6d7f6c02017077e4905d863dd29d7","failure":"PROVIDER_IP_BANNED","instrumentId":"crypto:BTC/USDT:spot","observation":null,"proposalHash":"sha256:833d797ab0f15e9ef64efa37591d0b214f1b6b44e09809bfce52d0f1ebd62924","proposalId":"proposal:bd25d04c-d415-43aa-a9a2-af6faa7955cc","providerWaitSeconds":"120","qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","retirementReason":null,"ruleMaterialVersion":"3cecd96f027f0f1bb3077bb3011f9e4045884b1592e24c3840b9005249816f8a","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:ac9135ad-9173-4ffb-a062-e4bdeaa3ec39:1","stateVersion":"sha256:c77bd59f8794dceecf1b89efbd06e6629f67e5354a0015d5e72317049950373c","status":"UNAVAILABLE","workspaceId":"ac9135ad-9173-4ffb-a062-e4bdeaa3ec39"},"ok":true,"requestId":"interval-collection","schemaVersion":1}
+  left: String("120")
+ right: 120
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait' (11624542) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

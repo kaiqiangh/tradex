@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity ... FAILED
+
+failures:
+
+failures:
+    explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.10s
+
+test explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity ... FAILED
+
+failures:
+
+failures:
+    explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.35s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.20s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity' (11588612) panicked at src-tauri/tests/binance_rules.rs:49:5:
+assertion `left == right` failed: No authenticated interval observation: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"interval-read","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity' (11588610) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

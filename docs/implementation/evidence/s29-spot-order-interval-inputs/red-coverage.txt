@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms ... FAILED
+
+failures:
+
+failures:
+    interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 72 filtered out; finished in 0.14s
+
+test interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms ... FAILED
+
+failures:
+
+failures:
+    interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 72 filtered out; finished in 0.75s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.15s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms' (11601387) panicked at src-tauri/tests/binance_rules.rs:72:9:
+assertion `left == right` failed: Unknown or incomplete intervals cannot claim complete coverage: {"data":{"accountId":"dab9f84b-42d7-41c4-8633-ab8e0eb729c1","baseAsset":"BTC","bindingVersion":"sha256:7e46de502abcfab0912b46044f829232c2b916a2a94b27f4174e2f8216d978e3","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"receivedAt":"2026-10-09T15:27:34.071Z","serverTimeMs":"1791559654071","startedAt":"2026-10-09T15:27:34.068Z"},"collectionId":"07826332-65d7-4162-ba89-63bbbeeb7688","counters":[{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"9007199254740993","interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"coverageComplete":true,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"REQUEST_WEIGHT"},{"interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"4535018568224b66750496fd02a9b649c1eeda90eee760a6fa2653f0f5f77364","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:27:34.075Z","startedAt":"2026-10-09T15:27:34.071Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:27:34.079Z","startedAt":"2026-10-09T15:27:34.076Z"},{"digest":"ed939c5a10170ce7fa537544775b058787e27e95865aaa6a9c10a1b78107185c","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:27:34.084Z","startedAt":"2026-10-09T15:27:34.08Z"}],"unresolvedObligations":["INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:3f266f07bb9bcccc8b38bcb20708f54ec3ad9b25774b846391782c276da0b3bb","proposalId":"proposal:3a9860a6-c45b-4b32-8e58-015ad52e7aaa","qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"3027bf9c0d0aae08b3d5fd7cae97602433c106684ceaae7c02ddbf889f65516d","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:5af810f3-a4ce-42c6-8f56-cf9fa0db2e72:1","stateVersion":"sha256:6b6317b528e264492bd770d399528934c4880c3f2997cd983742566d2c445b15","status":"OBSERVED","workspaceId":"5af810f3-a4ce-42c6-8f56-cf9fa0db2e72"},"ok":true,"requestId":"interval-collection","schemaVersion":1}
+  left: Bool(true)
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms' (11601284) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

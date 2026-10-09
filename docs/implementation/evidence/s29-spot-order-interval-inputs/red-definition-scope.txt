@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context ... FAILED
+
+failures:
+
+failures:
+    interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 82 filtered out; finished in 0.13s
+
+test interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context ... FAILED
+
+failures:
+
+failures:
+    interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 82 filtered out; finished in 0.38s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.14s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context' (11655671) panicked at src-tauri/tests/binance_rules.rs:68:9:
+assertion `left == right` failed: Filtered definitions must match the immutable canonical scope: {"data":{"accountId":"5bf726ab-b953-4d56-8d05-a0e1d81acd36","baseAsset":"BTC","bindingVersion":"sha256:17b98765034f56c74ab75f666729080fdb59038c83bdc078a43d18721376b40e","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"localRoundTripBoundMs":"4","receivedAt":"2026-10-09T15:57:23.39Z","serverTimeMs":"1791561443390","startedAt":"2026-10-09T15:57:23.387Z"},"collectionId":"b9cc17d8-e5e4-47f7-9543-d9c44ca82711","counters":[{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"9007199254740993","interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"coverageComplete":true,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"REQUEST_WEIGHT"},{"interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"4a5c317f2eca5a3b83312c904ff1aad496eae6ca32cf1e1622ea458a960e572b","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:57:23.393Z","startedAt":"2026-10-09T15:57:23.39Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:57:23.398Z","startedAt":"2026-10-09T15:57:23.394Z"},{"digest":"3e34ce73e5c92d1892953341110fa715844608af80cb0b5404f73cdd763d95bd","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:57:23.402Z","startedAt":"2026-10-09T15:57:23.399Z"}],"timeAssociation":"DERIVED_UNCERTAIN","unresolvedObligations":["COUNTER_SNAPSHOT_TIME_UNAVAILABLE","DERIVED_WINDOW_ASSOCIATION_UNCERTAIN","INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:976e7b6ba8df8b01e9cf7bfc176886ac8b42cc1aca8cb64bee05c3a83aacbd7a","proposalId":"proposal:b1bec38e-d2df-4fbd-8834-a23883ed919a","providerWaitSeconds":null,"qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","retirementReason":null,"ruleMaterialVersion":"c9f90d9133efa707dda8ab41b187ee2fceec9252d629f12303e60940a63e7216","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:3e9bcdeb-274b-4a51-9eea-7155dcaaa150:1","stateVersion":"sha256:2e2f08e4703ea63d40f790d7b1970b73ac7e1ae95322e709b17685f369aa693c","status":"OBSERVED","workspaceId":"3e9bcdeb-274b-4a51-9eea-7155dcaaa150"},"ok":true,"requestId":"interval-collection","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context' (11655667) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

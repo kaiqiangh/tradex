@@ -1,0 +1,13 @@
+
+running 5 tests
+test rejects_an_oversized_handshake_frame_before_reading_its_body ... ok
+test rejects_a_gateway_that_does_not_echo_the_current_session_credential ... ok
+test rejects_a_gateway_with_an_incompatible_protocol_version ... ok
+test refuses_to_launch_an_executable_that_does_not_match_its_pin ... ok
+test launches_the_pinned_gateway_over_a_private_session_and_stops_it ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.01s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.64s
+     Running tests/order_gateway.rs (target/debug/deps/order_gateway-50264ef4ad45b2ac)

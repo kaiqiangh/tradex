@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_original_collections_are_unique_bounded_and_never_truncated_to_success ... FAILED
+
+failures:
+
+failures:
+    interval_original_collections_are_unique_bounded_and_never_truncated_to_success
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.15s
+
+test interval_original_collections_are_unique_bounded_and_never_truncated_to_success ... FAILED
+
+failures:
+
+failures:
+    interval_original_collections_are_unique_bounded_and_never_truncated_to_success
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.45s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.15s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_original_collections_are_unique_bounded_and_never_truncated_to_success' (11596899) panicked at src-tauri/tests/binance_rules.rs:59:9:
+assertion `left == right` failed: Malformed interval inventory cannot succeed: {"data":{"accountId":"450219d7-695c-4bdc-8e5c-15b8a8e9ce6e","baseAsset":"BTC","bindingVersion":"sha256:2977b1093f7df78856ec3225eadbd991ad95d440815c1e4fd871fcf03ffff156","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"receivedAt":"2026-10-09T15:25:35.177Z","serverTimeMs":"1791559535177","startedAt":"2026-10-09T15:25:35.174Z"},"collectionId":"dcb02ef7-2823-459b-bdf5-73cd19f4050c","counters":[{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"}],"coverageComplete":false,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"REQUEST_WEIGHT"},{"interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"4535018568224b66750496fd02a9b649c1eeda90eee760a6fa2653f0f5f77364","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:25:35.18Z","startedAt":"2026-10-09T15:25:35.177Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:25:35.185Z","startedAt":"2026-10-09T15:25:35.181Z"},{"digest":"5d5cb2ddaf5c9c6562b7cdb96ccae7ffa08b2403d5166ea963df9ed254e22060","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:25:35.189Z","startedAt":"2026-10-09T15:25:35.186Z"}],"unresolvedObligations":["INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:7416e605f80e8881206153de1b854d6cbe8e864854d53a7257166e7f34f0c153","proposalId":"proposal:740bba91-08f6-4c95-bc7f-c1101ae2eb61","qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"6198cfddec4648a5452c80a0d4360df7dc8f45f6542e8cf0067ce9ead00f2c9c","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:b6026191-93c4-481d-9d37-aae64e959f6b:1","stateVersion":"sha256:9ba22b5ffee6de7d19a5f4300931b71de4b2ffc9746079ad9b54e5e08c3d909a","status":"OBSERVED","workspaceId":"b6026191-93c4-481d-9d37-aae64e959f6b"},"ok":true,"requestId":"interval-collection","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_original_collections_are_unique_bounded_and_never_truncated_to_success' (11596890) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_original_collections_are_unique_bounded_and_never_truncated_to_success
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

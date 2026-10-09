@@ -1,0 +1,1 @@
+A cached-module refresh first used an absolute import specifier with a query suffix; module resolution rejected it before UI execution. A file URL with the same suffix imported the existing unchanged helper. The complete final replay passed. This harness setup mistake is not a product failure or extra genuine RED cycle.

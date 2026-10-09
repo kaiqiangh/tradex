@@ -4,7 +4,7 @@
 
 当前单票：[提供 Binance 精确账户时段订单额度输入](https://github.com/kaiqiangh/tradex/issues/127)，已由kaiqiangh领取，ready-for-agent/wayfinder:task；原生父项121、已完成依赖126、0 open blockers。[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6083562531)。
 
-仅规划。既有单票及公开React→类型化Rust→临时SQLite/outbox→外部HTTP/vault/WS接缝不变，无需重复审批/接缝问答。尚未实施或验收。
+来源实现 VERIFIED，163个冻结输入与提交相同；最终回归/普通构建/Gateway pin/实际UI及独立串行Standards→Spec通过。精确远端/tracker交付待完成。[验收证据](s29-spot-order-interval-inputs-evidence_zh.md)。既有单票/公开接缝不变；完整父项/全图/原生/提供方/金融/物理/原型/main验收独立。
 
 ## 问题
 
@@ -40,7 +40,7 @@ Trade已有有界精确账户开放订单库存，却没有经认证的账户级
 - 复用不可变Proposal上下文、普通Binance已有连接、可信时钟/运行绑定、signed/vault/zeroization边界、P3调度及当前/捕获审核模块。可信本地get和显式CAS refresh只接收workspace、已保存Proposal、当前state version；无新account/source设置、renderer URL/symbol/UID/interval/count/limit/time/authority输入或后台扫描。
 - 后端导出canonical BTC/ETH/USDT、精确已保存account/remote UID/credential version及workspace/source/rule-material/market/policy/Proposal/hash/session/clock generations。复用trusted main归属/发布检查，integration stdio仅为隔离构建接缝。本地get不调用vault或provider。
 - 用固定普通公共exchangeInfo、按导出canonical symbol过滤读取实际rateLimits，不扫描标的全集。实际ORDERS定义确定所需账户时段覆盖；REQUEST_WEIGHT/RAW_REQUESTS属于传输约束，不是订单额度。定义缺失/未知保持明确，不推断无限额；无真实定义用途时不做多余私有读取。
-- 固定普通公开clock，再signed USER_DATA account身份和rateLimit/order GET。原始数字Spot UID须匹配已保存精确账户；不为此读取余额/订单/列表/历史。当前拟定成本：公开clock2、filtered exchangeInfo20仅共享IP；认证account20、rateLimit/order40使用真实signed UID/IP。实施时复核官方契约。复用HMAC/recvWindow5000、固定host/no-redirect，公共读取不虚构UID。
+- 固定普通公开clock，再signed USER_DATA account身份和rateLimit/order GET。原始数字Spot UID须匹配已保存精确账户；不为此读取余额/订单/列表/历史。当前拟定成本：公开clock1、filtered exchangeInfo20仅共享IP；认证account20、rateLimit/order40使用真实signed UID/IP。实施时复核官方契约。复用HMAC/recvWindow5000、固定host/no-redirect，公共读取不虚构UID。
 - 对照声明与观察的原始时段tuple/limit。已知单位SECOND/MINUTE/HOUR/DAY，intervalNum为原始正整数，limit/count为原始非负整数，均限signed64-bit、以最长20位精确十进制字符串保留；duration乘法溢出检查，不用float。原始零limit不当作禁用，达到/超过limit仍保留count。重复字段/tuple、原始float/string伪整数、负数/溢出、格式/大小/矛盾失败或明确不完整，不丢行伪造完整。拟定512KiB/响应、32时段行、8临时Proposal slots。未知type/unit/活动字段为有界未解决证据。
 - Counter是账户级时段用量，不是开放订单过滤器库存或symbol额度。本地成交/撤单/过期、header缺失、workspace/key/source变化不能递减或重置观察。遵守实际共享418/429 Retry-After及UID/IP预算，不混淆HTTP读取预算与下单时段限制；无order test、PLACE/CANCEL/amend/listen-key mutation或生命周期探测。
 - 类型化观察展示定义/私有读取摘要和窗口、精确tuple/count/limit、覆盖/未知原因、最早收据、原始clock samples。未提供的汇总counter providerObservedAt保持缺失，各读取非原子。不制造provider resetAt、counter snapshot time、剩余slots或执行资格化时段身份。从clock/定义导出的时段关联须明确为derived且保留不确定性/可能边界保守撤下，不是原始counter时间或准入承诺。
@@ -64,4 +64,4 @@ Trade已有有界精确账户开放订单库存，却没有经认证的账户级
 
 2026-10-09复核：[Spot filters](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/filters.md)、[账户时段counter REST契约](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/rest-api.md#query-unfilled-order-count)、[未成交计数语义](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/faqs/order_count_decrement.md)。接口区分开放库存与账户时段用量，返回所有时段counter，signed读取weight40。保守时间不资格化属于本规范设计，不是provider快照保证。
 
-容量输入已完成，使区别可见；现有代码仍未采集时段额度。本单票真实来源依赖可独立开始，不伪造正向本地预留/金融路径。它推进完整父项的综合拥有方判定，不替代终点；不制造S28或物理生命周期调度依赖。
+规划时容量输入已完成，使区别可见；当时的代码仍未采集时段额度。本单票真实来源依赖可独立开始，不伪造正向本地预留/金融路径。它推进完整父项的综合拥有方判定，不替代终点；不制造S28或物理生命周期调度依赖。

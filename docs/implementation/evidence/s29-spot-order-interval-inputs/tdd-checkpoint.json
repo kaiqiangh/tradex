@@ -1,0 +1,99 @@
+{
+  "stage": "Intermediate RED/GREEN evidence, not final acceptance",
+  "reviewBaseline": "91e2f2a99808a1a97004bef396a23c14b764ca4d",
+  "currentHead": "2289d9d6210f0d50cee01b53ae7344e723335aa2",
+  "seam": "Approved public typed Control Plane and actual React; temporary SQLite/outbox; external HTTP/vault only. No positive financial snapshot setter",
+  "cycles": [
+    {
+      "behavior": "local-get",
+      "redLog": "red-local-get.txt",
+      "redSha256": "5fe74f73d22387eade39aa8182442e8c6aef3785950c94c66d47dd87370563ac",
+      "greenLog": "green-local-get.txt",
+      "greenSha256": "4773bf538d4679bd92b31e36b7c61351fef8b426543f7bd3f147dcff5657fe40"
+    },
+    {
+      "behavior": "explicit-read",
+      "redLog": "red-explicit-read.txt",
+      "redSha256": "1bb0feac01707cfd4c0665e39e76cb90bd013ea06d234f57b9dd57b7ba7567ca",
+      "greenLog": "green-explicit-read.txt",
+      "greenSha256": "33ac16a8a825d56f2be666cf7c117adcf4375e9ec44d6bf18aaa407fe0445977"
+    },
+    {
+      "behavior": "no-private-purpose",
+      "redLog": "red-no-private-purpose.txt",
+      "redSha256": "a8c4491302b4922c0fb45ea8f1c8068ab06e51e615e8ff37b68e47672b0436e3",
+      "greenLog": "green-no-private-purpose.txt",
+      "greenSha256": "e25ddb93346838c8bfe394aa6efb70363601f8b51204d080c1d456f1ec774830"
+    },
+    {
+      "behavior": "unique-bounds",
+      "redLog": "red-unique-bounds.txt",
+      "redSha256": "6402487ac07fc10b1ed46fcb7f75c35ca64b169588be9b62973be2decb4b1676",
+      "greenLog": "green-unique-bounds.txt",
+      "greenSha256": "b28e2ba7c04a70f702e0cb6f2cbbafd6bd16bb5d39d9fc740e2621829e008cb4"
+    },
+    {
+      "behavior": "coverage",
+      "redLog": "red-coverage.txt",
+      "redSha256": "9746e313014944401e123174f9c68444bb0c15baf82c7a8d2637978073061150",
+      "greenLog": "green-coverage.txt",
+      "greenSha256": "c23d1e17259edc2abc39b88140a82122f972f7faaee43183b44c917fb5506bb8"
+    },
+    {
+      "behavior": "integer-duration",
+      "redLog": "red-integer-duration.txt",
+      "redSha256": "1743a3663067499614afc37190a66ccb0cbf899e752a3c4c94cbb6097b84b638",
+      "greenLog": "green-integer-duration.txt",
+      "greenSha256": "233f43403eecc719dbf64ce573b925ffab00ebe5c6fb62bac023f7c7017fc74e"
+    },
+    {
+      "behavior": "rollover",
+      "redLog": "red-rollover.txt",
+      "redSha256": "3ba73566e56fae049c3bafe40cbd902f909571cc93322b03eb93135e520c8463",
+      "greenLog": "green-rollover.txt",
+      "greenSha256": "8cd7889b4b0da33ac0cdee1c4f263c94cc9ebb0abe0452b765bb68d244df04bc"
+    },
+    {
+      "behavior": "capture",
+      "redLog": "red-capture.txt",
+      "redSha256": "a8d840f042c93fd0e23c5c167ba480e3430e84a785983664ff360abcb3ac0ec3",
+      "greenLog": "green-capture.txt",
+      "greenSha256": "a7499b620ee4ec15e45da349d64e3754076ddffc113390fabd3fc421447d020c"
+    },
+    {
+      "behavior": "provider-wait",
+      "redLog": "red-provider-wait.txt",
+      "redSha256": "15dad3bae4a6a2727a6403d286e3dd6ecf9185263ad59df14d53add7cb68cd9b",
+      "greenLog": "green-provider-wait.txt",
+      "greenSha256": "a66d6b3cc7a5bc54ee656bee2fc5aa39910e63a324070e331d7530135c35e19b"
+    },
+    {
+      "behavior": "definition-reflection",
+      "redLog": "red-definition-reflection.txt",
+      "redSha256": "11e9fd43ad7953d5eed2ecf4e034618bc7b5aa63489de0b93940173b431e28a6",
+      "greenLog": "green-definition-reflection.txt",
+      "greenSha256": "650a9b9ed64cbb7c2958db662ac8a5105c395ac10e79ed7fa2623f76234c0c1c"
+    },
+    {
+      "behavior": "definition-scope",
+      "redLog": "red-definition-scope.txt",
+      "redSha256": "9ca713db07a3c782d26a9f770efe7a633e4b0489b4e02be5f4b026cd479c7765",
+      "greenLog": "green-definition-scope.txt",
+      "greenSha256": "e7f34399c15ac37b9e7036dbd634bd038bb1774d234339d67a388a5a063ecc2a"
+    }
+  ],
+  "uiRed": "red-ui.json",
+  "uiGreen": "green-ui-current.json",
+  "firstPassExistingGuards": [
+    "verify-owner-cas.txt",
+    "verify-auth-identity-recovery.txt",
+    "verify-newer-owner.txt",
+    "verify-vault-deadline.txt",
+    "verify-packet-slot-bounds.txt"
+  ],
+  "nonProductFailures": [
+    "provider-wait-contract-mismatch.txt",
+    "provider-wait-contract-mismatch-second.txt"
+  ],
+  "nonProductFailureNote": "Test expectation formatting replacement missed number/string comparison twice; actual typed cooldown representation is exact decimal string. These are not extra genuine RED cycles."
+}
