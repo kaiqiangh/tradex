@@ -49,10 +49,20 @@ pub fn credentials() -> Result<Credentials> {
     Credentials::new(vec![KEY.into(), SECRET.into()])
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum BinanceCapacityFixture {
+    #[default]
+    Normal,
+    BaseLists,
+    Malformed,
+    Delayed,
+}
+
 pub struct Http {
     // External response mode used only by disposable FX browser QA.
     pub fx_ui: bool,
     pub binance_rules_ui: bool,
+    pub binance_capacity_ui: Cell<BinanceCapacityFixture>,
     pub alpaca_quote_status: Cell<u16>,
     pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
     pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
@@ -114,6 +124,7 @@ impl Default for Http {
         Self {
             fx_ui: false,
             binance_rules_ui: false,
+            binance_capacity_ui: Cell::new(BinanceCapacityFixture::Normal),
             alpaca_quote_status: Cell::new(200),
             alpaca_quote_body: RefCell::new(None),
             alpaca_condition_body: RefCell::new(None),
@@ -1042,7 +1053,37 @@ impl ProviderHttp for Http {
                 return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
             }
             return Ok(serde_json::to_vec(&match route {
-                "/api/v3/account"=>json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]}),
+                "/api/v3/account"=>{
+                    let mut value=json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]});
+                    if self.binance_rules_ui && self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
+                        if self.binance_capacity_ui.get()==BinanceCapacityFixture::Delayed { std::thread::sleep(std::time::Duration::from_millis(1500)); }
+                        value["balances"].as_array_mut().unwrap().extend([json!({"asset":"BTC","free":"0.10000000","locked":"0.02000000"}),json!({"asset":"ETH","free":"1.00000000","locked":"0.00000000"})]);
+                    }
+                    value
+                },
+                "/api/v3/openOrders" if self.binance_rules_ui => {
+                    let mut rows = self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders);
+                    for row in &mut rows {
+                        let object = row.as_object_mut().unwrap();
+                        object.entry("orderListId").or_insert(json!(-1));
+                        object.entry("isWorking").or_insert(json!(true));
+                        object.entry("icebergQty").or_insert(json!("0.00000000"));
+                        object.entry("stopPrice").or_insert(json!("0.00000000"));
+                    }
+                    if let Some(symbol) = param("symbol") { rows.retain(|row| row["symbol"] == symbol); }
+                    if self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
+                        if let Some(row)=rows.iter_mut().find(|row| row["symbol"]=="BTCUSDT") {
+                            row["orderListId"]=json!(9007199254740997u64);
+                            if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { row["side"]=json!(1); }
+                        }
+                    }
+                    json!(rows)
+                },
+                "/api/v3/openOrderList" if self.binance_rules_ui => {
+                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::Normal { json!([]) } else {
+                        json!([{"orderListId":9007199254740997u64,"contingencyType":"OTO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"fixture-capacity-list","transactionTime":1788849500000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc"},{"symbol":"BTCUSDT","orderId":9007199254740998u64,"clientOrderId":"fixture-pending-btc"}]}])
+                    }
+                },
                 "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders)),
                 "/api/v3/allOrders" => {
                     let symbol = param("symbol").unwrap_or_default();
@@ -1081,7 +1122,12 @@ impl ProviderHttp for Http {
                 },
                 "/api/v3/myFilters" if self.binance_rules_ui => {
                     assert!(matches!(param("symbol"), Some("BTCUSDT" | "ETHUSDT")));
-                    json!({"exchangeFilters":[{"filterType":"EXCHANGE_MAX_NUM_ORDERS","maxNumOrders":1000}],"symbolFilters":[{"filterType":"MIN_NOTIONAL","minNotional":"5.00000000","applyToMarket":true,"avgPriceMins":5}],"assetFilters":[{"filterType":"MAX_ASSET","asset":if param("symbol") == Some("BTCUSDT") {"BTC"} else {"ETH"},"limit":"0.25000000"}]})
+                    let mut value=json!({"exchangeFilters":[{"filterType":"EXCHANGE_MAX_NUM_ORDERS","maxNumOrders":1000}],"symbolFilters":[{"filterType":"MIN_NOTIONAL","minNotional":"5.00000000","applyToMarket":true,"avgPriceMins":5}],"assetFilters":[{"filterType":"MAX_ASSET","asset":if param("symbol") == Some("BTCUSDT") {"BTC"} else {"ETH"},"limit":"0.25000000"}]});
+                    if self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
+                        value["exchangeFilters"].as_array_mut().unwrap().push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20}));
+                        value["symbolFilters"].as_array_mut().unwrap().push(json!({"filterType":"MAX_POSITION","maxPosition":"1.00000000"}));
+                    }
+                    value
                 },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);

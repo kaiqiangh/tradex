@@ -1,4 +1,4 @@
-import type { SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
+import type { SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { subscribeBrowserEvents } from './browserEvents.ts';
 import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, DataSourceConnection, CalendarConnection, CalendarConfigure, DataSourceConfigure, DataSourceMutation, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, HotQuoteAcquire, HotQuoteQuery, HotQuoteProjection, HotQuoteRelease, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, LiveOrderRefreshRequest, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
@@ -19,6 +19,8 @@ interface Inputs {
   'risk.evaluate_proposal': RiskDecisionEvaluate;
   'trade.spot_rules.refresh': SpotRulesRefresh;
   'trade.spot_rules.get': SpotRulesQuery;
+  'trade.spot_capacity.get': SpotRulesQuery;
+  'trade.spot_capacity.refresh': SpotRulesRefresh;
   'risk.decision.list': RiskDecisionQuery;
   'risk.save_policy': SaveRiskPolicy;
   'onboarding.set_step': SetOnboardingStep;
@@ -176,6 +178,8 @@ interface Outputs {
   'risk.evaluate_proposal': RiskDecision;
   'trade.spot_rules.refresh': SpotProposalRules;
   'trade.spot_rules.get': SpotProposalRules;
+  'trade.spot_capacity.get': SpotCapacityInputs;
+  'trade.spot_capacity.refresh': SpotCapacityInputs;
   'risk.decision.list': RiskDecisionHistory;
   'risk.save_policy': RiskPolicyState;
   'onboarding.set_step': RiskPolicyState;
@@ -333,6 +337,8 @@ const definitions = {
   'risk.evaluate_proposal': ['RiskDecisionEvaluate', 'RiskDecision'],
   'trade.spot_rules.refresh': ['SpotRulesRefresh', 'SpotProposalRules'],
   'trade.spot_rules.get': ['SpotRulesQuery', 'SpotProposalRules'],
+  'trade.spot_capacity.get': ['SpotRulesQuery', 'SpotCapacityInputs'],
+  'trade.spot_capacity.refresh': ['SpotRulesRefresh', 'SpotCapacityInputs'],
   'risk.decision.list': ['RiskDecisionQuery', 'RiskDecisionHistory'],
   'risk.save_policy': ['SaveRiskPolicy', 'RiskPolicyState'],
   'onboarding.set_step': ['SetOnboardingStep', 'RiskPolicyState'],

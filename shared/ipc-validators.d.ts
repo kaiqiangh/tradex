@@ -392,6 +392,16 @@ declare const validators: {
   SetFallbackPolicy: (value: unknown) => boolean;
   SetOnboardingStep: (value: unknown) => boolean;
   Snapshot: (value: unknown) => boolean;
+  SpotCapacityBalance: (value: unknown) => boolean;
+  SpotCapacityCounts: (value: unknown) => boolean;
+  SpotCapacityInputs: (value: unknown) => boolean;
+  SpotCapacityObservation: (value: unknown) => boolean;
+  SpotCapacityPosition: (value: unknown) => boolean;
+  SpotCapacityPurpose: (value: unknown) => boolean;
+  SpotCapacityQuality: (value: unknown) => boolean;
+  SpotCapacityRead: (value: unknown) => boolean;
+  SpotCapacityReadKind: (value: unknown) => boolean;
+  SpotCapacityStatus: (value: unknown) => boolean;
   SpotDepthCoverage: (value: unknown) => boolean;
   SpotDepthLevel: (value: unknown) => boolean;
   SpotMarketEnvironment: (value: unknown) => boolean;

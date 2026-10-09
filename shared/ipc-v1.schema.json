@@ -457,6 +457,9 @@
     "setOnboardingStep": {
       "$ref": "#/$defs/SetOnboardingStep"
     },
+    "spotCapacityInputs": {
+      "$ref": "#/$defs/SpotCapacityInputs"
+    },
     "spotProposalRules": {
       "$ref": "#/$defs/SpotProposalRules"
     },
@@ -593,6 +596,7 @@
     "spotRulesRefresh",
     "spotRulesQuery",
     "spotProposalRules",
+    "spotCapacityInputs",
     "riskDecisionQuery",
     "saveRiskPolicy",
     "setOnboardingStep",
@@ -13413,6 +13417,9 @@
           "$ref": "#/$defs/SpotProposalRules"
         },
         {
+          "$ref": "#/$defs/SpotCapacityInputs"
+        },
+        {
           "$ref": "#/$defs/RiskDecision"
         },
         {
@@ -14596,6 +14603,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "spotCapacity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityInputs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "spotRules": {
           "anyOf": [
             {
@@ -14693,7 +14710,8 @@
         "DAILY_COUNTERS",
         "RESERVATIONS",
         "INSTRUMENT_RULES",
-        "CURRENCY_RATES"
+        "CURRENCY_RATES",
+        "SPOT_CAPACITY"
       ]
     },
     "RiskDecisionInputReference": {
@@ -16212,6 +16230,431 @@
         "aggregateId",
         "projection",
         "lastSequence"
+      ]
+    },
+    "SpotCapacityBalance": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked"
+      ]
+    },
+    "SpotCapacityCounts": {
+      "type": "object",
+      "properties": {
+        "accountAlgoOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "accountIcebergOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "accountOpenOrderLists": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "accountOpenOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "classificationsComplete": {
+          "type": "boolean"
+        },
+        "listCoverageComplete": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "missingListLegs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "orderCoverageComplete": {
+          "type": "boolean"
+        },
+        "symbolAlgoOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "symbolIcebergOrders": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "symbolOpenOrderLists": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "symbolOpenOrders": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "symbolOpenOrders",
+        "symbolIcebergOrders",
+        "classificationsComplete",
+        "orderCoverageComplete"
+      ]
+    },
+    "SpotCapacityInputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "purposes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCapacityPurpose"
+          },
+          "maxItems": 3
+        },
+        "qualification": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "qualificationReason": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotCapacityStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "purposes",
+        "status",
+        "qualification",
+        "qualificationReason",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotCapacityObservation": {
+      "type": "object",
+      "properties": {
+        "atomic": {
+          "type": "boolean",
+          "const": false
+        },
+        "baseBalance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityBalance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "counts": {
+          "$ref": "#/$defs/SpotCapacityCounts"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityPosition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providerObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/SpotCapacityQuality"
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCapacityRead"
+          },
+          "maxItems": 3,
+          "minItems": 2
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "quality",
+        "atomic",
+        "counts",
+        "unresolvedObligations",
+        "reads"
+      ]
+    },
+    "SpotCapacityPosition": {
+      "type": "object",
+      "properties": {
+        "assetExposureComplete": {
+          "type": "boolean"
+        },
+        "selectedSymbolOpenBuyExecutedQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "selectedSymbolOpenBuyOriginalQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selectedSymbolOpenBuyOriginalQuantity",
+        "selectedSymbolOpenBuyExecutedQuantity",
+        "assetExposureComplete"
+      ]
+    },
+    "SpotCapacityPurpose": {
+      "type": "string",
+      "enum": [
+        "OPEN_ORDERS_ACCOUNT",
+        "OPEN_ORDERS_SYMBOL",
+        "BASE_BALANCES",
+        "OPEN_ORDER_LISTS"
+      ]
+    },
+    "SpotCapacityQuality": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY_SPOT_CAPACITY"
+      ]
+    },
+    "SpotCapacityRead": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "kind": {
+          "$ref": "#/$defs/SpotCapacityReadKind"
+        },
+        "latestProviderTransactionTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "latestProviderUpdateTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "oldestProviderTransactionTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "oldestProviderUpdateTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "startedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotCapacityReadKind": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT",
+        "OPEN_ORDERS_ACCOUNT",
+        "OPEN_ORDERS_SYMBOL",
+        "OPEN_ORDER_LISTS"
+      ]
+    },
+    "SpotCapacityStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_OBSERVED",
+        "OBSERVED",
+        "UNAVAILABLE",
+        "STALE"
       ]
     },
     "SpotDepthCoverage": {

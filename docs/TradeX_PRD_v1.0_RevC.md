@@ -1293,6 +1293,8 @@ A policy rejection takes precedence. If no check rejects but required evidence i
 
 For ordinary Binance Spot Live, show per-Proposal static rule results with exact account/hash, original scope/origin and BASE/QUOTE units. Only genuine purpose-matching reference inputs may qualify percentages/notionals; error, future, stale or unknown inputs remain unavailable. Complete rules PASS requires every actually applicable obligation; captured history cannot renew current evidence. Read-only rule collection and static success do not grant quote/data-use rights, fees/FX, Arm, consent or immediate preflight. Backend §41.44 and UI §14.28 define the shared contract; prototype code is unchanged.
 
+Exact-account capacity inputs are an explicit read-only prerequisite, not dynamic financial qualification. Preserve bounded account versus symbol inventory/coverage, original BASE free/locked and open BUY quantity components, partial/foreign/list-leg uncertainty and non-atomic original times/receipts. Cached history never renews current observation, and no absent count becomes zero. Backend §41.45 and UI §14.29 define the current/captured contract; all financial approval, rights, funding, Arm and immediate preflight gates remain independent.
+
 ---
 
 # 22. Pre-approval and Pre-execution Validation

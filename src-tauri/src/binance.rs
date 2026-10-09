@@ -153,6 +153,7 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
             "/sapi/v1/account/apiRestrictions"
                 | "/sapi/v1/account/apiTradingStatus"
                 | "/api/v3/myFilters"
+                | "/api/v3/openOrderList"
         ))
     {
         return false;
@@ -187,7 +188,15 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     keys.remove("timestamp");
     keys.remove("recvWindow");
     match route {
-        "/api/v3/account" | "/api/v3/openOrders" => keys.is_empty(),
+        "/api/v3/account" | "/api/v3/openOrderList" => keys.is_empty(),
+        "/api/v3/openOrders" => {
+            keys.is_empty()
+                || (endpoint == ProviderEndpoint::BinanceLive
+                    && keys.len() == 1
+                    && values
+                        .get("symbol")
+                        .is_some_and(|s| matches!(*s, "BTCUSDT" | "ETHUSDT")))
+        }
         "/api/v3/allOrders" => {
             (endpoint == ProviderEndpoint::BinanceLive
                 && keys.iter().all(|key| matches!(*key, "symbol" | "limit"))
@@ -423,7 +432,7 @@ pub(super) fn valid_order_id(value: &str) -> bool {
             .is_ok_and(|id| id > 0 && id <= i64::MAX as u64)
 }
 
-pub(super) fn valid_binance_symbol(value: &str) -> bool {
+pub(crate) fn valid_binance_symbol(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 32
         && value
@@ -470,6 +479,31 @@ pub(crate) fn signed_request_for(
     sampled: Instant,
     current: &impl Fn() -> bool,
 ) -> Result<ProviderHttpResponse> {
+    signed_request_with_rate_limit_for(
+        endpoint,
+        http,
+        method,
+        route,
+        params,
+        secrets,
+        server_time,
+        sampled,
+        current,
+    )
+    .map(|(response, _)| response)
+}
+
+pub(crate) fn signed_request_with_rate_limit_for(
+    endpoint: ProviderEndpoint,
+    http: &impl ProviderHttp,
+    method: ProviderHttpMethod,
+    route: &str,
+    params: &[(&str, &str)],
+    secrets: &[String],
+    server_time: u64,
+    sampled: Instant,
+    current: &impl Fn() -> bool,
+) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
     if endpoint == ProviderEndpoint::BinanceTestnet {
         check_testnet_ip_cooldown()?;
     }
@@ -511,14 +545,14 @@ pub(crate) fn signed_request_for(
     {
         return Err(invalid());
     }
-    Ok(response)
+    Ok((response, rate_limit))
 }
 
 fn server_time(http: &impl ProviderHttp, current: &impl Fn() -> bool) -> Result<(u64, Instant)> {
     server_time_for(ProviderEndpoint::BinanceTestnet, http, current)
 }
 
-pub(super) fn server_time_for(
+pub(crate) fn server_time_for(
     endpoint: ProviderEndpoint,
     http: &impl ProviderHttp,
     current: &impl Fn() -> bool,
@@ -540,13 +574,25 @@ pub(super) fn server_time_for(
     if endpoint == ProviderEndpoint::BinanceTestnet {
         observe_ip_rate_limit(response.status, rate_limit.as_ref());
     }
+    if endpoint == ProviderEndpoint::BinanceLive && response.status == 418 {
+        crate::provider_io::record_provider_retry_after(
+            "binance",
+            None,
+            rate_limit
+                .as_ref()
+                .and_then(|limit| limit.retry_after_seconds),
+        );
+    }
     if let Some(code) = rate_limit_code(response.status) {
         return Err(TradeXError::new(code));
     }
     if response.status != 200 || started.elapsed() > Duration::from_secs(2) {
         return Err(time_error());
     }
-    let value: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+    if response.body.len() > 512 * 1024 {
+        return Err(invalid());
+    }
+    let value: Value = crate::provider_json::strict_json(&response.body)?;
     let value = value["serverTime"]
         .as_u64()
         .filter(|value| valid_time(*value))

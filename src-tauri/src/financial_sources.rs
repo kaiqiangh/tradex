@@ -2046,7 +2046,7 @@ fn read_broker_metadata(
     })
 }
 
-fn http_budget_remains(deadline: Instant) -> bool {
+pub(crate) fn http_budget_remains(deadline: Instant) -> bool {
     Instant::now()
         .checked_add(StdDuration::from_secs(12))
         .is_some_and(|latest_completion| latest_completion < deadline)
@@ -2079,7 +2079,7 @@ impl Drop for VaultReadHold {
         }
     }
 }
-fn read_credentials_before_deadline(
+pub(crate) fn read_credentials_before_deadline(
     vault: &(impl CredentialVault + Clone + Send + 'static),
     reference: &str,
     deadline: Instant,
@@ -2114,6 +2114,9 @@ pub fn execute_refresh(
     vault: &(impl CredentialVault + Clone + Send + 'static),
     http: &impl ProviderHttp,
 ) -> Value {
+    if request["command"] == "trade.spot_capacity.refresh" {
+        return crate::spot_capacity::execute_refresh(control, request, consumer, vault, http);
+    }
     if request["command"] == "trade.spot_rules.refresh" {
         return crate::spot_proposal_rules::execute_refresh(control, request, consumer, http);
     }

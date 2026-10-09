@@ -261,6 +261,7 @@ async fn control(
                     | "data.fx.refresh"
                     | "data.binance_rules.refresh"
                     | "trade.spot_rules.refresh"
+                    | "trade.spot_capacity.refresh"
             )
         ) {
             return tradex::financial_sources::execute_refresh(

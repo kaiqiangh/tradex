@@ -1027,3 +1027,8 @@ Settings 为普通公开 BTC/USDT、ETH/USDT 行情来源提供显式 Save/Disco
 ## 14.28 不可变 Proposal 静态 Spot 规则说明（S29.4 #125）
 
 Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显示精确账户/hash/canonical BASE/QUOTE 身份、scope/origin、适用性、PASS/REJECT/UNAVAILABLE、明确原因/单位及剩余义务。所需参考输入使用独立、显式、键盘可操作的 Refresh；展示实际 kind、用途、区间、提供方时间、不可续期首次接收和 digest。空/错误/未来/过期/不匹配输入不能靠接收时间变为成功规则或启用 fallback。展示失败恢复，不改变意图、不舍入、不武装。捕获风险/评审/历史始终标为已保存评估并隐去价格；当前替换或过期不能续期。保持1280/768/390可读，区分完整 INSTRUMENT_RULES 与报价/权利/权限/健康/费用/FX/preflight/同意。参见 Backend §41.44 和 Frontend §13.29。原型代码未改；目标文本不表示运行时 PASS。
+
+
+## 14.29 不可变 Proposal 容量输入说明（S29.5 #126，IN_PROGRESS）
+
+当前 Trade 先标明已保存 Proposal/hash/精确账户与 canonical BASE/QUOTE，再提供独立、可键盘操作的“Refresh required capacity inputs”。显示实际私有用途；无用途不私有采集。账户级与所选标的 orders/algo/iceberg/list 计数独立；范围/分类缺失显示不可用，不是零。说明未知字段、部分成交、外部资产归属、pending/缺失列表腿；仅实际需要时展示原始 BASE free/locked 与开放 BUY 原始/已成交量，不猜剩余/预留容量。只读输入始终使执行资格保持 unavailable。保留非原子质量、缺失的汇总 provider snapshot time、原始 update/transaction 时间、最早收据/读取窗口、collection 身份/摘要及显式失败/过期/恢复。当前换源撤下资格；捕获风险/历史/Arm 前仍是已保存评估，无刷新控制器或续收据。1280/768/390 可读性/键盘，以及 rights/quote/permissions/health/FX/fees/funding/Arm/同意/reservation/preflight/CANCEL 边界保持独立。见 Backend §41.45 与 Frontend §13.30。原型代码未改；本目标文字本身不证明 runtime PASS。

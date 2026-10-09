@@ -3087,6 +3087,20 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 RiskDecision 与捕获评审/历史保留有界结果、引用/digest/时间，并隐去每项参考价格，不保留原始价格缓存。重开只恢复配置和捕获历史。权利/MARKET_DATA_USE、报价/深度、权限/健康、Arm、费用/FX、预留、同意、即时认证 Gateway preflight 及保护性精确 CANCEL 保持独立。该只读前置功能不授予整体金融权限或提供方写操作。实现验收在[配对规格](../implementation/s29-spot-proposal-rules-spec_zh.md)中单独记录；原型代码未改。
 
+### 41.45 精确账户 Spot 容量输入观察（S29.5 #126，IN_PROGRESS）
+
+可信 `trade.spot_capacity.get {workspaceId, proposalId}` 与显式 CAS `trade.spot_capacity.refresh {workspaceId, proposalId, expectedStateVersion}` 复用有界 `SpotRulesQuery`/`SpotRulesRefresh` 输入 schema，拒绝 renderer 的未知字段。Backend 从不可变普通 Binance Live BTC/USDT 或 ETH/USDT 意图推导已保存的精确账户/remote UID/key 归属、canonical 单位、活动 scoped 规则及 workspace/source/material/account/policy/market/session/time 绑定。Get 只读本地。实际用途为 `OPEN_ORDERS_ACCOUNT`、`OPEN_ORDERS_SYMBOL`、`BASE_BALANCES`、`OPEN_ORDER_LISTS`；账户/标的范围互斥，最多3用途。交易所级/共享资产义务要求全账户订单；仅标的级计数输入使用后端推导的精确标的。列表/腿完整性可要求 open-list 接口。无实际用途则不采集私有数据。
+
+只允许固定普通 signed USER_DATA GET：clock2 仅公开/IP；account20、全账户 openOrders80、精确标的 openOrders6 和实际所需 openOrderList6 使用真实 signed UID/IP 预算。区间未成交订单计数独立，本票不调用。复用 vault/zeroization/HMAC/recvWindow5000、可信时间、P3/共享418/429 Retry-After 与有界 I/O。总 deadline30s；vault/network I/O 不持全局 CP 锁，晚到/归属变化不能发布；不重置额度、不重定向、不 mutation/order test/扫描标的全集。最多8临时 Proposal slot，每响应512KiB，1000订单、256列表、1024余额；超限拒绝，不截断。
+
+类型化 `SpotCapacityInputs` 绑定 workspace/Proposal/hash/account/instrument、BASE/QUOTE、source/rule-material/binding/state versions、用途、`NOT_OBSERVED|OBSERVED|UNAVAILABLE|STALE`、可选脱敏 failure 与 `SpotCapacityObservation`。资格始终 `UNAVAILABLE/DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED`。观察包含 collectionId、`READ_ONLY_SPOT_CAPACITY`、atomic:false、缺失的汇总 providerObservedAt、有界计数、可选所选 BASE 原始 free/locked、可选所选标的开放 BUY 原始/已成交数量组成、最多16条有界未解决义务及2–3读取记录。账户/标的 total/algo/iceberg/list 与缺失腿计数均为精确十进制整数字符串（最长20）；范围/分类不可用为 null，不是零。`classificationsComplete`、`orderCoverageComplete`、可选 `listCoverageComplete` 只说明观察覆盖。未知活动字段、外部资产归属、部分成交与列表/腿矛盾保持显式；不猜剩余量、BASE 归属、预留容量或 USDT/USD 平价来核验 MAX_POSITION 或其他金融规则。
+
+每次读取保留 kind、startedAt/receivedAt、digest，以及可选原始 oldest/latestProviderUpdateTimeMs 与 oldest/latestProviderTransactionTimeMs。时间最长64、原始整数毫秒20、摘要64。服务商状态变更/交易时间及 clock sample 不代表快照新鲜度；不同接口非原子。从最早私有响应计龄，采用30s与 stale-quote 策略阈值较严者（默认3s）；缓存 get/历史不续期。真实显式经认证重读产生独立 collection。失败、过期、source/account/key/rule/market/policy/workspace/Proposal/session/time 变化及重开撤下当前输入。RiskDecision 可保存有界 `spotCapacity` 和 `SPOT_CAPACITY` 输入摘要；不持久化原始账户/余额/订单/列表明细或运行缓存。当前/捕获/Arm 前说明不提升权利、报价、health/permissions、资金/费用FX、Arm、同意、预留或即时经认证 Gateway preflight。精确 CANCEL/对账保持独立。完整验收仍等待配对规范与证据；原型代码未改。
+
+显式刷新开始即在密钥库/网络读取前撤下此前的当前观察。读取凭据后若不足既有12秒完成余量，则不启动 HTTP。
+
+公开 clock 响应同样限制原始 JSON512KiB，并在私有读取前拒绝重复字段。公开 clock418 将实际 Retry-After 共享至 IP 范围。返回的外部资产/标的身份是有界原始不透明文本（最长64，允许非 ASCII）；不作为请求参数、不推断 BASE 归属、不投影原始明细。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

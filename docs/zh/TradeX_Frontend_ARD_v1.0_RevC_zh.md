@@ -739,6 +739,10 @@ UI §14.27 完整目标仍 IN_PROGRESS。Markets 与所选 Trade Proposal 必须
 
 通过生成的 IPC 消费 Backend §41.44。所选已保存 Binance Live Proposal 持有当前只读规则投影及显式所需参考 Refresh；本地轮询只反映过期，不读取提供方、不续首次接收。展示精确 Proposal/hash/账户/canonical 单位、source/material/接收时间、每项保留 scope/origin 的结果和明确原因、所需用途、原始区间/提供方时间/首次接收/digest、失败恢复及未解决义务。投影错误时不得继续显示当前成功。捕获风险/评审/历史展示已保存评估，隐去价格，没有刷新/轮询权限。保持键盘及1280/768/390可读，保留 BASE/QUOTE 和 USDT 单位，区分静态分项 PASS、完整规则与独立金融门禁。参见 UI §14.28。原型代码未改；文档本身不等于运行时验收。
 
+### 13.30 Proposal 专属只读容量输入（S29.5 #126，IN_PROGRESS）
+
+CurrentSpotCapacity 为所选不可变 Proposal 使用类型化本地 `trade.spot_capacity.get`，通过显式 CAS `trade.spot_capacity.refresh` 读取实际所需经认证输入。本地轮询只反映过期/绑定变化，不采集服务商。显示精确身份/BASE/QUOTE 单位、用途、独立账户/标的 total/algo/iceberg/list 计数、不可用与零的区别、覆盖/部分成交/外部资产/列表腿缺口、原始余额/BUY 组成、非原子质量、读取窗口、原始 update/transaction 时间与收据及摘要。说明脱敏失败/恢复及独立执行资格。规则材料/用途不可用时禁用私有刷新；busy 或投影错误不能保留当前成功。捕获 RiskDecision/历史/Arm 前只展示已保存 `spotCapacity`，无刷新或轮询，不能续证据或同意。核验键盘及1280/768/390，保留独立金融门禁。Backend §41.45 与 UI §14.29 定义契约；原型代码未改，实施验收仍待完成。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

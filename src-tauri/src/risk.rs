@@ -843,6 +843,7 @@ pub enum RiskDecisionInputKind {
     Reservations,
     InstrumentRules,
     CurrencyRates,
+    SpotCapacity,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -916,6 +917,8 @@ pub struct RiskDecision {
     pub checks: Vec<RiskCheckResult>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_rules: Option<crate::spot_proposal_rules::SpotProposalRules>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_capacity: Option<crate::spot_capacity::SpotCapacityInputs>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1072,7 +1075,8 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
         | RiskDecisionInputKind::DailyCounters
         | RiskDecisionInputKind::Reservations
         | RiskDecisionInputKind::InstrumentRules
-        | RiskDecisionInputKind::CurrencyRates => {}
+        | RiskDecisionInputKind::CurrencyRates
+        | RiskDecisionInputKind::SpotCapacity => {}
     }
 }
 
@@ -2273,6 +2277,7 @@ pub(crate) fn evaluate(
         inputs,
         checks,
         spot_rules: None,
+        spot_capacity: None,
     }
 }
 

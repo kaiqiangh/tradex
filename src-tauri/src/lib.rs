@@ -33,6 +33,7 @@ pub mod quote_source;
 pub mod research;
 pub mod risk;
 pub mod screener;
+pub mod spot_capacity;
 pub mod spot_proposal_rules;
 mod storage;
 pub mod strategy;
@@ -2385,6 +2386,7 @@ pub struct ControlPlane {
     calendar_request_sequence: u64,
     financial_source_runtime: financial_sources::FinancialSourceRuntime,
     spot_rule_runtime: spot_proposal_rules::Runtime,
+    spot_capacity_runtime: spot_capacity::Runtime,
     quote_source_epoch: String,
     quote_connection_generation: String,
     quote_source_probe_sequence: u64,
@@ -2415,6 +2417,7 @@ impl ControlPlane {
             calendar_request_sequence: 0,
             financial_source_runtime: Default::default(),
             spot_rule_runtime: Default::default(),
+            spot_capacity_runtime: Default::default(),
             quote_source_epoch: uuid::Uuid::new_v4().to_string(),
             quote_connection_generation: uuid::Uuid::new_v4().to_string(),
             quote_source_probe_sequence: 0,
@@ -3432,6 +3435,7 @@ impl ControlPlane {
                     self.calendar_request_sequence = 0;
                     self.financial_source_runtime = Default::default();
                     self.spot_rule_runtime = Default::default();
+                    self.spot_capacity_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -3487,6 +3491,7 @@ impl ControlPlane {
                     self.calendar_request_sequence = 0;
                     self.financial_source_runtime = Default::default();
                     self.spot_rule_runtime = Default::default();
+                    self.spot_capacity_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -3564,6 +3569,15 @@ impl ControlPlane {
                 let decision =
                     self.evaluate_risk_decision(&input.workspace_id, &input.proposal_id)?;
                 Ok((json!(decision), Some(decision.state_version.clone())))
+            }
+            "trade.spot_capacity.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_capacity::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
             }
             "trade.spot_rules.get" => {
                 if !provider_order_consumer_allowed(consumer) {
@@ -7970,6 +7984,30 @@ impl ControlPlane {
         } else {
             None
         };
+        let spot_capacity = if spot_rules.is_some() {
+            spot_capacity::get(
+                self,
+                &spot_proposal_rules::SpotRulesQuery {
+                    workspace_id: workspace_id.into(),
+                    proposal_id: proposal.proposal_id.clone(),
+                },
+            )
+            .ok()
+        } else {
+            None
+        };
+        if let Some(capacity) = &spot_capacity {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::SpotCapacity,
+                proposal.proposal_id.clone(),
+                capacity
+                    .observation
+                    .as_ref()
+                    .and_then(|o| o.reads.first())
+                    .map(|r| r.received_at.clone()),
+                capacity,
+            )?);
+        }
         if let Some(rules) = &spot_rules {
             inputs.push(risk::input_reference(
                 risk::RiskDecisionInputKind::InstrumentRules,
@@ -8013,6 +8051,7 @@ impl ControlPlane {
             }
             decision.status = risk::RiskDecisionStatus::from_checks(&decision.checks);
         }
+        decision.spot_capacity = spot_capacity;
         decision.spot_rules = spot_rules.map(|mut captured| {
             for reference in &mut captured.references {
                 reference.price = None;

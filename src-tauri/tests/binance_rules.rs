@@ -36,6 +36,1945 @@ fn isolated_rule_scenario(name: &str) -> bool {
 }
 
 #[test]
+fn stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying() {
+    if isolated_rule_scenario(
+        "stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let reads = external.calls.borrow().len();
+    let result = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    assert_eq!(
+        result["ok"], true,
+        "The immutable Proposal has no capacity-input explanation: {result}"
+    );
+    assert_eq!(result["data"]["proposalHash"], decision["proposalHash"]);
+    assert_eq!(result["data"]["accountId"], rig.account["connectionId"]);
+    assert_eq!(result["data"]["instrumentId"], "crypto:BTC/USDT:spot");
+    assert_eq!(result["data"]["baseAsset"], "BTC");
+    assert_eq!(result["data"]["quoteAsset"], "USDT");
+    assert_eq!(result["data"]["status"], "NOT_OBSERVED");
+    assert_eq!(result["data"]["purposes"], json!(["OPEN_ORDERS_ACCOUNT"]));
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    assert_eq!(
+        result["data"]["qualificationReason"],
+        "DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"
+    );
+    assert!(result["data"]["observation"].is_null());
+    assert_eq!(
+        external.calls.borrow().len(),
+        reads,
+        "get must not collect private input"
+    );
+    assert_ne!(decision["status"], "ALLOWED");
+}
+
+#[test]
+fn explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification() {
+    if isolated_rule_scenario(
+        "explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    let first = external.calls.borrow().len();
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-read","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(
+        result["ok"], true,
+        "Authenticated capacity input read is unavailable: {result}"
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED");
+    let observed = &result["data"]["observation"];
+    assert_eq!(observed["quality"], "READ_ONLY_SPOT_CAPACITY");
+    assert_eq!(observed["atomic"], false);
+    assert!(observed["providerObservedAt"].is_null());
+    assert_eq!(observed["counts"]["accountOpenOrders"], "2");
+    assert_eq!(observed["counts"]["symbolOpenOrders"], "1");
+    assert_eq!(observed["reads"][0]["kind"], "ACCOUNT");
+    assert_eq!(observed["reads"][1]["kind"], "OPEN_ORDERS_ACCOUNT");
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    assert!(!result.to_string().contains("private-capacity-client"));
+    let calls = external.calls.borrow();
+    let fresh = &calls[first..];
+    assert!(
+        fresh
+            .iter()
+            .any(|path| path.starts_with("/api/v3/account?timestamp="))
+    );
+    assert!(
+        fresh
+            .iter()
+            .any(|path| path.starts_with("/api/v3/openOrders?timestamp=")),
+        "Must collect the whole account without symbol: {fresh:?}"
+    );
+    assert!(fresh.iter().all(|p| !p.contains("/rateLimit/order")
+        && !p.contains("/openOrderList")
+        && !p.contains("/order/test")));
+    drop(calls);
+    let cached = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query,
+    );
+    assert_eq!(cached["data"]["observation"], *observed);
+    assert_ne!(rig.decision()["status"], "ALLOWED");
+    assert_eq!(
+        command(
+            &mut rig.control.lock().unwrap(),
+            "account.get",
+            json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]})
+        )["data"]["health"]["arming"],
+        "DISARMED"
+    );
+}
+
+#[test]
+fn max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved() {
+    if isolated_rule_scenario(
+        "max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route,body|match route {
+        "/api/v3/exchangeInfo"=>body["symbols"][0]["filters"].as_array_mut().unwrap().push(json!({"filterType":"MAX_POSITION","maxPosition":"1.00000000"})),
+        "/api/v3/account"=> {body["updateTime"]=json!(1700000000000u64);body["balances"]=json!([{"asset":"BTC","free":"0.10000000","locked":"0.02000000"},{"asset":"ETH","free":"3.00000000","locked":"0.00000000"}]);},
+        _=>{}
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query,
+    );
+    assert_eq!(
+        before["data"]["purposes"],
+        json!(["OPEN_ORDERS_ACCOUNT", "BASE_BALANCES"]),
+        "Required position inputs are not derived from the actual rule: {before}"
+    );
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"position-input","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    let observed = &result["data"]["observation"];
+    assert_eq!(
+        observed["baseBalance"],
+        json!({"asset":"BTC","free":"0.10000000","locked":"0.02000000"})
+    );
+    assert_eq!(
+        observed["position"]["selectedSymbolOpenBuyOriginalQuantity"],
+        "0.1"
+    );
+    assert_eq!(
+        observed["position"]["selectedSymbolOpenBuyExecutedQuantity"],
+        "0"
+    );
+    assert_eq!(observed["position"]["assetExposureComplete"], false);
+    assert!(
+        observed["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("FOREIGN_SYMBOL_ASSET_ATTRIBUTION_UNAVAILABLE"))
+    );
+    assert_eq!(
+        observed["reads"][0]["oldestProviderUpdateTimeMs"],
+        "1700000000000"
+    );
+    assert!(observed["providerObservedAt"].is_null());
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders() {
+    if isolated_rule_scenario("capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders")
+    {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/openOrders" {
+            body[1]["type"] = json!("STOP_LOSS_LIMIT");
+            body[1]["icebergQty"] = json!("0.01000000");
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query,
+    );
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-classifications","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    let counts = &result["data"]["observation"]["counts"];
+    assert_eq!(counts["accountOpenOrders"], "2");
+    assert_eq!(counts["symbolOpenOrders"], "1");
+    assert_eq!(
+        counts["accountAlgoOrders"], "1",
+        "Missing account-wide algorithmic count: {result}"
+    );
+    assert_eq!(counts["symbolAlgoOrders"], "0");
+    assert_eq!(counts["accountIcebergOrders"], "1");
+    assert_eq!(counts["symbolIcebergOrders"], "0");
+    assert_eq!(counts["classificationsComplete"], true);
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn malformed_capacity_order_refresh_retires_previously_observed_inventory() {
+    if isolated_rule_scenario(
+        "malformed_capacity_order_refresh_retires_previously_observed_inventory",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-malformed","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/openOrders" {
+                body[0]["side"] = json!("UNKNOWN_SIDE");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["isWorking"] = json!("true");
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["status"] = json!("FILLED");
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["origQty"] = json!(0.1);
+            }
+        },
+    ] {
+        external.edit.set(None);
+        assert_eq!(refresh()["data"]["status"], "OBSERVED");
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Malformed inventory was accepted: {failed}"
+        );
+        assert!(failed["data"]["observation"].is_null());
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert_eq!(failed["data"]["qualification"], "UNAVAILABLE");
+    }
+}
+
+#[test]
+fn capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts() {
+    if isolated_rule_scenario(
+        "capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route,body| match route {
+        "/api/v3/myFilters" => body["exchangeFilters"].as_array_mut().unwrap().push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20})),
+        "/api/v3/openOrders" => body[0]["orderListId"] = json!(9007199254740995u64),
+        "/api/v3/openOrderList" => *body = json!([{"orderListId":9007199254740995u64,"contingencyType":"OTO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"private-capacity-list","transactionTime":1700000000000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740993u64,"clientOrderId":"private-capacity-client-0"},{"symbol":"BTCUSDT","orderId":9007199254740996u64,"clientOrderId":"private-pending-leg"}]}]),
+        _=>{}
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    assert_eq!(
+        before["data"]["purposes"],
+        json!(["OPEN_ORDERS_ACCOUNT", "OPEN_ORDER_LISTS"]),
+        "List source purpose is absent: {before}"
+    );
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-lists","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    let observation = &result["data"]["observation"];
+    assert_eq!(observation["counts"]["accountOpenOrderLists"], "1");
+    assert_eq!(observation["counts"]["symbolOpenOrderLists"], "1");
+    assert_eq!(observation["counts"]["missingListLegs"], "1");
+    assert_eq!(observation["counts"]["listCoverageComplete"], false);
+    assert_eq!(observation["reads"][2]["kind"], "OPEN_ORDER_LISTS");
+    assert!(
+        observation["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("PENDING_OR_MISSING_LIST_LEGS_UNRESOLVED"))
+    );
+    assert!(!result.to_string().contains("private-pending-leg"));
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown() {
+    if isolated_rule_scenario("capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown") {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    *external.response.borrow_mut() = Some(("/api/v3/openOrders".into(), 418, 120));
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-ban","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "UNAVAILABLE");
+    assert_eq!(result["data"]["failure"], "PROVIDER_IP_BANNED");
+    assert!(result["data"]["observation"].is_null());
+    let remaining = tradex::provider_io::provider_retry_after_seconds(
+        "binance",
+        &external.uid.get().to_string(),
+    );
+    assert!(
+        remaining.is_some_and(|s| s >= 119),
+        "Provider 120s ban was shortened: {remaining:?}"
+    );
+}
+
+#[test]
+fn capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it() {
+    if isolated_rule_scenario(
+        "capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    *external.hook.borrow_mut() = Some((
+        "/api/v3/openOrders".into(),
+        Box::new(|| std::thread::sleep(std::time::Duration::from_millis(3200))),
+    ));
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-age","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(
+        result["data"]["status"], "STALE",
+        "Finishing the final HTTP read renewed the earlier account receipt: {result}"
+    );
+    assert!(result["data"]["observation"].is_null());
+    let calls = external.calls.borrow().len();
+    let cached = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query,
+    );
+    assert_eq!(cached["data"]["status"], "STALE");
+    assert!(cached["data"]["observation"].is_null());
+    assert_eq!(external.calls.borrow().len(), calls);
+}
+
+#[test]
+fn capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection() {
+    if isolated_rule_scenario(
+        "capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/myFilters" {
+            body["exchangeFilters"] = json!([]);
+            body["symbolFilters"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"filterType":"MAX_NUM_ORDERS","maxNumOrders":25}));
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let get = || {
+        command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        )
+    };
+    let refresh = |version: Value| {
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-scope","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":version}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let before = get();
+    assert_eq!(
+        before["data"]["purposes"],
+        json!(["OPEN_ORDERS_SYMBOL"]),
+        "Symbol purpose missing: {before}"
+    );
+    let result = refresh(before["data"]["stateVersion"].clone());
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    assert_eq!(
+        result["data"]["observation"]["counts"]["symbolOpenOrders"],
+        "1"
+    );
+    assert!(result["data"]["observation"]["counts"]["accountOpenOrders"].is_null());
+    assert!(
+        external
+            .calls
+            .borrow()
+            .iter()
+            .any(|path| path.starts_with("/api/v3/openOrders?symbol=BTCUSDT&timestamp="))
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/myFilters" {
+            body["exchangeFilters"] = json!([]);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let no_purpose = get();
+    assert_eq!(no_purpose["data"]["purposes"], json!([]));
+    assert!(no_purpose["data"]["observation"].is_null());
+    let calls = external.calls.borrow().len();
+    let refused = refresh(no_purpose["data"]["stateVersion"].clone());
+    assert_eq!(refused["error"]["code"], "CAPACITY_INPUTS_NOT_REQUIRED");
+    assert_eq!(external.calls.borrow().len(), calls);
+}
+
+#[test]
+fn capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved() {
+    if isolated_rule_scenario(
+        "capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| match route {
+        "/api/v3/exchangeInfo" => body["symbols"][0]["filters"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"filterType":"MAX_POSITION","maxPosition":"1.00000000"})),
+        "/api/v3/account" => {
+            body["balances"] = json!([{"asset":"BTC","free":"0.10000000","locked":"0.02000000"}])
+        }
+        "/api/v3/openOrders" => {
+            body.as_array_mut().unwrap().truncate(1);
+            body[0]["status"] = json!("PARTIALLY_FILLED");
+            body[0]["executedQty"] = json!("0.02000000");
+            body[0]["futureCapacityReservation"] = json!("private-future-field");
+        }
+        _ => {}
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-partial","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    let observation = &result["data"]["observation"];
+    assert_eq!(
+        observation["position"]["selectedSymbolOpenBuyOriginalQuantity"],
+        "0.1"
+    );
+    assert_eq!(
+        observation["position"]["selectedSymbolOpenBuyExecutedQuantity"],
+        "0.02"
+    );
+    let unresolved = observation["unresolvedObligations"].as_array().unwrap();
+    assert!(
+        unresolved.contains(&json!("PARTIAL_FILL_QUANTITY_SEMANTICS_UNRESOLVED")),
+        "Partial quantity ambiguity disappeared: {result}"
+    );
+    assert!(unresolved.contains(&json!("UNKNOWN_ACTIVE_ORDER_FIELDS_UNRESOLVED")));
+    assert_eq!(observation["counts"]["orderCoverageComplete"], false);
+    assert!(!result.to_string().contains("private-future-field"));
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn malformed_account_and_balance_inventory_is_rejected_even_without_position_purpose() {
+    if isolated_rule_scenario(
+        "malformed_account_and_balance_inventory_is_rejected_even_without_position_purpose",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-account-fields","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/account" {
+                body["canTrade"] = json!("true");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["balances"] = json!([{"asset":"BTC","free":"1.0000","locked":"0"},{"asset":"BTC","free":"2.0000","locked":"0"}]);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["balances"] = json!([{"asset":"BTC","free":1.25,"locked":"0"}]);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["balances"] =
+                    json!(vec![json!({"asset":"BTC","free":"1","locked":"0"}); 1025]);
+            }
+        },
+    ] {
+        external.edit.set(None);
+        assert_eq!(refresh()["data"]["status"], "OBSERVED");
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Invalid account fields accepted: {failed}"
+        );
+        assert!(failed["data"]["observation"].is_null());
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+    }
+}
+
+#[test]
+fn capacity_original_order_quantities_identity_and_future_times_are_not_coerced() {
+    if isolated_rule_scenario(
+        "capacity_original_order_quantities_identity_and_future_times_are_not_coerced",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/openOrders" {
+                body[0]["executedQty"] = json!("0.20000000");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["price"] = json!(60000);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["orderListId"] = json!(-1.0);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["updateTime"] = json!(
+                    (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64
+                        + 60_000
+                );
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["clientOrderId"] = json!("x".repeat(37));
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["timeInForce"] = json!(true);
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        let result = tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-originals","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        );
+        assert_eq!(
+            result["data"]["status"], "UNAVAILABLE",
+            "Original order field was coerced or ignored: {result}"
+        );
+        assert_eq!(result["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(result["data"]["observation"].is_null());
+    }
+}
+
+#[test]
+fn capacity_capture_retains_aggregate_observation_without_raw_inventory_or_current_renewal() {
+    if isolated_rule_scenario(
+        "capacity_capture_retains_aggregate_observation_without_raw_inventory_or_current_renewal",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    let read = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-capture","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(read["data"]["status"], "OBSERVED");
+    let capture = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        query.clone(),
+    );
+    assert_eq!(capture["ok"], true);
+    assert_eq!(
+        capture["data"]["spotCapacity"]["observation"], read["data"]["observation"],
+        "Risk review omitted the observed capacity inputs: {capture}"
+    );
+    assert_eq!(
+        capture["data"]["spotCapacity"]["qualification"],
+        "UNAVAILABLE"
+    );
+    assert_ne!(capture["data"]["status"], "ALLOWED");
+    assert!(
+        capture["data"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|input| input["kind"] == "SPOT_CAPACITY")
+    );
+    assert!(!capture.to_string().contains("private-capacity-client"));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let current = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    assert!(current["data"]["observation"].is_null());
+    let calls = external.calls.borrow().len();
+    let RuleRig {
+        _folder, control, ..
+    } = rig;
+    drop(control);
+    let mut reopened = ControlPlane::new(_folder.path().into());
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let history = command(&mut reopened, "risk.decision.list", query.clone());
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == capture["data"]["decisionId"])
+        .unwrap();
+    assert_eq!(saved["spotCapacity"], capture["data"]["spotCapacity"]);
+    assert!(!history.to_string().contains("private-capacity-client"));
+    let reopened_inputs = command(&mut reopened, "trade.spot_capacity.get", query);
+    assert!(reopened_inputs["data"]["observation"].is_null());
+    assert_eq!(external.calls.borrow().len(), calls);
+}
+
+#[test]
+fn capacity_refresh_rejects_renderer_authority_and_late_changed_binding_without_holding_control_lock()
+ {
+    if isolated_rule_scenario(
+        "capacity_refresh_rejects_renderer_authority_and_late_changed_binding_without_holding_control_lock",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    let payload = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]});
+    let calls = external.calls.borrow().len();
+    for field in [
+        "endpoint",
+        "symbol",
+        "accountId",
+        "remoteUid",
+        "free",
+        "count",
+        "qualification",
+    ] {
+        let mut injected = payload.clone();
+        injected[field] = json!("renderer-value");
+        let result = tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-injection","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":injected}),
+            "main",
+            &rig.vault,
+            &external,
+        );
+        assert_eq!(result["error"]["code"], "IPC_PAYLOAD_INVALID", "{result}");
+    }
+    let denied = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-consumer","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":payload}),
+        "agent-untrusted",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(denied["error"]["code"], "IPC_ACCESS_DENIED");
+    let mut stale = payload.clone();
+    stale["expectedStateVersion"] = json!("stale");
+    let stale = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-cas","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":stale}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
+    assert_eq!(external.calls.borrow().len(), calls);
+    let control = rig.control.clone();
+    let workspace = rig.workspace.clone();
+    let account = rig.account["connectionId"].clone();
+    *external.hook.borrow_mut() = Some((
+        "/api/v3/openOrders".into(),
+        Box::new(move || {
+            let mut cp = control
+                .try_lock()
+                .expect("Capacity HTTP held the global Control Plane lock");
+            let source = command(
+                &mut cp,
+                "data.binance_rules.connection",
+                json!({"workspaceId":workspace}),
+            );
+            let changed = command(
+                &mut cp,
+                "data.binance_rules.configure",
+                json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account,"instrumentId":"crypto:ETH/USDT:spot"}),
+            );
+            assert_eq!(changed["ok"], true, "{changed}");
+        }),
+    ));
+    let late = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-late","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":payload}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(late["error"]["code"], "STATE_VERSION_CONFLICT", "{late}");
+    let current = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query,
+    );
+    assert!(current["data"]["observation"].is_null());
+    assert_eq!(current["data"]["proposalHash"], decision["proposalHash"]);
+}
+
+#[test]
+fn capacity_list_original_transaction_times_and_unknown_fields_do_not_become_complete_snapshots() {
+    if isolated_rule_scenario(
+        "capacity_list_original_transaction_times_and_unknown_fields_do_not_become_complete_snapshots",
+    ) {
+        return;
+    }
+    fn complete_lists(route: &str, body: &mut Value) {
+        match route {
+            "/api/v3/myFilters" => body["exchangeFilters"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20})),
+            "/api/v3/openOrders" => {
+                for row in body.as_array_mut().unwrap() {
+                    row["symbol"] = json!("BTCUSDT");
+                    row["orderListId"] = json!(9007199254740995u64);
+                }
+            }
+            "/api/v3/openOrderList" => {
+                *body = json!([{"orderListId":9007199254740995u64,"contingencyType":"OCO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"private-capacity-list","transactionTime":1700000000000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740993u64,"clientOrderId":"private-capacity-client-0"},{"symbol":"BTCUSDT","orderId":9007199254740994u64,"clientOrderId":"private-capacity-client-1"}]}])
+            }
+            _ => {}
+        }
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(complete_lists));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-list-times","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let observed = refresh();
+    assert_eq!(observed["data"]["status"], "OBSERVED", "{observed}");
+    assert_eq!(
+        observed["data"]["observation"]["counts"]["listCoverageComplete"],
+        true
+    );
+    assert_eq!(
+        observed["data"]["observation"]["reads"][2]["oldestProviderTransactionTimeMs"],
+        "1700000000000",
+        "Original list transaction time was omitted: {observed}"
+    );
+    assert!(observed["data"]["observation"]["providerObservedAt"].is_null());
+    external.edit.set(Some(|route, body| {
+        complete_lists(route, body);
+        if route == "/api/v3/openOrderList" {
+            body[0]["futurePendingReservation"] = json!(true);
+        }
+    }));
+    let unknown = refresh();
+    assert_eq!(unknown["data"]["status"], "OBSERVED");
+    assert_eq!(
+        unknown["data"]["observation"]["counts"]["listCoverageComplete"],
+        false
+    );
+    assert!(
+        unknown["data"]["observation"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("UNKNOWN_ACTIVE_LIST_FIELDS_UNRESOLVED"))
+    );
+    external.edit.set(Some(|route, body| {
+        complete_lists(route, body);
+        if route == "/api/v3/openOrderList" {
+            body[0]["transactionTime"] = json!(
+                (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64
+                    + 60_000
+            );
+        }
+    }));
+    let future = refresh();
+    assert_eq!(future["data"]["status"], "UNAVAILABLE", "{future}");
+    assert!(future["data"]["observation"].is_null());
+}
+
+#[test]
+fn capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated() {
+    if isolated_rule_scenario(
+        "capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-account-extensions","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["futureSharedBalanceMode"] = json!("private-account-extension");
+            body["balances"] = json!([{"asset":"BTC","free":"1","locked":"0","futureReserved":"private-balance-extension"}]);
+        }
+    }));
+    let unknown = refresh();
+    assert_eq!(unknown["data"]["status"], "OBSERVED", "{unknown}");
+    let reasons = unknown["data"]["observation"]["unresolvedObligations"]
+        .as_array()
+        .unwrap();
+    assert!(
+        reasons.contains(&json!("UNKNOWN_ACTIVE_ACCOUNT_FIELDS_UNRESOLVED")),
+        "Unknown account field silently disappeared: {unknown}"
+    );
+    assert!(reasons.contains(&json!("UNKNOWN_ACTIVE_BALANCE_FIELDS_UNRESOLVED")));
+    assert!(!unknown.to_string().contains("private-account-extension"));
+    assert!(!unknown.to_string().contains("private-balance-extension"));
+    assert_eq!(unknown["data"]["qualification"], "UNAVAILABLE");
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/account" {
+                body["requireSelfTradePrevention"] = json!("false");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["permissions"] = json!(["SPOT", 1]);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["makerCommission"] = json!("15");
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["commissionRates"] =
+                    json!({"maker":0.0015,"taker":"0.0015","buyer":"0","seller":"0"});
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Malformed optional original fields accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(failed["data"]["observation"].is_null());
+    }
+}
+
+#[test]
+fn capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage() {
+    if isolated_rule_scenario(
+        "capacity_list_leg_extensions_and_identity_contradictions_cannot_claim_complete_coverage",
+    ) {
+        return;
+    }
+    fn complete(route: &str, body: &mut Value) {
+        match route {
+            "/api/v3/myFilters" => body["exchangeFilters"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20})),
+            "/api/v3/openOrders" => {
+                for row in body.as_array_mut().unwrap() {
+                    row["symbol"] = json!("BTCUSDT");
+                    row["orderListId"] = json!(9007199254740995u64);
+                }
+            }
+            "/api/v3/openOrderList" => {
+                *body = json!([{"orderListId":9007199254740995u64,"contingencyType":"OCO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"private-list","transactionTime":1700000000000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740993u64,"clientOrderId":"private-capacity-client-0"},{"symbol":"BTCUSDT","orderId":9007199254740994u64,"clientOrderId":"private-capacity-client-1"}]}])
+            }
+            _ => {}
+        }
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(complete));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-leg-identity","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    assert_eq!(
+        refresh()["data"]["observation"]["counts"]["listCoverageComplete"],
+        true
+    );
+    external.edit.set(Some(|route, body| {
+        complete(route, body);
+        if route == "/api/v3/openOrderList" {
+            body[0]["orders"][0]["clientOrderId"] = json!("private-different-order");
+            body[0]["orders"][1]["futurePendingLeg"] = json!("private-leg-extension");
+        }
+    }));
+    let contradiction = refresh();
+    assert_eq!(
+        contradiction["data"]["status"], "OBSERVED",
+        "{contradiction}"
+    );
+    assert_eq!(
+        contradiction["data"]["observation"]["counts"]["listCoverageComplete"], false,
+        "Client identity contradiction hidden: {contradiction}"
+    );
+    let reasons = contradiction["data"]["observation"]["unresolvedObligations"]
+        .as_array()
+        .unwrap();
+    assert!(reasons.contains(&json!("LIST_LEG_IDENTITY_CONTRADICTION_UNRESOLVED")));
+    assert!(reasons.contains(&json!("UNKNOWN_ACTIVE_LIST_LEG_FIELDS_UNRESOLVED")));
+    assert!(!contradiction.to_string().contains("private-leg-extension"));
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            complete(route, body);
+            if route == "/api/v3/openOrderList" {
+                body[0]["listClientOrderId"] = json!(1);
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            complete(route, body);
+            if route == "/api/v3/openOrderList" {
+                body[0]["orders"][0]["clientOrderId"] = json!("a".repeat(37));
+            }
+        },
+        |route, body| {
+            complete(route, body);
+            if route == "/api/v3/openOrderList" {
+                body[0]["contingencyType"] = json!(42);
+            }
+        },
+        |route, body| {
+            complete(route, body);
+            if route == "/api/v3/openOrderList" {
+                body[0]["transactionTime"] = json!(0);
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Malformed list/leg accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(failed["data"]["observation"].is_null());
+    }
+}
+
+#[test]
+fn capacity_order_state_times_preserve_absence_and_reject_reverse_or_future_history() {
+    if isolated_rule_scenario(
+        "capacity_order_state_times_preserve_absence_and_reject_reverse_or_future_history",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-time-history","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/openOrders" {
+            body[0].as_object_mut().unwrap().remove("updateTime");
+        }
+    }));
+    let absent = refresh();
+    assert_eq!(absent["data"]["status"], "OBSERVED", "{absent}");
+    assert!(
+        absent["data"]["observation"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("ORIGINAL_ORDER_TIMES_INCOMPLETE")),
+        "Missing row time hidden by another row's timestamp: {absent}"
+    );
+    assert_eq!(
+        absent["data"]["observation"]["reads"][1]["latestProviderUpdateTimeMs"],
+        "1700000000000"
+    );
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/openOrders" {
+                body[0]["time"] = json!(1700000000001u64);
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["workingTime"] = json!(
+                    (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64
+                        + 60_000
+                );
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["workingTime"] = json!("1700000000000");
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Contradictory original time accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(failed["data"]["observation"].is_null());
+    }
+}
+
+#[test]
+fn capacity_unknown_order_flags_remain_unresolved_and_original_flag_types_are_bounded() {
+    if isolated_rule_scenario(
+        "capacity_unknown_order_flags_remain_unresolved_and_original_flag_types_are_bounded",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-original-flags","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/openOrders" {
+            body[0]["timeInForce"] = json!("FUTURE_TIF");
+            body[0]["selfTradePreventionMode"] = json!("FUTURE_STP");
+            body[0]["isWorking"] = json!(false);
+        }
+    }));
+    let unknown = refresh();
+    assert_eq!(unknown["data"]["status"], "OBSERVED", "{unknown}");
+    assert_eq!(
+        unknown["data"]["observation"]["counts"]["orderCoverageComplete"], false,
+        "Unknown active flags silently counted as complete: {unknown}"
+    );
+    assert!(
+        unknown["data"]["observation"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("ACTIVE_ORDER_FLAGS_UNRESOLVED"))
+    );
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/openOrders" {
+                body[0]["selfTradePreventionMode"] = json!(123);
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/openOrders" {
+                body[0]["type"] = json!("a".repeat(33));
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Malformed original flag accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+    }
+}
+
+#[test]
+fn capacity_bounded_inventory_is_complete_only_when_original_rows_fit_without_truncation() {
+    if isolated_rule_scenario(
+        "capacity_bounded_inventory_is_complete_only_when_original_rows_fit_without_truncation",
+    ) {
+        return;
+    }
+    fn inventory(count: usize) -> Vec<Value> {
+        (0..count).map(|i| json!({"symbol":"BTCUSDT","orderId":9007199254740993u64+i as u64,"orderListId":-1,"clientOrderId":format!("capacity-{i}"),"price":"1","origQty":"1","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0","icebergQty":"0","isWorking":true,"origQuoteOrderQty":"0"})).collect()
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-inventory-bounds","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let maximum = serde_json::to_vec(&inventory(1000)).unwrap();
+    assert!(maximum.len() < 512 * 1024);
+    *external.raw.borrow_mut() = Some(("/api/v3/openOrders".into(), maximum));
+    let complete = refresh();
+    assert_eq!(complete["data"]["status"], "OBSERVED", "{complete}");
+    assert_eq!(
+        complete["data"]["observation"]["counts"]["accountOpenOrders"],
+        "1000"
+    );
+    let mut duplicate = inventory(2);
+    duplicate[1] = duplicate[0].clone();
+    for invalid in [
+        serde_json::to_vec(&inventory(1001)).unwrap(),
+        serde_json::to_vec(&duplicate).unwrap(),
+        b"[{\"symbol\":\"BTCUSDT\",\"symbol\":\"ETHUSDT\"}]".to_vec(),
+        [b"[]".as_slice(), vec![b' '; 512 * 1024].as_slice()].concat(),
+    ] {
+        *external.raw.borrow_mut() = Some(("/api/v3/openOrders".into(), invalid));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Incomplete inventory accepted: {failed}"
+        );
+        assert!(failed["data"]["observation"].is_null());
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+    }
+    *external.raw.borrow_mut() = Some(("/api/v3/openOrders".into(), b"[]".to_vec()));
+    let empty = refresh();
+    assert_eq!(empty["data"]["status"], "OBSERVED");
+    assert_eq!(
+        empty["data"]["observation"]["counts"]["accountOpenOrders"],
+        "0"
+    );
+    assert_ne!(
+        empty["data"]["observation"]["collectionId"],
+        complete["data"]["observation"]["collectionId"]
+    );
+    assert_eq!(empty["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_list_bounds_and_duplicates_cannot_be_truncated_into_complete_coverage() {
+    if isolated_rule_scenario(
+        "capacity_list_bounds_and_duplicates_cannot_be_truncated_into_complete_coverage",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/myFilters" {
+            body["exchangeFilters"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20}));
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-list-bounds","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let lists = |count: usize| {
+        (0..count).map(|i| json!({"orderListId":10000+i,"contingencyType":"OTO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":format!("capacity-list-{i}"),"transactionTime":1700000000000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":20000+i,"clientOrderId":format!("capacity-leg-{i}")}]})).collect::<Vec<_>>()
+    };
+    *external.raw.borrow_mut() = Some((
+        "/api/v3/openOrderList".into(),
+        serde_json::to_vec(&lists(256)).unwrap(),
+    ));
+    let maximum = refresh();
+    assert_eq!(maximum["data"]["status"], "OBSERVED", "{maximum}");
+    assert_eq!(
+        maximum["data"]["observation"]["counts"]["accountOpenOrderLists"],
+        "256"
+    );
+    assert_eq!(
+        maximum["data"]["observation"]["counts"]["missingListLegs"],
+        "256"
+    );
+    assert_eq!(
+        maximum["data"]["observation"]["counts"]["listCoverageComplete"],
+        false
+    );
+    let mut duplicate = lists(2);
+    duplicate[1] = duplicate[0].clone();
+    let mut duplicate_leg = lists(1);
+    duplicate_leg[0]["orders"] =
+        json!([duplicate_leg[0]["orders"][0], duplicate_leg[0]["orders"][0]]);
+    for invalid in [lists(257), duplicate, duplicate_leg] {
+        *external.raw.borrow_mut() = Some((
+            "/api/v3/openOrderList".into(),
+            serde_json::to_vec(&invalid).unwrap(),
+        ));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "List bounds or duplicate identity accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(failed["data"]["observation"].is_null());
+    }
+}
+
+#[test]
+fn capacity_known_list_forms_do_not_invent_a_missing_leg_shape() {
+    if isolated_rule_scenario("capacity_known_list_forms_do_not_invent_a_missing_leg_shape") {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| { match route {
+        "/api/v3/myFilters" => body["exchangeFilters"].as_array_mut().unwrap().push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20})),
+        "/api/v3/openOrders" => { *body = json!([body[0]]); body[0]["orderListId"] = json!(9007199254740995u64); },
+        "/api/v3/openOrderList" => *body = json!([{"orderListId":9007199254740995u64,"contingencyType":"OCO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"private-list-shape","transactionTime":1700000000000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740993u64,"clientOrderId":"private-capacity-client-0"}]}]),
+        _=>{}
+    } }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-list-shape","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    assert_eq!(
+        result["data"]["observation"]["counts"]["listCoverageComplete"], false,
+        "One returned leg cannot establish a complete OCO shape: {result}"
+    );
+    assert!(
+        result["data"]["observation"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("LIST_LEG_SHAPE_UNRESOLVED"))
+    );
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_authentication_and_original_identity_faults_retire_inputs_with_sanitized_recovery() {
+    if isolated_rule_scenario(
+        "capacity_authentication_and_original_identity_faults_retire_inputs_with_sanitized_recovery",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-auth-faults","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let initial = refresh();
+    assert_eq!(initial["data"]["status"], "OBSERVED");
+    *external.response.borrow_mut() = Some(("/api/v3/openOrders".into(), 401, 0));
+    let denied = refresh();
+    assert_eq!(denied["data"]["status"], "UNAVAILABLE");
+    assert_eq!(denied["data"]["failure"], "PROVIDER_AUTHENTICATION_FAILED");
+    assert!(denied["data"]["observation"].is_null());
+    let calls = external.calls.borrow().len();
+    let retained = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    assert_eq!(retained["data"], denied["data"]);
+    assert_eq!(external.calls.borrow().len(), calls);
+    *external.response.borrow_mut() = None;
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/account" {
+                body["uid"] = json!("9007199254740993");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["uid"] = json!(9007199254740993.0f64);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["uid"] = json!(42);
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Original identity coercion accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_IDENTITY_CHANGED");
+        assert!(failed["data"]["observation"].is_null());
+    }
+    external.edit.set(None);
+    external.reflect_key.set(true);
+    let reflected = refresh();
+    assert_eq!(reflected["data"]["status"], "UNAVAILABLE");
+    assert!(!reflected.to_string().contains(fixtures::KEY));
+    external.reflect_key.set(false);
+    let recovered = refresh();
+    assert_eq!(recovered["data"]["status"], "OBSERVED", "{recovered}");
+    assert_ne!(
+        recovered["data"]["observation"]["collectionId"],
+        initial["data"]["observation"]["collectionId"]
+    );
+    assert_eq!(recovered["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_rate_limit_wait_is_shared_with_existing_signed_account_reads() {
+    if isolated_rule_scenario(
+        "capacity_rate_limit_wait_is_shared_with_existing_signed_account_reads",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-429","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    assert_eq!(refresh()["data"]["status"], "OBSERVED");
+    *external.response.borrow_mut() = Some(("/api/v3/openOrders".into(), 429, 120));
+    let refused = refresh();
+    assert_eq!(refused["data"]["status"], "UNAVAILABLE");
+    assert_eq!(refused["data"]["failure"], "PROVIDER_RATE_LIMITED");
+    assert!(refused["data"]["observation"].is_null());
+    let uid = external.uid.get().to_string();
+    assert_eq!(
+        tradex::provider_io::provider_retry_after_seconds("binance", &uid),
+        Some(120)
+    );
+    let calls = external.calls.borrow().len();
+    *external.response.borrow_mut() = None;
+    let retry = refresh();
+    assert_eq!(retry["data"]["status"], "UNAVAILABLE", "{retry}");
+    assert_eq!(
+        external.calls.borrow().len(),
+        calls,
+        "Cooldown must prevent an additional request before its deadline"
+    );
+}
+
+#[test]
+fn capacity_newer_public_refresh_owns_the_observation_and_late_collection_cannot_replace_it() {
+    if isolated_rule_scenario(
+        "capacity_newer_public_refresh_owns_the_observation_and_late_collection_cannot_replace_it",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    let winner = std::sync::Arc::new(std::sync::Mutex::new(None::<Value>));
+    let saved = winner.clone();
+    let cp = rig.control.clone();
+    let q = query.clone();
+    let vault = rig.vault.clone();
+    let uid = external.uid.get();
+    *external.hook.borrow_mut() = Some((
+        "/api/v3/openOrders".into(),
+        Box::new(move || {
+            let current = command(
+                &mut cp
+                    .try_lock()
+                    .expect("In-flight provider read cannot own the CP lock"),
+                "trade.spot_capacity.get",
+                q.clone(),
+            );
+            let next = RuleHttp::default();
+            next.uid.set(uid);
+            let fresh = tradex::financial_sources::execute_refresh(
+                &cp,
+                &json!({"requestId":"capacity-newer","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":q["workspaceId"],"proposalId":q["proposalId"],"expectedStateVersion":current["data"]["stateVersion"]}}),
+                "main",
+                &vault,
+                &next,
+            );
+            assert_eq!(fresh["data"]["status"], "OBSERVED", "{fresh}");
+            *saved.lock().unwrap() = Some(fresh);
+        }),
+    ));
+    let late = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-older","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(late["error"]["code"], "STATE_VERSION_CONFLICT", "{late}");
+    let current = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query,
+    );
+    let fresh = winner.lock().unwrap().clone().unwrap();
+    assert_eq!(current["data"]["observation"], fresh["data"]["observation"]);
+    assert_eq!(current["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_proposal_changes_cannot_reset_shared_exact_uid_read_headroom() {
+    if isolated_rule_scenario(
+        "capacity_proposal_changes_cannot_reset_shared_exact_uid_read_headroom",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let first = rig.decision();
+    let refresh = |proposal: &Value| {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-uid-budget","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let mut successes = 0;
+    for _ in 0..30 {
+        let result = refresh(&first);
+        if result["data"]["status"] == "OBSERVED" {
+            successes += 1;
+        } else {
+            assert_eq!(result["data"]["status"], "UNAVAILABLE", "{result}");
+            assert_eq!(result["data"]["failure"], "PROVIDER_RATE_LIMITED");
+            break;
+        }
+    }
+    assert!(
+        (1..15).contains(&successes),
+        "The shared 1500-weight UID headroom must stop these signed 100-weight collections: {successes}"
+    );
+    let second = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60001","maximumSpend":null,"timeInForce":"GTC"}));
+    assert_ne!(second["proposalId"], first["proposalId"]);
+    let order_reads = external
+        .calls
+        .borrow()
+        .iter()
+        .filter(|path| path.starts_with("/api/v3/openOrders?"))
+        .count();
+    let blocked = refresh(&second);
+    assert_eq!(
+        blocked["data"]["status"], "UNAVAILABLE",
+        "New Proposal reset shared signed UID capacity: {blocked}"
+    );
+    assert_eq!(blocked["data"]["failure"], "PROVIDER_RATE_LIMITED");
+    assert_eq!(
+        external
+            .calls
+            .borrow()
+            .iter()
+            .filter(|path| path.starts_with("/api/v3/openOrders?"))
+            .count(),
+        order_reads
+    );
+}
+
+#[test]
+fn capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline() {
+    if isolated_rule_scenario(
+        "capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline",
+    ) {
+        return;
+    }
+    #[derive(Clone)]
+    struct WaitingVault {
+        inner: fixtures::Vault,
+        started: std::sync::mpsc::Sender<()>,
+    }
+    impl CredentialVault for WaitingVault {
+        fn put(
+            &self,
+            reference: &str,
+            credentials: &tradex::provider_io::Credentials,
+        ) -> tradex::protocol::Result<()> {
+            self.inner.put(reference, credentials)
+        }
+        fn remove(&self, reference: &str) -> tradex::protocol::Result<()> {
+            self.inner.remove(reference)
+        }
+        fn get(
+            &self,
+            reference: &str,
+        ) -> tradex::protocol::Result<tradex::provider_io::Credentials> {
+            self.started.send(()).unwrap();
+            std::thread::sleep(std::time::Duration::from_secs(22));
+            self.inner.get(reference)
+        }
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        query.clone(),
+    );
+    let request = |version: Value| json!({"requestId":"capacity-vault-deadline","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":version}});
+    let first = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &request(before["data"]["stateVersion"].clone()),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(first["data"]["status"], "OBSERVED");
+    let (started, receiving) = std::sync::mpsc::channel();
+    let waiting = WaitingVault {
+        inner: rig.vault.clone(),
+        started,
+    };
+    let cp = rig.control.clone();
+    let uid = external.uid.get();
+    let req = request(first["data"]["stateVersion"].clone());
+    let worker = std::thread::spawn(move || {
+        let http = RuleHttp::default();
+        http.uid.set(uid);
+        let at = std::time::Instant::now();
+        let result = tradex::financial_sources::execute_refresh(&cp, &req, "main", &waiting, &http);
+        (result, http.calls.into_inner(), at.elapsed())
+    });
+    receiving
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    let during = command(
+        &mut rig
+            .control
+            .try_lock()
+            .expect("Authentication cannot hold the CP lock"),
+        "trade.spot_capacity.get",
+        query,
+    );
+    assert_eq!(
+        during["data"]["status"], "NOT_OBSERVED",
+        "Pending authentication retained current success: {during}"
+    );
+    assert!(during["data"]["observation"].is_null());
+    let (failed, calls, elapsed) = worker.join().unwrap();
+    assert_eq!(failed["data"]["status"], "UNAVAILABLE", "{failed}");
+    assert_eq!(
+        failed["data"]["failure"], "PROVIDER_UNAVAILABLE",
+        "Insufficient remaining deadline is not a binding change: {failed}"
+    );
+    assert!(
+        calls.is_empty(),
+        "No HTTP starts without the existing 12-second completion margin"
+    );
+    assert!(elapsed < std::time::Duration::from_secs(30));
+}
+
+#[test]
+fn capacity_public_clock_ip_ban_preserves_retry_after_for_other_account_reads() {
+    if isolated_rule_scenario(
+        "capacity_public_clock_ip_ban_preserves_retry_after_for_other_account_reads",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    *external.response.borrow_mut() = Some(("/api/v3/time".into(), 418, 120));
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-clock-ban","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "UNAVAILABLE");
+    assert_eq!(result["data"]["failure"], "PROVIDER_IP_BANNED");
+    assert!(result["data"]["observation"].is_null());
+    assert_eq!(
+        tradex::provider_io::provider_retry_after_seconds("binance", "another-signed-uid"),
+        Some(120),
+        "The public clock ban must retain original IP-wide wait metadata"
+    );
+}
+
+#[test]
+fn capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership() {
+    if isolated_rule_scenario(
+        "capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route,body| { match route {
+        "/api/v3/account"=>body["balances"]=json!([{"asset":"BTC","free":"0.10000000","locked":"0.02000000"},{"asset":"币安人生","free":"3.00000000","locked":"0.00000000"}]),
+        "/api/v3/myFilters"=>body["symbolFilters"].as_array_mut().unwrap().push(json!({"filterType":"MAX_POSITION","maxPosition":"1.00000000"})),
+        "/api/v3/openOrders"=>body[1]["symbol"]=json!("币安人生USDT"),
+        _=>{}
+    }}));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-unicode-inventory","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(
+        result["data"]["status"], "OBSERVED",
+        "Documented non-ASCII foreign inventory was misclassified as malformed: {result}"
+    );
+    let observation = &result["data"]["observation"];
+    assert_eq!(observation["counts"]["accountOpenOrders"], "2");
+    assert_eq!(observation["counts"]["symbolOpenOrders"], "1");
+    assert_eq!(observation["position"]["assetExposureComplete"], false);
+    assert_eq!(
+        observation["position"]["selectedSymbolOpenBuyOriginalQuantity"],
+        "0.1"
+    );
+    assert!(!result.to_string().contains("币安人生"));
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins() {
+    if isolated_rule_scenario(
+        "capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    external.calls.borrow_mut().clear();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let now = (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
+    for raw in [
+        format!("{{\"serverTime\":{now},\"serverTime\":{now}}}").into_bytes(),
+        [
+            format!("{{\"serverTime\":{now}}}").as_bytes(),
+            vec![b' '; 512 * 1024].as_slice(),
+        ]
+        .concat(),
+    ] {
+        *external.raw.borrow_mut() = Some(("/api/v3/time".into(), raw));
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_capacity.get",
+            query.clone(),
+        );
+        let result = tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-clock-original-json","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        );
+        assert_eq!(
+            result["data"]["status"], "UNAVAILABLE",
+            "Ambiguous/oversized original clock response reached private inputs: {result}"
+        );
+        assert_eq!(result["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(result["data"]["observation"].is_null());
+    }
+    assert!(
+        !external
+            .calls
+            .borrow()
+            .iter()
+            .any(|route| route.starts_with("/api/v3/account?")
+                || route.starts_with("/api/v3/openOrders?")),
+        "Invalid clock responses must stop before private HTTP"
+    );
+}
+
+#[test]
 fn immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations() {
     if isolated_rule_scenario(
         "immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations",
@@ -1464,6 +3403,17 @@ impl tradex::provider_io::ProviderHttp for RuleHttp {
             }
             "/api/v3/account" => {
                 json!({"uid":self.uid.get(),"accountType":"SPOT","canTrade":true,"permissions":["SPOT"]})
+            }
+            "/api/v3/openOrders" => {
+                assert!(
+                    query.starts_with("timestamp=")
+                        || query.starts_with("symbol=BTCUSDT&timestamp=")
+                );
+                ["BTCUSDT","ETHUSDT"].into_iter().filter(|symbol| !query.starts_with("symbol=") || *symbol == "BTCUSDT").enumerate().map(|(index,symbol)|json!({"symbol":symbol,"orderId":9007199254740993u64+index as u64,"orderListId":-1,"clientOrderId":format!("private-capacity-client-{index}"),"price":"60000.00000000","origQty":"0.10000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0.00000000","icebergQty":"0.00000000","time":1700000000000u64,"updateTime":1700000000000u64,"isWorking":true,"workingTime":1700000000000u64,"origQuoteOrderQty":"0.00000000","selfTradePreventionMode":"NONE"})).collect::<Vec<_>>().into()
+            }
+            "/api/v3/openOrderList" => {
+                assert!(query.starts_with("timestamp=") && !query.contains("symbol="));
+                json!([])
             }
             "/sapi/v1/account/apiRestrictions" => {
                 json!({"enableReading":true,"enableWithdrawals":false,"enableInternalTransfer":false,"permitsUniversalTransfer":false,"enableMargin":false,"enableFutures":false,"enableVanillaOptions":false,"enablePortfolioMarginTrading":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"ipRestrict":true})

@@ -550,7 +550,28 @@ export type RiskDecisionInputKind =
   | "DAILY_COUNTERS"
   | "RESERVATIONS"
   | "INSTRUMENT_RULES"
-  | "CURRENCY_RATES";
+  | "CURRENCY_RATES"
+  | "SPOT_CAPACITY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityQuality".
+ */
+export type SpotCapacityQuality = "READ_ONLY_SPOT_CAPACITY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityReadKind".
+ */
+export type SpotCapacityReadKind = "ACCOUNT" | "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" | "OPEN_ORDER_LISTS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityPurpose".
+ */
+export type SpotCapacityPurpose = "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" | "BASE_BALANCES" | "OPEN_ORDER_LISTS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityStatus".
+ */
+export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionStatus".
@@ -978,6 +999,7 @@ export type ReplyData =
   | ModelState
   | RiskPolicyState
   | SpotProposalRules
+  | SpotCapacityInputs
   | RiskDecision
   | RiskDecisionHistory
   | ProviderCatalog
@@ -1303,6 +1325,7 @@ export interface IpcSchema {
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
+  spotCapacityInputs: SpotCapacityInputs;
   spotProposalRules: SpotProposalRules;
   spotRulesQuery: SpotRulesQuery;
   spotRulesRefresh: SpotRulesRefresh;
@@ -3563,6 +3586,7 @@ export interface RiskDecision {
   policyVersion?: number | null;
   proposalHash: string;
   proposalId: string;
+  spotCapacity?: SpotCapacityInputs | null;
   spotRules?: SpotProposalRules | null;
   stateVersion: string;
   status: RiskDecisionStatus;
@@ -3587,6 +3611,158 @@ export interface RiskDecisionInputReference {
   kind: RiskDecisionInputKind;
   observedAt?: string;
   referenceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityInputs".
+ */
+export interface SpotCapacityInputs {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  failure?: string | null;
+  instrumentId: string;
+  observation?: SpotCapacityObservation | null;
+  proposalHash: string;
+  proposalId: string;
+  /**
+   * @maxItems 3
+   */
+  purposes:
+    | []
+    | [SpotCapacityPurpose]
+    | [SpotCapacityPurpose, SpotCapacityPurpose]
+    | [SpotCapacityPurpose, SpotCapacityPurpose, SpotCapacityPurpose];
+  qualification: RiskCheckOutcome;
+  qualificationReason: string;
+  quoteAsset: string;
+  ruleMaterialVersion?: string | null;
+  sourceVersion: string;
+  stateVersion: string;
+  status: SpotCapacityStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityObservation".
+ */
+export interface SpotCapacityObservation {
+  atomic: false;
+  baseBalance?: SpotCapacityBalance | null;
+  collectionId: string;
+  counts: SpotCapacityCounts;
+  position?: SpotCapacityPosition | null;
+  providerObservedAt?: string | null;
+  quality: SpotCapacityQuality;
+  /**
+   * @minItems 2
+   * @maxItems 3
+   */
+  reads: [SpotCapacityRead, SpotCapacityRead] | [SpotCapacityRead, SpotCapacityRead, SpotCapacityRead];
+  /**
+   * @maxItems 16
+   */
+  unresolvedObligations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityBalance".
+ */
+export interface SpotCapacityBalance {
+  asset: string;
+  free: string;
+  locked: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityCounts".
+ */
+export interface SpotCapacityCounts {
+  accountAlgoOrders?: string | null;
+  accountIcebergOrders?: string | null;
+  accountOpenOrderLists?: string | null;
+  accountOpenOrders?: string | null;
+  classificationsComplete: boolean;
+  listCoverageComplete?: boolean | null;
+  missingListLegs?: string | null;
+  orderCoverageComplete: boolean;
+  symbolAlgoOrders?: string | null;
+  symbolIcebergOrders: string;
+  symbolOpenOrderLists?: string | null;
+  symbolOpenOrders: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityPosition".
+ */
+export interface SpotCapacityPosition {
+  assetExposureComplete: boolean;
+  selectedSymbolOpenBuyExecutedQuantity: string;
+  selectedSymbolOpenBuyOriginalQuantity: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityRead".
+ */
+export interface SpotCapacityRead {
+  digest: string;
+  kind: SpotCapacityReadKind;
+  latestProviderTransactionTimeMs?: string | null;
+  latestProviderUpdateTimeMs?: string | null;
+  oldestProviderTransactionTimeMs?: string | null;
+  oldestProviderUpdateTimeMs?: string | null;
+  receivedAt: string;
+  startedAt: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

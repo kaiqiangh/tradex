@@ -301,6 +301,28 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.capacity.fixture") {
+                // Only external HTTP responses change. No Control Plane capacity
+                // or financial authority is populated by this disposable UI seam.
+                let mode = match request["payload"]["scenario"].as_str() {
+                    Some("NORMAL") => Some(fixtures::BinanceCapacityFixture::Normal),
+                    Some("BASE_LISTS") => Some(fixtures::BinanceCapacityFixture::BaseLists),
+                    Some("MALFORMED") => Some(fixtures::BinanceCapacityFixture::Malformed),
+                    Some("DELAYED") => Some(fixtures::BinanceCapacityFixture::Delayed),
+                    _ => None,
+                };
+                let reply = if let Some(mode) = mode.filter(|_| http.binance_rules_ui) {
+                    http.binance_capacity_ui.set(mode);
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.live.rules.fixture") {
                 let p = &request["payload"];
                 let result = match (p["scenario"].as_str(), p["symbol"].as_str()) {
@@ -1392,6 +1414,7 @@ fn main() -> io::Result<()> {
                         | "data.fx.refresh"
                         | "data.binance_rules.refresh"
                         | "trade.spot_rules.refresh"
+                        | "trade.spot_capacity.refresh"
                 )
             ) {
                 let result = tradex::financial_sources::execute_refresh(
