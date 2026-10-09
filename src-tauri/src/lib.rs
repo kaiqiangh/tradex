@@ -35,6 +35,7 @@ pub mod risk;
 pub mod screener;
 pub mod spot_capacity;
 pub mod spot_order_intervals;
+pub mod spot_owning;
 pub mod spot_proposal_rules;
 mod storage;
 pub mod strategy;
@@ -8022,6 +8023,15 @@ impl ControlPlane {
         } else {
             None
         };
+        // The owning admission statement is derived from the same two read-only observations the
+        // review already carries. It withholds admission whenever any declared fact is missing,
+        // incomplete, contradictory or exhausted; it never grants authority of its own.
+        let spot_owning = match (&spot_capacity, &spot_order_intervals) {
+            (Some(capacity), Some(intervals)) => {
+                spot_owning::qualify(capacity, intervals, proposal.fields.side).ok()
+            }
+            _ => None,
+        };
         if let Some(intervals) = &spot_order_intervals {
             inputs.push(risk::input_reference(
                 risk::RiskDecisionInputKind::SpotOrderIntervals,
@@ -8091,6 +8101,7 @@ impl ControlPlane {
         }
         decision.spot_capacity = spot_capacity;
         decision.spot_order_intervals = spot_order_intervals;
+        decision.spot_owning = spot_owning;
         decision.spot_rules = spot_rules.map(|mut captured| {
             for reference in &mut captured.references {
                 reference.price = None;
@@ -8464,6 +8475,28 @@ impl ControlPlane {
                 "RISK_DECISION_CHANGED: Current risk checks differ from the reviewed decision."
                     .into(),
             );
+        }
+        // The owning Spot admission gate is part of the reviewed decision: when the venue's own
+        // declared capacity or order-rate evidence does not currently admit this intent, the
+        // review is not eligible and the blocker names the single binding fact.
+        let owning_required = proposal.fields.environment == protocol::ExecutionContext::BinanceLive
+            && financial_sources::spot_rules_selected_once(self)?;
+        if owning_required {
+            match current_decision.spot_owning.as_ref() {
+                Some(qualification) if qualification.outcome == risk::RiskCheckOutcome::Pass => {}
+                Some(qualification) => blockers.push(format!(
+                    "{}: {}",
+                    qualification
+                        .binding_blocker
+                        .as_deref()
+                        .unwrap_or("SPOT_OWNING_QUALIFICATION_BLOCKED"),
+                    qualification.reason
+                )),
+                None => blockers.push(
+                    "SPOT_OWNING_QUALIFICATION_UNAVAILABLE: The venue's declared capacity and order-rate evidence cannot currently qualify this intent."
+                        .into(),
+                ),
+            }
         }
         if self.time.require_trusted().is_err() {
             blockers.push("CLOCK_UNTRUSTED: Synchronize system time before Live approval.".into());

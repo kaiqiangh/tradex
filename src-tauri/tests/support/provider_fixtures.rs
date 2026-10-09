@@ -56,6 +56,23 @@ pub enum BinanceCapacityFixture {
     BaseLists,
     Malformed,
     Delayed,
+    /// A completely covered account inventory: exactly one fully classified open order and no
+    /// order lists, so the venue's own coverage flags leave no unknown coverage to refuse.
+    CompleteCoverage,
+    /// The same completely covered inventory with the declared ORDERS/HOUR counter already at
+    /// its declared limit, so the venue's own window would admit no further order.
+    OrderRateExhausted,
+}
+
+impl BinanceCapacityFixture {
+    /// The scenarios whose account inventory is deliberately partial: an unresolved list leg, an
+    /// order row the venue's own classification cannot account for, or a delayed read.
+    fn partial_inventory(self) -> bool {
+        matches!(self, Self::BaseLists | Self::Malformed | Self::Delayed)
+    }
+    fn covered_inventory(self) -> bool {
+        matches!(self, Self::CompleteCoverage | Self::OrderRateExhausted)
+    }
 }
 
 pub struct Http {
@@ -1078,6 +1095,7 @@ impl ProviderHttp for Http {
                 "/api/v3/rateLimit/order" if self.binance_rules_ui => {
                     assert!(params.starts_with("timestamp=") && !params.contains("symbol="));
                     let mut rows=json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64,"count":9007199254740993u64}]);
+                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::OrderRateExhausted { rows[0]["count"]=json!(50); }
                     if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { rows[0]["count"]=json!("0"); }
                     rows
                 },
@@ -1091,7 +1109,12 @@ impl ProviderHttp for Http {
                         object.entry("stopPrice").or_insert(json!("0.00000000"));
                     }
                     if let Some(symbol) = param("symbol") { rows.retain(|row| row["symbol"] == symbol); }
-                    if self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
+                    // A fully covered inventory contains only the one classified reference order:
+                    // no partially filled foreign order leaves an unresolved quantity obligation.
+                    if self.binance_capacity_ui.get().covered_inventory() {
+                        rows.retain(|row| row["symbol"]=="BTCUSDT" && row["status"]=="NEW");
+                    }
+                    if self.binance_capacity_ui.get().partial_inventory() {
                         if let Some(row)=rows.iter_mut().find(|row| row["symbol"]=="BTCUSDT") {
                             row["orderListId"]=json!(9007199254740997u64);
                             if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { row["side"]=json!(1); }
@@ -1100,8 +1123,10 @@ impl ProviderHttp for Http {
                     json!(rows)
                 },
                 "/api/v3/openOrderList" if self.binance_rules_ui => {
-                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::Normal { json!([]) } else {
+                    if self.binance_capacity_ui.get().partial_inventory() {
                         json!([{"orderListId":9007199254740997u64,"contingencyType":"OTO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"fixture-capacity-list","transactionTime":1788849500000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc"},{"symbol":"BTCUSDT","orderId":9007199254740998u64,"clientOrderId":"fixture-pending-btc"}]}])
+                    } else {
+                        json!([])
                     }
                 },
                 "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders)),

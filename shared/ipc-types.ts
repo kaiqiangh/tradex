@@ -589,6 +589,18 @@ export type SpotOrderIntervalTimeAssociation = "DERIVED_UNCERTAIN";
  */
 export type SpotOrderIntervalScope = "ACCOUNT_ALL_KEYS_IPS_APIS";
 /**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOwningReasonCode".
+ */
+export type SpotOwningReasonCode =
+  | "SPOT_OWNING_QUALIFIED"
+  | "SPOT_OWNING_EVIDENCE_MISMATCH"
+  | "SPOT_CAPACITY_EVIDENCE_UNAVAILABLE"
+  | "SPOT_CAPACITY_COVERAGE_INCOMPLETE"
+  | "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+  | "SPOT_INTERVAL_QUOTA_EXHAUSTED"
+  | "SPOT_INTERVAL_WINDOW_UNCERTAIN";
+/**
  * Documented PRICE_RANGE state for one immutable Proposal. Every state is a snapshot
  * explanation, never placement authority or a promised fill.
  *
@@ -3622,6 +3634,7 @@ export interface RiskDecision {
   proposalId: string;
   spotCapacity?: SpotCapacityInputs | null;
   spotOrderIntervals?: SpotOrderIntervalInputs | null;
+  spotOwning?: SpotOwningQualification | null;
   spotRules?: SpotProposalRules | null;
   stateVersion: string;
   status: RiskDecisionStatus;
@@ -3946,6 +3959,73 @@ export interface SpotOrderIntervalRead {
   kind: SpotOrderIntervalReadKind;
   receivedAt: string;
   startedAt: string;
+}
+/**
+ * One exact statement of whether, and how much of, the reviewed intent the venue would
+ * currently admit. It is explicitly execution-unqualified: the venue still recalculates its
+ * order-rate windows, and fees, required FX, authenticated preflight and private-stream
+ * readiness remain separate owning work.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOwningQualification".
+ */
+export interface SpotOwningQualification {
+  accountId: string;
+  baseAsset: string;
+  bindingBlocker?: string | null;
+  /**
+   * The declared bucket those remaining slots were read from.
+   */
+  bindingInterval?: string | null;
+  /**
+   * Both bound evidence versions are `sha256:` digests, so the generated wire schema must
+   * admit the full 71 characters the same way `proposal_hash` does.
+   */
+  bindingVersion: string;
+  capacityObservedAt?: string | null;
+  /**
+   * The exact declared unit the capacity numbers are read in: QUOTE for a buy, BASE for a sell.
+   */
+  capacityUnit: string;
+  /**
+   * Standing provenance limitations of the two consumed slices, carried verbatim.
+   *
+   * @maxItems 5
+   */
+  carriedLimitations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
+  declaredBaseFree?: string | null;
+  declaredBaseLocked?: string | null;
+  /**
+   * A standing venue-imposed cooldown, reported but never treated as this slice's gate.
+   */
+  declaredProviderWaitSeconds?: string | null;
+  declaredSymbolOpenBuyQuantity?: string | null;
+  declaredSymbolOpenOrders?: string | null;
+  instrumentId: string;
+  intervalObservedAt?: string | null;
+  /**
+   * The declared fact each number was read from, so a reviewer can name the origin.
+   */
+  inventorySource: string;
+  outcome: RiskCheckOutcome;
+  proposalHash: string;
+  proposalId: string;
+  quotaSource: string;
+  quoteAsset: string;
+  reason: string;
+  reasonCode: SpotOwningReasonCode;
+  /**
+   * Exact remaining order-rate slots of the tightest declared bucket, when one binds.
+   */
+  remainingOrderSlots?: string | null;
+  stateVersion: string;
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

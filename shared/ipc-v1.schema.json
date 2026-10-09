@@ -14630,6 +14630,16 @@
             }
           ]
         },
+        "spotOwning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotOwningQualification"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "spotRules": {
           "anyOf": [
             {
@@ -17059,6 +17069,237 @@
       "type": "string",
       "enum": [
         "DERIVED_UNCERTAIN"
+      ]
+    },
+    "SpotOwningQualification": {
+      "description": "One exact statement of whether, and how much of, the reviewed intent the venue would\ncurrently admit. It is explicitly execution-unqualified: the venue still recalculates its\norder-rate windows, and fees, required FX, authenticated preflight and private-stream\nreadiness remain separate owning work.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingBlocker": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bindingInterval": {
+          "description": "The declared bucket those remaining slots were read from.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "description": "Both bound evidence versions are `sha256:` digests, so the generated wire schema must\nadmit the full 71 characters the same way `proposal_hash` does.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "capacityObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "capacityUnit": {
+          "description": "The exact declared unit the capacity numbers are read in: QUOTE for a buy, BASE for a sell.",
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "carriedLimitations": {
+          "description": "Standing provenance limitations of the two consumed slices, carried verbatim.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 5
+        },
+        "declaredBaseFree": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredBaseLocked": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredProviderWaitSeconds": {
+          "description": "A standing venue-imposed cooldown, reported but never treated as this slice's gate.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "declaredSymbolOpenBuyQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredSymbolOpenOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intervalObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "inventorySource": {
+          "description": "The declared fact each number was read from, so a reviewer can name the origin.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quotaSource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "reasonCode": {
+          "$ref": "#/$defs/SpotOwningReasonCode"
+        },
+        "remainingOrderSlots": {
+          "description": "Exact remaining order-rate slots of the tightest declared bucket, when one binds.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "capacityUnit",
+        "outcome",
+        "reasonCode",
+        "reason",
+        "inventorySource",
+        "quotaSource",
+        "carriedLimitations",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotOwningReasonCode": {
+      "oneOf": [
+        {
+          "description": "Every declared capacity and interval fact is current, complete and consistent.",
+          "type": "string",
+          "const": "SPOT_OWNING_QUALIFIED"
+        },
+        {
+          "description": "The two evidence sets do not describe the same immutable intent.",
+          "type": "string",
+          "const": "SPOT_OWNING_EVIDENCE_MISMATCH"
+        },
+        {
+          "description": "No current declared capacity observation qualifies this intent.",
+          "type": "string",
+          "const": "SPOT_CAPACITY_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "The declared inventory is present but its coverage is not complete.",
+          "type": "string",
+          "const": "SPOT_CAPACITY_COVERAGE_INCOMPLETE"
+        },
+        {
+          "description": "No current declared interval observation qualifies this intent.",
+          "type": "string",
+          "const": "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "A declared order-rate bucket has no remaining slot.",
+          "type": "string",
+          "const": "SPOT_INTERVAL_QUOTA_EXHAUSTED"
+        },
+        {
+          "description": "The interval observation was retired because its window association lapsed.",
+          "type": "string",
+          "const": "SPOT_INTERVAL_WINDOW_UNCERTAIN"
+        }
       ]
     },
     "SpotPriceRangeDirection": {

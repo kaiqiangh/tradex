@@ -414,6 +414,8 @@ declare const validators: {
   SpotOrderIntervalReadKind: (value: unknown) => boolean;
   SpotOrderIntervalScope: (value: unknown) => boolean;
   SpotOrderIntervalTimeAssociation: (value: unknown) => boolean;
+  SpotOwningQualification: (value: unknown) => boolean;
+  SpotOwningReasonCode: (value: unknown) => boolean;
   SpotPriceRangeDirection: (value: unknown) => boolean;
   SpotPriceRangePreview: (value: unknown) => boolean;
   SpotPriceRangeState: (value: unknown) => boolean;

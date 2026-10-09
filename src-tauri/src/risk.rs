@@ -922,6 +922,8 @@ pub struct RiskDecision {
     pub spot_capacity: Option<crate::spot_capacity::SpotCapacityInputs>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_order_intervals: Option<crate::spot_order_intervals::SpotOrderIntervalInputs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_owning: Option<crate::spot_owning::SpotOwningQualification>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -2283,6 +2285,7 @@ pub(crate) fn evaluate(
         spot_rules: None,
         spot_capacity: None,
         spot_order_intervals: None,
+        spot_owning: None,
     }
 }
 

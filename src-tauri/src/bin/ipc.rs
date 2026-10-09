@@ -309,6 +309,8 @@ fn main() -> io::Result<()> {
                     Some("BASE_LISTS") => Some(fixtures::BinanceCapacityFixture::BaseLists),
                     Some("MALFORMED") => Some(fixtures::BinanceCapacityFixture::Malformed),
                     Some("DELAYED") => Some(fixtures::BinanceCapacityFixture::Delayed),
+                    Some("COMPLETE_COVERAGE") => Some(fixtures::BinanceCapacityFixture::CompleteCoverage),
+                    Some("ORDER_RATE_EXHAUSTED") => Some(fixtures::BinanceCapacityFixture::OrderRateExhausted),
                     _ => None,
                 };
                 let reply = if let Some(mode) = mode.filter(|_| http.binance_rules_ui) {

@@ -5727,3 +5727,359 @@ fn original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_gr
     );
     assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
 }
+
+// S29.8 — owning Spot Live PLACE qualification derived from the delivered capacity and
+// interval inputs. Every case drives the public account/source/draft/Proposal/rules/capacity/
+// interval/risk/approval flow with only the external HTTP producer fake.
+fn capacity_get(rig: &RuleRig, proposal: &Value) -> Value {
+    command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    )
+}
+fn capacity_refresh(rig: &RuleRig, proposal: &Value, external: &RuleHttp) -> Value {
+    let before = capacity_get(rig, proposal);
+    tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-collection","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        external,
+    )
+}
+fn risk_evaluate(rig: &RuleRig, proposal: &Value) -> Value {
+    command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    )["data"]
+        .clone()
+}
+fn request_approval(rig: &RuleRig, proposal: &Value) -> Value {
+    command(
+        &mut rig.control.lock().unwrap(),
+        "trade.request_approval",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    )
+}
+fn sell_proposal(rig: &RuleRig) -> Value {
+    rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}))
+}
+
+#[test]
+fn owning_spot_qualification_derives_current_declared_headroom_without_granting_authority() {
+    if isolated_rule_scenario(
+        "owning_spot_qualification_derives_current_declared_headroom_without_granting_authority",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let owning = &decision["spotOwning"];
+    assert_eq!(owning["outcome"], "PASS", "{decision}");
+    assert_eq!(owning["reasonCode"], "SPOT_OWNING_QUALIFIED");
+    assert!(owning["bindingBlocker"].is_null(), "{owning}");
+    assert_eq!(owning["proposalId"], proposal["proposalId"]);
+    assert_eq!(owning["proposalHash"], proposal["proposalHash"]);
+    assert_eq!(owning["instrumentId"], "crypto:BTC/USDT:spot");
+    assert_eq!(owning["baseAsset"], "BTC");
+    assert_eq!(owning["quoteAsset"], "USDT");
+    assert_eq!(
+        owning["capacityUnit"], "USDT",
+        "A buy is funded in the quote asset: {owning}"
+    );
+    // Derived, never stored: limit 50 minus count 0, with the tighter of the two declared
+    // buckets binding and its declared origin named.
+    assert_eq!(owning["remainingOrderSlots"], "50");
+    assert_eq!(owning["bindingInterval"], "ORDERS 50/1 HOUR");
+    assert_eq!(owning["declaredSymbolOpenOrders"], "1");
+    assert!(owning["declaredSymbolOpenBuyQuantity"].is_null());
+    assert!(owning["declaredBaseFree"].is_null());
+    assert!(owning["declaredBaseLocked"].is_null());
+    assert_eq!(owning["inventorySource"], "PROVIDER_DECLARED_OPEN_ORDERS");
+    assert_eq!(owning["quotaSource"], "PROVIDER_DECLARED_ORDER_RATE_COUNTERS");
+    assert!(owning["bindingVersion"].as_str().unwrap().starts_with("sha256:"));
+    assert!(owning["stateVersion"].as_str().unwrap().starts_with("sha256:"));
+    // The standing provenance labels of both consumed slices are carried forward verbatim
+    // instead of being promoted into a second, hidden admission veto.
+    for label in [
+        "NON_ATOMIC_PROVIDER_SNAPSHOT",
+        "DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED",
+        "COUNTER_SNAPSHOT_TIME_UNAVAILABLE",
+        "DERIVED_WINDOW_ASSOCIATION_UNCERTAIN",
+        "INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED",
+    ] {
+        assert!(
+            owning["carriedLimitations"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(label)),
+            "{label} must be carried: {owning}"
+        );
+    }
+    // Execution-unqualified: the statement itself names no arming, consent or dispatch.
+    assert!(
+        owning
+            .as_object()
+            .unwrap()
+            .keys()
+            .all(|key| !["arm", "consent", "dispatch", "execute"]
+                .iter()
+                .any(|word| key.to_lowercase().contains(word))),
+        "{owning}"
+    );
+    let retained = command(
+        &mut rig.control.lock().unwrap(),
+        "account.get",
+        json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]}),
+    );
+    assert_eq!(
+        retained["data"]["health"]["arming"], "DISARMED",
+        "A qualified own admission must never arm: {retained}"
+    );
+}
+
+#[test]
+fn owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances() {
+    if isolated_rule_scenario(
+        "owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/rateLimit/order" {
+            body[0]["count"] = json!(49);
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let owning = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(owning["outcome"], "PASS", "{owning}");
+    assert_eq!(
+        owning["remainingOrderSlots"], "1",
+        "49 of a declared 50 leaves exactly one: {owning}"
+    );
+    // The venue's own counter is the authority for that one slot: once it reaches the limit the
+    // same intent is refused. Nothing here decremented, reset or rolled the window locally.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/rateLimit/order" {
+            body[0]["count"] = json!(50);
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let spent = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(spent["outcome"], "REJECT", "{spent}");
+    assert_eq!(spent["reasonCode"], "SPOT_INTERVAL_QUOTA_EXHAUSTED");
+    assert_eq!(spent["bindingBlocker"], "SPOT_INTERVAL_QUOTA_EXHAUSTED");
+    assert!(spent["remainingOrderSlots"].is_null());
+}
+
+#[test]
+fn owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved() {
+    if isolated_rule_scenario(
+        "owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/rateLimit/order" {
+            body[0]["count"] = json!(50);
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(
+        review["data"]["eligible"], false,
+        "An exhausted venue window must not be eligible: {review}"
+    );
+    assert_eq!(
+        review["data"]["riskDecision"]["spotOwning"]["outcome"],
+        "REJECT"
+    );
+    assert!(
+        review["data"]["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|blocker| blocker
+                .as_str()
+                .unwrap()
+                .starts_with("SPOT_INTERVAL_QUOTA_EXHAUSTED")),
+        "The single binding fact must be named: {review}"
+    );
+}
+
+#[test]
+fn owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence() {
+    if isolated_rule_scenario(
+        "owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+
+    // A declared order-rate interval with no matching counter is unknown coverage, not headroom.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/exchangeInfo" {
+            body["rateLimits"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"rateLimitType":"ORDERS","interval":"MINUTE","intervalNum":1,"limit":10}));
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let gapped = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(gapped["outcome"], "UNAVAILABLE", "{gapped}");
+    assert_eq!(gapped["reasonCode"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE");
+    assert_eq!(gapped["bindingBlocker"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE");
+    assert!(gapped["remainingOrderSlots"].is_null());
+
+    // A declared count that exceeds its own declared limit is the venue's numbers disagreeing.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/rateLimit/order" {
+            body[0]["count"] = json!(60);
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let over = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(over["outcome"], "UNAVAILABLE", "{over}");
+    assert_eq!(over["reasonCode"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE");
+    assert_eq!(over["bindingBlocker"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE");
+
+    // An order row the venue's own classification cannot account for is unknown coverage too.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/openOrders" {
+            body[0]["unclassifiedProviderField"] = json!(1);
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let partial = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(partial["outcome"], "UNAVAILABLE", "{partial}");
+    assert_eq!(partial["reasonCode"], "SPOT_CAPACITY_COVERAGE_INCOMPLETE");
+    assert_eq!(partial["bindingBlocker"], "SPOT_CAPACITY_COVERAGE_INCOMPLETE");
+
+    // A fresh intent with no bound interval observation at all is equally unavailable.
+    external.edit.set(None);
+    let unbound = sell_proposal(&rig);
+    assert_eq!(
+        capacity_refresh(&rig, &unbound, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let unobserved = risk_evaluate(&rig, &unbound)["spotOwning"].clone();
+    assert_eq!(unobserved["outcome"], "UNAVAILABLE", "{unobserved}");
+    assert_eq!(
+        unobserved["reasonCode"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+    );
+    assert_eq!(
+        unobserved["capacityUnit"], "BTC",
+        "A sell is funded in the base asset: {unobserved}"
+    );
+}
+
+#[test]
+fn owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold() {
+    if isolated_rule_scenario(
+        "owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    // One-second buckets make the conservative local association lapse within a second: the
+    // counter has no provider timestamp, so the window it was read in can no longer be shown.
+    external.edit.set(Some(|route, body| {
+        match route {
+            "/api/v3/exchangeInfo" => body["rateLimits"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"rateLimitType":"ORDERS","interval":"SECOND","intervalNum":1,"limit":10})),
+            "/api/v3/rateLimit/order" => body
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"rateLimitType":"ORDERS","interval":"SECOND","intervalNum":1,"limit":10,"count":0})),
+            _ => {}
+        }
+    }));
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    std::thread::sleep(std::time::Duration::from_millis(1_100));
+    let retired = interval_get(&rig, &proposal);
+    assert_eq!(
+        retired["data"]["status"], "STALE",
+        "A lapsed association must retire the counters: {retired}"
+    );
+    assert_eq!(
+        retired["data"]["retirementReason"], "POSSIBLE_INTERVAL_BOUNDARY",
+        "{retired}"
+    );
+    let owning = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(owning["outcome"], "UNAVAILABLE", "{owning}");
+    assert_eq!(owning["reasonCode"], "SPOT_INTERVAL_WINDOW_UNCERTAIN");
+    assert_eq!(owning["bindingBlocker"], "SPOT_INTERVAL_WINDOW_UNCERTAIN");
+    assert!(owning["remainingOrderSlots"].is_null());
+}
