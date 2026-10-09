@@ -56,4 +56,4 @@ S25.4 #100 已在收窄范围内于已审查的 `dev@f67463d` 关闭：新鲜且
 - 状态使用共同 token：FAILED / PARTIAL / SOURCE_ONLY / RUNTIME_PENDING / DEFERRED；SOURCE_ONLY 不等于通过。
 - ID 配对检查只证明结构；金融条件、权限作用域、失败恢复和动作语义必须逐段同步，英文变更在同次修改中更新中文。
 
-S29.5 #126来源实现及串行Standards/Spec复审PASS，源码`b4d137a`。[配对证据](../implementation/s29-spot-capacity-inputs-evidence_zh.md)绑定当前检查/构建/pin/UI及161源码哈希；远端/追踪交付待完成，票据仍OPEN。动态资格及父项/全图/原生/金融/物理门禁独立保留。原型和main未改。
+S29.5 #126已CLOSED，源码`b4d137a`和已核对dev交付`96a9577`绑定当前检查/构建/pin/UI、161源码哈希及串行Standards/Spec PASS。[配对证据](../implementation/s29-spot-capacity-inputs-evidence_zh.md)记录最终7项AC关闭回读。动态资格及父项/全图/原生/金融/物理门禁独立保留；原型/main未改。

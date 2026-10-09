@@ -4,7 +4,7 @@ Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiang
 
 Current single ticket: [Provide exact-account open orders and capacity inputs](https://github.com/kaiqiangh/tradex/issues/126), assigned to kaiqiangh, ready-for-agent. Native parent is121; completed dependency125; live open blockers0.
 
-Implementation and independent serial Standards/Spec reviews PASS on source `b4d137a7b3064218da4a9e5e1147a980a7d0e810`. [Current evidence](s29-spot-capacity-inputs-evidence.md) records final exact-byte checks/build/UI. Remote/tracker handoff remains pending, so the ticket stays OPEN; parent/map gates are not closed by this source slice.
+Ticket CLOSED after source `b4d137a7b3064218da4a9e5e1147a980a7d0e810` / verified dev handoff `96a9577a3c16274979c0e03fb82cd94da9c563b7` and all7 AC readback. [Current evidence](s29-spot-capacity-inputs-evidence.md) binds final checks/build/UI and independent serial Standards/Spec PASS. Full parent/map/native/financial/physical gates remain open.
 
 ## Problem Statement
 

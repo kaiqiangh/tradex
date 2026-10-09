@@ -4,7 +4,7 @@
 
 当前单票：[提供 Binance 精确账户开放订单与容量输入](https://github.com/kaiqiangh/tradex/issues/126)，已由kaiqiangh领取，ready-for-agent。原生父项121、已完成依赖125；实时 open blockers0。
 
-源码`b4d137a7b3064218da4a9e5e1147a980a7d0e810`实现及独立串行Standards/Spec复审PASS。[当前证据](s29-spot-capacity-inputs-evidence_zh.md)记录最终准确字节检查/构建/UI。远端/追踪交付待完成，票据仍OPEN；本来源切片不关闭父项/全图门禁。
+源码`b4d137a7b3064218da4a9e5e1147a980a7d0e810`/已核对dev交付`96a9577a3c16274979c0e03fb82cd94da9c563b7`及7项AC回读后，票据CLOSED。[当前证据](s29-spot-capacity-inputs-evidence_zh.md)绑定最终检查/构建/UI及独立串行Standards/Spec PASS。完整父项/全图/原生/金融/物理门禁仍OPEN。
 
 ## 问题
 
