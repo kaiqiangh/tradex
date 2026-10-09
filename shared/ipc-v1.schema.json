@@ -2105,6 +2105,16 @@
         "riskDecision": {
           "$ref": "#/$defs/RiskDecision"
         },
+        "spotFeeFx": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFeeFxStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "spread": {
           "type": "string",
           "maxLength": 128,
@@ -14620,6 +14630,16 @@
             }
           ]
         },
+        "spotFeeFx": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFeeFxStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "spotOrderIntervals": {
           "anyOf": [
             {
@@ -14739,7 +14759,8 @@
         "INSTRUMENT_RULES",
         "CURRENCY_RATES",
         "SPOT_CAPACITY",
-        "SPOT_ORDER_INTERVALS"
+        "SPOT_ORDER_INTERVALS",
+        "SPOT_FEE_FX"
       ]
     },
     "RiskDecisionInputReference": {
@@ -16711,6 +16732,276 @@
         "quantity"
       ]
     },
+    "SpotFeeFxReasonCode": {
+      "description": "The single typed reason a fee/FX statement carries. The wire value is screaming-snake.",
+      "oneOf": [
+        {
+          "description": "Both statements are current and complete.",
+          "type": "string",
+          "const": "SPOT_FEE_FX_QUALIFIED"
+        },
+        {
+          "description": "The fee and FX evidence do not describe the same immutable intent.",
+          "type": "string",
+          "const": "SPOT_FEE_FX_EVIDENCE_MISMATCH"
+        },
+        {
+          "description": "No current declared commission observation is bound to the intent.",
+          "type": "string",
+          "const": "SPOT_FEE_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "The venue does not declare the fee-charging asset, so the statement fails closed.",
+          "type": "string",
+          "const": "SPOT_FEE_CURRENCY_UNKNOWN"
+        },
+        {
+          "description": "Declared rates are present but not usable as an exact decimal basis.",
+          "type": "string",
+          "const": "SPOT_FEE_RATE_UNSUPPORTED"
+        },
+        {
+          "description": "No current proposal-scoped FX observation qualifies the required routes.",
+          "type": "string",
+          "const": "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "A required route's rate is missing, stale or otherwise unqualified.",
+          "type": "string",
+          "const": "SPOT_REQUIRED_FX_UNQUALIFIED"
+        },
+        {
+          "description": "A required route has no supported provider pair.",
+          "type": "string",
+          "const": "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+        }
+      ]
+    },
+    "SpotFeeFxStatement": {
+      "description": "One exact statement of the reviewed intent's owning fee and genuinely-required execution FX.\nIt is explicitly execution-unqualified: it carries no Arm, consent, dispatch or execution\nauthority even when fully qualified, and it is not a substitute for authenticated preflight.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "baseCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingBlocker": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "carriedLimitations": {
+          "description": "Standing provenance limitations of the consumed slices, carried verbatim.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 5
+        },
+        "declaredBuyerRate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredMakerRate": {
+          "description": "The venue's declared rates, reported verbatim, never promoted into a hidden gate.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredSellerRate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredTakerRate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "expectedFee": {
+          "description": "The conservative expected fee, expressed in `fee_currency`.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "expectedSpendQuote": {
+          "description": "The intent notional in its own `QUOTE` unit.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "feeCurrency": {
+          "description": "`UNKNOWN` when the venue does not genuinely declare the fee-charging asset.",
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "feeCurrencyOrigin": {
+          "description": "The declared origin of the fee currency, e.g. `ACCOUNT_DECLARED_FEE_ASSET` or `UNKNOWN`.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "feeEvidenceVersion": {
+          "description": "Bound fee-evidence version: a full 71-character `sha256:` digest.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "feeRateBasis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFeeRateBasis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "maximumAuthorizedSpendQuote": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "proposalHash": {
+          "description": "The bound `sha256:` intent hash — a full 71 characters on the wire.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "reasonCode": {
+          "$ref": "#/$defs/SpotFeeFxReasonCode"
+        },
+        "routeEvidenceVersion": {
+          "description": "Bound route-evidence version: a full 71-character `sha256:` digest.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRequiredRoute"
+          },
+          "maxItems": 2
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "workspaceBaseExpectedFee": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceBaseExpectedSpend": {
+          "description": "Present only when the corresponding required conversion is genuinely qualified.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "side",
+        "feeCurrency",
+        "feeCurrencyOrigin",
+        "baseCurrency",
+        "routes",
+        "outcome",
+        "reasonCode",
+        "reason",
+        "carriedLimitations",
+        "feeEvidenceVersion",
+        "routeEvidenceVersion"
+      ]
+    },
+    "SpotFeeRateBasis": {
+      "description": "The declared commission basis actually used for the expected fee. Always the conservative one.",
+      "type": "string",
+      "enum": [
+        "MAKER",
+        "TAKER"
+      ]
+    },
     "SpotMarketEnvironment": {
       "type": "string",
       "enum": [
@@ -17592,6 +17883,100 @@
         "referencePurposes",
         "bindingVersion",
         "stateVersion"
+      ]
+    },
+    "SpotRequiredRoute": {
+      "description": "One genuinely-required execution FX route. A statement carries at most two of these.",
+      "type": "object",
+      "properties": {
+        "conservativeCost": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "firstReceipt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fromCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "providerPair": {
+          "description": "Present only when a supported bounded producer pair exists for this route.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 6,
+          "minLength": 1
+        },
+        "providerQuality": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerTimestamp": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "purpose": {
+          "$ref": "#/$defs/SpotRequiredRoutePurpose"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/SpotRequiredRouteState"
+        },
+        "toCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "fromCurrency",
+        "toCurrency",
+        "state",
+        "reason"
+      ]
+    },
+    "SpotRequiredRoutePurpose": {
+      "description": "Why a required FX route exists for this intent.",
+      "type": "string",
+      "enum": [
+        "INTENT_POLICY",
+        "INTENT_FUNDING"
+      ]
+    },
+    "SpotRequiredRouteState": {
+      "description": "The declared state of one required FX route's evidence.",
+      "type": "string",
+      "enum": [
+        "QUALIFIED",
+        "UNQUALIFIED",
+        "UNSUPPORTED_ROUTE",
+        "EVIDENCE_UNAVAILABLE"
       ]
     },
     "SpotRuleConstraint": {

@@ -34,6 +34,7 @@ pub mod research;
 pub mod risk;
 pub mod screener;
 pub mod spot_capacity;
+pub mod spot_fee_fx;
 pub mod spot_order_intervals;
 pub mod spot_owning;
 pub mod spot_proposal_rules;
@@ -8032,6 +8033,14 @@ impl ControlPlane {
             }
             _ => None,
         };
+        // S29.9 — the owning fee and genuinely-required execution-FX statement is derived from the
+        // same delivered read-only seams. T01 ships the contract layer only: `spot_fee_fx::derive`
+        // returns `None` for every input, so no statement is ever serialized, no `SpotFeeFx` input
+        // is pushed and no gate can fire. T02 fills in the derivation and the approval-bound input.
+        let spot_fee_fx = match &spot_capacity {
+            Some(capacity) => spot_fee_fx::derive(capacity, proposal).ok().flatten(),
+            None => None,
+        };
         if let Some(intervals) = &spot_order_intervals {
             inputs.push(risk::input_reference(
                 risk::RiskDecisionInputKind::SpotOrderIntervals,
@@ -8102,6 +8111,7 @@ impl ControlPlane {
         decision.spot_capacity = spot_capacity;
         decision.spot_order_intervals = spot_order_intervals;
         decision.spot_owning = spot_owning;
+        decision.spot_fee_fx = spot_fee_fx;
         decision.spot_rules = spot_rules.map(|mut captured| {
             for reference in &mut captured.references {
                 reference.price = None;
@@ -8498,6 +8508,24 @@ impl ControlPlane {
                 ),
             }
         }
+        // S29.9 — the fee and genuinely-required execution conversion statement is part of the
+        // reviewed decision under exactly the same activation condition as the owning gate above.
+        // Reuse the already-computed `owning_required`; when no statement is in scope (`None`)
+        // nothing is blocked, which keeps T01 behaviour-neutral until T02 supplies the statement.
+        if owning_required {
+            if let Some(statement) = current_decision.spot_fee_fx.as_ref() {
+                if statement.outcome != risk::RiskCheckOutcome::Pass {
+                    blockers.push(format!(
+                        "{}: {}",
+                        statement
+                            .binding_blocker
+                            .as_deref()
+                            .unwrap_or("SPOT_FEE_FX_QUALIFICATION_BLOCKED"),
+                        statement.reason
+                    ));
+                }
+            }
+        }
         if self.time.require_trusted().is_err() {
             blockers.push("CLOCK_UNTRUSTED: Synchronize system time before Live approval.".into());
         }
@@ -8677,6 +8705,7 @@ impl ControlPlane {
             estimated_fees: None,
             estimated_slippage_percent,
             capacity_projection,
+            spot_fee_fx: current_decision.spot_fee_fx.clone(),
             reviewed_at: time_status.wall_clock,
         })
     }

@@ -404,6 +404,9 @@ declare const validators: {
   SpotCapacityStatus: (value: unknown) => boolean;
   SpotDepthCoverage: (value: unknown) => boolean;
   SpotDepthLevel: (value: unknown) => boolean;
+  SpotFeeFxReasonCode: (value: unknown) => boolean;
+  SpotFeeFxStatement: (value: unknown) => boolean;
+  SpotFeeRateBasis: (value: unknown) => boolean;
   SpotMarketEnvironment: (value: unknown) => boolean;
   SpotOrderIntervalClock: (value: unknown) => boolean;
   SpotOrderIntervalCounter: (value: unknown) => boolean;
@@ -420,6 +423,9 @@ declare const validators: {
   SpotPriceRangePreview: (value: unknown) => boolean;
   SpotPriceRangeState: (value: unknown) => boolean;
   SpotProposalRules: (value: unknown) => boolean;
+  SpotRequiredRoute: (value: unknown) => boolean;
+  SpotRequiredRoutePurpose: (value: unknown) => boolean;
+  SpotRequiredRouteState: (value: unknown) => boolean;
   SpotRuleConstraint: (value: unknown) => boolean;
   SpotRuleEvaluation: (value: unknown) => boolean;
   SpotRuleField: (value: unknown) => boolean;

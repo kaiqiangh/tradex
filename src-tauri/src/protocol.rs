@@ -3822,6 +3822,8 @@ pub struct ApprovalReview {
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub estimated_slippage_percent: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_fee_fx: Option<crate::spot_fee_fx::SpotFeeFxStatement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capacity_projection: Option<CapacityProjection>,
     #[schemars(length(min = 1, max = 64))]
     pub reviewed_at: String,

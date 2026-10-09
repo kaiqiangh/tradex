@@ -552,7 +552,8 @@ export type RiskDecisionInputKind =
   | "INSTRUMENT_RULES"
   | "CURRENCY_RATES"
   | "SPOT_CAPACITY"
-  | "SPOT_ORDER_INTERVALS";
+  | "SPOT_ORDER_INTERVALS"
+  | "SPOT_FEE_FX";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotCapacityQuality".
@@ -573,6 +574,42 @@ export type SpotCapacityPurpose = "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" |
  * via the `definition` "SpotCapacityStatus".
  */
 export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
+/**
+ * The declared commission basis actually used for the expected fee. Always the conservative one.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeRateBasis".
+ */
+export type SpotFeeRateBasis = "MAKER" | "TAKER";
+/**
+ * The single typed reason a fee/FX statement carries. The wire value is screaming-snake.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeFxReasonCode".
+ */
+export type SpotFeeFxReasonCode =
+  | "SPOT_FEE_FX_QUALIFIED"
+  | "SPOT_FEE_FX_EVIDENCE_MISMATCH"
+  | "SPOT_FEE_EVIDENCE_UNAVAILABLE"
+  | "SPOT_FEE_CURRENCY_UNKNOWN"
+  | "SPOT_FEE_RATE_UNSUPPORTED"
+  | "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
+  | "SPOT_REQUIRED_FX_UNQUALIFIED"
+  | "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE";
+/**
+ * Why a required FX route exists for this intent.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRequiredRoutePurpose".
+ */
+export type SpotRequiredRoutePurpose = "INTENT_POLICY" | "INTENT_FUNDING";
+/**
+ * The declared state of one required FX route's evidence.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRequiredRouteState".
+ */
+export type SpotRequiredRouteState = "QUALIFIED" | "UNQUALIFIED" | "UNSUPPORTED_ROUTE" | "EVIDENCE_UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotOrderIntervalReadKind".
@@ -1668,6 +1705,7 @@ export interface ApprovalReview {
   reviewDigest: string;
   reviewedAt: string;
   riskDecision: RiskDecision;
+  spotFeeFx?: SpotFeeFxStatement | null;
   spread?: string;
   workspaceId: string;
 }
@@ -3633,6 +3671,7 @@ export interface RiskDecision {
   proposalHash: string;
   proposalId: string;
   spotCapacity?: SpotCapacityInputs | null;
+  spotFeeFx?: SpotFeeFxStatement | null;
   spotOrderIntervals?: SpotOrderIntervalInputs | null;
   spotOwning?: SpotOwningQualification | null;
   spotRules?: SpotProposalRules | null;
@@ -3811,6 +3850,107 @@ export interface SpotCapacityRead {
   oldestProviderUpdateTimeMs?: string | null;
   receivedAt: string;
   startedAt: string;
+}
+/**
+ * One exact statement of the reviewed intent's owning fee and genuinely-required execution FX.
+ * It is explicitly execution-unqualified: it carries no Arm, consent, dispatch or execution
+ * authority even when fully qualified, and it is not a substitute for authenticated preflight.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeFxStatement".
+ */
+export interface SpotFeeFxStatement {
+  accountId: string;
+  baseAsset: string;
+  baseCurrency: string;
+  bindingBlocker?: string | null;
+  /**
+   * Standing provenance limitations of the consumed slices, carried verbatim.
+   *
+   * @maxItems 5
+   */
+  carriedLimitations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
+  declaredBuyerRate?: string | null;
+  /**
+   * The venue's declared rates, reported verbatim, never promoted into a hidden gate.
+   */
+  declaredMakerRate?: string | null;
+  declaredSellerRate?: string | null;
+  declaredTakerRate?: string | null;
+  /**
+   * The conservative expected fee, expressed in `fee_currency`.
+   */
+  expectedFee?: string | null;
+  /**
+   * The intent notional in its own `QUOTE` unit.
+   */
+  expectedSpendQuote?: string | null;
+  /**
+   * `UNKNOWN` when the venue does not genuinely declare the fee-charging asset.
+   */
+  feeCurrency: string;
+  /**
+   * The declared origin of the fee currency, e.g. `ACCOUNT_DECLARED_FEE_ASSET` or `UNKNOWN`.
+   */
+  feeCurrencyOrigin: string;
+  /**
+   * Bound fee-evidence version: a full 71-character `sha256:` digest.
+   */
+  feeEvidenceVersion: string;
+  feeRateBasis?: SpotFeeRateBasis | null;
+  instrumentId: string;
+  maximumAuthorizedSpendQuote?: string | null;
+  outcome: RiskCheckOutcome;
+  /**
+   * The bound `sha256:` intent hash — a full 71 characters on the wire.
+   */
+  proposalHash: string;
+  proposalId: string;
+  quoteAsset: string;
+  reason: string;
+  reasonCode: SpotFeeFxReasonCode;
+  /**
+   * Bound route-evidence version: a full 71-character `sha256:` digest.
+   */
+  routeEvidenceVersion: string;
+  /**
+   * @maxItems 2
+   */
+  routes: [] | [SpotRequiredRoute] | [SpotRequiredRoute, SpotRequiredRoute];
+  side: OrderSide;
+  workspaceBaseExpectedFee?: string | null;
+  /**
+   * Present only when the corresponding required conversion is genuinely qualified.
+   */
+  workspaceBaseExpectedSpend?: string | null;
+  workspaceId: string;
+}
+/**
+ * One genuinely-required execution FX route. A statement carries at most two of these.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRequiredRoute".
+ */
+export interface SpotRequiredRoute {
+  conservativeCost?: string | null;
+  firstReceipt?: string | null;
+  fromCurrency: string;
+  /**
+   * Present only when a supported bounded producer pair exists for this route.
+   */
+  providerPair?: string | null;
+  providerQuality?: string | null;
+  providerTimestamp?: string | null;
+  purpose: SpotRequiredRoutePurpose;
+  reason: string;
+  state: SpotRequiredRouteState;
+  toCurrency: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
