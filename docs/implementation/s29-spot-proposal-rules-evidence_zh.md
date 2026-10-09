@@ -1,6 +1,6 @@
 # S29.4 — Proposal 静态 Spot 规则与所需参考输入验收
 
-单票 [#125](https://github.com/kaiqiangh/tradex/issues/125)，父项 [#121](https://github.com/kaiqiangh/tradex/issues/121)。[配对规范](s29-spot-proposal-rules-spec_zh.md)，[English](s29-spot-proposal-rules-evidence.md)。复审基线 `2368e22122b2028e92f4c3352c2f08fe80e1344a`。当前源码为规划 HEAD `1d24523158674d2763d50bee49150e8ff9d808d6` 之上的冻结工作树；运行时、测试和生成文件的逐文件哈希见 [源码检查点](evidence/s29-spot-proposal-rules/implementation-checkpoint.json)。实现验证及串行复审均 PASS；精确 commit/远端/tracker 交付仍待记录，票保持 OPEN。
+单票 [#125](https://github.com/kaiqiangh/tradex/issues/125)，父项 [#121](https://github.com/kaiqiangh/tradex/issues/121)。[配对规范](s29-spot-proposal-rules-spec_zh.md)，[English](s29-spot-proposal-rules-evidence.md)。复审基线 `2368e22122b2028e92f4c3352c2f08fe80e1344a`。交付运行时源码为 dev/origin/dev 上的 `ecc2860b197e3806d14f1eb9871c52246bd8378f`；检查/复审运行于规划 HEAD `1d24523158674d2763d50bee49150e8ff9d808d6` 之上的冻结工作树，已核对提交字节与检查点一致；运行时、测试和生成文件的逐文件哈希见 [源码检查点](evidence/s29-spot-proposal-rules/implementation-checkpoint.json)。实现验证及串行复审均 PASS，#125 已 CLOSED；[tracker 回执](https://github.com/kaiqiangh/tradex/issues/125#issuecomment-6075002255)和[精确字节源码/远端交付](evidence/s29-spot-proposal-rules/source-delivery.json)记录最终收口。
 
 ## 已实现行为
 
@@ -30,7 +30,7 @@
 | 普通桌面构建/pin | PASS；应用含匹配的 Gateway digest | [构建](evidence/s29-spot-proposal-rules/desktop-final.txt)、[配对](evidence/s29-spot-proposal-rules/desktop-build-inputs.json) |
 | 最终重建 React→Rust UI | PASS：键盘1280/768/390、当前拒绝/冻结历史、captured pre-arm review，未 Arm/PLACE | [current](evidence/s29-spot-proposal-rules/ui-final.json)、[pre-arm](evidence/s29-spot-proposal-rules/ui-final-review.json)、[构建绑定](evidence/s29-spot-proposal-rules/ui-build-inputs.json)、[当前截图](evidence/s29-spot-proposal-rules/final-current.png)、[历史截图](evidence/s29-spot-proposal-rules/final-capture.png)、[390截图](evidence/s29-spot-proposal-rules/final-390.png) |
 | 串行 Standards → Spec | PASS / PASS：0 条硬性违规、1 项不阻塞重复代码建议；0 项 Spec 问题 | [报告](evidence/s29-spot-proposal-rules/review-final.md) |
-| 交付 SHA/远端/tracker | 待完成 | 尚未关闭 |
+| 交付 SHA/远端/tracker | PASS：源码 `ecc2860` 与19份已检查/复审文件一致、远端 dev 已核对、#125 CLOSED；GitHub workflows0，不声称 CI PASS | [交付](evidence/s29-spot-proposal-rules/source-delivery.json)、[关闭](evidence/s29-spot-proposal-rules/closure-receipt.json) |
 
 ## RED/GREEN 与保留尝试
 

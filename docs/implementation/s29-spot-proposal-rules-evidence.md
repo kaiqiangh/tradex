@@ -1,6 +1,6 @@
 # S29.4 — Proposal static Spot rules and required references
 
-Ticket [#125](https://github.com/kaiqiangh/tradex/issues/125), parent [#121](https://github.com/kaiqiangh/tradex/issues/121). [Specification](s29-spot-proposal-rules-spec.md), [中文](s29-spot-proposal-rules-evidence_zh.md). Review baseline `2368e22122b2028e92f4c3352c2f08fe80e1344a`. Source is currently a frozen implementation worktree above planning HEAD `1d24523158674d2763d50bee49150e8ff9d808d6`; exact runtime/test/generated-file hashes are in [implementation checkpoint](evidence/s29-spot-proposal-rules/implementation-checkpoint.json). All implementation validation and serial review gates PASS; delivered commit/remote/tracker recording is pending. Ticket remains OPEN until that handoff is complete.
+Ticket [#125](https://github.com/kaiqiangh/tradex/issues/125), parent [#121](https://github.com/kaiqiangh/tradex/issues/121). [Specification](s29-spot-proposal-rules-spec.md), [中文](s29-spot-proposal-rules-evidence_zh.md). Review baseline `2368e22122b2028e92f4c3352c2f08fe80e1344a`. Delivered runtime source is `ecc2860b197e3806d14f1eb9871c52246bd8378f` on dev/origin/dev. Checks/reviews ran against a frozen worktree above planning HEAD `1d24523158674d2763d50bee49150e8ff9d808d6`; every committed runtime/test/generated-file byte matches that checkpoint; exact runtime/test/generated-file hashes are in [implementation checkpoint](evidence/s29-spot-proposal-rules/implementation-checkpoint.json). All implementation validation and serial review gates PASS. Ticket #125 is CLOSED; [tracker receipt](https://github.com/kaiqiangh/tradex/issues/125#issuecomment-6075002255) and [exact-byte source/remote delivery](evidence/s29-spot-proposal-rules/source-delivery.json) record the final handoff.
 
 ## Delivered behavior
 
@@ -30,7 +30,7 @@ Each independent rule and Binance Hot scenario owns a serial isolated applicatio
 | Ordinary desktop build/pin | PASS; compiled application contains its pinned Gateway digest | [build](evidence/s29-spot-proposal-rules/desktop-final.txt), [pairing](evidence/s29-spot-proposal-rules/desktop-build-inputs.json) |
 | Final rebuilt React→Rust UI | PASS: keyboard1280/768/390, current rejection/frozen history, captured pre-arm review, no Arm/PLACE | [current](evidence/s29-spot-proposal-rules/ui-final.json), [pre-arm](evidence/s29-spot-proposal-rules/ui-final-review.json), [build binding](evidence/s29-spot-proposal-rules/ui-build-inputs.json), [current image](evidence/s29-spot-proposal-rules/final-current.png), [captured image](evidence/s29-spot-proposal-rules/final-capture.png), [390 image](evidence/s29-spot-proposal-rules/final-390.png) |
 | Serial Standards then Spec | PASS / PASS: 0 hard Standards breaches, 1 nonblocking duplication heuristic; 0 Spec findings | [reports](evidence/s29-spot-proposal-rules/review-final.md) |
-| Delivered SHA/remote/tracker | Pending | No closure yet |
+| Delivered SHA/remote/tracker | PASS: source `ecc2860` matches all19 reviewed/tested files, remote dev verified, #125 CLOSED; GitHub workflows0 (no CI PASS claim) | [delivery](evidence/s29-spot-proposal-rules/source-delivery.json), [closure](evidence/s29-spot-proposal-rules/closure-receipt.json) |
 
 ## RED/GREEN and retained attempts
 

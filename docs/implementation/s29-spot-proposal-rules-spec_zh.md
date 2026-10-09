@@ -2,7 +2,7 @@
 
 父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。[精确规则/准入](https://github.com/kaiqiangh/tradex/issues/123)与[Hot报价/连续深度](https://github.com/kaiqiangh/tradex/issues/124)已 CLOSED。规划起点 `dev@2368e22122b2028e92f4c3352c2f08fe80e1344a`。[English](s29-spot-proposal-rules-spec.md)。
 
-当前单实现票：[核验 Proposal 静态 Spot 规则与所需参考输入](https://github.com/kaiqiangh/tradex/issues/125)，已由kaiqiangh领取并标记ready-for-agent。[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6069315992)。实现/复审基线 `2368e22122b2028e92f4c3352c2f08fe80e1344a`。只读实现、完整本地/Hot/Gateway 回归、普通构建/pin、重建 React→Rust UI 及串行 Standards→Spec 复审均 PASS。精确源码/远端/tracker 交付仍待记录，票保持 OPEN。见[验收记录](s29-spot-proposal-rules-evidence_zh.md)。
+已完成的单实现票：[核验 Proposal 静态 Spot 规则与所需参考输入](https://github.com/kaiqiangh/tradex/issues/125)，已由kaiqiangh领取并标记ready-for-agent。[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6069315992)。实现/复审基线 `2368e22122b2028e92f4c3352c2f08fe80e1344a`。只读实现、完整本地/Hot/Gateway 回归、普通构建/pin、重建 React→Rust UI 及串行 Standards→Spec 复审均 PASS。源码 `ecc2860` 已在 dev/origin/dev 交付，#125 已 CLOSED，精确字节交付与 tracker 回执已记录。见[验收记录](s29-spot-proposal-rules-evidence_zh.md)。
 
 ## 问题
 

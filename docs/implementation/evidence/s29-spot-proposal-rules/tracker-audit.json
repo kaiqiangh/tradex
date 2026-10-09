@@ -1,0 +1,154 @@
+{
+  "closedTicket": 125,
+  "resolutionUrl": "https://github.com/kaiqiangh/tradex/issues/125#issuecomment-6075002255",
+  "parentStatus": "OPEN",
+  "parentHandoff": "https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6075029794",
+  "mapStatus": "OPEN",
+  "mapUrl": "https://github.com/kaiqiangh/tradex/issues/1",
+  "openIssues": [
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 121,
+      "title": "[Spec] 验证 Binance Spot Live 可信执行（S29）"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 117,
+      "title": "[Spec] 补齐 S28 生产金融前置证据"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--dww",
+          "name": "needs-info",
+          "description": "Waiting for missing information",
+          "color": "D876E3"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 116,
+      "title": "[S28] 接入已配置 Alpaca 报价与 Hot 订阅"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 115,
+      "title": "[Spec] 接入 Alpaca 已配置数据源与生产报价（S28）"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 113,
+      "title": "[Spec] 验证 Trading 212 Live 可信执行（S28）"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 107,
+      "title": "[Spec] 恢复 Live 执行并协调中断工作（S27）"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 56,
+      "title": "[Spec] 完成 Alpaca Paper 交易生命周期"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eBw",
+          "name": "wayfinder:map",
+          "description": "Wayfinder destination and decision index",
+          "color": "5319E7"
+        }
+      ],
+      "number": 1,
+      "title": "[Wayfinder] 完整构建 TradeX v1.0 RevC"
+    }
+  ]
+}
