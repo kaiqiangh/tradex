@@ -1,0 +1,57 @@
+S29.7 — Proposal PRICE_RANGE execution-rule explanation
+Public RED before implementation.
+
+Base: dev@ec10e99 (planning handoff). The three new public tests are present and the
+slice implementation is reverted to its pre-S29.7 state, so the failures below are real
+observable behaviour, not a hand-written expectation.
+
+Command: cd src-tauri && cargo test --test binance_rules proposal_price_range -- --test-threads=1
+
+Observed at 2026-10-09.
+
+running 3 tests
+test proposal_price_range_distinguishes_partial_null_and_unsupported_configuration ... FAILED
+test proposal_price_range_explains_selected_side_snapshot_without_placement_authority ... FAILED
+test proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change ... FAILED
+failures:
+running 1 test
+test proposal_price_range_distinguishes_partial_null_and_unsupported_configuration ... FAILED
+failures:
+failures:
+    proposal_price_range_distinguishes_partial_null_and_unsupported_configuration
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 87 filtered out; finished in 0.09s
+thread 'proposal_price_range_distinguishes_partial_null_and_unsupported_configuration' (12071991) panicked at src-tauri/tests/binance_rules.rs:3952:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+thread 'proposal_price_range_distinguishes_partial_null_and_unsupported_configuration' (12071988) panicked at src-tauri/tests/binance_rules.rs:34:5:
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+running 1 test
+test proposal_price_range_explains_selected_side_snapshot_without_placement_authority ... FAILED
+failures:
+failures:
+    proposal_price_range_explains_selected_side_snapshot_without_placement_authority
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 87 filtered out; finished in 0.09s
+thread 'proposal_price_range_explains_selected_side_snapshot_without_placement_authority' (12072006) panicked at src-tauri/tests/binance_rules.rs:3845:5:
+A stated limit price must require the genuine execution reference: {"data":{"accountId":"14a25a95-b8eb-48d6-bcd7-2a6b0a7600f2","baseAsset":"BTC","bindingVersion":"sha256:41e50ae5b85a971f36bcbbb7b6fee2a710d3c4d2b264ca5579e3462ab805c9e2","ins … [truncated snapshot]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+thread 'proposal_price_range_explains_selected_side_snapshot_without_placement_authority' (12072000) panicked at src-tauri/tests/binance_rules.rs:34:5:
+running 1 test
+test proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change ... FAILED
+failures:
+failures:
+    proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 87 filtered out; finished in 0.08s
+thread 'proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change' (12072033) panicked at src-tauri/tests/binance_rules.rs:4066:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+thread 'proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change' (12072016) panicked at src-tauri/tests/binance_rules.rs:34:5:
+failures:
+    proposal_price_range_distinguishes_partial_null_and_unsupported_configuration
+    proposal_price_range_explains_selected_side_snapshot_without_placement_authority
+    proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 85 filtered out; finished in 1.03s
+error: test failed, to rerun pass `--test binance_rules`

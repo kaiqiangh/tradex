@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "current": {
+    "workspaceId": "fd5b9284-1b08-4b3f-92c0-2da75dd1e0eb",
+    "widths": [
+      1280,
+      768,
+      390
+    ],
+    "currentRejected": true,
+    "captureFrozen": true,
+    "rawReferencePersisted": false,
+    "positiveAuthoritySeed": false,
+    "providerOrderWrites": false,
+    "priceRangePartial": true,
+    "priceRangeSnapshot": true,
+    "priceRangeExplicitNull": true,
+    "capturedBoundsStripped": true,
+    "capturedBoundsDigested": true
+  },
+  "prearm": {
+    "preArmCapturedRules": true,
+    "referenceRefreshInCapture": false,
+    "armingPerformed": false
+  },
+  "console": []
+}

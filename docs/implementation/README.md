@@ -139,7 +139,7 @@ S27 父级[验收审计](s27-parent-acceptance-audit.md)已逐组核对 18 条 U
 | S26 | 刷新并审批撤单与处理成交竞态 | S22、S24、S25 | 精确不可变 CANCEL intent、Arm 后回到撤单且刷新、不同撤单资格、approval/reject/expire、CANCEL_PENDING→provider truth；ACK 不释放，部分成交/费用/剩余容量恰好一次处理；修改仅确认撤单后新 proposal。 |
 | S27 | 恢复崩溃、休眠、断流并中断未派发工作 | S24–S26 | 全 Live restart/sleep/lock/Disable All disarm，account fault 指定作用域、共享政策全部绑定账户；未知保留；P0/P1 优先于 research/backtest，bounded queues；模型故障下监控/撤单/对账仍有效。 |
 | S28 | 验证 Trading 212 Live 可信执行 | S06、S08、S18、S21–S27 | Live adapter 与 trusted chain 贯通、最新 entitlement/calendar/账户能力门槛、真实查询与明确用户交易授权的验收；没有实际授权不发 Live order，保留该验收阻塞。 |
-| S29 | 验证 Binance Spot Live 可信执行（父规范 #121；#122–#125 已关闭，完整金融验收仍开放） | S06、S08、S19、S21–S27 | Live spot 单独连接、permissions/rules/time/FX、受信下单/撤单/对账全链，account-specific readiness；contract/fault 与授权外部验收分别记录。 |
+| S29 | 验证 Binance Spot Live 可信执行（父规范 #121；#122–#127 已关闭，完整金融验收仍开放） | S06、S08、S19、S21–S27 | Live spot 单独连接、permissions/rules/time/FX、受信下单/撤单/对账全链，account-specific readiness；contract/fault 与授权外部验收分别记录。 |
 | S30 | 验证 Bitget Spot Live 可信执行 | S06、S08、S20、S21–S27 | Live/Demo 绝不混路由，签名/身份/权限/成交/撤单证据与 trusted authority；只有该 provider 完整 gate 通过才开放对应能力。 |
 | S31 | 验证工作区备份、导入、迁移与保留 | S12、S15、S25、S27 | 非秘密 export manifest、路径/归档/schema 校验、恢复前备份、事务迁移/integrity、Keychain 引用检查、恢复全 Live disarmed/reconcile；未解决金融证据不可自动清理。 |
 | S32 | 完成设置、健康诊断与隐私控制 | S03、S27、S31 | Providers/Models/Risk/Data/Health/Appearance/About、版本来源/配额/日志/诊断、auto-update/crash-report 明确界面与 opt-in、默认无 telemetry；敏感字段序列化前脱敏。 |
@@ -212,3 +212,5 @@ S29.4 #125 已关闭：[Proposal 静态规则/参考输入验收](s29-spot-propo
 [提供 Binance 精确账户开放订单与容量输入](https://github.com/kaiqiangh/tradex/issues/126)已CLOSED，源码`b4d137a`/已核对dev交付`96a9577`及7项AC关闭回读；[配对验收证据](s29-spot-capacity-inputs-evidence_zh.md)绑定最终检查/构建/UI、161输入及串行复审PASS。完整父项/全图仍OPEN，原型/main未改；下一单票按现有S29前置依赖推进。
 
 已完成单票：[提供 Binance 精确账户时段订单额度输入](https://github.com/kaiqiangh/tradex/issues/127)，沿用单票/公开外部接缝；[配对规范](s29-spot-order-interval-inputs-spec_zh.md)、[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6083562531)。复审起始基线91e2f2a，原生completed dependency126，0 open blocker。源码5d7c597的163输入、最终483Rust/17Node/Hot49/Stock19/Gateway23、普通构建/pin/实际UI与串行双轴复审均通过；[配对验收](s29-spot-order-interval-inputs-evidence_zh.md)。交付22646b3与8AC关闭已回读，剩余8开放issue；完整父项/全图门禁保留，后续S29依赖仍串行细化。
+
+进行中单票：[解释 Proposal 价格区间执行范围](https://github.com/kaiqiangh/tradex/issues/128)，沿用单票/公开外部接缝；[配对规范](s29-price-range-explanation-spec_zh.md)、[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6087692513)、[配对验收](s29-price-range-explanation-evidence_zh.md)。实现/复审基线ec10e99（规划提交不改源码），原生completed dependency125，0 open blocker。源码622e34c的160输入与已提交字节逐一一致；最终487Rust/0失败/39既有ignored跨34二进制（规则89，含4项新PRICE_RANGE用例）、17Node、IPC生成/前端构建/203需求追溯通过；普通实际React当前/捕获/pre-arm、部分/空/null/快照、冻结捕获与1280/768/390无溢出通过，控制台0警告/0错误；独立串行Standards→Spec均PASS、0剩余来源发现（Spec发现的两项正确性缺陷已修复）。完整父项/全图门禁保留，原型/main未改；后续S29依赖（费用/所需FX、动态资格、即时preflight、私有生命周期、真实金融验收）仍串行细化。

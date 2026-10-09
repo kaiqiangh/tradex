@@ -1,0 +1,88 @@
+{
+  "ticket": 128,
+  "title": "Explain Proposal Price Range execution range",
+  "implementation": "622e34c9e2d6c344943a0b3aca761b85cf959c1d",
+  "reviewBaseline": "ec10e99",
+  "acceptanceBeforeHandoff": true,
+  "criteria": [
+    {
+      "id": "AC1",
+      "requirement": "Derive the preview from the immutable Proposal and reject renderer authority; get makes no provider read and no unnecessary purpose or account/source setup is added.",
+      "evidence": [
+        "src-tauri/src/spot_proposal_rules.rs binds account, Proposal hash, side, unit and rule material; only workspace/Proposal identity crosses IPC",
+        "src-tauri/tests/binance_rules.rs proposal_price_range_explains_selected_side_snapshot_without_placement_authority asserts the unrefreshed get reports REFERENCE_MISSING with no provider call",
+        "src-tauri/tests/binance_rules.rs proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configuration asserts an empty executionRules list yields NO_RULE, an empty referencePurposes list and a refresh that adds no call"
+      ]
+    },
+    {
+      "id": "AC2",
+      "requirement": "Accept the documented optional direction fields while keeping bounded strict parsing; genuine absence or null differs from a failed, missing or unknown lookup.",
+      "evidence": [
+        "src-tauri/src/financial_sources/binance_rules.rs accepts omitted multipliers and keeps an explicitly reported zero as a real multiplier",
+        "src-tauri/tests/binance_rules.rs covers partial, empty, null, malformed, duplicate, overflow and wrong-symbol inputs",
+        "src-tauri/tests/binance_rules.rs proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configuration separates an explicit null, a missing rule and an unsupported configuration"
+      ]
+    },
+    {
+      "id": "AC3",
+      "requirement": "Only the genuine referencePrice qualifies the preview; exact selected-side bounds and units are explained with provenance, and future taker-phase recalculation and possible expiry stay explicit.",
+      "evidence": [
+        "src-tauri/src/spot_proposal_rules.rs multiplies exactly in provider_io::decimal and states the taker-phase and expiry wording",
+        "src/SpotProposalRules.tsx renders BUY (bid) / SELL (ask) multipliers, enforced versus not enforced directions and the snapshot bounds in QUOTE per BASE",
+        "tests/spot-proposal-rules-ui.mjs asserts /BUY \\(bid\\) multipliers/, /SELL \\(ask\\) multipliers/, /59994 – 60006 USDT\\/BTC/ and /expires the order/"
+      ]
+    },
+    {
+      "id": "AC4",
+      "requirement": "Fixed routes and bounds are reused; pending, failure, expiry, binding change, reopen, late and newer-owner results retire the current preview; static null fallback stays independent.",
+      "evidence": [
+        "src-tauri/src/spot_proposal_rules.rs reuses the fixed reference GET and the shared budget/cooldown with an unchanged 30-second deadline",
+        "src-tauri/tests/binance_rules.rs proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change covers precision, inclusive bounds and binding retirement",
+        "src-tauri/tests/binance_rules.rs proposal_price_range_retires_a_stale_execution_reference_instead_of_renewing_it proves a stale reference cannot be renewed by a plain get"
+      ]
+    },
+    {
+      "id": "AC5",
+      "requirement": "Actual React current/captured/pre-arm views explain identity, configuration, bounds, null, fault, age and recovery, stay readable at 1280/768/390, keep history immutable and persist no raw response or secret.",
+      "evidence": [
+        "src/SpotProposalRules.tsx explains every state, withholds a non-current price and names the bounds digest on capture",
+        "tests/spot-proposal-rules-ui.mjs verifies the captured region is frozen, is not refreshed by a later current read and persists no 59994/60006/60000 value",
+        "ui-1280.png and ui-390.png record the final rendered review"
+      ]
+    },
+    {
+      "id": "AC6",
+      "requirement": "A positive preview stays execution-unqualified; no complete-rule, dynamic, monetary, rights, quote, permissions, fee/FX, funding, reservation, Arm, consent, Prepare or Gateway authority is manufactured, and exact CANCEL/reconciliation plus the parent gates are preserved.",
+      "evidence": [
+        "src/SpotProposalRules.tsx states that nothing here approves, places or promises a fill and lists unresolved obligations",
+        "tests/spot-proposal-rules-ui.mjs asserts positiveAuthoritySeed=false, providerOrderWrites=false and arming=DISARMED",
+        "ui-review.json reports the pre-arm dialog offers no reference refresh and performs no arming"
+      ]
+    },
+    {
+      "id": "AC7",
+      "requirement": "Genuine public RED/GREEN, external fault/precision/absence/lifecycle coverage, current full and affected suites, schema, bilingual traceability, ordinary build, actual frozen UI, independent serial Standards then Spec and exact source/evidence handoff establish this slice.",
+      "evidence": [
+        "red.txt records three new public PRICE_RANGE cases failing against the reverted implementation",
+        "green.txt records the focused and full-suite GREEN runs",
+        "checks-review-final.txt records schema:check, frontend build, 17 Node, 487 Rust / 0 failed / 39 pre-existing ignored over 34 binaries and the 203/70/13 traceability readback",
+        "review.md and code-review-final.md record the independent serial Standards then Spec reviews",
+        "delivery-before-handoff.json freezes all 160 source/build inputs against the implementation commit"
+      ]
+    }
+  ],
+  "notClaimed": [
+    "real provider order mutation, Arm or consent",
+    "native provider or financial acceptance",
+    "physical sleep/wake lifecycle",
+    "prototype code changes",
+    "remote CI (no repository workflows exist)"
+  ],
+  "gatesRemainingOpen": [
+    "S29 parent #121",
+    "S28 #115/#116/#117",
+    "S17 #56",
+    "physical S27 #107",
+    "S33 cross-regression and OD-005/OD-006"
+  ]
+}
