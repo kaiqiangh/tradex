@@ -1415,6 +1415,7 @@ fn main() -> io::Result<()> {
                         | "data.binance_rules.refresh"
                         | "trade.spot_rules.refresh"
                         | "trade.spot_capacity.refresh"
+                        | "trade.spot_order_intervals.refresh"
                 )
             ) {
                 let result = tradex::financial_sources::execute_refresh(

@@ -1061,6 +1061,12 @@ impl ProviderHttp for Http {
                     }
                     value
                 },
+                "/api/v3/rateLimit/order" if self.binance_rules_ui => {
+                    assert!(params.starts_with("timestamp=") && !params.contains("symbol="));
+                    let mut rows=json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64,"count":9007199254740993u64}]);
+                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { rows[0]["count"]=json!("0"); }
+                    rows
+                },
                 "/api/v3/openOrders" if self.binance_rules_ui => {
                     let mut rows = self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders);
                     for row in &mut rows {
@@ -1257,5 +1263,5 @@ pub fn default_binance_exchange_info() -> Value {
 // External HTTP response fixture only: no Control Plane snapshot or financial authority.
 pub fn binance_spot_exchange_info(symbol: &str) -> Value {
     let base = if symbol == "ETHUSDT" { "ETH" } else { "BTC" };
-    json!({"exchangeFilters":[],"symbols":[{"symbol":symbol,"status":"TRADING","baseAsset":base,"quoteAsset":"USDT","baseAssetPrecision":8,"quoteAssetPrecision":8,"isSpotTradingAllowed":true,"quoteOrderQtyMarketAllowed":true,"orderTypes":["LIMIT","MARKET"],"icebergAllowed":true,"ocoAllowed":true,"otoAllowed":true,"opoAllowed":false,"allowTrailingStop":false,"cancelReplaceAllowed":true,"amendAllowed":false,"pegInstructionsAllowed":true,"defaultSelfTradePreventionMode":"NONE","allowedSelfTradePreventionModes":["NONE"],"permissionSets":[["SPOT","MARGIN"]],"filters":[{"filterType":"PRICE_FILTER","minPrice":"0.00000000","maxPrice":"999999.00000000","tickSize":"0.01000000"},{"filterType":"LOT_SIZE","minQty":"0.00000100","maxQty":"100.00000000","stepSize":"0.00000100"}]}]})
+    json!({"rateLimits":[{"rateLimitType":"REQUEST_WEIGHT","interval":"MINUTE","intervalNum":1,"limit":6000},{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64}],"exchangeFilters":[],"symbols":[{"symbol":symbol,"status":"TRADING","baseAsset":base,"quoteAsset":"USDT","baseAssetPrecision":8,"quoteAssetPrecision":8,"isSpotTradingAllowed":true,"quoteOrderQtyMarketAllowed":true,"orderTypes":["LIMIT","MARKET"],"icebergAllowed":true,"ocoAllowed":true,"otoAllowed":true,"opoAllowed":false,"allowTrailingStop":false,"cancelReplaceAllowed":true,"amendAllowed":false,"pegInstructionsAllowed":true,"defaultSelfTradePreventionMode":"NONE","allowedSelfTradePreventionModes":["NONE"],"permissionSets":[["SPOT","MARGIN"]],"filters":[{"filterType":"PRICE_FILTER","minPrice":"0.00000000","maxPrice":"999999.00000000","tickSize":"0.01000000"},{"filterType":"LOT_SIZE","minQty":"0.00000100","maxQty":"100.00000000","stepSize":"0.00000100"}]}]})
 }

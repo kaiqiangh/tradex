@@ -2114,6 +2114,11 @@ pub fn execute_refresh(
     vault: &(impl CredentialVault + Clone + Send + 'static),
     http: &impl ProviderHttp,
 ) -> Value {
+    if request["command"] == "trade.spot_order_intervals.refresh" {
+        return crate::spot_order_intervals::execute_refresh(
+            control, request, consumer, vault, http,
+        );
+    }
     if request["command"] == "trade.spot_capacity.refresh" {
         return crate::spot_capacity::execute_refresh(control, request, consumer, vault, http);
     }

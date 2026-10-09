@@ -551,7 +551,8 @@ export type RiskDecisionInputKind =
   | "RESERVATIONS"
   | "INSTRUMENT_RULES"
   | "CURRENCY_RATES"
-  | "SPOT_CAPACITY";
+  | "SPOT_CAPACITY"
+  | "SPOT_ORDER_INTERVALS";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotCapacityQuality".
@@ -572,6 +573,21 @@ export type SpotCapacityPurpose = "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" |
  * via the `definition` "SpotCapacityStatus".
  */
 export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalReadKind".
+ */
+export type SpotOrderIntervalReadKind = "INTERVAL_DEFINITIONS" | "ACCOUNT_IDENTITY" | "ACCOUNT_INTERVAL_COUNTERS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalTimeAssociation".
+ */
+export type SpotOrderIntervalTimeAssociation = "DERIVED_UNCERTAIN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalScope".
+ */
+export type SpotOrderIntervalScope = "ACCOUNT_ALL_KEYS_IPS_APIS";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionStatus".
@@ -1000,6 +1016,7 @@ export type ReplyData =
   | RiskPolicyState
   | SpotProposalRules
   | SpotCapacityInputs
+  | SpotOrderIntervalInputs
   | RiskDecision
   | RiskDecisionHistory
   | ProviderCatalog
@@ -1326,6 +1343,7 @@ export interface IpcSchema {
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
   spotCapacityInputs: SpotCapacityInputs;
+  spotOrderIntervalInputs: SpotOrderIntervalInputs;
   spotProposalRules: SpotProposalRules;
   spotRulesQuery: SpotRulesQuery;
   spotRulesRefresh: SpotRulesRefresh;
@@ -3587,6 +3605,7 @@ export interface RiskDecision {
   proposalHash: string;
   proposalId: string;
   spotCapacity?: SpotCapacityInputs | null;
+  spotOrderIntervals?: SpotOrderIntervalInputs | null;
   spotRules?: SpotProposalRules | null;
   stateVersion: string;
   status: RiskDecisionStatus;
@@ -3761,6 +3780,154 @@ export interface SpotCapacityRead {
   latestProviderUpdateTimeMs?: string | null;
   oldestProviderTransactionTimeMs?: string | null;
   oldestProviderUpdateTimeMs?: string | null;
+  receivedAt: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalInputs".
+ */
+export interface SpotOrderIntervalInputs {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  failure?: string | null;
+  instrumentId: string;
+  observation?: SpotOrderIntervalObservation | null;
+  proposalHash: string;
+  proposalId: string;
+  providerWaitSeconds?: string | null;
+  qualification: RiskCheckOutcome;
+  qualificationReason: string;
+  quoteAsset: string;
+  retirementReason?: string | null;
+  ruleMaterialVersion?: string | null;
+  scope: SpotOrderIntervalScope;
+  sourceVersion: string;
+  stateVersion: string;
+  status: SpotCapacityStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalObservation".
+ */
+export interface SpotOrderIntervalObservation {
+  atomic: false;
+  clock: SpotOrderIntervalClock;
+  collectionId: string;
+  /**
+   * @maxItems 32
+   */
+  counters: SpotOrderIntervalCounter[];
+  coverageComplete: boolean;
+  /**
+   * @maxItems 32
+   */
+  declarations: SpotOrderIntervalDefinition[];
+  providerObservedAt?: string | null;
+  /**
+   * @minItems 1
+   * @maxItems 3
+   */
+  reads:
+    | [SpotOrderIntervalRead]
+    | [SpotOrderIntervalRead, SpotOrderIntervalRead]
+    | [SpotOrderIntervalRead, SpotOrderIntervalRead, SpotOrderIntervalRead];
+  timeAssociation: SpotOrderIntervalTimeAssociation;
+  /**
+   * @maxItems 16
+   */
+  unresolvedObligations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalClock".
+ */
+export interface SpotOrderIntervalClock {
+  localRoundTripBoundMs: string;
+  receivedAt: string;
+  serverTimeMs: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalCounter".
+ */
+export interface SpotOrderIntervalCounter {
+  count: string;
+  interval: string;
+  intervalNum: string;
+  limit: string;
+  rateLimitType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalDefinition".
+ */
+export interface SpotOrderIntervalDefinition {
+  interval: string;
+  intervalNum: string;
+  limit: string;
+  rateLimitType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalRead".
+ */
+export interface SpotOrderIntervalRead {
+  digest: string;
+  kind: SpotOrderIntervalReadKind;
   receivedAt: string;
   startedAt: string;
 }

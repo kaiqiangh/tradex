@@ -844,6 +844,7 @@ pub enum RiskDecisionInputKind {
     InstrumentRules,
     CurrencyRates,
     SpotCapacity,
+    SpotOrderIntervals,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -919,6 +920,8 @@ pub struct RiskDecision {
     pub spot_rules: Option<crate::spot_proposal_rules::SpotProposalRules>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_capacity: Option<crate::spot_capacity::SpotCapacityInputs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_order_intervals: Option<crate::spot_order_intervals::SpotOrderIntervalInputs>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1076,7 +1079,8 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
         | RiskDecisionInputKind::Reservations
         | RiskDecisionInputKind::InstrumentRules
         | RiskDecisionInputKind::CurrencyRates
-        | RiskDecisionInputKind::SpotCapacity => {}
+        | RiskDecisionInputKind::SpotCapacity
+        | RiskDecisionInputKind::SpotOrderIntervals => {}
     }
 }
 
@@ -2278,6 +2282,7 @@ pub(crate) fn evaluate(
         checks,
         spot_rules: None,
         spot_capacity: None,
+        spot_order_intervals: None,
     }
 }
 

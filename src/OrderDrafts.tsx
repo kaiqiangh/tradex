@@ -1,3 +1,4 @@
+import { CurrentSpotOrderIntervals, SpotOrderIntervalExplanation } from './SpotOrderIntervalInputs.tsx';
 import { CurrentSpotCapacity, SpotCapacityExplanation } from './SpotCapacityInputs.tsx';
 import { CurrentSpotRules, SpotRulesExplanation } from './SpotProposalRules.tsx';
 import { SpotRuleContext, FinancialEvidencePanel, CapturedCurrencyEvidence, FxSourceContext, MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
@@ -1512,6 +1513,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             <FxSourceContext workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotRules key={proposalDetail.data.proposalId} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotCapacity key={`capacity:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
+            {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotOrderIntervals key={`intervals:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
             <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
             {['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data.fields.environment) && <section className="live-approval-panel" aria-label="Live approval history">
@@ -1808,6 +1810,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
         {liveArmReview.quoteReview?.riskDecision.spotRules && <SpotRulesExplanation rules={liveArmReview.quoteReview.riskDecision.spotRules} captured />}
         {liveArmReview.quoteReview?.riskDecision.spotCapacity && <SpotCapacityExplanation inputs={liveArmReview.quoteReview.riskDecision.spotCapacity} captured />}
+        {liveArmReview.quoteReview?.riskDecision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={liveArmReview.quoteReview.riskDecision.spotOrderIntervals} captured />}
         {liveArmReview.quoteReview?.currencyEvidence && <CapturedCurrencyEvidence evidence={liveArmReview.quoteReview.currencyEvidence} reviewedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview?.market.spotRuleEvidence && <FinancialEvidencePanel source={liveArmReview.quoteReview.market.spotRuleEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview && <SpotQuoteEvidencePanel detail={liveArmReview.quoteReview.market} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
@@ -1848,6 +1851,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
       {approvalReview.riskDecision.spotRules && <SpotRulesExplanation rules={approvalReview.riskDecision.spotRules} captured />}
         {approvalReview.riskDecision.spotCapacity && <SpotCapacityExplanation inputs={approvalReview.riskDecision.spotCapacity} captured />}
+        {approvalReview.riskDecision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={approvalReview.riskDecision.spotOrderIntervals} captured />}
       {approvalReview.market.spotRuleEvidence && <FinancialEvidencePanel source={approvalReview.market.spotRuleEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       <SpotQuoteEvidencePanel detail={approvalReview.market} capturedAt={approvalReview.reviewedAt} />
       {approvalReview.market.financialEvidence && <MarketFinancialEvidencePanel evidence={approvalReview.market.financialEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
@@ -1960,6 +1964,7 @@ function RiskDecisionPanel({ history, loading, error, busy, onEvaluate }: {
         </li>)}</ul>
         {decision.spotRules && <SpotRulesExplanation rules={decision.spotRules} captured />}
         {decision.spotCapacity && <SpotCapacityExplanation inputs={decision.spotCapacity} captured />}
+        {decision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={decision.spotOrderIntervals} captured />}
         <details><summary>Input provenance ({decision.inputs.length})</summary><ul className="risk-decision-inputs">{decision.inputs.map(input => <li key={`${input.kind}-${input.referenceId}`}>
           <strong>{input.kind}</strong> · {input.referenceId} · {input.digest}{input.observedAt ? ` · ${input.observedAt}` : ''}
         </li>)}</ul></details>

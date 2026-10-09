@@ -460,6 +460,9 @@
     "spotCapacityInputs": {
       "$ref": "#/$defs/SpotCapacityInputs"
     },
+    "spotOrderIntervalInputs": {
+      "$ref": "#/$defs/SpotOrderIntervalInputs"
+    },
     "spotProposalRules": {
       "$ref": "#/$defs/SpotProposalRules"
     },
@@ -597,6 +600,7 @@
     "spotRulesQuery",
     "spotProposalRules",
     "spotCapacityInputs",
+    "spotOrderIntervalInputs",
     "riskDecisionQuery",
     "saveRiskPolicy",
     "setOnboardingStep",
@@ -13420,6 +13424,9 @@
           "$ref": "#/$defs/SpotCapacityInputs"
         },
         {
+          "$ref": "#/$defs/SpotOrderIntervalInputs"
+        },
+        {
           "$ref": "#/$defs/RiskDecision"
         },
         {
@@ -14613,6 +14620,16 @@
             }
           ]
         },
+        "spotOrderIntervals": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotOrderIntervalInputs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "spotRules": {
           "anyOf": [
             {
@@ -14711,7 +14728,8 @@
         "RESERVATIONS",
         "INSTRUMENT_RULES",
         "CURRENCY_RATES",
-        "SPOT_CAPACITY"
+        "SPOT_CAPACITY",
+        "SPOT_ORDER_INTERVALS"
       ]
     },
     "RiskDecisionInputReference": {
@@ -16687,6 +16705,360 @@
       "type": "string",
       "enum": [
         "ORDINARY"
+      ]
+    },
+    "SpotOrderIntervalClock": {
+      "type": "object",
+      "properties": {
+        "localRoundTripBoundMs": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "serverTimeMs": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serverTimeMs",
+        "localRoundTripBoundMs",
+        "startedAt",
+        "receivedAt"
+      ]
+    },
+    "SpotOrderIntervalCounter": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "interval": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "intervalNum": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "limit": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "rateLimitType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rateLimitType",
+        "interval",
+        "intervalNum",
+        "limit",
+        "count"
+      ]
+    },
+    "SpotOrderIntervalDefinition": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "intervalNum": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "limit": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "rateLimitType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rateLimitType",
+        "interval",
+        "intervalNum",
+        "limit"
+      ]
+    },
+    "SpotOrderIntervalInputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotOrderIntervalObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerWaitSeconds": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "qualification": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "qualificationReason": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "retirementReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "scope": {
+          "$ref": "#/$defs/SpotOrderIntervalScope"
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotCapacityStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "scope",
+        "status",
+        "qualification",
+        "qualificationReason",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotOrderIntervalObservation": {
+      "type": "object",
+      "properties": {
+        "atomic": {
+          "type": "boolean",
+          "const": false
+        },
+        "clock": {
+          "$ref": "#/$defs/SpotOrderIntervalClock"
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "counters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotOrderIntervalCounter"
+          },
+          "maxItems": 32
+        },
+        "coverageComplete": {
+          "type": "boolean"
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotOrderIntervalDefinition"
+          },
+          "maxItems": 32
+        },
+        "providerObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotOrderIntervalRead"
+          },
+          "maxItems": 3,
+          "minItems": 1
+        },
+        "timeAssociation": {
+          "$ref": "#/$defs/SpotOrderIntervalTimeAssociation"
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "atomic",
+        "declarations",
+        "counters",
+        "coverageComplete",
+        "unresolvedObligations",
+        "clock",
+        "timeAssociation",
+        "reads"
+      ]
+    },
+    "SpotOrderIntervalRead": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "kind": {
+          "$ref": "#/$defs/SpotOrderIntervalReadKind"
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "startedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotOrderIntervalReadKind": {
+      "type": "string",
+      "enum": [
+        "INTERVAL_DEFINITIONS",
+        "ACCOUNT_IDENTITY",
+        "ACCOUNT_INTERVAL_COUNTERS"
+      ]
+    },
+    "SpotOrderIntervalScope": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_ALL_KEYS_IPS_APIS"
+      ]
+    },
+    "SpotOrderIntervalTimeAssociation": {
+      "type": "string",
+      "enum": [
+        "DERIVED_UNCERTAIN"
       ]
     },
     "SpotProposalRules": {

@@ -35,6 +35,1087 @@ fn isolated_rule_scenario(name: &str) -> bool {
     true
 }
 
+fn interval_get(rig: &RuleRig, proposal: &Value) -> Value {
+    command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    )
+}
+fn interval_refresh(rig: &RuleRig, proposal: &Value, external: &RuleHttp) -> Value {
+    let before = interval_get(rig, proposal);
+    tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"interval-collection","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        external,
+    )
+}
+#[test]
+fn interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope() {
+    if isolated_rule_scenario(
+        "interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope",
+    ) {
+        return;
+    }
+    struct RecordingHttp {
+        inner: fixtures::Http,
+        calls: std::cell::RefCell<Vec<String>>,
+    }
+    impl ProviderHttp for RecordingHttp {
+        fn get(
+            &self,
+            endpoint: tradex::provider_io::ProviderEndpoint,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            self.calls.borrow_mut().push(path.into());
+            self.inner.get(endpoint, path, headers)
+        }
+    }
+    let rig = RuleRig::new();
+    let source = command(
+        &mut rig.control.lock().unwrap(),
+        "data.binance_rules.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let configured = command(
+        &mut rig.control.lock().unwrap(),
+        "data.binance_rules.configure",
+        json!({"workspaceId":rig.workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":rig.account["connectionId"],"instrumentId":"crypto:ETH/USDT:spot"}),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    let mut external = fixtures::Http::default();
+    external.binance_rules_ui = true;
+    external.binance_uid.set(
+        rig.account["data"]["remoteAccountId"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap(),
+    );
+    let source = command(
+        &mut rig.control.lock().unwrap(),
+        "data.binance_rules.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let external = RecordingHttp {
+        inner: external,
+        calls: Default::default(),
+    };
+    let source = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"eth-rule-source","schemaVersion":1,"command":"data.binance_rules.refresh","payload":{"workspaceId":rig.workspace,"expectedStateVersion":source["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(source["data"]["status"], "AVAILABLE", "{source}");
+    let proposal=rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:ETH/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"3000","maximumSpend":null,"timeInForce":"GTC"}));
+    let before = interval_get(&rig, &proposal);
+    let first = external.calls.borrow().len();
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"eth-intervals","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    assert_eq!(result["data"]["instrumentId"], "crypto:ETH/USDT:spot");
+    assert_eq!(result["data"]["baseAsset"], "ETH");
+    assert_eq!(result["data"]["quoteAsset"], "USDT");
+    assert_eq!(result["data"]["scope"], "ACCOUNT_ALL_KEYS_IPS_APIS");
+    assert_eq!(result["data"]["observation"]["coverageComplete"], true);
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    let calls = external.calls.borrow();
+    let fresh = &calls[first..];
+    assert!(
+        fresh
+            .iter()
+            .any(|p| p == "/api/v3/exchangeInfo?symbol=ETHUSDT&showPermissionSets=true")
+    );
+    assert!(
+        fresh
+            .iter()
+            .any(|p| p.starts_with("/api/v3/rateLimit/order?timestamp=") && !p.contains("symbol="))
+    );
+    assert!(fresh.iter().all(|p| !p.contains("BTCUSDT")
+        && !p.contains("openOrders")
+        && !p.contains("openOrderList")));
+}
+
+#[test]
+fn interval_exact_response_bounds_and_eight_transient_slots_are_visible_through_public_queries() {
+    if isolated_rule_scenario(
+        "interval_exact_response_bounds_and_eight_transient_slots_are_visible_through_public_queries",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let first_proposal = rig.decision();
+    external.edit.set(Some(|route,body| match route {
+        "/api/v3/exchangeInfo"=>body["rateLimits"]=(1..=32).map(|n|json!({"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":n,"limit":50})).collect::<Vec<_>>().into(),
+        "/api/v3/rateLimit/order"=>*body=(1..=32).map(|n|json!({"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":n,"limit":50,"count":50+n})).collect::<Vec<_>>().into(),
+        _=>{}
+    }));
+    let maximum = interval_refresh(&rig, &first_proposal, &external);
+    assert_eq!(maximum["data"]["status"], "OBSERVED", "{maximum}");
+    assert_eq!(
+        maximum["data"]["observation"]["counters"]
+            .as_array()
+            .unwrap()
+            .len(),
+        32
+    );
+    assert_eq!(maximum["data"]["observation"]["coverageComplete"], true);
+    assert_eq!(
+        maximum["data"]["observation"]["counters"][31]["count"],
+        "82"
+    );
+    assert_eq!(maximum["data"]["qualification"], "UNAVAILABLE");
+    let mut oversized =
+        json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0}]);
+    oversized[0]["futurePadding"] = json!("x".repeat(512 * 1024));
+    *external.raw.borrow_mut() = Some((
+        "/api/v3/rateLimit/order".into(),
+        serde_json::to_vec(&oversized).unwrap(),
+    ));
+    let rejected = interval_refresh(&rig, &first_proposal, &external);
+    assert_eq!(rejected["data"]["status"], "UNAVAILABLE");
+    assert!(rejected["data"]["observation"].is_null());
+    *external.raw.borrow_mut() = None;
+    external.edit.set(None);
+    assert_eq!(
+        interval_refresh(&rig, &first_proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let mut latest = first_proposal.clone();
+    for _ in 0..8 {
+        latest = rig.decision();
+        assert_eq!(
+            interval_refresh(&rig, &latest, &external)["data"]["status"],
+            "OBSERVED"
+        );
+    }
+    let retired = interval_get(&rig, &first_proposal);
+    assert_eq!(
+        retired["data"]["status"], "NOT_OBSERVED",
+        "The oldest collection must retire when a ninth Proposal owns a slot: {retired}"
+    );
+    assert!(retired["data"]["observation"].is_null());
+    assert_eq!(interval_get(&rig, &latest)["data"]["status"], "OBSERVED");
+    assert_ne!(latest["status"], "ALLOWED");
+}
+
+#[test]
+fn interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context() {
+    if isolated_rule_scenario(
+        "interval_definition_scope_cannot_borrow_a_different_symbol_or_asset_context",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/exchangeInfo" {
+                body["symbols"][0]["symbol"] = json!("ETHUSDT");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/exchangeInfo" {
+                body["symbols"][0]["baseAsset"] = json!("ETH");
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/exchangeInfo" {
+                body["symbols"][0]["quoteAsset"] = json!("USD");
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/exchangeInfo" {
+                let row = body["symbols"][0].clone();
+                body["symbols"].as_array_mut().unwrap().push(row);
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let first = external.calls.borrow().len();
+        let result = interval_refresh(&rig, &proposal, &external);
+        assert_eq!(
+            result["data"]["status"], "UNAVAILABLE",
+            "Filtered definitions must match the immutable canonical scope: {result}"
+        );
+        assert_eq!(result["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(result["data"]["observation"].is_null());
+        assert!(
+            external.calls.borrow()[first..]
+                .iter()
+                .all(|p| p == "/api/v3/time" || p.starts_with("/api/v3/exchangeInfo?")),
+            "Mismatched public scope cannot cause private reads"
+        );
+    }
+}
+
+#[test]
+fn interval_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline() {
+    if isolated_rule_scenario(
+        "interval_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline",
+    ) {
+        return;
+    }
+    #[derive(Clone)]
+    struct WaitingVault {
+        inner: fixtures::Vault,
+        started: std::sync::mpsc::Sender<()>,
+    }
+    impl CredentialVault for WaitingVault {
+        fn put(
+            &self,
+            reference: &str,
+            credentials: &tradex::provider_io::Credentials,
+        ) -> tradex::protocol::Result<()> {
+            self.inner.put(reference, credentials)
+        }
+        fn remove(&self, reference: &str) -> tradex::protocol::Result<()> {
+            self.inner.remove(reference)
+        }
+        fn get(
+            &self,
+            reference: &str,
+        ) -> tradex::protocol::Result<tradex::provider_io::Credentials> {
+            self.started.send(()).unwrap();
+            std::thread::sleep(std::time::Duration::from_secs(22));
+            self.inner.get(reference)
+        }
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query.clone(),
+    );
+    let request = |version: Value| json!({"requestId":"capacity-vault-deadline","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":version}});
+    let first = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &request(before["data"]["stateVersion"].clone()),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(first["data"]["status"], "OBSERVED");
+    let (started, receiving) = std::sync::mpsc::channel();
+    let waiting = WaitingVault {
+        inner: rig.vault.clone(),
+        started,
+    };
+    let cp = rig.control.clone();
+    let uid = external.uid.get();
+    let req = request(first["data"]["stateVersion"].clone());
+    let worker = std::thread::spawn(move || {
+        let http = RuleHttp::default();
+        http.uid.set(uid);
+        let at = std::time::Instant::now();
+        let result = tradex::financial_sources::execute_refresh(&cp, &req, "main", &waiting, &http);
+        (result, http.calls.into_inner(), at.elapsed())
+    });
+    receiving
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .unwrap();
+    let during = command(
+        &mut rig
+            .control
+            .try_lock()
+            .expect("Authentication cannot hold the CP lock"),
+        "trade.spot_order_intervals.get",
+        query,
+    );
+    assert_eq!(
+        during["data"]["status"], "NOT_OBSERVED",
+        "Pending authentication retained current success: {during}"
+    );
+    assert!(during["data"]["observation"].is_null());
+    let (failed, calls, elapsed) = worker.join().unwrap();
+    assert_eq!(failed["data"]["status"], "UNAVAILABLE", "{failed}");
+    assert_eq!(
+        failed["data"]["failure"], "PROVIDER_UNAVAILABLE",
+        "Insufficient remaining deadline is not a binding change: {failed}"
+    );
+    assert!(
+        calls.len() == 2
+            && calls
+                .iter()
+                .all(|p| p == "/api/v3/time" || p.starts_with("/api/v3/exchangeInfo?")),
+        "Only public purpose discovery precedes authentication; no signed HTTP starts without the existing 12-second completion margin"
+    );
+    assert!(elapsed < std::time::Duration::from_secs(30));
+}
+
+#[test]
+fn interval_newer_public_refresh_owns_the_observation_and_late_collection_cannot_replace_it() {
+    if isolated_rule_scenario(
+        "interval_newer_public_refresh_owns_the_observation_and_late_collection_cannot_replace_it",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query.clone(),
+    );
+    let winner = std::sync::Arc::new(std::sync::Mutex::new(None::<Value>));
+    let saved = winner.clone();
+    let cp = rig.control.clone();
+    let q = query.clone();
+    let vault = rig.vault.clone();
+    let uid = external.uid.get();
+    *external.hook.borrow_mut() = Some((
+        "/api/v3/rateLimit/order".into(),
+        Box::new(move || {
+            let current = command(
+                &mut cp
+                    .try_lock()
+                    .expect("In-flight provider read cannot own the CP lock"),
+                "trade.spot_order_intervals.get",
+                q.clone(),
+            );
+            let next = RuleHttp::default();
+            next.uid.set(uid);
+            let fresh = tradex::financial_sources::execute_refresh(
+                &cp,
+                &json!({"requestId":"capacity-newer","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":q["workspaceId"],"proposalId":q["proposalId"],"expectedStateVersion":current["data"]["stateVersion"]}}),
+                "main",
+                &vault,
+                &next,
+            );
+            assert_eq!(fresh["data"]["status"], "OBSERVED", "{fresh}");
+            *saved.lock().unwrap() = Some(fresh);
+        }),
+    ));
+    let late = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-older","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(late["error"]["code"], "STATE_VERSION_CONFLICT", "{late}");
+    let current = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query,
+    );
+    let fresh = winner.lock().unwrap().clone().unwrap();
+    assert_eq!(current["data"]["observation"], fresh["data"]["observation"]);
+    assert_eq!(current["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn interval_authentication_and_original_identity_faults_retire_inputs_with_sanitized_recovery() {
+    if isolated_rule_scenario(
+        "interval_authentication_and_original_identity_faults_retire_inputs_with_sanitized_recovery",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let refresh = || {
+        let before = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.spot_order_intervals.get",
+            query.clone(),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-auth-faults","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &external,
+        )
+    };
+    let initial = refresh();
+    assert_eq!(initial["data"]["status"], "OBSERVED");
+    *external.response.borrow_mut() = Some(("/api/v3/rateLimit/order".into(), 401, 0));
+    let denied = refresh();
+    assert_eq!(denied["data"]["status"], "UNAVAILABLE");
+    assert_eq!(denied["data"]["failure"], "PROVIDER_AUTHENTICATION_FAILED");
+    assert!(denied["data"]["observation"].is_null());
+    let calls = external.calls.borrow().len();
+    let retained = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query.clone(),
+    );
+    assert_eq!(retained["data"], denied["data"]);
+    assert_eq!(external.calls.borrow().len(), calls);
+    *external.response.borrow_mut() = None;
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            if route == "/api/v3/account" {
+                body["uid"] = json!("9007199254740993");
+            }
+        }) as fn(&str, &mut Value),
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["uid"] = json!(9007199254740993.0f64);
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["uid"] = json!(42);
+            }
+        },
+    ] {
+        external.edit.set(Some(edit));
+        let failed = refresh();
+        assert_eq!(
+            failed["data"]["status"], "UNAVAILABLE",
+            "Original identity coercion accepted: {failed}"
+        );
+        assert_eq!(failed["data"]["failure"], "PROVIDER_IDENTITY_CHANGED");
+        assert!(failed["data"]["observation"].is_null());
+    }
+    external.edit.set(None);
+    external.reflect_key.set(true);
+    let reflected = refresh();
+    assert_eq!(reflected["data"]["status"], "UNAVAILABLE");
+    assert!(!reflected.to_string().contains(fixtures::KEY));
+    external.reflect_key.set(false);
+    let recovered = refresh();
+    assert_eq!(recovered["data"]["status"], "OBSERVED", "{recovered}");
+    assert_ne!(
+        recovered["data"]["observation"]["collectionId"],
+        initial["data"]["observation"]["collectionId"]
+    );
+    assert_eq!(recovered["data"]["qualification"], "UNAVAILABLE");
+}
+
+#[test]
+fn interval_refresh_rejects_renderer_authority_and_late_changed_binding_without_holding_control_lock()
+ {
+    if isolated_rule_scenario(
+        "interval_refresh_rejects_renderer_authority_and_late_changed_binding_without_holding_control_lock",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query.clone(),
+    );
+    let payload = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]});
+    let calls = external.calls.borrow().len();
+    for field in [
+        "endpoint",
+        "symbol",
+        "accountId",
+        "remoteUid",
+        "free",
+        "limit",
+        "interval",
+        "serverTime",
+        "count",
+        "qualification",
+    ] {
+        let mut injected = payload.clone();
+        injected[field] = json!("renderer-value");
+        let result = tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":"capacity-injection","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":injected}),
+            "main",
+            &rig.vault,
+            &external,
+        );
+        assert_eq!(result["error"]["code"], "IPC_PAYLOAD_INVALID", "{result}");
+    }
+    let denied = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-consumer","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":payload}),
+        "agent-untrusted",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(denied["error"]["code"], "IPC_ACCESS_DENIED");
+    let mut stale = payload.clone();
+    stale["expectedStateVersion"] = json!("stale");
+    let stale = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-cas","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":stale}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
+    assert_eq!(external.calls.borrow().len(), calls);
+    let control = rig.control.clone();
+    let workspace = rig.workspace.clone();
+    let account = rig.account["connectionId"].clone();
+    *external.hook.borrow_mut() = Some((
+        "/api/v3/rateLimit/order".into(),
+        Box::new(move || {
+            let mut cp = control
+                .try_lock()
+                .expect("Capacity HTTP held the global Control Plane lock");
+            let source = command(
+                &mut cp,
+                "data.binance_rules.connection",
+                json!({"workspaceId":workspace}),
+            );
+            let changed = command(
+                &mut cp,
+                "data.binance_rules.configure",
+                json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account,"instrumentId":"crypto:ETH/USDT:spot"}),
+            );
+            assert_eq!(changed["ok"], true, "{changed}");
+        }),
+    ));
+    let late = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"capacity-late","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":payload}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(late["error"]["code"], "STATE_VERSION_CONFLICT", "{late}");
+    let current = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query,
+    );
+    assert!(current["data"]["observation"].is_null());
+    assert_eq!(current["data"]["proposalHash"], decision["proposalHash"]);
+}
+
+#[test]
+fn interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term() {
+    if isolated_rule_scenario(
+        "interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/exchangeInfo" {
+            body["rateLimits"][0]["rateLimitType"] = json!(fixtures::KEY);
+        }
+    }));
+    let first = external.calls.borrow().len();
+    let result = interval_refresh(&rig, &proposal, &external);
+    assert_eq!(
+        result["data"]["status"], "UNAVAILABLE",
+        "Reflected authentication text cannot become a retained unknown interval term: {result}"
+    );
+    assert_eq!(result["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+    assert!(!result.to_string().contains(fixtures::KEY));
+    assert!(
+        external.calls.borrow()[first..]
+            .iter()
+            .all(|p| p == "/api/v3/time" || p.starts_with("/api/v3/exchangeInfo?")),
+        "No signed read is needed after invalid public material"
+    );
+}
+
+#[test]
+fn interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait() {
+    if isolated_rule_scenario(
+        "interval_ip_ban_retires_inputs_and_exposes_the_actual_shared_provider_wait",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    *external.response.borrow_mut() = Some(("/api/v3/rateLimit/order".into(), 418, 120));
+    let result = interval_refresh(&rig, &proposal, &external);
+    assert_eq!(result["data"]["status"], "UNAVAILABLE");
+    assert_eq!(result["data"]["failure"], "PROVIDER_IP_BANNED");
+    assert!(result["data"]["observation"].is_null());
+    assert_eq!(
+        result["data"]["providerWaitSeconds"], "120",
+        "Original provider request cooldown must remain visible, distinct from interval reset: {result}"
+    );
+    assert_eq!(interval_get(&rig, &proposal)["data"], result["data"]);
+}
+
+#[test]
+fn interval_saved_risk_assessment_keeps_bounded_original_inputs_after_reopen_without_refresh() {
+    if isolated_rule_scenario(
+        "interval_saved_risk_assessment_keeps_bounded_original_inputs_after_reopen_without_refresh",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let workspace = rig.workspace.clone();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let observed = interval_refresh(&rig, &proposal, &external);
+    assert_eq!(observed["data"]["status"], "OBSERVED");
+    let captured = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(
+        captured["data"]["spotOrderIntervals"], observed["data"],
+        "Risk assessment must retain the reviewed interval observation: {captured}"
+    );
+    assert_ne!(captured["data"]["status"], "ALLOWED");
+    assert!(
+        captured["data"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["kind"] == "SPOT_ORDER_INTERVALS")
+    );
+    let reads = external.calls.borrow().len();
+    let workspace = rig.workspace.clone();
+    let RuleRig {
+        _folder, control, ..
+    } = rig;
+    drop(control);
+    let mut reopened = ControlPlane::new(_folder.path().into());
+    let opened = command(&mut reopened, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let history = command(
+        &mut reopened,
+        "risk.decision.list",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(
+        history["ok"], true,
+        "Reopening must deserialize approved interval aggregates: {history}"
+    );
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == captured["data"]["decisionId"])
+        .unwrap();
+    assert_eq!(
+        saved["spotOrderIntervals"],
+        captured["data"]["spotOrderIntervals"]
+    );
+    let current = command(
+        &mut reopened,
+        "trade.spot_order_intervals.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert!(
+        current["data"]["observation"].is_null(),
+        "Runtime counter observations must not revive: {current}"
+    );
+    assert_eq!(external.calls.borrow().len(), reads);
+    assert!(!saved.to_string().contains("balances"));
+    assert!(!saved.to_string().contains("X-MBX"));
+    assert!(!saved.to_string().contains("signature="));
+    assert!(!saved.to_string().contains("private-capacity-client"));
+}
+
+#[test]
+fn interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage() {
+    if isolated_rule_scenario(
+        "interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    external.edit.set(Some(|route,body|match route {
+        "/api/v3/time" => { let now=(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64;body["serverTime"]=json!(now/1000*1000+300); },
+        "/api/v3/exchangeInfo"=>body["rateLimits"]=json!([{"rateLimitType":"ORDERS","interval":"SECOND","intervalNum":1,"limit":50}]),
+        "/api/v3/rateLimit/order"=>*body=json!([{"rateLimitType":"ORDERS","interval":"SECOND","intervalNum":1,"limit":50,"count":7}]),
+        _=>{}
+    }));
+    let observed = interval_refresh(&rig, &proposal, &external);
+    assert_eq!(
+        observed["data"]["status"], "OBSERVED",
+        "The initial read stays inside the derived uncertain interval: {observed}"
+    );
+    let cached = interval_get(&rig, &proposal);
+    assert_eq!(
+        cached["data"]["observation"],
+        observed["data"]["observation"]
+    );
+    let reads = external.calls.borrow().len();
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    let retired = interval_get(&rig, &proposal);
+    assert_eq!(
+        retired["data"]["status"], "STALE",
+        "A possible rollover must retire before default3s age: {retired}"
+    );
+    assert_eq!(
+        retired["data"]["retirementReason"],
+        "POSSIBLE_INTERVAL_BOUNDARY"
+    );
+    assert!(retired["data"]["observation"].is_null());
+    assert_eq!(
+        external.calls.borrow().len(),
+        reads,
+        "Cached get cannot query or renew provider clock/counters"
+    );
+    assert_eq!(retired["data"]["qualification"], "UNAVAILABLE");
+    assert_eq!(observed["data"]["observation"]["counters"][0]["count"], "7");
+    assert!(observed["data"]["observation"]["providerObservedAt"].is_null());
+    assert!(!observed.to_string().contains("resetAt"));
+}
+
+#[test]
+fn interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow() {
+    if isolated_rule_scenario(
+        "interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let original =
+        json!({"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":50,"count":0});
+    for (field, value) in [
+        ("intervalNum", json!(9223372036854775807i64)),
+        ("intervalNum", json!(0)),
+        ("intervalNum", json!(1.0)),
+        ("intervalNum", json!("1")),
+        ("limit", json!(-1)),
+        ("limit", json!(50.0)),
+        ("limit", json!("50")),
+        ("count", json!(-1)),
+        ("count", json!(0.0)),
+        ("count", json!("0")),
+        ("count", json!(9223372036854775808u64)),
+    ] {
+        let mut row = original.clone();
+        row[field] = value;
+        *external.raw.borrow_mut() = Some((
+            "/api/v3/rateLimit/order".into(),
+            serde_json::to_vec(&json!([row])).unwrap(),
+        ));
+        let result = interval_refresh(&rig, &proposal, &external);
+        assert_eq!(
+            result["data"]["status"], "UNAVAILABLE",
+            "Original integer/duration must fail closed at {field}: {result}"
+        );
+        assert_eq!(result["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+        assert!(result["data"]["observation"].is_null());
+    }
+    let mut row = original;
+    row["limit"] = json!(0);
+    row["count"] = json!(9007199254740993u64);
+    *external.raw.borrow_mut() = Some((
+        "/api/v3/rateLimit/order".into(),
+        serde_json::to_vec(&json!([row])).unwrap(),
+    ));
+    let result = interval_refresh(&rig, &proposal, &external);
+    assert_eq!(result["data"]["status"], "OBSERVED");
+    assert_eq!(result["data"]["observation"]["counters"][0]["limit"], "0");
+    assert_eq!(
+        result["data"]["observation"]["counters"][0]["count"],
+        "9007199254740993"
+    );
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    assert!(!result.to_string().contains("remainingSlots"));
+}
+
+#[test]
+fn interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms() {
+    if isolated_rule_scenario(
+        "interval_coverage_retains_unknown_rows_and_explains_missing_extra_and_contradictory_terms",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let normal = json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64,"count":9007199254740993u64}]);
+    let mut unknown_field = normal.clone();
+    unknown_field[0]["futureAdmissionFlag"] = json!("private-counter-field");
+    let mut missing = normal.clone();
+    missing.as_array_mut().unwrap().pop();
+    let mut extra = normal.clone();
+    extra.as_array_mut().unwrap().push(
+        json!({"rateLimitType":"ORDERS","interval":"MINUTE","intervalNum":7,"limit":25,"count":4}),
+    );
+    let mut contradiction = normal.clone();
+    contradiction[0]["limit"] = json!(49);
+    let mut unknown_unit = normal.clone();
+    unknown_unit[0]["interval"] = json!("FORTNIGHT");
+    let mut unknown_type = normal.clone();
+    unknown_type[0]["rateLimitType"] = json!("FUTURE_ORDERS");
+    for (body, reason) in [
+        (unknown_field, "UNKNOWN_ACTIVE_INTERVAL_FIELDS_UNRESOLVED"),
+        (missing, "DECLARED_INTERVALS_MISSING"),
+        (extra, "UNDECLARED_COUNTER_INTERVALS"),
+        (contradiction, "INTERVAL_LIMIT_CONTRADICTION"),
+        (unknown_unit, "UNKNOWN_INTERVAL_UNIT_UNRESOLVED"),
+        (unknown_type, "UNKNOWN_COUNTER_TYPE_UNRESOLVED"),
+    ] {
+        *external.raw.borrow_mut() = Some((
+            "/api/v3/rateLimit/order".into(),
+            serde_json::to_vec(&body).unwrap(),
+        ));
+        let result = interval_refresh(&rig, &proposal, &external);
+        assert_eq!(
+            result["data"]["status"], "OBSERVED",
+            "Bounded original unresolved inputs remain reviewable: {result}"
+        );
+        let observation = &result["data"]["observation"];
+        assert_eq!(
+            observation["coverageComplete"], false,
+            "Unknown or incomplete intervals cannot claim complete coverage: {result}"
+        );
+        assert_eq!(
+            observation["counters"].as_array().unwrap().len(),
+            body.as_array().unwrap().len()
+        );
+        assert!(
+            observation["unresolvedObligations"]
+                .as_array()
+                .unwrap()
+                .contains(&json!(reason)),
+            "Missing precise reason {reason}: {result}"
+        );
+        assert!(!result.to_string().contains("private-counter-field"));
+        assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    }
+}
+
+#[test]
+fn interval_original_collections_are_unique_bounded_and_never_truncated_to_success() {
+    if isolated_rule_scenario(
+        "interval_original_collections_are_unique_bounded_and_never_truncated_to_success",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let row =
+        json!({"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0});
+    let mut declaration = fixtures::binance_spot_exchange_info("BTCUSDT");
+    let mut term = row.clone();
+    term.as_object_mut().unwrap().remove("count");
+    declaration["rateLimits"] = json!([term.clone(), term]);
+    for (route,body) in [
+        ("/api/v3/rateLimit/order",serde_json::to_vec(&vec![row.clone();33]).unwrap()),
+        ("/api/v3/rateLimit/order",serde_json::to_vec(&vec![row.clone();2]).unwrap()),
+        ("/api/v3/exchangeInfo",serde_json::to_vec(&declaration).unwrap()),
+        ("/api/v3/rateLimit/order",b"[{\"rateLimitType\":\"ORDERS\",\"interval\":\"HOUR\",\"intervalNum\":1,\"limit\":50,\"count\":0,\"count\":1}]".to_vec()),
+    ] {
+        *external.raw.borrow_mut()=Some((route.into(),body));
+        let result=interval_refresh(&rig,&proposal,&external);
+        assert_eq!(result["data"]["status"],"UNAVAILABLE","Malformed interval inventory cannot succeed: {result}");
+        assert_eq!(result["data"]["failure"],"PROVIDER_RESPONSE_INVALID","{result}");
+        assert!(result["data"]["observation"].is_null());
+    }
+    *external.raw.borrow_mut() = None;
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+}
+
+#[test]
+fn interval_definitions_without_an_order_purpose_cannot_collect_private_usage() {
+    if isolated_rule_scenario(
+        "interval_definitions_without_an_order_purpose_cannot_collect_private_usage",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    external.edit.set(Some(|route,body| { if route=="/api/v3/exchangeInfo" { body["rateLimits"]=json!([{"rateLimitType":"REQUEST_WEIGHT","interval":"MINUTE","intervalNum":1,"limit":6000}]); } }));
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    let first = external.calls.borrow().len();
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"no-interval-purpose","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(
+        result["data"]["status"], "UNAVAILABLE",
+        "Missing ORDERS definitions are not unlimited: {result}"
+    );
+    assert_eq!(
+        result["data"]["failure"],
+        "INTERVAL_DEFINITIONS_UNAVAILABLE"
+    );
+    assert!(result["data"]["observation"].is_null());
+    let calls = external.calls.borrow();
+    let fresh = &calls[first..];
+    assert_eq!(
+        fresh.len(),
+        2,
+        "No private purpose means no account/counter read: {fresh:?}"
+    );
+    assert!(
+        fresh
+            .iter()
+            .all(|p| p == "/api/v3/time" || p.starts_with("/api/v3/exchangeInfo?symbol=BTCUSDT&"))
+    );
+}
+
+#[test]
+fn explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity() {
+    if isolated_rule_scenario(
+        "explicit_interval_read_preserves_original_account_usage_and_declared_units_without_capacity",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]});
+    let before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query.clone(),
+    );
+    let first = external.calls.borrow().len();
+    let result = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"interval-read","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":rig.workspace,"proposalId":decision["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(
+        result["ok"], true,
+        "No authenticated interval observation: {result}"
+    );
+    assert_eq!(result["data"]["status"], "OBSERVED", "{result}");
+    let observed = &result["data"]["observation"];
+    assert_eq!(
+        observed["declarations"],
+        json!([{"rateLimitType":"REQUEST_WEIGHT","interval":"MINUTE","intervalNum":"1","limit":"6000"},{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":"1","limit":"50"},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":"1","limit":"9223372036854775807"}])
+    );
+    assert_eq!(
+        observed["counters"],
+        json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":"1","limit":"50","count":"0"},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":"1","limit":"9223372036854775807","count":"9007199254740993"}])
+    );
+    assert_eq!(observed["coverageComplete"], true);
+    assert_eq!(observed["atomic"], false);
+    assert!(observed["providerObservedAt"].is_null());
+    assert_eq!(observed["reads"][0]["kind"], "INTERVAL_DEFINITIONS");
+    assert_eq!(observed["reads"][1]["kind"], "ACCOUNT_IDENTITY");
+    assert_eq!(observed["reads"][2]["kind"], "ACCOUNT_INTERVAL_COUNTERS");
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    let calls = external.calls.borrow();
+    let fresh = &calls[first..];
+    assert_eq!(
+        fresh.len(),
+        4,
+        "Only clock, filtered definitions, identity and account-wide counter reads: {fresh:?}"
+    );
+    assert!(
+        fresh
+            .iter()
+            .any(|p| p == "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true")
+    );
+    assert!(
+        fresh
+            .iter()
+            .any(|p| p.starts_with("/api/v3/rateLimit/order?timestamp=") && !p.contains("symbol="))
+    );
+    assert!(fresh.iter().all(|p| !p.contains("openOrders")
+        && !p.contains("openOrderList")
+        && !p.contains("order/test")
+        && !p.contains("myTrades")));
+    drop(calls);
+    let cached = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        query,
+    );
+    assert_eq!(cached["data"]["observation"], *observed);
+    assert_ne!(rig.decision()["status"], "ALLOWED");
+}
+
+#[test]
+fn stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying() {
+    if isolated_rule_scenario(
+        "stored_spot_proposal_explains_interval_inputs_without_collecting_or_qualifying",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let reads = external.calls.borrow().len();
+    let result = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    assert_eq!(
+        result["ok"], true,
+        "No immutable interval-input explanation: {result}"
+    );
+    assert_eq!(result["data"]["proposalHash"], decision["proposalHash"]);
+    assert_eq!(result["data"]["accountId"], rig.account["connectionId"]);
+    assert_eq!(result["data"]["instrumentId"], "crypto:BTC/USDT:spot");
+    assert_eq!(result["data"]["status"], "NOT_OBSERVED");
+    assert_eq!(result["data"]["scope"], "ACCOUNT_ALL_KEYS_IPS_APIS");
+    assert_eq!(result["data"]["qualification"], "UNAVAILABLE");
+    assert_eq!(
+        result["data"]["qualificationReason"],
+        "INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"
+    );
+    assert!(result["data"]["observation"].is_null());
+    assert_eq!(
+        external.calls.borrow().len(),
+        reads,
+        "local get cannot collect counters"
+    );
+    assert_ne!(rig.decision()["status"], "ALLOWED");
+}
+
 #[test]
 fn stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying() {
     if isolated_rule_scenario(
@@ -3404,6 +4485,10 @@ impl tradex::provider_io::ProviderHttp for RuleHttp {
             "/api/v3/account" => {
                 json!({"uid":self.uid.get(),"accountType":"SPOT","canTrade":true,"permissions":["SPOT"]})
             }
+            "/api/v3/rateLimit/order" => {
+                assert!(query.starts_with("timestamp=") && !query.contains("symbol="));
+                json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64,"count":9007199254740993u64}])
+            }
             "/api/v3/openOrders" => {
                 assert!(
                     query.starts_with("timestamp=")
@@ -3424,7 +4509,7 @@ impl tradex::provider_io::ProviderHttp for RuleHttp {
             }
             "/api/v3/exchangeInfo" => {
                 assert_eq!(query, "symbol=BTCUSDT&showPermissionSets=true");
-                json!({"exchangeFilters":[],"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","baseAssetPrecision":8,"quoteAssetPrecision":8,"isSpotTradingAllowed":true,"quoteOrderQtyMarketAllowed":true,"orderTypes":["LIMIT","MARKET"],"defaultSelfTradePreventionMode":"NONE","allowedSelfTradePreventionModes":["NONE"],"permissionSets":[["SPOT","MARGIN"]],"filters":[{"filterType":"PRICE_FILTER","minPrice":"0.00000000","maxPrice":"999999.00000000","tickSize":"0.01000000"},{"filterType":"LOT_SIZE","minQty":"0.00000100","maxQty":"100.00000000","stepSize":"0.00000100"}]}]})
+                json!({"rateLimits":[{"rateLimitType":"REQUEST_WEIGHT","interval":"MINUTE","intervalNum":1,"limit":6000},{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64}],"exchangeFilters":[],"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","baseAssetPrecision":8,"quoteAssetPrecision":8,"isSpotTradingAllowed":true,"quoteOrderQtyMarketAllowed":true,"orderTypes":["LIMIT","MARKET"],"defaultSelfTradePreventionMode":"NONE","allowedSelfTradePreventionModes":["NONE"],"permissionSets":[["SPOT","MARGIN"]],"filters":[{"filterType":"PRICE_FILTER","minPrice":"0.00000000","maxPrice":"999999.00000000","tickSize":"0.01000000"},{"filterType":"LOT_SIZE","minQty":"0.00000100","maxQty":"100.00000000","stepSize":"0.00000100"}]}]})
             }
             "/api/v3/executionRules" => {
                 assert_eq!(query, "symbol=BTCUSDT");

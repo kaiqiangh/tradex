@@ -405,6 +405,15 @@ declare const validators: {
   SpotDepthCoverage: (value: unknown) => boolean;
   SpotDepthLevel: (value: unknown) => boolean;
   SpotMarketEnvironment: (value: unknown) => boolean;
+  SpotOrderIntervalClock: (value: unknown) => boolean;
+  SpotOrderIntervalCounter: (value: unknown) => boolean;
+  SpotOrderIntervalDefinition: (value: unknown) => boolean;
+  SpotOrderIntervalInputs: (value: unknown) => boolean;
+  SpotOrderIntervalObservation: (value: unknown) => boolean;
+  SpotOrderIntervalRead: (value: unknown) => boolean;
+  SpotOrderIntervalReadKind: (value: unknown) => boolean;
+  SpotOrderIntervalScope: (value: unknown) => boolean;
+  SpotOrderIntervalTimeAssociation: (value: unknown) => boolean;
   SpotProposalRules: (value: unknown) => boolean;
   SpotRuleConstraint: (value: unknown) => boolean;
   SpotRuleEvaluation: (value: unknown) => boolean;

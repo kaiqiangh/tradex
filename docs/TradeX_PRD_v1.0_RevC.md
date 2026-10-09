@@ -1295,6 +1295,8 @@ For ordinary Binance Spot Live, show per-Proposal static rule results with exact
 
 Exact-account capacity inputs are an explicit read-only prerequisite, not dynamic financial qualification. Preserve bounded account versus symbol inventory/coverage, original BASE free/locked and open BUY quantity components, partial/foreign/list-leg uncertainty and non-atomic original times/receipts. Cached history never renews current observation, and no absent count becomes zero. Backend §41.45 and UI §14.29 define the current/captured contract; all financial approval, rights, funding, Arm and immediate preflight gates remain independent.
 
+Account-wide unfilled-order interval inputs are a separate read-only prerequisite. Actual declared ORDERS intervals and authenticated original integer counts never substitute for open-order inventory, HTTP budgets or reservations; missing usage is not zero/unlimited, local fills/cancellations cannot invent decrement/reset, and clocks/receipts do not become counter snapshot times. Preserve bounded incomplete coverage and derived temporal uncertainty/retirement in current/captured review. Qualification stays UNAVAILABLE; owning dynamic rules and all complete financial gates remain separate. Backend §41.46 and UI §14.30 define this contract; prototype code unchanged.
+
 ---
 
 # 22. Pre-approval and Pre-execution Validation

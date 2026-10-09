@@ -1032,3 +1032,7 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 ## 14.29 不可变 Proposal 容量输入说明（S29.5 #126，IN_PROGRESS）
 
 当前 Trade 先标明已保存 Proposal/hash/精确账户与 canonical BASE/QUOTE，再提供独立、可键盘操作的“Refresh required capacity inputs”。显示实际私有用途；无用途不私有采集。账户级与所选标的 orders/algo/iceberg/list 计数独立；范围/分类缺失显示不可用，不是零。说明未知字段、部分成交、外部资产归属、pending/缺失列表腿；仅实际需要时展示原始 BASE free/locked 与开放 BUY 原始/已成交量，不猜剩余/预留容量。只读输入始终使执行资格保持 unavailable。保留非原子质量、缺失的汇总 provider snapshot time、原始 update/transaction 时间、最早收据/读取窗口、collection 身份/摘要及显式失败/过期/恢复。当前换源撤下资格；捕获风险/历史/Arm 前仍是已保存评估，无刷新控制器或续收据。1280/768/390 可读性/键盘，以及 rights/quote/permissions/health/FX/fees/funding/Arm/同意/reservation/preflight/CANCEL 边界保持独立。见 Backend §41.45 与 Frontend §13.30。原型代码未改；本目标文字本身不证明 runtime PASS。
+
+## 14.30 不可变 Proposal 时段额度解释（S29.6 #127，IN_PROGRESS）
+
+对选中的不变普通 Binance Live Proposal 展示当前账户时段输入，提供独立、键盘可操作的 “Refresh account interval inputs”。展示精确身份、BASE/QUOTE、跨 key/IP/API 范围、实际 ORDERS 定义及原始 count/limit/intervalNum、零与缺失区别、at/above-limit 原值和未解决覆盖/type/field/unit/矛盾。传输 REQUEST_WEIGHT/RAW_REQUESTS、开放订单库存与 reservation 分开。解释非原子读取窗口/digest/最早收据、原始 provider clock 与缺失 counter snapshot time、导出的不确定时间关联，以及保守过期/可能边界撤下。不推断 local decrement/reset、剩余 slots 或 execution-qualified window。展示认证/source/time/请求冷却失败与恢复；busy/error/已撤下当前输入不是成功。捕获风险/历史/pre-arm 保持已保存，不刷新/轮询或续收据/同意。验证 keyboard1280/768/390。输入资格始终 UNAVAILABLE；所有完整 financial/Arm/同意/Prepare/Gateway 门禁与精确 CANCEL/reconciliation 独立。适用 Backend §41.46/Frontend §13.31。原型代码未改，此目标文本本身不是 runtime PASS。

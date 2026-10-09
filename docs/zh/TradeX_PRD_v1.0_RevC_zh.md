@@ -1300,6 +1300,8 @@ Save risk policy
 
 精确账户容量输入是显式只读前置项，不是动态金融资格。保留有界账户/标的明细覆盖区别、原始 BASE free/locked 与开放 BUY 数量组成、部分成交/外部资产/列表腿不确定性，以及非原子原始时间/收据。缓存历史不续当前观察，缺失计数不变成零。Backend §41.45 与 UI §14.29 定义当前/捕获契约；所有金融审批、权利、资金、Arm 与即时 preflight 门禁保持独立。
 
+跨账户全部 key/IP/API 的未成交订单时段输入是独立只读前置项。实际 ORDERS 定义与认证原始整数计数不替代开放订单库存、HTTP 预算或 reservation；缺失用量不是零/unlimited，local fill/cancel 不制造 decrement/reset，clock/收据不变成 counter snapshot time。在当前/捕获审核保留有界不完整覆盖及导出的时间不确定性/撤下。资格仍 UNAVAILABLE；拥有方动态规则和全部完整金融门禁独立。Backend §41.46 与 UI §14.30 定义契约；原型代码未改。
+
 ---
 
 # 22. 审批前与执行前校验

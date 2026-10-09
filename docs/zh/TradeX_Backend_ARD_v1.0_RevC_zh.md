@@ -3101,6 +3101,20 @@ RiskDecision 与捕获评审/历史保留有界结果、引用/digest/时间，�
 
 公开 clock 响应同样限制原始 JSON512KiB，并在私有读取前拒绝重复字段。公开 clock418 将实际 Retry-After 共享至 IP 范围。返回的外部资产/标的身份是有界原始不透明文本（最长64，允许非 ASCII）；不作为请求参数、不推断 BASE 归属、不投影原始明细。
 
+### 41.46 精确账户时段订单额度输入（S29.6 #127，IN_PROGRESS）
+
+可信本地 `trade.spot_order_intervals.get {workspaceId, proposalId}` 与显式 CAS `trade.spot_order_intervals.refresh {workspaceId, proposalId, expectedStateVersion}` 复用 `SpotRulesQuery`/`SpotRulesRefresh`；拒绝未知 renderer authority 字段。后端导出普通 Binance Live BTC/USDT 或 ETH/USDT 不可变意图/hash、已保存 account/remote UID/key 归属及 source/rule-material/market/policy/workspace/session/time/refresh 归属。Get 不读 vault/provider。固定 filtered exchangeInfo 必须仅返回导出的 symbol/BASE/QUOTE；不扫描全部标的，不新增设置或隐式读取。
+
+`SpotOrderIntervalInputs` 包含 workspaceId/proposalId/proposalHash/accountId/instrumentId/baseAsset/quoteAsset/sourceVersion/ruleMaterialVersion、`scope: ACCOUNT_ALL_KEYS_IPS_APIS`、NOT_OBSERVED/OBSERVED/UNAVAILABLE/STALE、qualification/reason、observation?、failure?、retirementReason?、providerWaitSeconds?、bindingVersion/stateVersion。资格始终 UNAVAILABLE / INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED。ID/version/reason128，token text64，asset16，精确 Proposal hash71/material/read digest64；原始非负 limit/count 与正 intervalNum 是 signed64-bit 整数，投影为精确十进制字符串(max20)，不把原始 float/string 强制转成整数。Provider 冷却秒数也用精确字符串，与订单时段重置时间不同。
+
+每个原始响应512KiB，每个 declaration/counter 集合32条唯一 `(rateLimitType, interval, intervalNum)`。SECOND/MINUTE/HOUR/DAY 的时长乘法检查溢出。报告零 limit 仍是零；at/above-limit count 不截断。重复 key/tuple、错误原始类型/范围/溢出/边界 fail closed。真实 ORDERS 定义建立计数用途；没有 ORDERS 时不读 vault/私有接口并返回 INTERVAL_DEFINITIONS_UNAVAILABLE。REQUEST_WEIGHT/RAW_REQUESTS 属于传输限制。保留有界未知行、缺失/额外时段、未知 active fields/type/unit 与 limit 矛盾的精确未解决原因，不截断或推断 unlimited/zero 用量。
+
+仅固定 GET：公开 `/api/v3/time`1 与 filtered `/api/v3/exchangeInfo`20 只预留共享 IP weight；signed USER_DATA `/api/v3/account`20 用原始正数字 SPOT UID 验证已保存 UID，再以同一 key/UID/IP 读取 `/api/v3/rateLimit/order`40。复用敏感 header、HMAC/recvWindow5000、no redirects、P3 与共享418/429 Retry-After/caps，不虚构 public UID 或重置预算。Account 响应仅用于身份，不投影余额。不读取订单/列表/历史，不进行 order test、PLACE/CANCEL/amend/listen-key mutation，CP 锁不跨 vault/network。拒绝定义或 signed 响应反射认证材料。总30s、有界 vault worker、已有12s HTTP 完成余量保持。
+
+`SpotOrderIntervalObservation` 包含 collectionId、atomic:false、缺失 providerObservedAt、有界 declarations `{rateLimitType,interval,intervalNum,limit}` 与增加 `count` 的 counters、coverageComplete、unresolvedObligations(max16)、clock `{serverTimeMs,startedAt,receivedAt,localRoundTripBoundMs}`、`timeAssociation: DERIVED_UNCERTAIN` 与至多3条 reads `{kind,startedAt,receivedAt,digest}`。INTERVAL_DEFINITIONS/ACCOUNT_IDENTITY/ACCOUNT_INTERVAL_COUNTERS 保留分离、非原子的窗口与最早收据。Clock/收据不制造 counter snapshot time、resetAt、剩余 slots 或 execution-qualified interval identity。保守导出的可能边界检查撤下观察，不证明实际 counter 所属时段。Local fill/cancel/expiry、缺失 header 或变更 workspace/key/source 都不递减或重置原始用量。
+
+至多8个瞬态 Proposal slot。计龄从首个定义收据开始，取 min30s/配置 stale 阈值(default3s)，可能边界可更早撤下。Pending refresh 撤下旧成功；失败清空观察并给出脱敏恢复。绑定/归属变化、晚到/deadline、重开与 clock/session generation 不能复活旧输入。缓存 get/历史不续收据。RiskDecision 可捕获 `spotOrderIntervals` 及 SPOT_ORDER_INTERVALS 引用，仅持久化批准的有界汇总/digest，不存 raw 响应/secret/runtime cache。捕获不升级完整规则、资金/费用/FX、权利/报价/流动性、权限/健康、预留、Arm/同意、Prepare 或 Gateway。精确 CANCEL/reconciliation 独立。来源实施验收与完整父项/native/hosted/financial/physical/prototype/main 验收分开；原型代码未改。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
