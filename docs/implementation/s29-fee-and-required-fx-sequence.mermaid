@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    participant Op as Operator (React)
+    participant CP as ControlPlane (lib.rs)
+    participant FF as spot_fee_fx::derive
+    participant FS as financial_sources (FX)
+    participant Cap as spot_capacity
+    participant RV as build_approval_review
+    participant PR as Prepare / Gateway
+
+    Note over Op,CP: current review - a fresh derivation every call
+    Op->>CP: trade.request_approval
+    CP->>CP: build_risk_evaluation(proposal, policy)
+    CP->>FS: review_context(proposal)  %% S28, unchanged
+    FS-->>CP: Option~FxReviewEvidence~  (None when FX source unconfigured)
+    CP->>Cap: spot_capacity::get + spot_order_intervals::get  (S29.5/S29.6)
+    Cap-->>CP: SpotCapacityInputs (observation incl. declared_commission)
+    CP->>FF: spot_fee_fx::derive(capacity, requirements, observation, proposal, side, base)
+    FF->>FF: same-intent binding (account/instrument/base/quote/rule-material/source generation)
+    FF->>FF: fee_currency := venue-declared asset, else UNKNOWN -> fail closed
+    FF->>FF: expected_fee := conservative declared rate x expected_spend_quote (exact decimals)
+    FF->>FF: narrow to non-identity IntentPolicy + (BUY) IntentFunding routes
+    FF->>FF: qualify each required route (pair present, current, fresh, cost derivable)
+    FF-->>CP: SpotFeeFxStatement {outcome, reason_code, binding_blocker, versions}
+    CP->>CP: decision.spot_fee_fx = statement
+    CP->>CP: inputs.push(input_reference(SpotFeeFx, statement))  (approval-bound)
+    CP->>RV: build_approval_review(proposal, bound?)   (current_decision freshly derived)
+    RV->>RV: owning gate (S29.8) -> blocker if not PASS
+    RV->>RV: fee/FX gate (S29.9) -> exactly one typed blocker if statement != PASS
+    RV->>RV: approval_review_digest(bound, current)  %% fee/rate change -> new digest
+    RV-->>Op: ApprovalReview {eligible, blockers, spot_fee_fx, review_digest}
+
+    Note over Op,PR: captured read-time / pre-arm never renews
+    Op->>CP: trade.approve  -> FinancialApproval (review_digest frozen)
+    Op->>PR: trade.execution.prepare
+    PR->>RV: build_approval_review(proposal, Some(bound_decision))
+    alt statement not current/complete OR digest changed
+        RV-->>PR: eligible=false / digest mismatch -> RISK_EVIDENCE_UNAVAILABLE
+        PR-->>Op: refusal, no reservation, Proposal NEEDS_APPROVAL, approval ISSUED
+    else both statements QUALIFIED and digest identical
+        PR->>PR: reserve capacity (inherited path)
+        PR-->>Op: ExecutionPreparation (still execution-unqualified: no Arm/consent/dispatch)
+    end
