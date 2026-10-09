@@ -11,3 +11,6 @@
 仅在已批准的公开接缝上把外部 HTTP/vault 生产者置为假；未使用任何正向金融 authority setter、真实凭据或提供方请求、订单变更、Arm、consent、原生启动或物理休眠证据。自有的 dev server 与浏览器标签页已停止，视口已复位。仓库无 CI 工作流，故不运行也不声明远端 CI。完整 S29 父项、S28、S17、物理 S27、S33 与最终 main 门禁保持 OPEN。全局需求与页面状态不提高；嵌套门禁不变：映射到 S29 的只有 `FR-017`（IN_PROGRESS）与 `UX-004`（IMPLEMENTED_UNVERIFIED），二者在 S33 与 OD-005/OD-006 授权前都不会推进。原型代码未改；远端 main 未动。
 
 验收映射与冻结的未声明事项见 [acceptance-before-handoff.json](evidence/s29-price-range-explanation/acceptance-before-handoff.json) 与 [delivery-before-handoff.json](evidence/s29-price-range-explanation/delivery-before-handoff.json)。
+
+
+最终交付：正常 dev 推送已核对 `7f4a3016f4e5d7e2c06396776907913dfe50f97c`；7项AC已核对关闭，票于 `2026-10-09T20:31:53Z` 关闭。[关闭结论](https://github.com/kaiqiangh/tradex/issues/128#issuecomment-6088765600)、[最终验收映射](evidence/s29-price-range-explanation/acceptance-final.json)、[交付回读](evidence/s29-price-range-explanation/delivery-final.json)。父项与 Wayfinder 指针已回读；剩余8个开放 issue。此前的待完成表述是明确的关闭前记录，并非当前状态。本元数据跟进不改动160份源码输入。

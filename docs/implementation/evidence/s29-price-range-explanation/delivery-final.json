@@ -1,0 +1,31 @@
+{
+  "stage": "S29.7 source and evidence dev delivery, tracker closure read back",
+  "sourceCommit": "622e34c9e2d6c344943a0b3aca761b85cf959c1d",
+  "evidenceDeliveryCommit": "7f4a3016f4e5d7e2c06396776907913dfe50f97c",
+  "reviewBaseline": "ec10e99",
+  "sourceInputsVerified": 160,
+  "sourceUnchanged": true,
+  "committedBytesMatch": true,
+  "issue": 128,
+  "resolution": "https://github.com/kaiqiangh/tradex/issues/128#issuecomment-6088765600",
+  "nativeParent": 121,
+  "nativeChildClosedReadback": true,
+  "mapPointerReadback": true,
+  "parentPointerReadback": true,
+  "openIssues": [
+    1,
+    56,
+    107,
+    113,
+    115,
+    116,
+    117,
+    121
+  ],
+  "remoteMain": "5312ec006ae3e7fc14cead3f7173604588a6ed59",
+  "remoteDev": "7f4a3016f4e5d7e2c06396776907913dfe50f97c",
+  "remoteCI": "NOT_RUN_NO_REPOSITORY_WORKFLOWS",
+  "fullParentMapAcceptance": "OPEN",
+  "prototypeCodeUnchanged": true,
+  "nextCommit": "Metadata followup only; no runtime/source input change"
+}
