@@ -52,6 +52,23 @@ fn interval_refresh(rig: &RuleRig, proposal: &Value, external: &RuleHttp) -> Val
         external,
     )
 }
+fn rules_get(rig: &RuleRig, proposal: &Value) -> Value {
+    command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_rules.get",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    )
+}
+fn rules_refresh(rig: &RuleRig, proposal: &Value, external: &RuleHttp) -> Value {
+    let before = rules_get(rig, proposal);
+    tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"rules-reference","schemaVersion":1,"command":"trade.spot_rules.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        external,
+    )
+}
 #[test]
 fn interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope() {
     if isolated_rule_scenario(
@@ -3798,7 +3815,7 @@ fn proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rule
         ("PERCENT_PRICE", "REFERENCE_PRICE_MISSING"),
         (
             "PRICE_RANGE",
-            "BOOK_REFERENCE_PRICE_RANGE_VALIDATION_REQUIRED",
+            "EXECUTION_REFERENCE_PRICE_MISSING",
         ),
         (
             "EXCHANGE_MAX_NUM_ORDERS",
@@ -3810,6 +3827,380 @@ fn proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rule
         assert_eq!(row["outcome"], "UNAVAILABLE");
         assert_eq!(row["reasonCode"], reason, "{row}");
     }
+}
+
+#[test]
+fn proposal_price_range_explains_selected_side_snapshot_without_placement_authority() {
+    if isolated_rule_scenario(
+        "proposal_price_range_explains_selected_side_snapshot_without_placement_authority",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let before = rules_get(&rig, &decision);
+    assert_eq!(before["ok"], true, "{before}");
+    assert!(
+        before["data"]["referencePurposes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|purpose| purpose == "ExecutionRules:Execution:PRICE_RANGE"),
+        "A stated limit price must require the genuine execution reference: {before}"
+    );
+    let preview = &before["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "REFERENCE_MISSING", "{before}");
+    assert_eq!(preview["side"], "BUY");
+    assert_eq!(preview["unit"], "USDT/BTC");
+    let bid = &preview["directions"][0];
+    assert_eq!(bid["direction"], "BID");
+    assert_eq!(bid["lowerMultiplier"], "0.9999");
+    assert_eq!(bid["upperMultiplier"], "1.0001");
+    assert_eq!(bid["enforced"], true);
+    let ask = &preview["directions"][1];
+    assert_eq!(ask["direction"], "ASK");
+    assert_eq!(ask["enforced"], true);
+    assert!(preview["lowerBound"].is_null() && preview["upperBound"].is_null());
+    assert!(preview["reference"].is_null());
+    let row = before["data"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap()
+        .clone();
+    assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
+    assert_eq!(row["reasonCode"], "EXECUTION_REFERENCE_PRICE_MISSING", "{row}");
+    assert_eq!(before["data"]["outcome"], "UNAVAILABLE");
+
+    let refreshed = rules_refresh(&rig, &decision, &external);
+    assert_eq!(refreshed["ok"], true, "{refreshed}");
+    let preview = &refreshed["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "SNAPSHOT_AVAILABLE", "{refreshed}");
+    assert_eq!(preview["lowerBound"], "59994");
+    assert_eq!(preview["upperBound"], "60006");
+    let buy_digest = preview["boundsDigest"]
+        .as_str()
+        .expect("A snapshot bound must be traceable by digest after capture: {refreshed}")
+        .to_owned();
+    assert!(buy_digest.starts_with("sha256:"), "{refreshed}");
+    assert_eq!(preview["reference"]["kind"], "EXECUTION_REFERENCE");
+    assert_eq!(preview["reference"]["price"], "60000");
+    assert!(preview["reference"]["providerObservedAt"].is_string());
+    assert!(preview["reference"]["receivedAt"].is_string());
+    let row = refreshed["data"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap()
+        .clone();
+    assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
+    assert_eq!(row["reasonCode"], "PRICE_RANGE_SNAPSHOT_BOUNDS_ONLY", "{row}");
+    assert_eq!(
+        refreshed["data"]["outcome"], "UNAVAILABLE",
+        "A price-range snapshot preview is not placement authority: {refreshed}"
+    );
+    assert!(
+        refreshed["data"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item == "EXECUTION_PRICE_RANGE_UNQUALIFIED"),
+        "{refreshed}"
+    );
+    assert_eq!(
+        command(
+            &mut rig.control.lock().unwrap(),
+            "account.get",
+            json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]})
+        )["data"]["health"]["arming"],
+        "DISARMED"
+    );
+
+    // The same immutable binding explains SELL through its own ask multipliers.
+    let sell = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
+    let ask = rules_refresh(&rig, &sell, &external);
+    assert_eq!(ask["data"]["priceRangePreview"]["side"], "SELL", "{ask}");
+    assert_eq!(ask["data"]["priceRangePreview"]["lowerBound"], "59994", "{ask}");
+    assert_eq!(ask["data"]["priceRangePreview"]["upperBound"], "60006", "{ask}");
+    assert_ne!(
+        ask["data"]["priceRangePreview"]["boundsDigest"], buy_digest,
+        "The bound digest must bind the selected side, not only the numbers: {ask}"
+    );
+    assert_eq!(
+        ask["data"]["priceRangePreview"]["directions"][1]["direction"],
+        "ASK"
+    );
+}
+
+#[test]
+fn proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configuration() {
+    if isolated_rule_scenario(
+        "proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configuration",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    // Documented partial configuration: only one BUY multiplier is reported.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/executionRules" {
+            body["symbolRules"][0]["rules"][0] =
+                json!({"ruleType":"PRICE_RANGE","bidLimitMultUp":"1.0001"});
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let partial = rules_get(&rig, &decision);
+    let preview = &partial["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "NOT_ENFORCED_SELECTED_SIDE", "{partial}");
+    assert_eq!(preview["directions"][0]["upperMultiplier"], "1.0001");
+    assert!(preview["directions"][0]["lowerMultiplier"].is_null());
+    assert_eq!(preview["directions"][0]["enforced"], false);
+    assert_eq!(preview["directions"][1]["enforced"], false);
+    assert!(preview["lowerBound"].is_null() && preview["upperBound"].is_null());
+    let row = partial["data"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap()
+        .clone();
+    assert_eq!(row["applicable"], false, "{row}");
+    assert_eq!(row["outcome"], "PASS", "{row}");
+    assert_eq!(
+        row["reasonCode"], "PRICE_RANGE_NOT_ENFORCED_FOR_SELECTED_SIDE",
+        "{row}"
+    );
+    assert_eq!(partial["data"]["referencePurposes"], json!([]));
+    let calls = external.calls.borrow().len();
+    let unnecessary = rules_refresh(&rig, &decision, &external);
+    assert_eq!(unnecessary["error"]["code"], "REFERENCE_PRICE_NOT_REQUIRED");
+    assert_eq!(external.calls.borrow().len(), calls);
+
+    // A configured rule with an explicit null reference price is not enforced.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/referencePrice" {
+            body["referencePrice"] = json!(null);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let nulled = rules_refresh(&rig, &decision, &external);
+    assert_eq!(nulled["ok"], true, "{nulled}");
+    let preview = &nulled["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "REFERENCE_EXPLICIT_NULL", "{nulled}");
+    assert!(preview["reference"]["price"].is_null());
+    assert!(preview["lowerBound"].is_null() && preview["upperBound"].is_null());
+    let row = nulled["data"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap()
+        .clone();
+    assert_eq!(row["applicable"], false, "{row}");
+    assert_eq!(row["reasonCode"], "PRICE_RANGE_NOT_ENFORCED_WITHOUT_REFERENCE", "{row}");
+    assert!(
+        !external
+            .calls
+            .borrow()
+            .iter()
+            .any(|call| call.starts_with("/api/v3/avgPrice")
+                || call.starts_with("/api/v3/trades")),
+        "An explicit null execution reference must not fall back to average or last trade"
+    );
+
+    // An unknown active execution-rule field keeps the configuration explicitly unsupported.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/executionRules" {
+            body["symbolRules"][0]["rules"][0]["futureMultiplier"] = json!("1.0100");
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let unsupported = rules_get(&rig, &decision);
+    assert_eq!(
+        unsupported["data"]["priceRangePreview"]["state"], "UNSUPPORTED_CONFIGURATION",
+        "{unsupported}"
+    );
+    let row = unsupported["data"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap()
+        .clone();
+    assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
+    assert_eq!(row["reasonCode"], "UNSUPPORTED_ACTIVE_CONSTRAINT_SCHEMA", "{row}");
+    assert!(
+        unsupported["data"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item.as_str().unwrap().contains("PRICE_RANGE")),
+        "{unsupported}"
+    );
+
+    // A scoped, complete execution-rule source that reports no PRICE_RANGE rule at all
+    // is documented non-enforcement: no rule, no reference read, no invented per-rule row.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/executionRules" {
+            body["symbolRules"][0]["rules"] = json!([]);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let absent = rules_get(&rig, &decision);
+    let preview = &absent["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "NO_RULE", "{absent}");
+    assert_eq!(preview["explanation"], "PRICE_RANGE_NOT_CONFIGURED", "{absent}");
+    assert!(preview["reference"].is_null());
+    assert!(preview["lowerBound"].is_null() && preview["boundsDigest"].is_null());
+    assert_eq!(absent["data"]["referencePurposes"], json!([]), "{absent}");
+    assert!(
+        !absent["data"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["ruleType"] == "PRICE_RANGE"),
+        "A symbol without a PRICE_RANGE rule must not manufacture a per-rule row: {absent}"
+    );
+    let calls = external.calls.borrow().len();
+    let unneeded = rules_refresh(&rig, &decision, &external);
+    assert_eq!(unneeded["error"]["code"], "REFERENCE_PRICE_NOT_REQUIRED", "{unneeded}");
+    assert_eq!(
+        external.calls.borrow().len(),
+        calls,
+        "Verified absence of a PRICE_RANGE rule must not read a reference"
+    );
+}
+
+#[test]
+fn proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change() {
+    if isolated_rule_scenario(
+        "proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/executionRules" {
+            body["symbolRules"][0]["rules"][0] = json!({
+                "ruleType":"PRICE_RANGE",
+                "bidLimitMultUp":"1.0001",
+                "bidLimitMultDown":"0",
+                "askLimitMultUp":"1.0001",
+                "askLimitMultDown":"0.00000000000000000000000000000001"
+            });
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refreshed = rules_refresh(&rig, &decision, &external);
+    let preview = &refreshed["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "SNAPSHOT_AVAILABLE", "{refreshed}");
+    assert_eq!(
+        preview["directions"][0]["lowerMultiplier"], "0",
+        "An exact reported zero stays a real multiplier: {preview}"
+    );
+    assert_eq!(preview["directions"][1]["lowerMultiplier"], "0.00000000000000000000000000000001");
+    assert_eq!(preview["lowerBound"], "0", "{refreshed}");
+    assert_eq!(preview["upperBound"], "60006", "{refreshed}");
+    // The same intent bound to SELL uses the ask multipliers with exact precision.
+    let sell = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
+    let exact = rules_refresh(&rig, &sell, &external);
+    assert_eq!(exact["data"]["priceRangePreview"]["state"], "SNAPSHOT_AVAILABLE", "{exact}");
+    assert_eq!(
+        exact["data"]["priceRangePreview"]["lowerBound"], "0.0000000000000000000000000006",
+        "Exact decimal multiplication must not round: {exact}"
+    );
+    assert_eq!(exact["data"]["priceRangePreview"]["upperBound"], "60006");
+    // A source generation change retires the snapshot instead of renewing it.
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/exchangeInfo" {
+            body["symbols"][0]["filters"][0]["tickSize"] = json!("0.01000000");
+        }
+        if route == "/api/v3/executionRules" {
+            body["symbolRules"][0]["rules"][0] = json!({
+                "ruleType":"PRICE_RANGE",
+                "bidLimitMultUp":"1.02",
+                "bidLimitMultDown":"0.98",
+                "askLimitMultUp":"1.02",
+                "askLimitMultDown":"0.98"
+            });
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let retired = rules_get(&rig, &decision);
+    assert_eq!(
+        retired["data"]["priceRangePreview"]["state"], "REFERENCE_MISSING",
+        "A changed source generation must require a new execution reference: {retired}"
+    );
+    assert!(retired["data"]["priceRangePreview"]["lowerBound"].is_null());
+}
+
+#[test]
+fn proposal_price_range_retires_a_stale_execution_reference_instead_of_renewing_it() {
+    if isolated_rule_scenario(
+        "proposal_price_range_retires_a_stale_execution_reference_instead_of_renewing_it",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let decision = rig.decision();
+    let refreshed = rules_refresh(&rig, &decision, &external);
+    let preview = &refreshed["data"]["priceRangePreview"];
+    assert_eq!(preview["state"], "SNAPSHOT_AVAILABLE", "{refreshed}");
+    assert_eq!(preview["reference"]["price"], "60000");
+    let reference_digest = preview["reference"]["digest"].as_str().unwrap().to_owned();
+    let bounds_digest = preview["boundsDigest"].as_str().unwrap().to_owned();
+
+    // The default (and any configured) freshness window is bounded by the documented
+    // 30-second ceiling and the default 3-second policy threshold, so an untouched
+    // observation expires on the clock alone.
+    std::thread::sleep(std::time::Duration::from_secs(4));
+
+    let later = rules_get(&rig, &decision);
+    let preview = &later["data"]["priceRangePreview"];
+    assert_eq!(
+        preview["state"], "REFERENCE_UNAVAILABLE",
+        "An expired observation is unavailable, never non-enforcement: {later}"
+    );
+    assert_eq!(preview["explanation"], "REFERENCE_PRICE_STALE", "{later}");
+    assert!(
+        preview["reference"]["price"].is_null(),
+        "A plain get must not renew an expired reference price: {later}"
+    );
+    assert_eq!(
+        preview["reference"]["digest"], reference_digest,
+        "The retired observation keeps its provenance: {later}"
+    );
+    assert!(
+        preview["lowerBound"].is_null() && preview["upperBound"].is_null(),
+        "{later}"
+    );
+    assert!(
+        preview["boundsDigest"].is_null(),
+        "A retired snapshot has no bounds digest to claim: {later}"
+    );
+    assert_ne!(bounds_digest, "", "{refreshed}");
+    let row = later["data"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap()
+        .clone();
+    assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
+    assert_eq!(row["reasonCode"], "REFERENCE_PRICE_STALE", "{row}");
+    assert_eq!(later["data"]["outcome"], "UNAVAILABLE", "{later}");
 }
 
 #[test]
@@ -5158,7 +5549,7 @@ fn collected_constraints_name_the_unresolved_per_order_obligations() {
         "NOTIONAL_AND_MARKET_REFERENCE_VALIDATION_REQUIRED",
         "CURRENT_ACCOUNT_EXCHANGE_ORDER_COUNTS_REQUIRED",
         "EXACT_ORDER_ASSET_AMOUNT_VALIDATION_REQUIRED",
-        "BOOK_REFERENCE_PRICE_RANGE_VALIDATION_REQUIRED",
+        "EXECUTION_PRICE_RANGE_UNQUALIFIED",
     ] {
         assert!(
             obligations.contains(&json!(expected)),

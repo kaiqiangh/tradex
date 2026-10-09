@@ -25,6 +25,20 @@ export async function checkSpotProposalRulesUI(tab, browser) {
   }
   assert.equal(account.health.arming,'DISARMED');
   await send('time.revalidate',{workspaceId});
+  // A persisted policy pins the documented freshness window at its 30-second ceiling so the
+  // public reference stays current for the whole interaction; the default 3-second window and
+  // expiry itself are covered deterministically by the Rust staleness test.
+  const unconfigured=await send('risk.get_policy',{workspaceId});
+  if(unconfigured.configured!==true){
+    await send('risk.save_policy',{workspaceId,expectedStateVersion:unconfigured.stateVersion,policy:{
+      maxOrderNotional:null,maxOrderQuantity:null,maxPositionSize:null,
+      maxSingleInstrumentExposurePercent:'10.25',maxAssetClassExposurePercent:[],
+      maxDailyTradedNotional:null,maxDailyRealizedLoss:null,maxOpenOrders:null,maxReservedCapital:null,
+      allowedInstrumentIds:[],blockedInstrumentIds:[],allowedVenues:[],blockedVenues:[],
+      allowedAccountIds:[],blockedAccountIds:[],allowedEnvironments:[],
+      staleQuoteThresholdSeconds:30,marketOrdersEnabled:false,maxMarketOrderSlippagePercent:null,
+      maxPriceDeviationPercent:null,liveInactivityTimeoutMinutes:20}});
+  }
   const saved=await send('data.binance_rules.connection',{workspaceId});
   await send('data.binance_rules.configure',{workspaceId,connectionId:account.connectionId,instrumentId:'crypto:BTC/USDT:spot',expectedStateVersion:saved.stateVersion});
   await send('binance.live.rules.fixture',{scenario:'PERCENT_REFERENCE',symbol:'BTCUSDT'});
@@ -46,11 +60,35 @@ export async function checkSpotProposalRulesUI(tab, browser) {
   const current=ui.getByRole('region',{name:'Current Proposal Spot rules',exact:true});
   assert.equal(await current.count(),1,'Selected immutable Proposal must display per-rule qualification');
   await current.getByText('PERCENT_PRICE · UNAVAILABLE',{exact:true}).waitFor({state:'visible'});
-  await current.getByRole('button',{name:'Refresh required rule references',exact:true}).press('Enter');
+  const range=ui.getByRole('region',{name:'Current price range execution preview',exact:true});
+  const clickRefresh=async()=>{
+    await ui.waitForFunction(()=>{
+      const node=[...document.querySelectorAll('button')].find(item=>item.textContent.trim().startsWith('Refresh required rule references'));
+      return Boolean(node)&&!node.disabled;
+    },undefined,{timeout:15000});
+    await current.getByRole('button',{name:'Refresh required rule references',exact:true}).press('Enter');
+  };
+  // The same control becomes "Evaluate again" once a decision exists, so both labels are reached
+  // through the public surface rather than a private setter.
+  const clickEvaluate=async()=>{
+    const again=ui.getByRole('button',{name:'Evaluate again',exact:true});
+    if(await again.count()) await again.press('Enter');
+    else await ui.getByRole('button',{name:'Evaluate risk',exact:true}).press('Enter');
+  };
+  await range.getByText(/reference missing/).waitFor({state:'visible'});
+  assert.match(await range.innerText(),/BUY \(bid\) multipliers/);
+  assert.match(await range.innerText(),/SELL \(ask\) multipliers/);
+  assert.match(await range.innerText(),/1\.0001/);
+  assert.match(await range.innerText(),/No snapshot bound is established/);
+  await clickRefresh();
   await current.getByText('PERCENT_PRICE · PASS',{exact:true}).waitFor({state:'visible'});
   assert.match(await current.innerText(),/PROVIDER_REFERENCE/); assert.match(await current.innerText(),/60000 USDT/);
   assert.match(await current.innerText(),/Provider time/); assert.match(await current.innerText(),/First receipt/);
   assert.match(await current.innerText(),/PRICE_RANGE · UNAVAILABLE/);
+  // The same genuine referencePrice read also qualifies the execution purpose this limit
+  // actually needs, so the read-only snapshot becomes available without a second read.
+  await range.getByText(/snapshot available/).waitFor({state:'visible'});
+  assert.match(await range.innerText(),/59994 – 60006 USDT\/BTC/);
   await ui.getByRole('button',{name:'Evaluate risk',exact:true}).press('Enter');
   const capture=ui.getByRole('region',{name:'Captured Proposal Spot rules',exact:true}).first();
   await capture.waitFor({state:'visible'}); assert.match(await capture.innerText(),/PERCENT_PRICE · PASS/);
@@ -62,6 +100,8 @@ export async function checkSpotProposalRulesUI(tab, browser) {
       await viewport.set({width,height:900}); await tab.getAXState({emit:false});
       const size=await current.evaluate(element=>({width:window.innerWidth,scroll:document.documentElement.scrollWidth,panel:element.scrollWidth,client:element.clientWidth}));
       assert.equal(size.width,width); assert.ok(size.scroll<=width && size.panel<=size.client+1,JSON.stringify(size));
+      const preview=await range.evaluate(element=>({scroll:element.scrollWidth,client:element.clientWidth}));
+      assert.ok(preview.scroll<=preview.client+1,`price range preview at ${width}: ${JSON.stringify(preview)}`);
     }
   } finally { await viewport.reset(); }
   await send('binance.live.rules.fixture',{scenario:'PRICE_REJECT',symbol:'BTCUSDT'});
@@ -70,7 +110,56 @@ export async function checkSpotProposalRulesUI(tab, browser) {
   await current.getByText('PRICE_FILTER · REJECT',{exact:true}).waitFor({state:'visible'});
   assert.equal(await capture.innerText(),captured,'Current source replacement cannot renew a captured decision');
   assert.equal((await send('account.get',{workspaceId,connectionId:account.connectionId})).health.arming,'DISARMED');
-  return {workspaceId,widths:[1280,768,390],currentRejected:true,captureFrozen:true,rawReferencePersisted:false,positiveAuthoritySeed:false,providerOrderWrites:false};
+
+  // S29.7 — the immutable Proposal explains its actual PRICE_RANGE execution rule.
+  const switchSource=async scenario=>{
+    await send('binance.live.rules.fixture',{scenario,symbol:'BTCUSDT'});
+    const saved=await send('data.binance_rules.connection',{workspaceId});
+    await send('data.binance_rules.refresh',{workspaceId,expectedStateVersion:saved.stateVersion});
+  };
+  await switchSource('PRICE_RANGE_PARTIAL');
+  await range.getByText(/not enforced selected side/).waitFor({state:'visible'});
+  const partial=await range.innerText();
+  assert.match(partial,/lower multiplier not set/,'A documented omitted multiplier must not be invented');
+  assert.match(partial,/1\.0001/);
+  assert.match(partial,/Not enforced for this direction/);
+  assert.match(partial,/price range not enforced for selected side/);
+  assert.match(partial,/No snapshot bound is established/);
+
+  await switchSource('NORMAL');
+  // A new source generation retires the previous observation; waiting for that retirement also
+  // proves the panel polled the new state version before the CAS refresh is offered.
+  await range.getByText(/reference missing/).waitFor({state:'visible'});
+  await clickRefresh();
+  await range.getByText(/snapshot available/).waitFor({state:'visible'});
+  const snapshot=await range.innerText();
+  await clickEvaluate();
+  const capturedRange=ui.getByRole('region',{name:'Captured price range execution preview',exact:true}).last();
+  await capturedRange.waitFor({state:'visible'});
+  const capturedRangeText=await capturedRange.innerText();
+  assert.match(snapshot,/59994 – 60006 USDT\/BTC/);
+  assert.match(snapshot,/BUY \(bid\) multipliers/); assert.match(snapshot,/SELL \(ask\) multipliers/);
+  assert.match(snapshot,/Enforced for this direction/);
+  assert.match(snapshot,/Provider time/); assert.match(snapshot,/First receipt/);
+  assert.match(snapshot,/taker phase/); assert.match(snapshot,/expires the order/);
+  assert.match(snapshot,/nothing here approves, places or promises a fill/);
+  assert.match(snapshot,/sha256:[0-9a-f]{64}/,'A displayed bound must be traceable by digest');
+  assert.match(capturedRangeText,/Snapshot bounds retained as digests only · sha256:[0-9a-f]{64}/,'A captured review must still name the bound digest it was made against');
+  assert.ok(!capturedRangeText.includes('59994')&&!capturedRangeText.includes('60006'),'A captured review must not persist snapshot prices');
+  assert.ok(!capturedRangeText.includes('60000'),'A captured review must not persist the execution reference price');
+
+  await switchSource('PRICE_RANGE_NULL');
+  await range.getByText(/reference missing/).waitFor({state:'visible'});
+  await clickRefresh();
+  // The same sentence appears in the prose explanation and in the execution reference row; the row
+  // is the one that must carry the digest, so target the term definition value explicitly.
+  const explicitNullReference=range.locator('dd',{hasText:/^Provider reported an explicit null reference price · sha256:[0-9a-f]{64}$/});
+  await explicitNullReference.waitFor({state:'visible'});
+  assert.match(await explicitNullReference.innerText(),/^Provider reported an explicit null reference price · sha256:[0-9a-f]{64}$/,'An explicit null must be reported as a verified provider fact traceable by digest');
+  assert.match(await range.innerText(),/reference explicit null/);
+  assert.equal(await capturedRange.innerText(),capturedRangeText,'A later current read cannot renew a captured review');
+  assert.equal((await send('account.get',{workspaceId,connectionId:account.connectionId})).health.arming,'DISARMED');
+  return {workspaceId,widths:[1280,768,390],currentRejected:true,captureFrozen:true,rawReferencePersisted:false,positiveAuthoritySeed:false,providerOrderWrites:false,priceRangePartial:true,priceRangeSnapshot:true,priceRangeExplicitNull:true,capturedBoundsStripped:true,capturedBoundsDigested:true};
 }
 
 export async function checkSpotRuleReviewUI(tab) {

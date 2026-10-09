@@ -329,11 +329,16 @@ fn main() -> io::Result<()> {
                     (
                         Some(
                             "NORMAL" | "HALT" | "BREAK" | "MALFORMED" | "PERCENT_REFERENCE"
-                            | "PRICE_REJECT",
+                            | "PRICE_REJECT" | "PRICE_RANGE_PARTIAL" | "PRICE_RANGE_NULL",
                         ),
                         Some(symbol @ ("BTCUSDT" | "ETHUSDT")),
                     ) if http.binance_rules_ui => {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map_or(0, |elapsed| elapsed.as_millis() as u64);
                         let mut external = fixtures::binance_spot_exchange_info(symbol);
+                        *http.binance_execution_rules.borrow_mut() = None;
+                        *http.binance_reference_price.borrow_mut() = None;
                         match p["scenario"].as_str().unwrap() {
                             "HALT" | "BREAK" => {
                                 external["symbols"][0]["status"] = p["scenario"].clone()
@@ -343,6 +348,10 @@ fn main() -> io::Result<()> {
                             }
                             "PERCENT_REFERENCE" => external["symbols"][0]["filters"].as_array_mut().unwrap().push(json!({"filterType":"PERCENT_PRICE","multiplierDown":"0.8","multiplierUp":"1.2","avgPriceMins":5})),
                             "PRICE_REJECT" => external["symbols"][0]["filters"][0]["tickSize"] = json!("7"),
+                            // Documented partial PRICE_RANGE configuration: only one multiplier.
+                            "PRICE_RANGE_PARTIAL" => *http.binance_execution_rules.borrow_mut() = Some(json!({"symbolRules":[{"symbol":symbol,"rules":[{"ruleType":"PRICE_RANGE","bidLimitMultUp":"1.0001"}]}]})),
+                            // Documented explicit null reference price: not enforced, not a failure.
+                            "PRICE_RANGE_NULL" => *http.binance_reference_price.borrow_mut() = Some(json!({"symbol":symbol,"referencePrice":null,"timestamp":now_ms})),
                             _ => (),
                         }
                         *http.binance_exchange_info.borrow_mut() = if p["scenario"] == "NORMAL" {

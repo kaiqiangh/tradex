@@ -747,6 +747,12 @@ CurrentSpotCapacity 为所选不可变 Proposal 使用类型化本地 `trade.spo
 
 CurrentSpotOrderIntervals 使用生成的本地 `trade.spot_order_intervals.get` 和显式 CAS `trade.spot_order_intervals.refresh`；本地1s投影轮询不调用 provider。展示不可变身份/BASE/QUOTE、跨 key/IP/API 账户范围、实际定义与原始精确字符串 count/limit/intervalNum、完整/未解决 tuple 覆盖、非原子读取窗口/digest、原始 provider clock 与缺失 counter snapshot time、导出的不确定关联/撤下、失败和请求冷却。开放订单 filter 库存、ORDERS 时段用量、REQUEST_WEIGHT/RAW_REQUESTS 与 reservation 分开。Busy/error/已撤下输入不能仍展示当前成功。捕获 RiskDecision/历史/pre-arm 展示保存的 `spotOrderIntervals`，不刷新/轮询或续收据/同意。保留 keyboard 与1280/768/390；完整 dynamic/financial/Arm/同意/Prepare/Gateway 门禁独立。Backend §41.46 与 UI §14.30 定义 wire/交互；原型代码未改，来源验收不意味着完整产品验收。
 
+### 13.32 Proposal 专属价格区间执行预览（S29.7 #128，IN_PROGRESS）
+
+既有 Current Proposal Spot rules 与 Captured Proposal Spot rules 展示所选不变普通 Binance Live Proposal 的生成 `priceRangePreview`。以白话展示精确状态、选定 side 与 QUOTE-per-BASE 单位、BID(BUY) 与 ASK(SELL) 两条配置条目（缺省乘数写作「未设置」而非零）、各方向实施/不实施的事实、真正当前参考价限定的选定 side 快照边界、执行参考价的 provider 原始时间/首收据/digest、精确解释码，以及固定说明：交易所在 taker 阶段重算参考价、越界执行会使订单过期，本面板不审批、不下单、不承诺。
+
+「不实施」、显式 null、参考价缺失/失败/过期、不支持配置与市价形态保持视觉区分；失败读取绝不渲染为不实施，快照预览绝不渲染为资格。过期参考价保留其来源 digest 与收据时间，但价格以「非当前」为由不予显示，且绝不渲染为提供方显式 null。既有可键盘操作的「Refresh required rule references」是唯一 provider 读取，当意图无需参考价时禁用，且不新增其他控件。捕获 risk/历史/pre-arm 保留已保存预览，无刷新控制器、无轮询、不续收据/同意，并把被剥离的快照边界显示为「仅保留 digest」，同时仍指认该边界 digest。仍需 keyboard 与1280/768/390 可读；权利、报价、权限、健康、费用/FX、资金、Arm、同意、Prepare、Gateway 与精确 CANCEL/reconciliation 保持独立。Backend §41.47 与 UI §14.31 定义本契约；原型代码未改，来源验收不意味着完整产品验收。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

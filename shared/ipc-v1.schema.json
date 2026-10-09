@@ -17061,6 +17061,156 @@
         "DERIVED_UNCERTAIN"
       ]
     },
+    "SpotPriceRangeDirection": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "maxLength": 4,
+          "minLength": 1
+        },
+        "enforced": {
+          "type": "boolean"
+        },
+        "lowerMultiplier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "upperMultiplier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "enforced"
+      ]
+    },
+    "SpotPriceRangePreview": {
+      "type": "object",
+      "properties": {
+        "boundsDigest": {
+          "description": "Digest of the snapshot bounds. Like `SpotRuleReference::digest`, it survives\ncapture so a saved review can still be traced to the bounds it was made against\neven though the bounds themselves are withheld.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "directions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotPriceRangeDirection"
+          },
+          "maxItems": 2
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "lowerBound": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotRuleReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "state": {
+          "$ref": "#/$defs/SpotPriceRangeState"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "upperBound": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "side",
+        "unit",
+        "directions",
+        "explanation"
+      ]
+    },
+    "SpotPriceRangeState": {
+      "description": "Documented PRICE_RANGE state for one immutable Proposal. Every state is a snapshot\nexplanation, never placement authority or a promised fill.",
+      "oneOf": [
+        {
+          "description": "Scoped, complete execution-rule evidence has no PRICE_RANGE rule: not enforced.",
+          "type": "string",
+          "const": "NO_RULE"
+        },
+        {
+          "description": "The execution rule is present but its active schema is unknown or unsupported.",
+          "type": "string",
+          "const": "UNSUPPORTED_CONFIGURATION"
+        },
+        {
+          "description": "The selected side is missing at least one documented multiplier: not enforced.",
+          "type": "string",
+          "const": "NOT_ENFORCED_SELECTED_SIDE"
+        },
+        {
+          "description": "A market form states no execution price, so no placement-time comparison exists.",
+          "type": "string",
+          "const": "NO_STATED_EXECUTION_PRICE"
+        },
+        {
+          "description": "The selected side is enforced but no genuine execution reference was observed.",
+          "type": "string",
+          "const": "REFERENCE_MISSING"
+        },
+        {
+          "description": "The execution reference lookup failed, is stale or cannot be multiplied exactly.",
+          "type": "string",
+          "const": "REFERENCE_UNAVAILABLE"
+        },
+        {
+          "description": "The provider reported an explicit null reference price: not enforced.",
+          "type": "string",
+          "const": "REFERENCE_EXPLICIT_NULL"
+        },
+        {
+          "description": "A genuine current reference bounded this snapshot.",
+          "type": "string",
+          "const": "SNAPSHOT_AVAILABLE"
+        }
+      ]
+    },
     "SpotProposalRules": {
       "type": "object",
       "properties": {
@@ -17102,6 +17252,16 @@
         },
         "outcome": {
           "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "priceRangePreview": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotPriceRangePreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "proposalHash": {
           "type": "string",

@@ -227,8 +227,16 @@ fn constraints(
         }
         let mut fields = Vec::new();
         if let Some(schema) = schema {
+            // The documented PRICE_RANGE contract reports each direction multiplier
+            // individually and an omitted multiplier means that direction is not
+            // enforced. Every other known schema stays all-required.
+            let optional = kind == "PRICE_RANGE";
             for &(name, ty) in schema {
-                let raw = map.remove(name).ok_or_else(invalid)?;
+                let raw = match map.remove(name) {
+                    Some(raw) => raw,
+                    None if optional => continue,
+                    None => return Err(invalid()),
+                };
                 let value = match ty {
                     'D' => {
                         let s: String = serde_json::from_str(raw.get()).map_err(|_| invalid())?;
@@ -612,7 +620,7 @@ pub(super) fn read(
             }
             "MAX_POSITION" => "CURRENT_FREE_LOCKED_AND_OPEN_BUY_POSITION_REQUIRED",
             "MAX_ASSET" => "EXACT_ORDER_ASSET_AMOUNT_VALIDATION_REQUIRED",
-            "PRICE_RANGE" => "BOOK_REFERENCE_PRICE_RANGE_VALIDATION_REQUIRED",
+            "PRICE_RANGE" => "EXECUTION_PRICE_RANGE_UNQUALIFIED",
             "TRAILING_DELTA" => "TRAILING_ORDER_FORM_VALIDATION_REQUIRED",
             "ICEBERG_PARTS" => "ICEBERG_ORDER_PART_COUNT_VALIDATION_REQUIRED",
             "MAX_NUM_ORDER_AMENDS" => "CURRENT_ORDER_AMEND_COUNT_REQUIRED",

@@ -118,6 +118,7 @@ pub struct Http {
     pub binance_api_trading_status: RefCell<Option<Value>>,
     pub binance_reference_price: RefCell<Option<Value>>,
     pub binance_reference_price_status: Cell<Option<u16>>,
+    pub binance_execution_rules: RefCell<Option<Value>>,
 }
 impl Default for Http {
     fn default() -> Self {
@@ -191,6 +192,7 @@ impl Default for Http {
             binance_api_trading_status: RefCell::new(None),
             binance_reference_price: RefCell::new(None),
             binance_reference_price_status: Cell::new(None),
+            binance_execution_rules: RefCell::new(None),
         }
     }
 }
@@ -983,6 +985,15 @@ impl ProviderHttp for Http {
             if self.binance_rules_ui && endpoint == ProviderEndpoint::BinanceLive {
                 if let Some(symbol) = path.strip_prefix("/api/v3/referencePrice?symbol=") {
                     assert!(headers.is_empty());
+                    if let Some(body) = self.binance_reference_price.borrow().clone() {
+                        let mut body = body;
+                        if let Some(object) = body.as_object_mut() {
+                            object
+                                .entry("symbol".to_owned())
+                                .or_insert_with(|| json!(symbol));
+                        }
+                        return Ok(serde_json::to_vec(&body).unwrap());
+                    }
                     return Ok(serde_json::to_vec(&json!({"symbol":symbol,"referencePrice":"60000.00000000","timestamp":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})).unwrap());
                 }
                 if let Some(symbol) = path
@@ -1001,6 +1012,9 @@ impl ProviderHttp for Http {
                 }
                 if let Some(symbol) = path.strip_prefix("/api/v3/executionRules?symbol=") {
                     assert!(headers.is_empty());
+                    if let Some(body) = self.binance_execution_rules.borrow().clone() {
+                        return Ok(serde_json::to_vec(&body).unwrap());
+                    }
                     return Ok(serde_json::to_vec(&json!({"symbolRules":[{"symbol":symbol,"rules":[{"ruleType":"PRICE_RANGE","bidLimitMultUp":"1.0001","bidLimitMultDown":"0.9999","askLimitMultUp":"1.0001","askLimitMultDown":"0.9999"}]}]})).unwrap());
                 }
             }

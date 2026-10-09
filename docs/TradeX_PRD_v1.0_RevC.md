@@ -1297,6 +1297,8 @@ Exact-account capacity inputs are an explicit read-only prerequisite, not dynami
 
 Account-wide unfilled-order interval inputs are a separate read-only prerequisite. Actual declared ORDERS intervals and authenticated original integer counts never substitute for open-order inventory, HTTP budgets or reservations; missing usage is not zero/unlimited, local fills/cancellations cannot invent decrement/reset, and clocks/receipts do not become counter snapshot times. Preserve bounded incomplete coverage and derived temporal uncertainty/retirement in current/captured review. Qualification stays UNAVAILABLE; owning dynamic rules and all complete financial gates remain separate. Backend §41.46 and UI §14.30 define this contract; prototype code unchanged.
 
+The PRICE_RANGE execution rule is explained as a snapshot, never as eligibility. Show the selected side's actual configured multipliers, where a documented omission is not enforced and a reported zero is a real multiplier, the genuine provider reference price that alone qualifies the bound, the exact selected-side snapshot bound with its unit, and clear separation between verified non-enforcement, a provider-reported explicit null, an unavailable or stale lookup and an unsupported configuration. Keep the taker-phase recalculation, possible expiry and the absence of any fill or admission promise explicit. No snapshot preview, reference read or captured review approves, places, reserves or promises a trade, and the venue reference price is never persisted into saved history. Backend §41.47 and UI §14.31 define this contract; prototype code unchanged.
+
 ---
 
 # 22. Pre-approval and Pre-execution Validation

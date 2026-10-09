@@ -589,6 +589,22 @@ export type SpotOrderIntervalTimeAssociation = "DERIVED_UNCERTAIN";
  */
 export type SpotOrderIntervalScope = "ACCOUNT_ALL_KEYS_IPS_APIS";
 /**
+ * Documented PRICE_RANGE state for one immutable Proposal. Every state is a snapshot
+ * explanation, never placement authority or a promised fill.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotPriceRangeState".
+ */
+export type SpotPriceRangeState =
+  | "NO_RULE"
+  | "UNSUPPORTED_CONFIGURATION"
+  | "NOT_ENFORCED_SELECTED_SIDE"
+  | "NO_STATED_EXECUTION_PRICE"
+  | "REFERENCE_MISSING"
+  | "REFERENCE_UNAVAILABLE"
+  | "REFERENCE_EXPLICIT_NULL"
+  | "SNAPSHOT_AVAILABLE";
+/**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionStatus".
  */
@@ -3943,6 +3959,7 @@ export interface SpotProposalRules {
   materialVersion?: string | null;
   observedAt?: string | null;
   outcome: RiskCheckOutcome;
+  priceRangePreview?: SpotPriceRangePreview | null;
   proposalHash: string;
   proposalId: string;
   quoteAsset: string;
@@ -3966,6 +3983,39 @@ export interface SpotProposalRules {
    */
   unresolvedObligations: string[];
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotPriceRangePreview".
+ */
+export interface SpotPriceRangePreview {
+  /**
+   * Digest of the snapshot bounds. Like `SpotRuleReference::digest`, it survives
+   * capture so a saved review can still be traced to the bounds it was made against
+   * even though the bounds themselves are withheld.
+   */
+  boundsDigest?: string | null;
+  /**
+   * @maxItems 2
+   */
+  directions: [] | [SpotPriceRangeDirection] | [SpotPriceRangeDirection, SpotPriceRangeDirection];
+  explanation: string;
+  lowerBound?: string | null;
+  reference?: SpotRuleReference | null;
+  side: OrderSide;
+  state: SpotPriceRangeState;
+  unit: string;
+  upperBound?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotPriceRangeDirection".
+ */
+export interface SpotPriceRangeDirection {
+  direction: string;
+  enforced: boolean;
+  lowerMultiplier?: string | null;
+  upperMultiplier?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

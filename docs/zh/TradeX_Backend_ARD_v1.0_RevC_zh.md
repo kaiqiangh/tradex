@@ -3115,6 +3115,18 @@ RiskDecision 与捕获评审/历史保留有界结果、引用/digest/时间，�
 
 至多8个瞬态 Proposal slot。计龄从首个定义收据开始，取 min30s/配置 stale 阈值(default3s)，可能边界可更早撤下。Pending refresh 撤下旧成功；失败清空观察并给出脱敏恢复。绑定/归属变化、晚到/deadline、重开与 clock/session generation 不能复活旧输入。缓存 get/历史不续收据。RiskDecision 可捕获 `spotOrderIntervals` 及 SPOT_ORDER_INTERVALS 引用，仅持久化批准的有界汇总/digest，不存 raw 响应/secret/runtime cache。捕获不升级完整规则、资金/费用/FX、权利/报价/流动性、权限/健康、预留、Arm/同意、Prepare 或 Gateway。精确 CANCEL/reconciliation 独立。来源实施验收与完整父项/native/hosted/financial/physical/prototype/main 验收分开；原型代码未改。
 
+### 41.47 不变 Proposal 价格区间执行解释（S29.7 #128，IN_PROGRESS）
+
+可信本地 `trade.spot_rules.get {workspaceId, proposalId}` 与显式 CAS `trade.spot_rules.refresh {workspaceId, proposalId, expectedStateVersion}` 在既有的普通 Binance Live 不变 Proposal 契约上新增有界 `priceRangePreview`；未知 renderer authority 字段继续被拒，renderer 文本从不成为权威，get 不读 vault/provider。固定分域的 `GET /api/v3/executionRules?symbol=` 证据必须只返回派生 symbol 的唯一条目，因此该条目内缺少 `PRICE_RANGE` 规则即为完整、正确分域的「不实施」，而不是被省略的集合。不新增账户、来源、全域扫描或配置。
+
+PRICE_RANGE 是官方执行规则，不是下单过滤器。四个乘数（`bidLimitMultUp/Down`、`askLimitMultUp/Down`）各自可选；某个方向缺省任一乘数即表示该 side 与该价格方向不实施，而实际报告的零仍是真实乘数，绝不变成 disabled 标记。保留有界原始十进制文本、重复/类型/精度/范围/未知活跃字段拒绝及既有 min≤max 比较；仅本规则的四字段必填校验改为官方可选处理，其他已知 schema 仍全部必填。`SpotPriceRangePreview` 携带状态枚举 `NO_RULE | UNSUPPORTED_CONFIGURATION | NOT_ENFORCED_SELECTED_SIDE | NO_STATED_EXECUTION_PRICE | REFERENCE_MISSING | REFERENCE_UNAVAILABLE | REFERENCE_EXPLICIT_NULL | SNAPSHOT_AVAILABLE`、意图 side、QUOTE-per-BASE 单位、至多两个有界方向条目 `{direction, lowerMultiplier, upperMultiplier, enforced}`、可选上下快照边界、绑定参考 digest/选定 side/单位/精确边界的可选边界 digest、可选 `EXECUTION_REFERENCE` 观察与一个精确解释码。
+
+只有真正的 `GET /api/v3/referencePrice` 响应（weight2，共享 P3 IP 预算与418/429 Retry-After）可资格化本用途；没有 book/trade/average 回退，且为其他静态用途采集的参考价绝不静默满足执行用途——执行观察存于独立瞬态 slot 字段并带自己的 digest。显式 null 参考价是官方非错误观察并按此记录；缺失、失败、过期或无法精确相乘的查询保持 unavailable，绝不表述为「不实施」。超过同一派生新鲜度窗口的观察保留其来源 digest 与收据时间，但绝不保留价格，故普通 `get` 只能将其退役为 `REFERENCE_UNAVAILABLE`/`REFERENCE_PRICE_STALE`，绝不能续用已资格化的价格或其边界。仅精确十进制乘法，无 f64、无四舍五入。仅当选定 side 实际实施且为限价形态时才读取该参考价，未实施或市价形态不读取，refresh 以 `REFERENCE_PRICE_NOT_REQUIRED` 拒绝。既有512KiB 响应、30s deadline、12s 完成余量、首收据/provider 时间新鲜度、8 个瞬态 slot 与「I/O 期间不持 CP 锁」保持不变。
+
+`PRICE_RANGE` 从不成为下单权威：其规则行保持 `UNAVAILABLE`，携带 `PRICE_RANGE_SNAPSHOT_BOUNDS_ONLY`、`EXECUTION_REFERENCE_PRICE_MISSING`、`PRICE_RANGE_ARITHMETIC_UNAVAILABLE`、脱敏失败码或 `UNSUPPORTED_ACTIVE_CONSTRAINT_SCHEMA`，并向未决义务贡献 `EXECUTION_PRICE_RANGE_UNQUALIFIED`。已验证的「不实施」改为不适用的 `PASS` 行（`PRICE_RANGE_NOT_ENFORCED_FOR_SELECTED_SIDE`、`PRICE_RANGE_NOT_ENFORCED_WITHOUT_REFERENCE`，或无申报执行价的市价形态对应 `PRICE_RANGE_EXECUTION_TIME_ONLY`），属用途专属事实而非总体就绪。交易所在订单进入 taker 阶段时重算参考价，越界执行会过期订单，故该快照既不因限价本身拒绝意图，也不承诺成交或准入。
+
+Pending/失败/过期 refresh、绑定/来源/账户/规则材料/市场/策略/工作区/会话/时间变化、重开与晚到或更新 owner 结果都撤下当前预览；缓存 get 不续收据。RiskDecision 捕获保留预览配置、状态与两个 digest，同时剥离执行参考价与快照边界，使已保存审核仍能指认其所依据的参考与边界 digest，同时不持久化任何快照价。权利/报价/流动性/权限/健康/费用FX/资金/动态准入/预留/Arm/同意/Prepare/Gateway 均不升级，精确 CANCEL/reconciliation 保持独立。中英文 wire、金融与证据契约同步；原型代码未改，来源验收与完整父项/native/provider/financial/physical/prototype/main 验收分开。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

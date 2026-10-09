@@ -8095,6 +8095,13 @@ impl ControlPlane {
             for reference in &mut captured.references {
                 reference.price = None;
             }
+            if let Some(preview) = &mut captured.price_range_preview {
+                preview.lower_bound = None;
+                preview.upper_bound = None;
+                if let Some(reference) = &mut preview.reference {
+                    reference.price = None;
+                }
+            }
             captured
         });
         if currency_evidence.is_some() {
