@@ -8034,11 +8034,25 @@ impl ControlPlane {
             _ => None,
         };
         // S29.9 — the owning fee and genuinely-required execution-FX statement is derived from the
-        // same delivered read-only seams. T01 ships the contract layer only: `spot_fee_fx::derive`
-        // returns `None` for every input, so no statement is ever serialized, no `SpotFeeFx` input
-        // is pushed and no gate can fire. T02 fills in the derivation and the approval-bound input.
+        // same delivered read-only seams. It withholds admission whenever a genuinely-required
+        // conversion is unsupported by the bounded producer or the fee currency cannot be genuinely
+        // declared; it never grants authority of its own. When the capacity inputs that carry the
+        // identity are absent there is nothing to bind, so no statement is produced.
         let spot_fee_fx = match &spot_capacity {
-            Some(capacity) => spot_fee_fx::derive(capacity, proposal).ok().flatten(),
+            Some(capacity) => {
+                let (fx_requirements, fx_observation) =
+                    financial_sources::proposal_fx_evidence(self, proposal)?;
+                spot_fee_fx::derive(
+                    capacity,
+                    &fx_requirements,
+                    fx_observation.as_ref(),
+                    proposal,
+                    proposal.fields.side,
+                    &base_currency,
+                )
+                .ok()
+                .flatten()
+            }
             None => None,
         };
         if let Some(intervals) = &spot_order_intervals {
@@ -8071,6 +8085,21 @@ impl ControlPlane {
                 proposal.proposal_id.clone(),
                 rules.observed_at.clone(),
                 rules,
+            )?);
+        }
+        // The fee/FX statement is approval-bound as a value: a genuine change to the fee or to a
+        // required rate changes this input's digest and therefore the review digest, so re-admission
+        // needs a newly reviewed approval. `is_approval_bound_risk_input` already binds it.
+        if let Some(statement) = &spot_fee_fx {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::SpotFeeFx,
+                proposal.proposal_id.clone(),
+                spot_capacity
+                    .as_ref()
+                    .and_then(|capacity| capacity.observation.as_ref())
+                    .and_then(|observation| observation.reads.first())
+                    .map(|read| read.received_at.clone()),
+                statement,
             )?);
         }
         let mut decision = risk::evaluate(
@@ -8510,20 +8539,23 @@ impl ControlPlane {
         }
         // S29.9 — the fee and genuinely-required execution conversion statement is part of the
         // reviewed decision under exactly the same activation condition as the owning gate above.
-        // Reuse the already-computed `owning_required`; when no statement is in scope (`None`)
-        // nothing is blocked, which keeps T01 behaviour-neutral until T02 supplies the statement.
+        // Reuse the already-computed `owning_required`; a missing statement fails closed, and a
+        // present-but-not-PASS statement contributes exactly one typed, single-line blocker.
         if owning_required {
-            if let Some(statement) = current_decision.spot_fee_fx.as_ref() {
-                if statement.outcome != risk::RiskCheckOutcome::Pass {
-                    blockers.push(format!(
-                        "{}: {}",
-                        statement
-                            .binding_blocker
-                            .as_deref()
-                            .unwrap_or("SPOT_FEE_FX_QUALIFICATION_BLOCKED"),
-                        statement.reason
-                    ));
-                }
+            match current_decision.spot_fee_fx.as_ref() {
+                Some(statement) if statement.outcome == risk::RiskCheckOutcome::Pass => {}
+                Some(statement) => blockers.push(format!(
+                    "{}: {}",
+                    statement
+                        .binding_blocker
+                        .as_deref()
+                        .unwrap_or("SPOT_FEE_FX_QUALIFICATION_BLOCKED"),
+                    statement.reason
+                )),
+                None => blockers.push(
+                    "SPOT_FEE_FX_QUALIFICATION_UNAVAILABLE: The venue's declared fee and genuinely-required execution-conversion evidence cannot currently qualify this intent."
+                        .into(),
+                ),
             }
         }
         if self.time.require_trusted().is_err() {

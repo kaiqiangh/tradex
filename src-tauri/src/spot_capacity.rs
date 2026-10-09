@@ -117,6 +117,22 @@ pub struct SpotCapacityCounts {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotDeclaredCommission {
+    #[schemars(length(min = 1, max = 64))]
+    pub maker: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub taker: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub buyer: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub seller: String,
+    /// Unknown `commissionRates` keys, recorded as an obligation and listed verbatim. They are
+    /// never projected into a rate and never promoted into a hidden gate.
+    #[schemars(length(max = 16), inner(length(min = 1, max = 64)))]
+    pub extension_keys: Vec<String>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SpotCapacityObservation {
     #[schemars(length(min = 1, max = 128))]
     pub collection_id: String,
@@ -128,6 +144,10 @@ pub struct SpotCapacityObservation {
     pub counts: SpotCapacityCounts,
     pub base_balance: Option<SpotCapacityBalance>,
     pub position: Option<SpotCapacityPosition>,
+    /// The venue's already-validated declared commission rates, projected verbatim. Additive only;
+    /// no delivered field changes meaning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub declared_commission: Option<SpotDeclaredCommission>,
     #[schemars(length(max = 16), inner(length(min = 1, max = 128)))]
     pub unresolved_obligations: Vec<String>,
     #[schemars(length(min = 2, max = 3))]
@@ -619,14 +639,30 @@ pub(crate) fn execute_refresh(
                 original_update(value)?;
             }
         }
+        let mut declared_commission = None;
         if let Some(rates) = account.get("commissionRates") {
             let rates = rates.as_object().ok_or_else(invalid)?;
+            let mut values = std::collections::BTreeMap::new();
             for field in ["maker", "taker", "buyer", "seller"] {
-                original_decimal(rates.get(field).ok_or_else(invalid)?)?;
+                values.insert(field, original_decimal(rates.get(field).ok_or_else(invalid)?)?);
             }
-            account_extensions |= rates
+            // Unknown commissionRates keys stay recorded as an account-extension obligation exactly
+            // as delivered, and are additionally listed verbatim (bounded) on the projection.
+            let mut extension_keys = rates
                 .keys()
-                .any(|key| !matches!(key.as_str(), "maker" | "taker" | "buyer" | "seller"));
+                .filter(|key| !matches!(key.as_str(), "maker" | "taker" | "buyer" | "seller"))
+                .cloned()
+                .collect::<Vec<_>>();
+            extension_keys.sort();
+            extension_keys.truncate(16);
+            account_extensions |= !extension_keys.is_empty();
+            declared_commission = Some(SpotDeclaredCommission {
+                maker: values.remove("maker").ok_or_else(invalid)?,
+                taker: values.remove("taker").ok_or_else(invalid)?,
+                buyer: values.remove("buyer").ok_or_else(invalid)?,
+                seller: values.remove("seller").ok_or_else(invalid)?,
+                extension_keys,
+            });
         }
         let mut balance_extensions = false;
         let mut selected_balance = None;
@@ -1062,6 +1098,7 @@ pub(crate) fn execute_refresh(
                     selected_symbol_open_buy_executed_quantity: executed_quantity,
                     asset_exposure_complete,
                 }),
+                declared_commission,
                 unresolved_obligations: unresolved,
                 reads,
             },

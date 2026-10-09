@@ -16538,6 +16538,17 @@
         "counts": {
           "$ref": "#/$defs/SpotCapacityCounts"
         },
+        "declaredCommission": {
+          "description": "The venue's already-validated declared commission rates, projected verbatim. Additive only;\nno delivered field changes meaning.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotDeclaredCommission"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "position": {
           "anyOf": [
             {
@@ -16706,6 +16717,49 @@
         "STALE"
       ]
     },
+    "SpotDeclaredCommission": {
+      "type": "object",
+      "properties": {
+        "buyer": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "extensionKeys": {
+          "description": "Unknown `commissionRates` keys, recorded as an obligation and listed verbatim. They are\nnever projected into a rate and never promoted into a hidden gate.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "maker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "seller": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "taker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "maker",
+        "taker",
+        "buyer",
+        "seller",
+        "extensionKeys"
+      ]
+    },
     "SpotDepthCoverage": {
       "type": "string",
       "enum": [
@@ -16848,7 +16902,7 @@
           "minLength": 1
         },
         "expectedFee": {
-          "description": "The conservative expected fee, expressed in `fee_currency`.",
+          "description": "The conservative expected fee, expressed in `fee_currency`. Never fabricated from an unknown\nfee currency, so it stays absent while `fee_currency` is `UNKNOWN`.",
           "type": [
             "string",
             "null"
@@ -17911,13 +17965,13 @@
           "minLength": 1
         },
         "providerPair": {
-          "description": "Present only when a supported bounded producer pair exists for this route.",
+          "description": "Present only when a supported bounded producer pair exists for this route. Its length bound\nmirrors the delivered `FxRouteRequirement.providerPair` exactly (`min = 6, max = 6`).",
           "type": [
             "string",
             "null"
           ],
           "maxLength": 6,
-          "minLength": 1
+          "minLength": 6
         },
         "providerQuality": {
           "type": [

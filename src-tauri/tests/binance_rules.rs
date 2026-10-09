@@ -6083,3 +6083,170 @@ fn owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to
     assert_eq!(owning["bindingBlocker"], "SPOT_INTERVAL_WINDOW_UNCERTAIN");
     assert!(owning["remainingOrderSlots"].is_null());
 }
+
+// S29.9 — owning fee statement and genuinely-required execution-FX statement. These cases drive the
+// same delivered flow as the S29.8 rig above and assert the statement fails closed without relaxing
+// any producer, assuming any parity or fabricating any fee amount.
+#[test]
+fn owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let statement = &decision["spotFeeFx"];
+    assert!(
+        !statement.is_null(),
+        "The fee/FX statement must be present: {decision}"
+    );
+    // Identity is bound to the immutable intent, never a renderer-supplied value.
+    assert_eq!(statement["proposalId"], proposal["proposalId"]);
+    assert_eq!(statement["proposalHash"], proposal["proposalHash"]);
+    assert_eq!(statement["instrumentId"], "crypto:BTC/USDT:spot");
+    assert_eq!(statement["baseAsset"], "BTC");
+    assert_eq!(statement["quoteAsset"], "USDT");
+    assert_eq!(statement["baseCurrency"], "USD");
+    assert_eq!(statement["side"], "BUY");
+    // The fee currency is never genuinely declared by a delivered host: fail closed, never an amount.
+    assert_eq!(statement["feeCurrency"], "UNKNOWN", "{statement}");
+    assert_eq!(statement["feeCurrencyOrigin"], "UNKNOWN", "{statement}");
+    assert!(statement["expectedFee"].is_null(), "{statement}");
+    // The genuinely-required USDT -> base conversion is unsupported by the bounded producer, so it
+    // is the single binding fact; the route is named verbatim and parity is never inferred.
+    assert_eq!(statement["outcome"], "UNAVAILABLE", "{statement}");
+    assert_eq!(
+        statement["reasonCode"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        "{statement}"
+    );
+    assert_eq!(
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        "{statement}"
+    );
+    let routes = statement["routes"].as_array().unwrap();
+    let intent = routes
+        .iter()
+        .find(|route| route["purpose"] == "INTENT_POLICY")
+        .unwrap_or_else(|| panic!("The intent-policy route must be named: {statement}"));
+    assert_eq!(intent["fromCurrency"], "USDT", "{statement}");
+    assert_eq!(intent["toCurrency"], "USD", "{statement}");
+    assert_eq!(intent["state"], "UNSUPPORTED_ROUTE", "{statement}");
+    assert!(intent["providerPair"].is_null(), "{statement}");
+    // Both bound evidence versions are full 71-character `sha256:` digests.
+    for field in ["proposalHash", "feeEvidenceVersion", "routeEvidenceVersion"] {
+        let value = statement[field].as_str().unwrap_or_default();
+        assert!(value.starts_with("sha256:"), "{field}: {value}");
+        assert_eq!(value.len(), 71, "{field}: {value}");
+    }
+    // The reason is single-line: the review UI joins blockers with ' · ' on one line.
+    assert!(
+        !statement["reason"].as_str().unwrap().contains('\n'),
+        "{statement}"
+    );
+    // Execution-unqualified: the statement names no arming, consent or dispatch.
+    assert!(
+        statement.as_object().unwrap().keys().all(|key| ![
+            "arm", "consent", "dispatch", "execute"
+        ]
+        .iter()
+        .any(|word| key.to_lowercase().contains(word))),
+        "{statement}"
+    );
+}
+
+#[test]
+fn owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    // The owning gate itself passes on this rig; only the fee/FX gate withholds the review.
+    let owning = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
+    assert_eq!(owning["outcome"], "PASS", "{owning}");
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(review["data"]["eligible"], false, "{review}");
+    // The statement is surfaced verbatim on the review and on its bound decision.
+    assert_eq!(
+        review["data"]["spotFeeFx"], review["data"]["riskDecision"]["spotFeeFx"],
+        "{review}"
+    );
+    assert!(
+        review["data"]["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|blocker| blocker
+                .as_str()
+                .unwrap()
+                .starts_with("SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE")),
+        "The single binding fact must be named: {review}"
+    );
+    // Every blocker stays single-line so the review UI can join them with ' · '.
+    assert!(
+        review["data"]["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|blocker| !blocker.as_str().unwrap().contains('\n')),
+        "{review}"
+    );
+}
+
+#[test]
+fn owning_fee_fx_stays_visible_when_capacity_evidence_is_absent() {
+    if isolated_rule_scenario("owning_fee_fx_stays_visible_when_capacity_evidence_is_absent") {
+        return;
+    }
+    let rig = RuleRig::new();
+    // The owning path is selected (its source is configured) but no capacity observation is bound.
+    // The statement must still be produced and shown (never silently omitted): evidence absence is
+    // reported as a non-PASS statement, not as a missing one.
+    let proposal = rig.decision();
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(review["data"]["eligible"], false, "{review}");
+    let statement = &review["data"]["spotFeeFx"];
+    assert!(
+        !statement.is_null(),
+        "A missing observation must still surface a statement, never silence it: {review}"
+    );
+    assert_eq!(statement["feeCurrency"], "UNKNOWN", "{statement}");
+    assert_eq!(
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        "{statement}"
+    );
+    assert!(
+        review["data"]["blockers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|blocker| blocker
+                .as_str()
+                .unwrap()
+                .starts_with("SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE")),
+        "The single binding fact must be named: {review}"
+    );
+}
+

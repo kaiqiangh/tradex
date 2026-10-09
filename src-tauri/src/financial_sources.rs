@@ -363,6 +363,43 @@ pub(crate) fn review_context(
         source: connection(control, &proposal.workspace_id, FinancialSourceKind::Fx)?,
     }))
 }
+
+/// The current proposal-scoped FX evidence, exposed read-only for the owning fee/FX derivation:
+/// the exact [`crate::protocol::FxRequirements`] for one immutable intent plus the current
+/// proposal-scoped rate observation when one exists. This performs no new read and changes no
+/// delivered semantics (`fx_requirements` / `review_context` are untouched); it only surfaces the
+/// already-collected observation to the owning module.
+pub(crate) fn proposal_fx_evidence(
+    control: &mut ControlPlane,
+    proposal: &crate::protocol::OrderProposal,
+) -> Result<(
+    crate::protocol::FxRequirements,
+    Option<crate::protocol::FxRateEvidence>,
+)> {
+    let requirements = fx_requirements(
+        control,
+        &crate::protocol::FxRequirementsQuery {
+            workspace_id: proposal.workspace_id.clone(),
+            proposal_id: Some(proposal.proposal_id.clone()),
+        },
+    )?;
+    // The observation time is resolved before the runtime observation is borrowed, mirroring
+    // `connection`, so the borrow stays shared and no Control Plane lock is held across I/O.
+    let now = control.time.status(&proposal.workspace_id)?;
+    let rates = control
+        .financial_source_runtime
+        .observations
+        .get(&FinancialSourceKind::Fx)
+        .filter(|observation| {
+            observation.binding.fx_proposal_id.as_deref() == Some(proposal.proposal_id.as_str())
+        })
+        .filter(|observation| observation.fresh(control, &now))
+        .and_then(|observation| match &observation.evidence {
+            FinancialSourceEvidence::Fx(evidence) => Some(evidence.clone()),
+            _ => None,
+        });
+    Ok((requirements, rates))
+}
 fn date(value: &str) -> Result<Date> {
     if value.len() != 10 {
         return Err(invalid());

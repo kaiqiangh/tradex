@@ -3738,6 +3738,11 @@ export interface SpotCapacityObservation {
   baseBalance?: SpotCapacityBalance | null;
   collectionId: string;
   counts: SpotCapacityCounts;
+  /**
+   * The venue's already-validated declared commission rates, projected verbatim. Additive only;
+   * no delivered field changes meaning.
+   */
+  declaredCommission?: SpotDeclaredCommission | null;
   position?: SpotCapacityPosition | null;
   providerObservedAt?: string | null;
   quality: SpotCapacityQuality;
@@ -3830,6 +3835,73 @@ export interface SpotCapacityCounts {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotDeclaredCommission".
+ */
+export interface SpotDeclaredCommission {
+  buyer: string;
+  /**
+   * Unknown `commissionRates` keys, recorded as an obligation and listed verbatim. They are
+   * never projected into a rate and never promoted into a hidden gate.
+   *
+   * @maxItems 16
+   */
+  extensionKeys:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  maker: string;
+  seller: string;
+  taker: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotCapacityPosition".
  */
 export interface SpotCapacityPosition {
@@ -3884,7 +3956,8 @@ export interface SpotFeeFxStatement {
   declaredSellerRate?: string | null;
   declaredTakerRate?: string | null;
   /**
-   * The conservative expected fee, expressed in `fee_currency`.
+   * The conservative expected fee, expressed in `fee_currency`. Never fabricated from an unknown
+   * fee currency, so it stays absent while `fee_currency` is `UNKNOWN`.
    */
   expectedFee?: string | null;
   /**
@@ -3942,7 +4015,8 @@ export interface SpotRequiredRoute {
   firstReceipt?: string | null;
   fromCurrency: string;
   /**
-   * Present only when a supported bounded producer pair exists for this route.
+   * Present only when a supported bounded producer pair exists for this route. Its length bound
+   * mirrors the delivered `FxRouteRequirement.providerPair` exactly (`min = 6, max = 6`).
    */
   providerPair?: string | null;
   providerQuality?: string | null;
