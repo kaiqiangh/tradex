@@ -430,12 +430,17 @@ All four open items are **CLOSED** by team-lead ruling; three additional pins ar
 depends on this section. No item remains open except sub-ticket numbering, which team-lead handles at
 publish time.
 
-1. **[CLOSED — reachable positive] Adopt option (a): statement-level RED/GREEN.** Accept a
-   **qualified, displayed fee statement** together with a **required-FX statement that fails closed
-   with its single typed blocker**; parent gate #121 stays OPEN. The genuinely-required-conversion
-   QUALIFIED path and the same-currency identity path are both **confirmed not reachable** at the
-   public seam (team-lead independently re-verified §9 裁定 2). **Explicit prohibition (into §9 裁定 2
-   and this doc): do NOT restore a positive by relaxing the producer, adding a supported pair,
+1. **[CLOSED — reachable positive] Adopt option (a): statement-level RED/GREEN.** Accept the statement
+   being surfaced with its single typed blocker; parent gate #121 stays OPEN. The
+   genuinely-required-conversion QUALIFIED path and the same-currency identity path are both
+   **confirmed not reachable** at the public seam (team-lead independently re-verified §9 裁定 2).
+   **Correction folded from T02 review (`4bd6f2f`):** the "**qualified fee statement**" half of the
+   original option (a) wording is **also unreachable** — every `FeeSituation` variant yields a reason
+   code, so `spot_fee_fx.rs:435`'s `SpotFeeFxQualified` branch and the `Pass` outcome are dead at the
+   public seam (see §9 裁定 2 and the new "Reachability of the statement's outcomes" section). The
+   honest terminal is therefore: **the whole Binance Spot Live authorization path fails closed
+   permanently, for two independent reasons** — not "fee qualified + FX closed". **Explicit
+   prohibition: do NOT restore a positive by relaxing the producer, adding a supported pair,
    introducing parity, or widening `valid_base_currency`.**
 
    *Team-lead re-verified evidence (write verbatim):*
@@ -490,14 +495,29 @@ publish time.
   still surfaced as a statement fact, never silently dropped — mirroring how the delivered
   `SPOT_INTERVAL_QUOTA_EXHAUSTED` still reports `declaredSymbolOpenOrders: "1"`. This deterministic
   priority is written into T02 and fixes T04's expected value.
-- **P3 — the honest terminal state must be documented, not spun.** After S29.9 lands, **every
-  reachable Binance Spot Live PLACE is refused at the approval-review gate with
-  `RISK_EVIDENCE_UNAVAILABLE`** for two independent reasons (route unsupported + fee asset
-  undeclared). This is the correct fail-closed outcome, **not a green path**. It must be written into
-  `s29-fee-and-required-fx-evidence.md` (+`_zh.md`), the spec, and `s29-binance-live-plan`: it leaves
-  the "fee asset" and "USDT-side conversion" problems to the remaining S29 work (immediate
-  authenticated preflight / private-stream lifecycle / real financial acceptance). Do not present it
-  as a positive result.
+- **P3 — the honest terminal state must be documented, not spun, and this paragraph is the mirror of
+  the Wayfinder map (#1) `## Notes` dated entry; the two must never diverge.**
+  **Status: already in delivery, not yet closed** (contract binding `57c4290`, derivation `4bd6f2f`
+  landed on dev; React display, public tests/boundaries/unit tests, bilingual evidence and the serial
+  two-axis review are still in progress; the Spec gate #130 and the implementation ticket #131 stay
+  OPEN and only enter `## Decisions so far` after closure). Under the delivered bounded FX producer
+  (only `EURUSD`/`USDEUR`) and the delivered fixed ordinary hosts, **the entire Binance Spot Live
+  authorization path fails closed permanently at the approval-review gate with
+  `RISK_EVIDENCE_UNAVAILABLE`**, for **two independent reasons**: (1) every permitted Spot intent's
+  genuinely-required intent route is `USDT → base` and has no supported producer pair (a structural
+  impossibility, independent of evidence freshness — `base` is a three-letter fiat only and `USDT` is
+  never a valid base currency; the supported pairs `EURUSD`/`USDEUR` do not intersect `USDT`), so it
+  is permanently `SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE`; (2) no delivered fixed ordinary host declares
+  the fee-charging asset, so the fee currency is permanently `UNKNOWN`, no fee amount is fabricated,
+  and no `Pass` is granted. This is the correct fail-closed outcome, **not a green path**, and must
+  not be presented as a positive result. **Real financial acceptance — one of the remaining S29 items
+  (immediate authenticated preflight, private-stream lifecycle, real financial acceptance) — must
+  first resolve ONE of the two independent reasons above**: (a) a fixed ordinary host that declares
+  the fee-charging asset appears, or (b) the bounded FX producer's route allow-list is extended from
+  `EURUSD`/`USDEUR` to cover the `USDT` side — **but that belongs to a later slice; this slice does
+  none of it and must not relax any producer to route around it.** It is written into
+  `s29-fee-and-required-fx-evidence.md` (+`_zh.md`), the spec, `s29-binance-live-plan` (+`_zh.md`),
+  and the Wayfinder map (#1) `## Notes`.
 
 ### 9. Technical conclusions on the four PM findings (裁定 1–4)
 
@@ -547,10 +567,17 @@ supported pair — it is not. The "genuinely required conversion reached QUALIFI
 
 - `USDT → non-USD base` and `USDT → USD` are both **`SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE`** and both
   fail closed; `EURUSD` is never inferred from `USDEUR`.
-- The reachable positive is the **fee statement** portion qualified *together with* the required-FX
-  statement's single typed blocker; the owning gate fails closed and Prepare refuses with
-  `RISK_EVIDENCE_UNAVAILABLE`. This is consistent with the fail-closed discipline and keeps parent
-  #121 OPEN.
+- The reachable result is the required-FX statement's single typed blocker (`USDT → base` unsupported);
+  the owning gate fails closed and Prepare refuses with `RISK_EVIDENCE_UNAVAILABLE`. This is consistent
+  with the fail-closed discipline and keeps parent #121 OPEN.
+- **The fee side is unreachable for the same class of reason (folded from T02 review `4bd6f2f`).** All
+  three `FeeSituation` variants produce a reason code (`spot_fee_fx.rs:399-409`): `None →
+  SpotFeeEvidenceUnavailable`; `Some(_) if fee_basis.is_none() → SpotFeeRateUnsupported`; `Some(_) →
+  SpotFeeCurrencyUnknown`. Since the delivered account response never declares a fee-charging asset
+  (裁定 1), `fee_code` is always `Some`, so `spot_fee_fx.rs:435`'s `SpotFeeFxQualified` branch and the
+  `Pass` outcome at `:438-442` are **never reached at the public seam**. The honest terminal is that
+  **the whole authorization path fails closed permanently, for two independent reasons** — not "fee
+  qualified + FX closed".
 - **Explicit prohibition (team-lead ruling, binding):** do **not** restore a positive by relaxing the
   producer, adding a supported pair, introducing parity, or widening `valid_base_currency`. §8 item 1
   is **closed** (option (a)): the reachable RED/GREEN is statement-level.
@@ -583,6 +610,40 @@ supported pair — it is not. The "genuinely required conversion reached QUALIFI
   and the blocker is pushed **immediately after** the owning gate push (`lib.rs:8482-8500`) so the
   `' · '`-joined single-line blocker order is preserved (see §8 P1). No "statement in scope" sub-clause
   is added (§8 item 3).
+
+#### Reachability of the statement's outcomes (裁定 2 corollary — for `Standards`/`Spec` reviewers)
+
+This subsection is the direct basis for judging whether an unreachable enum variant is dead code. It
+records, as a **known and deliberate** property of the delivered seam, exactly which outcomes and
+reason codes can and cannot be produced at the public seam, and why keeping the unreachable ones is
+correct rather than a defect.
+
+- **`RiskCheckOutcome::Pass` and `SpotFeeFxReasonCode::SpotFeeFxQualified` are unreachable at the
+  public seam.** The fee side always yields a reason code (all three `FeeSituation` variants map to
+  `Some`, `spot_fee_fx.rs:399-409`), and the leading route blocker (`route_blocker`, `:311-341`) always
+  precedes it whenever any required route exists. For every permitted Spot intent the intent route
+  `USDT → base` **always** exists and is `UnsupportedRoute`, so `route_blocker` is always `Some`.
+  ⇒ `binding_blocker_code` is always `Some` ⇒ `outcome` is always `Unavailable`.
+  **Disposition:** keep `Pass` / `SpotFeeFxQualified` in the contract (they are the correct codes the
+  day a fixed ordinary host genuinely declares a fee-charging asset and the producer covers a `USDT`
+  side). The type/comment must state that they are currently unreachable. They are covered by
+  **module-internal unit tests** (which can drive `derive` with a synthetic `fee_basis` + no route),
+  never by a public-seam product test.
+- **The four fee-class reason codes never become `reasonCode` at the public seam**: they are
+  `SPOT_FEE_CURRENCY_UNKNOWN`, `SPOT_FEE_EVIDENCE_UNAVAILABLE`, `SPOT_FEE_RATE_UNSUPPORTED`, and (in the
+  route-less, evidence-mismatched case) `SPOT_FEE_FX_EVIDENCE_MISMATCH`. Because `route_blocker` is
+  always `Some` on the owning path, every one of them is masked. **Disposition:** they remain in the
+  contract as the honest fee-side vocabulary and are covered by **module-internal unit tests** only;
+  a public-seam product test cannot reach them and must not be written to.
+- **`derive`'s `Ok(None)` branch is unreachable at the public seam** (`spot_fee_fx.rs:350-367`: returned
+  only when the capacity evidence and the immutable intent do not bind). It is the same shape and same
+  cause as the delivered owning gate's `SPOT_OWNING_QUALIFICATION_UNAVAILABLE` (`lib.rs:8535`), which
+  likewise has zero repo-wide coverage. **Disposition:** keep it as an explicit **defensive
+  fail-closed** branch; coverage is **not** required, and it must not be deleted to satisfy a
+  dead-code heuristic. A `None` result adds no blocker (§8 P1) and leaves the delivered behaviour
+  unchanged.
+- **Nothing here is a weakened gate.** The unreachability is a consequence of the delivered producer
+  allow-list and host facts, not of any relaxation. The prohibition in §9 裁定 2 stands.
 
 ---
 
