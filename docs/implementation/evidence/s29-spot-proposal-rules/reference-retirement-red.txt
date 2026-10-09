@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.79s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'refused_reference_read_retires_previous_price_and_never_calls_average_fallback' (10405912) panicked at src-tauri/tests/binance_rules.rs:274:5:
+assertion `left == right` failed: Refusal retains a sanitized specific reason: {"data":{"accountId":"6ae4885f-f34e-4fc7-bac0-709676010d59","baseAsset":"BTC","bindingVersion":"sha256:7784a6502b26592f5a549152c35ec9b344f09a82bec498a57a1f514e14cbec11","instrumentId":"crypto:BTC/USDT:spot","materialVersion":"fc4afb3eda1ca284877ef727142126d662deb923bcd370247d9210c243bd45ed","observedAt":"2026-10-08T22:22:41.553Z","outcome":"UNAVAILABLE","proposalHash":"sha256:61b3a1bc763dd99288e7a82b19975309c26016f8e1c23887b9c40dfb54a49b4f","proposalId":"proposal:928d4b16-8589-48b3-ab5e-a049b1de569b","quoteAsset":"USDT","references":[],"rules":[{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ruleType":"ORDER_FORM","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PRICE_FILTER","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"LOT_SIZE","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PERCENT_PRICE","scope":"SYMBOL"},{"applicable":true,"origin":"EXECUTION_RULES","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PRICE_RANGE","scope":"EXECUTION"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MIN_NOTIONAL","scope":"SYMBOL"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MAX_ASSET","scope":"ASSET"}],"sourceVersion":"BINANCE_SPOT_RULES:1d6eb7ad-d4c6-4967-8764-e6ba43e2272d:1","stateVersion":"sha256:adaefd2d216d6ba0b37a5954a558b177753d84a8824020ff0f55dea7daa98682","unresolvedObligations":["ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ExchangeInfo:Symbol:PERCENT_PRICE","ExecutionRules:Execution:PRICE_RANGE","AccountFilters:Exchange:EXCHANGE_MAX_NUM_ORDERS"],"workspaceId":"1d6eb7ad-d4c6-4967-8764-e6ba43e2272d"},"ok":true,"requestId":"reference-failure","schemaVersion":1}
+  left: Null
+ right: "PROVIDER_RESPONSE_INVALID"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test refused_reference_read_retires_previous_price_and_never_calls_average_fallback ... FAILED
+
+failures:
+
+failures:
+    refused_reference_read_retires_previous_price_and_never_calls_average_fallback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.12s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

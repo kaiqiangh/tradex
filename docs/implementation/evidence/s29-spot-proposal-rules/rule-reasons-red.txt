@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.92s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules ... FAILED
+
+failures:
+
+failures:
+    proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.10s
+
+
+thread 'proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules' (10753732) panicked at src-tauri/tests/binance_rules.rs:787:9:
+assertion `left == right` failed: {"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PERCENT_PRICE","scope":"SYMBOL","unit":"USDT/BTC"}
+  left: String("RULE_INPUT_UNAVAILABLE")
+ right: "REFERENCE_PRICE_MISSING"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules' (10753728) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules ... FAILED
+
+failures:
+
+failures:
+    proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `--test binance_rules`

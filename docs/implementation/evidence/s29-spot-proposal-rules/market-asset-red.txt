@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.20s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity' (10408854) panicked at src-tauri/tests/binance_rules.rs:326:5:
+assertion `left == right` failed: 60USDT exceeds50USDT; no conversion toUSD: {"data":{"accountId":"5de65101-b275-4dcf-b651-f7c6d3770a99","baseAsset":"BTC","bindingVersion":"sha256:6b3a674a823c51c4769f56fffd2bddaf7accff3b268164017c367913d809aa1e","instrumentId":"crypto:BTC/USDT:spot","materialVersion":"691337bf939c5f27b9e0b4c013536b44e3e4b5ca8b455018dbe8c1a55c5ba7d4","observedAt":"2026-10-08T22:23:34.918Z","outcome":"UNAVAILABLE","proposalHash":"sha256:d2f5439c5187206e20d610252224fddba5f6ef5ce78d51ea52b59e66fdbc93cd","proposalId":"proposal:55d581fb-b718-4f89-b5ec-decc7de86e93","quoteAsset":"USDT","referenceFailure":null,"references":[{"digest":"sha256:6dc85089b2534aeb748fa572f5924758277b28f54776ad9870fa4e7a2264f7b9","intervalMinutes":null,"kind":"PROVIDER_REFERENCE","price":"60000","providerObservedAt":"2026-10-08T22:23:34.935Z","receivedAt":"2026-10-08T22:23:34.935Z"}],"rules":[{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ruleType":"ORDER_FORM","scope":"SYMBOL"},{"applicable":false,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"NOT_APPLICABLE","ruleType":"PRICE_FILTER","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"LOT_SIZE","scope":"SYMBOL"},{"applicable":true,"origin":"EXECUTION_RULES","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PRICE_RANGE","scope":"EXECUTION"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MIN_NOTIONAL","scope":"SYMBOL"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"MAX_ASSET","scope":"ASSET"}],"sourceVersion":"BINANCE_SPOT_RULES:46a5660c-e0c4-48f5-b66f-f7d3f13a8680:1","stateVersion":"sha256:73c97b3aa6756bd1f5f593c8cfed7972e85afbb39f6e751ceb9af77e426e048f","unresolvedObligations":["ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ExecutionRules:Execution:PRICE_RANGE","AccountFilters:Exchange:EXCHANGE_MAX_NUM_ORDERS","AccountFilters:Asset:MAX_ASSET"],"workspaceId":"46a5660c-e0c4-48f5-b66f-f7d3f13a8680"},"ok":true,"requestId":"asset-reference","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "REJECT"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity ... FAILED
+
+failures:
+
+failures:
+    quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

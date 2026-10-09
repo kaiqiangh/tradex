@@ -1291,6 +1291,8 @@ The trusted Control Plane evaluates an immutable OrderProposal against the curre
 
 A policy rejection takes precedence. If no check rejects but required evidence is missing, stale, or untrusted, the result is `UNAVAILABLE`. Missing evidence never becomes an empty portfolio, zero activity, or assumed currency parity. Submit commands must re-evaluate at the trusted boundary and produce no provider/simulator order side effect when the result is `REJECTED` or `UNAVAILABLE`; the renderer and agent cannot provide inputs or override the result. `ALLOWED` is only a policy result and does not grant approval, account arming, reservation, or order-send authority. Ordinary Bitget Live account identity maps to `LIVE` policy while remaining read-only until later financial authority gates exist.
 
+For ordinary Binance Spot Live, show per-Proposal static rule results with exact account/hash, original scope/origin and BASE/QUOTE units. Only genuine purpose-matching reference inputs may qualify percentages/notionals; error, future, stale or unknown inputs remain unavailable. Complete rules PASS requires every actually applicable obligation; captured history cannot renew current evidence. Read-only rule collection and static success do not grant quote/data-use rights, fees/FX, Arm, consent or immediate preflight. Backend §41.44 and UI §14.28 define the shared contract; prototype code is unchanged.
+
 ---
 
 # 22. Pre-approval and Pre-execution Validation

@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.58s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations' (10341414) panicked at src-tauri/tests/binance_rules.rs:29:5:
+assertion `left == right` failed: Per-Proposal rule explanation is unavailable: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"spot-rules","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations ... FAILED
+
+failures:
+
+failures:
+    immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

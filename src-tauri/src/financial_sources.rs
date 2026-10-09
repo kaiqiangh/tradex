@@ -2114,6 +2114,9 @@ pub fn execute_refresh(
     vault: &(impl CredentialVault + Clone + Send + 'static),
     http: &impl ProviderHttp,
 ) -> Value {
+    if request["command"] == "trade.spot_rules.refresh" {
+        return crate::spot_proposal_rules::execute_refresh(control, request, consumer, http);
+    }
     let deadline = Instant::now()
         + StdDuration::from_secs(match request["command"].as_str() {
             Some("data.instrument.refresh") => 45,

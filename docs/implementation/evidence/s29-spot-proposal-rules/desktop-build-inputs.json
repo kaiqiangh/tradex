@@ -1,0 +1,13 @@
+{
+  "sourceState": "frozen worktree above 1d24523158674d2763d50bee49150e8ff9d808d6",
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "command": "npm run desktop:build",
+  "ordinaryBuild": true,
+  "integrationFixtures": false,
+  "providerRead": false,
+  "financialMutation": false,
+  "success": true,
+  "gatewaySha256": "a1417c99f68ef40beb29e868f6f2e7c5e57fdb1d65e1939955540b91f2be2222",
+  "nativeSha256": "46b5d991714afe3a7da559d035f11e96444f0d541f3c2e88d444a8c3f28cb5c9",
+  "nativeContainsPinnedGatewaySha256": true
+}

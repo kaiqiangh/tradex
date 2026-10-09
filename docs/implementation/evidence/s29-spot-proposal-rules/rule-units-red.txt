@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.74s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity' (10463967) panicked at src-tauri/tests/binance_rules.rs:355:5:
+assertion `left == right` failed: Asset constraint must retain its actual unit
+  left: Null
+ right: "USDT"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity ... FAILED
+
+failures:
+
+failures:
+    quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

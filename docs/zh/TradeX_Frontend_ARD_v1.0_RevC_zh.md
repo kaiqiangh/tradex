@@ -735,6 +735,10 @@ Settings Data & Storage 选择已有普通 Live 账户和 BTC/USDT 或 ETH/USDT�
 UI §14.27 完整目标仍 IN_PROGRESS。Markets 与所选 Trade Proposal 必须分别使用同一有界 acquire/get/release 页面生命周期并绑定精确后端代次；Trade 不得借用已释放 Markets 租约。展示 BINANCE 来源、精确最佳价格/BASE 数量、已知区间/显示层级、首次接收/提供方事件时间、连续性/失败/恢复和不可变材料身份。流连接不表示认证、报价权威或权利。捕获评审保留捕获标签；本地投影轮询不读提供方、不续年龄、不授予金融权限。导航/隐藏/工作区/来源/标的变更及迟到 acquire 必须终止/释放所属租约。保持键盘和1280/768/390 元数据/阻断可读，保留股票 Hot 行为。Settings 与 Markets 聚焦公开 React→Rust/外部 HTTP/WS 证明覆盖 BTC/ETH 所属 Hot 页面、精确深度/来源、导航与标的替换，并通过原股票 Hot 回归；所选不可变 Proposal 现通过同一控制器持有独立租约，以工作区/Proposal 身份/hash 为 key；不支持的执行上下文不创建租约。预 Arm/审批深度面板只消费捕获的后端评审数据和捕获时间，没有自己的轮询或武装权限。公开 UI 证明覆盖 DISARMED 的只读预 Arm 捕获在来源替换产生新当前盘口时保持不变。实际已武装审批/普通原生/提供方/金融、其余生命周期/故障及完整来源验收仍待完成。原型代码未改。
 
 
+### 13.29 Proposal 专属静态 Spot 规则（S29.4 #125）
+
+通过生成的 IPC 消费 Backend §41.44。所选已保存 Binance Live Proposal 持有当前只读规则投影及显式所需参考 Refresh；本地轮询只反映过期，不读取提供方、不续首次接收。展示精确 Proposal/hash/账户/canonical 单位、source/material/接收时间、每项保留 scope/origin 的结果和明确原因、所需用途、原始区间/提供方时间/首次接收/digest、失败恢复及未解决义务。投影错误时不得继续显示当前成功。捕获风险/评审/历史展示已保存评估，隐去价格，没有刷新/轮询权限。保持键盘及1280/768/390可读，保留 BASE/QUOTE 和 USDT 单位，区分静态分项 PASS、完整规则与独立金融门禁。参见 UI §14.28。原型代码未改；文档本身不等于运行时验收。
+
 ## 14. Live Execution UI 架构
 
 ### 14.1 原则

@@ -1,3 +1,4 @@
+import { CurrentSpotRules, SpotRulesExplanation } from './SpotProposalRules.tsx';
 import { SpotRuleContext, FinancialEvidencePanel, CapturedCurrencyEvidence, FxSourceContext, MarketFinancialEvidencePanel } from './FinancialEvidencePanel.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -1508,6 +1509,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             <TradeHotQuote key={`${workspaceId}:${proposalDetail.data.proposalId}:${proposalDetail.data.proposalHash}`} proposal={proposalDetail.data} />
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <SpotRuleContext workspaceId={workspaceId} accountId={proposalDetail.data.fields.accountId ?? undefined} instrumentId={proposalDetail.data.fields.instrumentId} />}
             <FxSourceContext workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />
+            {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotRules key={proposalDetail.data.proposalId} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
             <ProposalDetail proposal={proposalDetail.data} onRefresh={refreshProposal} refreshBusy={proposalBusy} onSubmit={() => openPaperConfirmation('submit')} onCancel={() => openPaperConfirmation('cancel')} onAlpacaSubmit={() => openPaperConfirmation('alpaca-submit')} onTrading212Submit={() => openPaperConfirmation('trading212-submit')} onBinanceTestnetSubmit={openBinanceTestnetConfirmation} onBitgetDemoSubmit={openBitgetDemoConfirmation} onAlpacaReconcile={reconcileAlpacaAttempt} onReloadAlpacaAttempt={() => void alpacaAttempt.refetch()} alpacaAttempt={alpacaAttempt.data?.attempt ?? undefined} alpacaAttemptLoading={alpacaAttempt.isPending} alpacaAttemptError={alpacaAttempt.error} alpacaAccount={alpacaAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} trading212Attempt={trading212Attempt.data?.attempt ?? undefined} trading212AttemptLoading={trading212Attempt.isPending} trading212AttemptError={trading212Attempt.error} trading212Account={trading212Accounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadTrading212Attempt={() => void trading212Attempt.refetch()} binanceTestnetAttempt={binanceTestnetAttempt.data?.attempt ?? undefined} binanceTestnetAttemptLoading={binanceTestnetAttempt.isPending} binanceTestnetAttemptError={binanceTestnetAttempt.error} binanceTestnetAccount={binanceTestnetAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBinanceTestnetAttempt={() => void binanceTestnetAttempt.refetch()} onBinanceTestnetReconcile={reconcileBinanceTestnetAttempt} bitgetDemoAttempt={bitgetDemoAttempt.data?.attempt ?? undefined} bitgetDemoAttemptLoading={bitgetDemoAttempt.isPending} bitgetDemoAttemptError={bitgetDemoAttempt.error} bitgetDemoAccount={bitgetDemoAccounts.find(account => account.connectionId === proposalDetail.data?.fields.accountId)} onReloadBitgetDemoAttempt={() => void bitgetDemoAttempt.refetch()} onBitgetDemoReconcile={reconcileBitgetDemoAttempt} submitBusy={paperBusy} cancelBusy={paperBusy} result={paperResult} />
             {['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(proposalDetail.data.fields.environment) && <section className="live-approval-panel" aria-label="Live approval history">
@@ -1802,6 +1804,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <section aria-label="Quote evidence before arming">
         <h3>Quote evidence before arming</h3>
         <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
+        {liveArmReview.quoteReview?.riskDecision.spotRules && <SpotRulesExplanation rules={liveArmReview.quoteReview.riskDecision.spotRules} captured />}
         {liveArmReview.quoteReview?.currencyEvidence && <CapturedCurrencyEvidence evidence={liveArmReview.quoteReview.currencyEvidence} reviewedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview?.market.spotRuleEvidence && <FinancialEvidencePanel source={liveArmReview.quoteReview.market.spotRuleEvidence} instrumentId={liveArmReview.proposal.fields.instrumentId} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
         {liveArmReview.quoteReview && <SpotQuoteEvidencePanel detail={liveArmReview.quoteReview.market} capturedAt={liveArmReview.quoteReview.reviewedAt} />}
@@ -1840,6 +1843,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       </dl>
       {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
+      {approvalReview.riskDecision.spotRules && <SpotRulesExplanation rules={approvalReview.riskDecision.spotRules} captured />}
       {approvalReview.market.spotRuleEvidence && <FinancialEvidencePanel source={approvalReview.market.spotRuleEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
       <SpotQuoteEvidencePanel detail={approvalReview.market} capturedAt={approvalReview.reviewedAt} />
       {approvalReview.market.financialEvidence && <MarketFinancialEvidencePanel evidence={approvalReview.market.financialEvidence} instrumentId={approvalReview.proposal.fields.instrumentId} capturedAt={approvalReview.reviewedAt} />}
@@ -1950,6 +1954,7 @@ function RiskDecisionPanel({ history, loading, error, busy, onEvaluate }: {
         <ul className="risk-decision-checks">{decision.checks.map(check => <li key={check.checkId}>
           <strong>{check.checkId} · {check.outcome}</strong><span>{check.reasonCode}: {check.reason}</span>
         </li>)}</ul>
+        {decision.spotRules && <SpotRulesExplanation rules={decision.spotRules} captured />}
         <details><summary>Input provenance ({decision.inputs.length})</summary><ul className="risk-decision-inputs">{decision.inputs.map(input => <li key={`${input.kind}-${input.referenceId}`}>
           <strong>{input.kind}</strong> · {input.referenceId} · {input.digest}{input.observedAt ? ` · ${input.observedAt}` : ''}
         </li>)}</ul></details>

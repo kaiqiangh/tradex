@@ -1,0 +1,417 @@
+{
+  "typecheck-current.txt": {
+    "rawSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "storedSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-interval-red.txt": {
+    "rawSha256": "1039df0a5bfc3ff7fc708fbbb9374c5b73fb1979d3b587b38fbda0c5f4bd53c6",
+    "storedSha256": "1039df0a5bfc3ff7fc708fbbb9374c5b73fb1979d3b587b38fbda0c5f4bd53c6",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "notional-public-guards.txt": {
+    "rawSha256": "98d1bac68ec1a07ddc3ac673a1edb10df08afa7328f1bf50c437ce5e684b34f5",
+    "storedSha256": "7fcb8570b9a5a8088e277021426005d3af527ecf36f4705907d5ee501b9bf421",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "final-unified-check.txt": {
+    "rawSha256": "f40b74da9b140f6e598daebe54d34b8ee32bae73039cefacd6420464ac1f72db",
+    "storedSha256": "ad57bca067e64a37752ccf0c31391e27325876e406aa2b1595d436e72ad3af96",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-interval-green.txt": {
+    "rawSha256": "8f2df0df4ffe137af273cf3e8b76b96ae3889b0621ba448174b4f03aca8ac9d0",
+    "storedSha256": "8de40c2037865e52ac17f6ddbca8d61385079f8b9b52825a0f9dc264169fdf0b",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "mixed-reference-green.txt": {
+    "rawSha256": "1a6309588bb8efd07261268874a2ce562b0794f75114bfa5b589b575158c9511",
+    "storedSha256": "879dd356a8693c9aade1036c325761156f984b1fc3a9d5b91161395269e67d0b",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rules-first-full.txt": {
+    "rawSha256": "bfe4d7b08e1417c2235babdf55323a5b0c1be42d5e6a73897298b41809c7ff59",
+    "storedSha256": "bfe4d7b08e1417c2235babdf55323a5b0c1be42d5e6a73897298b41809c7ff59",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-schema-generation.txt": {
+    "rawSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "storedSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-null-green.txt": {
+    "rawSha256": "9bf30988182fd164eacf0f45c702c9ddbf068b524e7209360c0c2449ebe7bbd1",
+    "storedSha256": "9bf30988182fd164eacf0f45c702c9ddbf068b524e7209360c0c2449ebe7bbd1",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "market-asset-green.txt": {
+    "rawSha256": "93655f3cb3c81e8e05cad2f4b9e0eadd93f8e5e0693215734cee68ecf15398e2",
+    "storedSha256": "435e1b49651ff461215d3c47f06c42dc22d543eaa30fed26fa045c749334022f",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "order-form-red.txt": {
+    "rawSha256": "a272526b1049670a61ed0dbda15ce7ffdecd51a2c674c199ebe691b177b3d889",
+    "storedSha256": "a272526b1049670a61ed0dbda15ce7ffdecd51a2c674c199ebe691b177b3d889",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-units-green.txt": {
+    "rawSha256": "39439728b9a1762a5e5fc43a69c7eeab928b75fdfdf10c10e34e0c2ca1ad94c6",
+    "storedSha256": "950bed4e62f6efe577236a4a63177cea10b228c3e2e316d4473dc8c8a4f76da8",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "market-reference-green.txt": {
+    "rawSha256": "0e4837b67af3ba363855f129e6c1f3030501af1a90284d0cd8cfa3eb84694f0c",
+    "storedSha256": "fc40d73558be7a58d7c1039e928c6d5cea073f9352b15066a59e540ba03e3a74",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-risk-red.txt": {
+    "rawSha256": "3fa3d29c283b2d0120e0c544d8bf49d011974168cd5e24a432495cfa8b240a19",
+    "storedSha256": "3fa3d29c283b2d0120e0c544d8bf49d011974168cd5e24a432495cfa8b240a19",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-coverage-green.txt": {
+    "rawSha256": "6388251c8ac35ab82cdeb4b3f84fe21220aca59af101e5264b2fc3c5db480a21",
+    "storedSha256": "66cef20603270d3873edd14e24d5f29aa027f083fe01ecfbdb27e5712d37d5c8",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-reopen-diagnostic.txt": {
+    "rawSha256": "1301c6cc63dc7b2667a39015b598094fdb0c435f63c68d20db3365b2366b20bf",
+    "storedSha256": "1301c6cc63dc7b2667a39015b598094fdb0c435f63c68d20db3365b2366b20bf",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-reasons-red.txt": {
+    "rawSha256": "5145d56b6947f39cfa4a56aecb2042c5b03b689d6e03afa417263ca6c9b2cd60",
+    "storedSha256": "5145d56b6947f39cfa4a56aecb2042c5b03b689d6e03afa417263ca6c9b2cd60",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-reopen-guard.txt": {
+    "rawSha256": "45e7ccf9ad8eea07c864a290cea58d1d03fec21e902698e5480be644ce23707d",
+    "storedSha256": "45e7ccf9ad8eea07c864a290cea58d1d03fec21e902698e5480be644ce23707d",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-ban-green.txt": {
+    "rawSha256": "2097c87515e7d137d931707d54b8a75cf7b5b2617e13e4ce13512c68770f5aa8",
+    "storedSha256": "a70f0adfd431d238fb6a0007c8774bcbbd68cc6b40c717cff0f52ea2f5ddfd95",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "gateway-final.txt": {
+    "rawSha256": "6130e9ad632c37a29e322248631bc6fe43d918d6172b6f6f44cb6fabb70d4226",
+    "storedSha256": "eb35ae8de6f16534069d9caa0d5618ac3076b20818880c78ac72f83e250e9c92",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-public-green-attempt.txt": {
+    "rawSha256": "20d6c01c4f6754c2cb736e8860b659cfb4ec9990276026f9be1b17bf14d86877",
+    "storedSha256": "20d6c01c4f6754c2cb736e8860b659cfb4ec9990276026f9be1b17bf14d86877",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "last-trade-green.txt": {
+    "rawSha256": "fdb6b3650ce5ffdf587831ad3faaf6dc1120a86ec3b90e63c94386d63de915b1",
+    "storedSha256": "f525877e363a1615b2478b4e3c52f832fbce32ad38cc0c3bee1aa56acef99820",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-public-green.txt": {
+    "rawSha256": "ec2a50860f956c0912e8a38364ec906ca887ddfbe8b6b8e1eeb5bb79ecbd6440",
+    "storedSha256": "476624ac7a33422c2db172451239c406b7360602cec85deed42008e040ba2f54",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-ban-red.txt": {
+    "rawSha256": "d9b4338eba6fc6ccb328c1893b8f0fd09f7f83278d20bd00e96fdb9f2b8a17b8",
+    "storedSha256": "d9b4338eba6fc6ccb328c1893b8f0fd09f7f83278d20bd00e96fdb9f2b8a17b8",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rules-isolated-green.txt": {
+    "rawSha256": "d9c0ba42c7b157e06827d26d06f8aac8edc4027a3ead7bfa2970d8c3abdcce13",
+    "storedSha256": "b6563c4373c851f43ad92a872ad5e756c8167c82845314647f55ddeed71cd740",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "risk-reason-red.txt": {
+    "rawSha256": "dadced7e1c02f5bde4549f32778bf1ac0eb8a0b6ed2c9494e6a534c608e47f63",
+    "storedSha256": "dadced7e1c02f5bde4549f32778bf1ac0eb8a0b6ed2c9494e6a534c608e47f63",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-coverage-red.txt": {
+    "rawSha256": "ed8c8d56faa1e1e9e2a46be2f1dd5513b63c3f4a30965596750e6becea728a74",
+    "storedSha256": "ed8c8d56faa1e1e9e2a46be2f1dd5513b63c3f4a30965596750e6becea728a74",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "empty-rules-red.txt": {
+    "rawSha256": "14f8d11405d1cb66aa278af5c49235d1ff3d9c2b00018fcadbcfdcc72200f4e1",
+    "storedSha256": "14f8d11405d1cb66aa278af5c49235d1ff3d9c2b00018fcadbcfdcc72200f4e1",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-public-red.txt": {
+    "rawSha256": "4f44a307b17d54e4c93ea83c48e8f8ed3e95bb07946664623fdb0993a8cc7313",
+    "storedSha256": "4f44a307b17d54e4c93ea83c48e8f8ed3e95bb07946664623fdb0993a8cc7313",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "schema-current.txt": {
+    "rawSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "storedSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "market-asset-red.txt": {
+    "rawSha256": "14ac0960e0f2816ea36b8c2f8b265752c2e902ca0e5839465005387482e138f7",
+    "storedSha256": "14ac0960e0f2816ea36b8c2f8b265752c2e902ca0e5839465005387482e138f7",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-units-red.txt": {
+    "rawSha256": "14f513ee16768049a1c4d6df582d6ff534358733d3519b6941448ff26f0586fb",
+    "storedSha256": "14f513ee16768049a1c4d6df582d6ff534358733d3519b6941448ff26f0586fb",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-green-attempt.txt": {
+    "rawSha256": "65449f28479f0e35a69b75f1e55828b26f615def5a8f98170d20343ddf5c9d45",
+    "storedSha256": "65449f28479f0e35a69b75f1e55828b26f615def5a8f98170d20343ddf5c9d45",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-red.txt": {
+    "rawSha256": "65449f28479f0e35a69b75f1e55828b26f615def5a8f98170d20343ddf5c9d45",
+    "storedSha256": "65449f28479f0e35a69b75f1e55828b26f615def5a8f98170d20343ddf5c9d45",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-green-attempt-2.txt": {
+    "rawSha256": "409d347d6d718d598cfb3064ed707974be856815a3a8ee5f8ed2977bf81ccd88",
+    "storedSha256": "da1c3789603ff0c9224bae438cb9837ab7186c4a95ca5229f73798d89f804eff",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-pre-typecheck.txt": {
+    "rawSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "storedSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-public-guards.txt": {
+    "rawSha256": "0cb57e50b1bccd9887cad6c1a9023b0129a7f0a0ba22213a746a6d994c7ecf1b",
+    "storedSha256": "cccffc00fb2935cb76bb7c6dd62203f9859903c1cc574b5a2dc5bac80fdadcae",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "last-trade-red.txt": {
+    "rawSha256": "102bfb253641e2cb42c379a4b502a49dcd7b0c0e04cee58cdbbce0845d47acb0",
+    "storedSha256": "102bfb253641e2cb42c379a4b502a49dcd7b0c0e04cee58cdbbce0845d47acb0",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "stock-hot-final.txt": {
+    "rawSha256": "dd9ec77425fccf37d7ffaa8c5d78441c4059012471719e61dea459b432825fb2",
+    "storedSha256": "bf0c53623f85c9f4529c59ff45eea7faf65a18d86e4019d9c3948b189cf01b43",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "full-check.txt": {
+    "rawSha256": "282bf83aefb849133de32234c196ed31f079933e5fe026933a53f06ef2ab83f0",
+    "storedSha256": "4d9c075017d61cfefbc956e0db9d359545b9b91c71e09f038b300c26f721515b",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-public-precision-green.txt": {
+    "rawSha256": "078439abcb9af0cc4704afab843b09abdfa20975d53430c199267bbba91a346a",
+    "storedSha256": "08a2136ae0f46c2e1225a7d5c28548a6b21cee3513f7336ba9604269e9edce8b",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "full-check-final.txt": {
+    "rawSha256": "bd2038d6c69f2d35d5759e079582e2b8daf73456b59b20ca02b64df09144f8e8",
+    "storedSha256": "976fee215da94803fa288a0eba29d22a4f2a0dbba8160da5e658f688ee9123d6",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-schema-fix.txt": {
+    "rawSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "storedSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-review-typecheck.txt": {
+    "rawSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "storedSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-null-red.txt": {
+    "rawSha256": "107e697dc74c4aa91ed711b2f916442de15dd5a5e84f572c5443cb10d0613efc",
+    "storedSha256": "107e697dc74c4aa91ed711b2f916442de15dd5a5e84f572c5443cb10d0613efc",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "mixed-reference-red.txt": {
+    "rawSha256": "a51998cf281c9ef3ec1ef3dec86e815b6a8f756a35e17142bef4a38d6eb5858e",
+    "storedSha256": "a51998cf281c9ef3ec1ef3dec86e815b6a8f756a35e17142bef4a38d6eb5858e",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-typecheck.txt": {
+    "rawSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "storedSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-deadline-red.txt": {
+    "rawSha256": "04d6e4ffd73d832a41e74d6b860d2b69783f82b5deb76567a2363a6a6fb6818c",
+    "storedSha256": "04d6e4ffd73d832a41e74d6b860d2b69783f82b5deb76567a2363a6a6fb6818c",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-future-green.txt": {
+    "rawSha256": "475755e936a1bf9ac8444ebda323c3f6cc7d441213c62dc9367a4cf988478b57",
+    "storedSha256": "b3ec74b99971442f277deeda8710b2822b6d170e7038d74f28527af6b4f19dc6",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-reasons-green.txt": {
+    "rawSha256": "67416d32350966fcc3c2e6aab167676840125616c5c871d3dc6c0f87c599b995",
+    "storedSha256": "5f2d931347ff223213ed87e59045b5163064bf93b9f7a87d37fb557f10d25e62",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "risk-reason-green.txt": {
+    "rawSha256": "b9e17bc9a039267f7b0bc09375d856ef9cb63ca2ccfe5caa681f27916f2cd735",
+    "storedSha256": "fafec6d6bf77f8cae9c867f2fb27e3e11bc96efc0890f405a11529ecf72dd27e",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "empty-rules-green.txt": {
+    "rawSha256": "791ee27fe3c7de97f0c97ce380a2d1983123c0149a4ed5b7f4f88095fefd1085",
+    "storedSha256": "aad53e32909d6eba639b6e5006dd8fcf0d96e769a4ff046bb506dbb8bc1acd57",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-age-red.txt": {
+    "rawSha256": "c5d768948dec43b3dd4a08f46f92e08f8cb192cd2899cc791dd12e6383d3e0d5",
+    "storedSha256": "c5d768948dec43b3dd4a08f46f92e08f8cb192cd2899cc791dd12e6383d3e0d5",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "binance-hot-final.txt": {
+    "rawSha256": "a0260fabfb98597afdd352bf35ce5725aeddd499b2403421e69755dc9e6ab6f0",
+    "storedSha256": "a0260fabfb98597afdd352bf35ce5725aeddd499b2403421e69755dc9e6ab6f0",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-host-current-build.txt": {
+    "rawSha256": "d01a55a402039233419aaa638815b06fa45be50e2825890e889b612114151600",
+    "storedSha256": "d01a55a402039233419aaa638815b06fa45be50e2825890e889b612114151600",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-late-guard.txt": {
+    "rawSha256": "bec685e2ef5339c0cea661a1ea6abf03c095dcdf0bde43fcb287b916c0905516",
+    "storedSha256": "23f53e0d5fe3fed838710900fc1c9f086899fe41471e79d71e010102c3e135c7",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-null-green-final.txt": {
+    "rawSha256": "df242486da87763adbb698422abd4bfc5cc1ae0273819aaf933486acea1d00be",
+    "storedSha256": "46849968e1ad67acb4795010a4983568d65c41c0addd8e2d9de60f67a2db669d",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-age-green.txt": {
+    "rawSha256": "a4d08077b57977ef27af27512cb826a83c398c3dc1243729390b99bd12ce8591",
+    "storedSha256": "fa49ba036eb716e9edfc08f8e21dbd8a713639c0d7bccb820339ecfdf37a5e82",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-schema.txt": {
+    "rawSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "storedSha256": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "order-form-green.txt": {
+    "rawSha256": "01fca595c05f4967dafd7f78639ff6426986e4260f12a9df2434738a338f4402",
+    "storedSha256": "aff76bbba350302ef5cfc5b074eaab854e4ad22a8f657b1a8d871d195dd91790",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-final-build.txt": {
+    "rawSha256": "73bddbad55bc3d8f052e91f508829dd0529250e47a232b085949b4988ab2b4e5",
+    "storedSha256": "36b0bc6fb5a4510ce04e67a38d12cae0c8a2cf43aeb000ae3442d5701565c3b9",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "requirements-current.txt": {
+    "rawSha256": "35969a4ae99e1cea767369776a56e3424bcf4d8cf6196ba231b347bf8520298e",
+    "storedSha256": "35969a4ae99e1cea767369776a56e3424bcf4d8cf6196ba231b347bf8520298e",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-retirement-red.txt": {
+    "rawSha256": "3cfdec9cb57068b613e6af759f4ce15c94bff7ee54714a316906efa92a2b3cd6",
+    "storedSha256": "3cfdec9cb57068b613e6af759f4ce15c94bff7ee54714a316906efa92a2b3cd6",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-reopen-guard-green.txt": {
+    "rawSha256": "fc3566e3fcf044bc1715722aad566b821ad34173014d284e56d8c1951b94e522",
+    "storedSha256": "882a31b97df4ad4da42ba9026d28e8567974216bc1d548d968205f8e71582a1d",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "market-reference-red.txt": {
+    "rawSha256": "3c52776d7ad73fb0b4248a0b42a636df3ba3293b74b74456cb8dac64aa1e8003",
+    "storedSha256": "3c52776d7ad73fb0b4248a0b42a636df3ba3293b74b74456cb8dac64aa1e8003",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-deadline-green.txt": {
+    "rawSha256": "6caa41e401e3f37f1647b5a0e7cabd3c1ac23199940c7eccdcc0525ea342d01f",
+    "storedSha256": "4b91be63deed39842d565dd222eb5ef3ab99b3871d2867526f8a7ab84ea194fc",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-retirement-green.txt": {
+    "rawSha256": "9427f1340c4b2f86b7dd10e8e04f214aa92c085000c2a33ad735e7629e9104ac",
+    "storedSha256": "9117ae584b7807a39feb89565c4ae2f58d13d46ef5a93b56cc52deb236d9de68",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-review-red.txt": {
+    "rawSha256": "3000412818cf4a92e6be252094ff336be3a817068fb394b6365ba3ebf62c8443",
+    "storedSha256": "8b8c579574a5cd221403dc72b80c460d462829a944b21283342c3dc75c0d27df",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rules-isolated-setup-attempt.txt": {
+    "rawSha256": "be2d3de94b962469127fe45df791088962b752f2433a17a8e773747b649f830a",
+    "storedSha256": "be2d3de94b962469127fe45df791088962b752f2433a17a8e773747b649f830a",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-public-red.txt": {
+    "rawSha256": "27754593be60766118decb7848597046e1e8946103cc52946b777cab5f7bcc3a",
+    "storedSha256": "27754593be60766118decb7848597046e1e8946103cc52946b777cab5f7bcc3a",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-typecheck.txt": {
+    "rawSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "storedSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-future-red.txt": {
+    "rawSha256": "8e053081af5044cc43e4df97bc12eb81335a2295fc8b4b04567f73e3a260018c",
+    "storedSha256": "8e053081af5044cc43e4df97bc12eb81335a2295fc8b4b04567f73e3a260018c",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-typecheck.txt": {
+    "rawSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "storedSha256": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "independent-rights-green.txt": {
+    "rawSha256": "fc4b9d0c607d0bb407528b9553e07ca015dde35d6272e86302ff42a6fa876c31",
+    "storedSha256": "b7e4272dd9030157d62c11d4b7c2d008a763a83ff56acabe67042fa54c19df99",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "rule-public-precision-guards.txt": {
+    "rawSha256": "16c0b53554b65513125b93d4f23f069c397044f2e5f438504760181a0de3ccbb",
+    "storedSha256": "16c0b53554b65513125b93d4f23f069c397044f2e5f438504760181a0de3ccbb",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "static-risk-green.txt": {
+    "rawSha256": "d9392703e405c9b68844953055e43b0667f4385e162d39e7d4536ef075cac44a",
+    "storedSha256": "897b7d62208213779b186b38f232e99b8c76bebd1d8d3d5ac6b9b0a88a92332b",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-host-build.txt": {
+    "rawSha256": "4831b246ee9ba10003bb4e5921ca1a762ac6b7088a4229fd0922241423f7654a",
+    "storedSha256": "4831b246ee9ba10003bb4e5921ca1a762ac6b7088a4229fd0922241423f7654a",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-public-green-final.txt": {
+    "rawSha256": "71b9fee8de736031212f9be7a1b134738de345003abc4b09230a14238d4ebbe2",
+    "storedSha256": "1ba98a4578797f249a91e137210aa9ca046a5ac41726536b8a365756eef11fa8",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "disabled-public-guards.txt": {
+    "rawSha256": "8d01a07c21efad4e8605b150b9e23b2d8efab99385af8379c16da3789bb1838a",
+    "storedSha256": "3b8369c3a3200041a57362eacf9c82f9d4d573e63c54a82da7aac0b8566c41f7",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "reference-public-green.txt": {
+    "rawSha256": "129de944e96249bd05c87bbc58a8095d5bea5cab17bf6cbaad88ac45870f8f1d",
+    "storedSha256": "129de944e96249bd05c87bbc58a8095d5bea5cab17bf6cbaad88ac45870f8f1d",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "desktop-final.txt": {
+    "rawSha256": "d4e14bda79da1c204cfdee5ab2b07c1bfc9d2d0a4af22ddf41c66df2b304a4e0",
+    "storedSha256": "097b6f2368c3d1d9bb618a30b6a035a52e0f1d9b1bf04b840b0975e492a0cda9",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "ui-final-rust-build.txt": {
+    "rawSha256": "ec3275bd7cdb61fe7edc4fadcb9a7a8d1c03aef38d75c8a6d05652c57a1d448e",
+    "storedSha256": "ec3275bd7cdb61fe7edc4fadcb9a7a8d1c03aef38d75c8a6d05652c57a1d448e",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  },
+  "final-doc-check.txt": {
+    "rawSha256": "35969a4ae99e1cea767369776a56e3424bcf4d8cf6196ba231b347bf8520298e",
+    "storedSha256": "35969a4ae99e1cea767369776a56e3424bcf4d8cf6196ba231b347bf8520298e",
+    "normalization": "trailing whitespace and surplus final blank lines only"
+  }
+}

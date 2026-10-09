@@ -1296,6 +1296,8 @@ Save risk policy
 
 策略拒绝优先。如果没有检查拒绝,但必需证据缺失、过期或不可信,结果为 `UNAVAILABLE`。缺失证据不得变成空组合、零活动或假定币种平价。Submit 命令必须在可信边界重新求值;结果为 `REJECTED` 或 `UNAVAILABLE` 时不得产生 provider/simulator 订单副作用。Renderer 与 Agent 不能提供求值输入或覆盖结果。`ALLOWED` 仅代表策略求值通过,不授予审批、账户 Arm、预留或发送订单的权限。普通 Bitget Live 账户映射到 `LIVE` 策略环境,在后续金融权限门禁实现前保持只读。
 
+普通 Binance Spot Live 展示每个 Proposal 的静态规则结果，保留精确账户/hash、原始 scope/origin 与 BASE/QUOTE 单位。只有真实且用途匹配的参考输入可核验百分比/notional；错误、未来、过期或未知输入仍为 unavailable。完整规则 PASS 要求满足每项实际适用义务；捕获历史不能续当前证据。只读规则采集和静态成功不授予报价/数据使用权、费用/FX、Arm、同意或即时 preflight。Backend §41.44 与 UI §14.28 定义共享契约；原型代码未改。
+
 ---
 
 # 22. 审批前与执行前校验

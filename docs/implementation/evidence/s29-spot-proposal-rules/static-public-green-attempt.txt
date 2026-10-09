@@ -1,0 +1,92 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0433]: cannot find `binance` in `crate`
+  --> src-tauri/src/spot_proposal_rules.rs:85:43
+   |
+85 |                 && (tick == "0" || crate::binance::multiple_of(price, tick)?)))
+   |                                           ^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+85 |                 && (tick == "0" || crate::provider_io::binance::multiple_of(price, tick)?)))
+   |                                           +++++++++++++
+help: consider importing this module
+   |
+ 2 + use crate::provider_io::binance;
+   |
+help: if you import `binance`, refer to it directly
+   |
+85 -                 && (tick == "0" || crate::binance::multiple_of(price, tick)?)))
+85 +                 && (tick == "0" || binance::multiple_of(price, tick)?)))
+   |
+
+error[E0433]: cannot find `binance` in `crate`
+  --> src-tauri/src/spot_proposal_rules.rs:96:27
+   |
+96 |                 && crate::binance::multiple_of(&fields.quantity.value, step)?))
+   |                           ^^^^^^^ unresolved import
+   |
+help: a similar path exists
+   |
+96 |                 && crate::provider_io::binance::multiple_of(&fields.quantity.value, step)?))
+   |                           +++++++++++++
+help: consider importing this module
+   |
+ 2 + use crate::provider_io::binance;
+   |
+help: if you import `binance`, refer to it directly
+   |
+96 -                 && crate::binance::multiple_of(&fields.quantity.value, step)?))
+96 +                 && binance::multiple_of(&fields.quantity.value, step)?))
+   |
+
+error[E0433]: cannot find `binance` in `crate`
+   --> src-tauri/src/spot_proposal_rules.rs:104:24
+    |
+104 |                 crate::binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+    |                        ^^^^^^^ unresolved import
+    |
+help: a similar path exists
+    |
+104 |                 crate::provider_io::binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+    |                        +++++++++++++
+help: consider importing this module
+    |
+  2 + use crate::provider_io::binance;
+    |
+help: if you import `binance`, refer to it directly
+    |
+104 -                 crate::binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+104 +                 binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+    |
+
+error[E0433]: cannot find `binance` in `crate`
+   --> src-tauri/src/spot_proposal_rules.rs:123:28
+    |
+123 |                     crate::binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+    |                            ^^^^^^^ unresolved import
+    |
+help: a similar path exists
+    |
+123 |                     crate::provider_io::binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+    |                            +++++++++++++
+help: consider importing this module
+    |
+  2 + use crate::provider_io::binance;
+    |
+help: if you import `binance`, refer to it directly
+    |
+123 -                     crate::binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+123 +                     binance::multiply(&fields.quantity.value, fields.limit_price.as_deref().ok_or_else(unavailable)?)?
+    |
+
+warning: unused import: `Value`
+ --> src-tauri/src/spot_proposal_rules.rs:5:18
+  |
+5 | use serde_json::{Value, json};
+  |                  ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0433`.
+warning: `tradex` (lib) generated 1 warning
+error: could not compile `tradex` (lib) due to 4 previous errors; 1 warning emitted

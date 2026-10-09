@@ -94,7 +94,13 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     if endpoint == ProviderEndpoint::BinanceLive
         && matches!(
             path,
-            "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true"
+            "/api/v3/avgPrice?symbol=BTCUSDT"
+                | "/api/v3/avgPrice?symbol=ETHUSDT"
+                | "/api/v3/referencePrice?symbol=BTCUSDT"
+                | "/api/v3/referencePrice?symbol=ETHUSDT"
+                | "/api/v3/trades?symbol=BTCUSDT&limit=1"
+                | "/api/v3/trades?symbol=ETHUSDT&limit=1"
+                | "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true"
                 | "/api/v3/exchangeInfo?symbol=ETHUSDT&showPermissionSets=true"
                 | "/api/v3/executionRules?symbol=BTCUSDT"
                 | "/api/v3/executionRules?symbol=ETHUSDT"
@@ -2305,7 +2311,7 @@ fn scaled(value: &str, scale: usize) -> Result<String> {
     })
 }
 
-fn multiple_of(value: &str, step: &str) -> Result<bool> {
+pub(crate) fn multiple_of(value: &str, step: &str) -> Result<bool> {
     let step = decimal(&Value::String(step.into()))?;
     if step.starts_with('-') || step == "0" {
         return Err(invalid());
@@ -2353,7 +2359,7 @@ fn check_range_step(value: &str, min: &Value, max: &Value, step: &Value) -> Resu
     Ok(())
 }
 
-pub(super) fn multiply(left: &str, right: &str) -> Result<String> {
+pub(crate) fn multiply(left: &str, right: &str) -> Result<String> {
     let left = decimal(&Value::String(left.into()))?;
     let right = decimal(&Value::String(right.into()))?;
     if left.starts_with('-') || right.starts_with('-') {
@@ -3798,7 +3804,7 @@ mod tests {
         );
         let reference_price = "/api/v3/referencePrice?symbol=BTCUSDT";
         assert!(allows(ProviderEndpoint::BinanceTestnet, reference_price));
-        assert!(!allows(ProviderEndpoint::BinanceLive, reference_price));
+        assert!(allows(ProviderEndpoint::BinanceLive, reference_price));
         assert!(!allows(
             ProviderEndpoint::BinanceTestnet,
             "/api/v3/referencePrice?symbol=BNBUSDT"

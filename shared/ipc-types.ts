@@ -523,6 +523,7 @@ export type RiskDecisionReasonCode =
   | "MARKET_CLOSED"
   | "MARKET_HALTED"
   | "INSTRUMENT_RULES_UNAVAILABLE"
+  | "INSTRUMENT_RULES_REJECTED"
   | "CORPORATE_ACTION_COVERAGE_UNAVAILABLE"
   | "HISTORICAL_ADJUSTMENT_UNAVAILABLE"
   | "COUNTER_UNAVAILABLE"
@@ -976,6 +977,7 @@ export type ReplyData =
   | GatewayState
   | ModelState
   | RiskPolicyState
+  | SpotProposalRules
   | RiskDecision
   | RiskDecisionHistory
   | ProviderCatalog
@@ -1301,6 +1303,9 @@ export interface IpcSchema {
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
+  spotProposalRules: SpotProposalRules;
+  spotRulesQuery: SpotRulesQuery;
+  spotRulesRefresh: SpotRulesRefresh;
   strategyCancel: StrategyCancel;
   strategyDefinition: StrategyDefinition;
   strategyFailure: StrategyFailure;
@@ -3558,6 +3563,7 @@ export interface RiskDecision {
   policyVersion?: number | null;
   proposalHash: string;
   proposalId: string;
+  spotRules?: SpotProposalRules | null;
   stateVersion: string;
   status: RiskDecisionStatus;
   workspaceId: string;
@@ -3581,6 +3587,67 @@ export interface RiskDecisionInputReference {
   kind: RiskDecisionInputKind;
   observedAt?: string;
   referenceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotProposalRules".
+ */
+export interface SpotProposalRules {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  instrumentId: string;
+  materialVersion?: string | null;
+  observedAt?: string | null;
+  outcome: RiskCheckOutcome;
+  proposalHash: string;
+  proposalId: string;
+  quoteAsset: string;
+  referenceFailure?: string | null;
+  /**
+   * @maxItems 256
+   */
+  referencePurposes: string[];
+  /**
+   * @maxItems 2
+   */
+  references: [] | [SpotRuleReference] | [SpotRuleReference, SpotRuleReference];
+  /**
+   * @maxItems 272
+   */
+  rules: SpotRuleEvaluation[];
+  sourceVersion: string;
+  stateVersion: string;
+  /**
+   * @maxItems 272
+   */
+  unresolvedObligations: string[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleReference".
+ */
+export interface SpotRuleReference {
+  digest: string;
+  intervalMinutes?: number | null;
+  kind: string;
+  price?: string | null;
+  providerObservedAt: string;
+  receivedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleEvaluation".
+ */
+export interface SpotRuleEvaluation {
+  applicable: boolean;
+  origin: SpotRuleOrigin;
+  outcome: RiskCheckOutcome;
+  reasonCode: string;
+  ruleType: string;
+  scope: SpotRuleScope;
+  unit?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -7851,6 +7918,23 @@ export interface SetFallbackPolicy {
 export interface SetOnboardingStep {
   expectedStateVersion: string;
   step: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRulesQuery".
+ */
+export interface SpotRulesQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRulesRefresh".
+ */
+export interface SpotRulesRefresh {
+  expectedStateVersion: string;
+  proposalId: string;
   workspaceId: string;
 }
 /**

@@ -655,3 +655,5 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .spot-depth-grid caption { text-align: left; margin-bottom: 6px; }
 .spot-depth-grid th, .spot-depth-grid td { padding: 6px; border-bottom: 1px solid var(--border); text-align: left; overflow-wrap: anywhere; }
 @media (max-width: 768px) { .spot-depth-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.spot-proposal-rules { min-width: 0; overflow-wrap: anywhere; }

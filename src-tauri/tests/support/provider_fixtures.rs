@@ -970,6 +970,10 @@ impl ProviderHttp for Http {
                 return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
             }
             if self.binance_rules_ui && endpoint == ProviderEndpoint::BinanceLive {
+                if let Some(symbol) = path.strip_prefix("/api/v3/referencePrice?symbol=") {
+                    assert!(headers.is_empty());
+                    return Ok(serde_json::to_vec(&json!({"symbol":symbol,"referencePrice":"60000.00000000","timestamp":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})).unwrap());
+                }
                 if let Some(symbol) = path
                     .strip_prefix("/api/v3/exchangeInfo?symbol=")
                     .and_then(|s| s.strip_suffix("&showPermissionSets=true"))

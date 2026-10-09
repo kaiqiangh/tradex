@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.47s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'explicit_required_reference_read_qualifies_only_its_bound_percentage_rule' (10376639) panicked at src-tauri/tests/binance_rules.rs:121:5:
+assertion `left == right` failed: Public required reference refresh is unavailable: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"proposal-reference","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test explicit_required_reference_read_qualifies_only_its_bound_percentage_rule ... FAILED
+
+failures:
+
+failures:
+    explicit_required_reference_read_qualifies_only_its_bound_percentage_rule
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

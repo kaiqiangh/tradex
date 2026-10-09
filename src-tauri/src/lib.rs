@@ -33,6 +33,7 @@ pub mod quote_source;
 pub mod research;
 pub mod risk;
 pub mod screener;
+pub mod spot_proposal_rules;
 mod storage;
 pub mod strategy;
 pub mod time;
@@ -2383,6 +2384,7 @@ pub struct ControlPlane {
     calendar_failure: Option<String>,
     calendar_request_sequence: u64,
     financial_source_runtime: financial_sources::FinancialSourceRuntime,
+    spot_rule_runtime: spot_proposal_rules::Runtime,
     quote_source_epoch: String,
     quote_connection_generation: String,
     quote_source_probe_sequence: u64,
@@ -2412,6 +2414,7 @@ impl ControlPlane {
             calendar_failure: None,
             calendar_request_sequence: 0,
             financial_source_runtime: Default::default(),
+            spot_rule_runtime: Default::default(),
             quote_source_epoch: uuid::Uuid::new_v4().to_string(),
             quote_connection_generation: uuid::Uuid::new_v4().to_string(),
             quote_source_probe_sequence: 0,
@@ -3428,6 +3431,7 @@ impl ControlPlane {
                     self.calendar_failure = None;
                     self.calendar_request_sequence = 0;
                     self.financial_source_runtime = Default::default();
+                    self.spot_rule_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -3482,6 +3486,7 @@ impl ControlPlane {
                     self.calendar_failure = None;
                     self.calendar_request_sequence = 0;
                     self.financial_source_runtime = Default::default();
+                    self.spot_rule_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
                     self.quote_source_probe_sequence = 0;
@@ -3559,6 +3564,15 @@ impl ControlPlane {
                 let decision =
                     self.evaluate_risk_decision(&input.workspace_id, &input.proposal_id)?;
                 Ok((json!(decision), Some(decision.state_version.clone())))
+            }
+            "trade.spot_rules.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_proposal_rules::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
             }
             "trade.request_approval" => {
                 if !provider_order_consumer_allowed(consumer) {
@@ -7942,6 +7956,28 @@ impl ControlPlane {
                 context,
             )?);
         }
+        let spot_rules = if proposal.fields.environment == protocol::ExecutionContext::BinanceLive
+            && financial_sources::spot_rules_selected_once(self)?
+        {
+            spot_proposal_rules::get(
+                self,
+                &spot_proposal_rules::SpotRulesQuery {
+                    workspace_id: workspace_id.into(),
+                    proposal_id: proposal.proposal_id.clone(),
+                },
+            )
+            .ok()
+        } else {
+            None
+        };
+        if let Some(rules) = &spot_rules {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::InstrumentRules,
+                proposal.proposal_id.clone(),
+                rules.observed_at.clone(),
+                rules,
+            )?);
+        }
         let mut decision = risk::evaluate(
             proposal,
             policy.as_ref(),
@@ -7953,6 +7989,36 @@ impl ControlPlane {
             existing_reserved_capital.as_deref(),
             storage::timestamp()?,
         );
+        if let Some(rules) = &spot_rules {
+            if let Some(check) = decision
+                .checks
+                .iter_mut()
+                .find(|check| check.check_id == risk::RiskCheckId::InstrumentRules)
+            {
+                check.outcome = rules.outcome.clone();
+                check.reason_code = match rules.outcome {
+                    risk::RiskCheckOutcome::Pass => risk::RiskDecisionReasonCode::WithinLimit,
+                    risk::RiskCheckOutcome::Reject => {
+                        risk::RiskDecisionReasonCode::InstrumentRulesRejected
+                    }
+                    risk::RiskCheckOutcome::Unavailable => {
+                        risk::RiskDecisionReasonCode::InstrumentRulesUnavailable
+                    }
+                };
+                check.reason = match rules.outcome {
+                    risk::RiskCheckOutcome::Reject => "Current exact per-Proposal Spot rules reject this unchanged intent; inspect the captured per-rule explanation.",
+                    risk::RiskCheckOutcome::Pass => "Every applicable bound Spot rule is satisfied. Rights, quotes, fees/FX and authenticated immediate preflight remain independent.",
+                    risk::RiskCheckOutcome::Unavailable => "Per-Proposal static results are captured, but applicable missing reference, dynamic or unsupported obligations remain unavailable.",
+                }.into();
+            }
+            decision.status = risk::RiskDecisionStatus::from_checks(&decision.checks);
+        }
+        decision.spot_rules = spot_rules.map(|mut captured| {
+            for reference in &mut captured.references {
+                reference.price = None;
+            }
+            captured
+        });
         if currency_evidence.is_some() {
             decision.checks.push(risk::RiskCheckResult {
                 check_id: risk::RiskCheckId::CurrencyConversion,

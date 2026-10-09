@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.37s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'mixed_reference_intervals_qualify_only_their_own_rules' (10737393) panicked at src-tauri/tests/binance_rules.rs:569:5:
+assertion `left == right` failed: Different rule intervals cannot be substituted: {"data":{"accountId":"72472100-4e4c-44f8-82d3-e9f6e2592235","baseAsset":"BTC","bindingVersion":"sha256:6b1c0c75bd81e3e5b66e977ae69315fb6e38601950c42bcf4b2965baae5be2fc","instrumentId":"crypto:BTC/USDT:spot","materialVersion":"48ee74f77065f85d67ea43c1b8dee9f0b1361168049f6445121f0fe17c098b85","observedAt":"2026-10-09T04:27:16.298Z","outcome":"UNAVAILABLE","proposalHash":"sha256:b1132a636441773b307b436b72676199c6bfcc5eb1234727f63448b909c1d294","proposalId":"proposal:a2d3355f-807e-49a7-99cf-7172b216aefd","quoteAsset":"USDT","referenceFailure":null,"referencePurposes":["ExchangeInfo:Symbol:PERCENT_PRICE","ExchangeInfo:Symbol:PERCENT_PRICE_BY_SIDE"],"references":[{"digest":"sha256:2189de60f008ce31216c20ae10321a160a94615d85be45a0c75b4b383392143c","intervalMinutes":5,"kind":"AVERAGE_PRICE","price":"60000","providerObservedAt":"2026-10-09T04:27:16.318Z","receivedAt":"2026-10-09T04:27:16.318Z"}],"rules":[{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ruleType":"ORDER_FORM","scope":"SYMBOL","unit":null},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PRICE_FILTER","scope":"SYMBOL","unit":"USDT/BTC"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"LOT_SIZE","scope":"SYMBOL","unit":"BTC"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PERCENT_PRICE","scope":"SYMBOL","unit":"USDT/BTC"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PERCENT_PRICE_BY_SIDE","scope":"SYMBOL","unit":"USDT/BTC"},{"applicable":true,"origin":"EXECUTION_RULES","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PRICE_RANGE","scope":"EXECUTION","unit":null},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE","unit":null},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MIN_NOTIONAL","scope":"SYMBOL","unit":"USDT"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MAX_ASSET","scope":"ASSET","unit":"BTC"}],"sourceVersion":"BINANCE_SPOT_RULES:422705ac-a6f0-496c-82b9-f6cb6f80ceae:1","stateVersion":"sha256:934fe707df6f4b67b911e148cac2a9e046e9269d7c0d7f2afb38ce53ed2fee89","unresolvedObligations":["ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ExchangeInfo:Symbol:PERCENT_PRICE","ExecutionRules:Execution:PRICE_RANGE","AccountFilters:Exchange:EXCHANGE_MAX_NUM_ORDERS"],"workspaceId":"422705ac-a6f0-496c-82b9-f6cb6f80ceae"},"ok":true,"requestId":"mixed-reference","schemaVersion":1}
+  left: 1
+ right: 2
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mixed_reference_intervals_qualify_only_their_own_rules ... FAILED
+
+failures:
+
+failures:
+    mixed_reference_intervals_qualify_only_their_own_rules
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `--test binance_rules`

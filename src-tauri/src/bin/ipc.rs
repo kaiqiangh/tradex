@@ -305,7 +305,10 @@ fn main() -> io::Result<()> {
                 let p = &request["payload"];
                 let result = match (p["scenario"].as_str(), p["symbol"].as_str()) {
                     (
-                        Some("NORMAL" | "HALT" | "BREAK" | "MALFORMED"),
+                        Some(
+                            "NORMAL" | "HALT" | "BREAK" | "MALFORMED" | "PERCENT_REFERENCE"
+                            | "PRICE_REJECT",
+                        ),
                         Some(symbol @ ("BTCUSDT" | "ETHUSDT")),
                     ) if http.binance_rules_ui => {
                         let mut external = fixtures::binance_spot_exchange_info(symbol);
@@ -316,6 +319,8 @@ fn main() -> io::Result<()> {
                             "MALFORMED" => {
                                 external["symbols"][0]["filters"][1]["minQty"] = json!("200")
                             }
+                            "PERCENT_REFERENCE" => external["symbols"][0]["filters"].as_array_mut().unwrap().push(json!({"filterType":"PERCENT_PRICE","multiplierDown":"0.8","multiplierUp":"1.2","avgPriceMins":5})),
+                            "PRICE_REJECT" => external["symbols"][0]["filters"][0]["tickSize"] = json!("7"),
                             _ => (),
                         }
                         *http.binance_exchange_info.borrow_mut() = if p["scenario"] == "NORMAL" {
@@ -1386,6 +1391,7 @@ fn main() -> io::Result<()> {
                         | "data.instrument.refresh"
                         | "data.fx.refresh"
                         | "data.binance_rules.refresh"
+                        | "trade.spot_rules.refresh"
                 )
             ) {
                 let result = tradex::financial_sources::execute_refresh(

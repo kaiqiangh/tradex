@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.00s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'explicit_null_reference_uses_only_matching_average_interval' (10389016) panicked at src-tauri/tests/binance_rules.rs:165:5:
+assertion `left == right` failed: Explicit null permits a genuine average, not an error fallback: {"data":{"accountId":"4713c716-b72a-40dc-8538-b2b355de4616","baseAsset":"BTC","bindingVersion":"sha256:e683b8a78bb9eaaf46d259bfefd3e1ed93318337d5bbf6817e6707c31be6bddb","instrumentId":"crypto:BTC/USDT:spot","materialVersion":"ab098d92dfcee7af5700759abc04479be496061fa070fb23e91b4df00dc3761d","observedAt":"2026-10-08T22:17:52.676Z","outcome":"UNAVAILABLE","proposalHash":"sha256:7de613505fe281b168f3a0aef4616c418c92c232c842742eab3c845efa01d366","proposalId":"proposal:fb63705e-6958-4f9c-90ed-95503f482c8a","quoteAsset":"USDT","references":[],"rules":[{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PRICE_FILTER","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"LOT_SIZE","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PERCENT_PRICE","scope":"SYMBOL"},{"applicable":true,"origin":"EXECUTION_RULES","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PRICE_RANGE","scope":"EXECUTION"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MIN_NOTIONAL","scope":"SYMBOL"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MAX_ASSET","scope":"ASSET"}],"sourceVersion":"BINANCE_SPOT_RULES:984e9d6d-eba2-428e-99eb-688509ecbf0d:1","stateVersion":"sha256:0af6ea35e9c0d98f0196276afae64e20adba8d700ff6b67c9221c0fdf8ae9174","unresolvedObligations":["ExchangeInfo:Symbol:PERCENT_PRICE","ExecutionRules:Execution:PRICE_RANGE","AccountFilters:Exchange:EXCHANGE_MAX_NUM_ORDERS"],"workspaceId":"984e9d6d-eba2-428e-99eb-688509ecbf0d"},"ok":true,"requestId":"reference-null","schemaVersion":1}
+  left: Null
+ right: "AVERAGE_PRICE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test explicit_null_reference_uses_only_matching_average_interval ... FAILED
+
+failures:
+
+failures:
+    explicit_null_reference_uses_only_matching_average_interval
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

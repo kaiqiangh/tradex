@@ -2,7 +2,7 @@
 
 Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Source prerequisites [Exact Spot rules/admission](https://github.com/kaiqiangh/tradex/issues/123) and [Hot quote/continuous depth](https://github.com/kaiqiangh/tradex/issues/124) are CLOSED. Planning baseline `dev@2368e22122b2028e92f4c3352c2f08fe80e1344a`. [中文](s29-spot-proposal-rules-spec_zh.md).
 
-Current single implementation ticket: [Verify Proposal static Spot rules and required reference inputs](https://github.com/kaiqiangh/tradex/issues/125), claimed by kaiqiangh, ready-for-agent. [Published specification](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6069315992). Implementation/review baseline is `2368e22122b2028e92f4c3352c2f08fe80e1344a`. Planning and native completed dependencies are recorded; implementation and acceptance are not yet performed.
+Current single implementation ticket: [Verify Proposal static Spot rules and required reference inputs](https://github.com/kaiqiangh/tradex/issues/125), claimed by kaiqiangh, ready-for-agent. [Published specification](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6069315992). Implementation/review baseline is `2368e22122b2028e92f4c3352c2f08fe80e1344a`. The read-only implementation, full local/Hot/Gateway regressions, ordinary build/pin, rebuilt React→Rust UI and serial Standards→Spec reviews PASS. Exact source/remote/tracker delivery remains pending; ticket stays OPEN until recorded. See the [verification ledger](s29-spot-proposal-rules-evidence.md).
 
 ## Problem Statement
 

@@ -1,0 +1,39 @@
+    Blocking waiting for file lock on build directory
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0502]: cannot borrow `*control` as mutable because it is also borrowed as immutable
+   --> src-tauri/src/spot_proposal_rules.rs:273:18
+    |
+255 |       let store = control.store.as_ref().ok_or_else(unavailable)?;
+    |                   ------------- immutable borrow occurs here
+...
+273 |       let source = crate::financial_sources::connection(
+    |  __________________^
+274 | |         control,
+275 | |         &input.workspace_id,
+276 | |         FinancialSourceKind::BinanceSpotRules,
+277 | |     )?;
+    | |_____^ mutable borrow occurs here
+...
+303 |           store
+    |           ----- immutable borrow later used here
+
+For more information about this error, try `rustc --explain E0502`.
+error: could not compile `tradex` (lib) due to 1 previous error
+
+255 |       let store = control.store.as_ref().ok_or_else(unavailable)?;
+    |                   ------------- immutable borrow occurs here
+...
+273 |       let source = crate::financial_sources::connection(
+    |  __________________^
+274 | |         control,
+275 | |         &input.workspace_id,
+276 | |         FinancialSourceKind::BinanceSpotRules,
+277 | |     )?;
+    | |_____^ mutable borrow occurs here
+...
+303 |           store
+    |           ----- immutable borrow later used here
+
+Some errors have detailed explanations: E0433, E0502.
+For more information about an error, try `rustc --explain E0433`.
+error: could not compile `tradex` (lib) due to 2 previous errors

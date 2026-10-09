@@ -3077,6 +3077,16 @@ Refresh 复用受限 vault/P3/当前任务边界，调用方截止时间为 30 �
 
 完整 Hot/连续深度/消费者/UI 契约见[配对来源规范](../implementation/s29-binance-hot-source-spec_zh.md)。生产者与 #124 验收仍 IN_PROGRESS：其余生命周期/真实隐藏与边界证据、完整检查和串行复审仍须所属验收。生产者/轮换/受保护消费者及实际来源 UI 具有范围明确的检查点证据，均不表示整票验收。传输配额、快照重读、类型化关闭通知和取消已有聚焦外部协议证明，不表示完整验收。本地 loopback 生产者证明与普通原生/提供方/金融验收及父项关闭分开。原型代码未改。
 
+### 41.44 不可变 Proposal 静态 Spot 规则与参考输入（S29.4 #125）
+
+`trade.spot_rules.get {workspaceId, proposalId}` 与 `trade.spot_rules.refresh {workspaceId, proposalId, expectedStateVersion}` 要求可信 main consumer，并拒绝未知输入字段。后端从已保存的不可变意图推导精确账户、普通 venue 及 canonical BTC/USDT 或 ETH/USDT。Get 只读本地投影；Refresh 为显式 CAS 操作，不接受 renderer 提供的 host、symbol、price、凭据或 authority。十秒 deadline 与 P3 普通公开读取均在全局 Control Plane 锁外执行，使用共享 IP 余量，不虚构经认证 UID，不发送执行 key。固定 `referencePrice`/`avgPrice` 成本2；原始最近 `trades?symbol=BTCUSDT|ETHUSDT&limit=1` 成本25。HTTP 封禁/限流遵守共享 Retry-After；错误响应不得启用 fallback。
+
+类型化 `SpotProposalRules` 返回工作区/Proposal/hash/账户/标的、BASE/QUOTE、source/material/首次接收、binding/state version、整体 outcome，最多272项保留 scope/origin 的 `SpotRuleEvaluation {scope, origin, ruleType, applicable, outcome, reasonCode, unit}`、272项有界未解决义务、256项所需用途标识、2项瞬态参考输入及可选有界失败原因。身份/version/reason 字符串上限128，asset16，ruleType64，原始时间64；hash 保留精确71/64长度。`SpotRuleReference {kind, price?, providerObservedAt, receivedAt, digest, intervalMinutes?}` 将提供方时间与首次接收分开。价格/数量约束使用精确 decimal，不使用浮点、舍入、BASE 推算或 USDT/USD 等价。只有 PRICE_FILTER 使用其文档规定的零值禁用；普通订单形式、买卖侧百分比、实际适用 notional 与单笔 MAX_ASSET 保留实际单位。不得虚构未提供的可选 notional filter。缺失必需覆盖、未知 schema/field、动态数量/持仓或 PRICE_RANGE 输入均为 UNAVAILABLE；已知当前违规产生 REJECT/INSTRUMENT_RULES_REJECTED。完整 INSTRUMENT_RULES PASS 要求满足每项实际适用的已采集义务。
+
+只有格式正确的200显式空主参考响应允许按用途 fallback；非空真实提供方参考价优先。非零平均价必须匹配规则原始区间；零区间使用具有原始时间戳的最后成交，不能用 ticker、接收时间或中间价代替。混合用途可保留一项真实最后成交及一项真实平均价；不匹配输入不能核验规则。公开参考输入不是策略价格偏离输入或报价。未来/过期提供方时间失败关闭；提供方年龄和不可续期的 monotonic 首次接收年龄遵守30秒与金融 stale-quote 策略中更严格者（默认3秒）。重复读取相同材料不能续期。最多8个瞬态 Proposal slot。账户/source/market/policy/工作区/session/time 变化、CAS 冲突及迟到发布终止资格；失败或超时的所属刷新清除旧参考资格。
+
+RiskDecision 与捕获评审/历史保留有界结果、引用/digest/时间，并隐去每项参考价格，不保留原始价格缓存。重开只恢复配置和捕获历史。权利/MARKET_DATA_USE、报价/深度、权限/健康、Arm、费用/FX、预留、同意、即时认证 Gateway preflight 及保护性精确 CANCEL 保持独立。该只读前置功能不授予整体金融权限或提供方写操作。实现验收在[配对规格](../implementation/s29-spot-proposal-rules-spec_zh.md)中单独记录；原型代码未改。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

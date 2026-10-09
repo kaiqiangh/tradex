@@ -457,6 +457,15 @@
     "setOnboardingStep": {
       "$ref": "#/$defs/SetOnboardingStep"
     },
+    "spotProposalRules": {
+      "$ref": "#/$defs/SpotProposalRules"
+    },
+    "spotRulesQuery": {
+      "$ref": "#/$defs/SpotRulesQuery"
+    },
+    "spotRulesRefresh": {
+      "$ref": "#/$defs/SpotRulesRefresh"
+    },
     "strategyCancel": {
       "$ref": "#/$defs/StrategyCancel"
     },
@@ -581,6 +590,9 @@
     "setFallbackPolicy",
     "riskQuery",
     "riskDecisionEvaluate",
+    "spotRulesRefresh",
+    "spotRulesQuery",
+    "spotProposalRules",
     "riskDecisionQuery",
     "saveRiskPolicy",
     "setOnboardingStep",
@@ -13398,6 +13410,9 @@
           "$ref": "#/$defs/RiskPolicyState"
         },
         {
+          "$ref": "#/$defs/SpotProposalRules"
+        },
+        {
           "$ref": "#/$defs/RiskDecision"
         },
         {
@@ -14581,6 +14596,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "spotRules": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotProposalRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "stateVersion": {
           "type": "string",
           "maxLength": 256,
@@ -14744,6 +14769,7 @@
         "MARKET_CLOSED",
         "MARKET_HALTED",
         "INSTRUMENT_RULES_UNAVAILABLE",
+        "INSTRUMENT_RULES_REJECTED",
         "CORPORATE_ACTION_COVERAGE_UNAVAILABLE",
         "HISTORICAL_ADJUSTMENT_UNAVAILABLE",
         "COUNTER_UNAVAILABLE",
@@ -16220,6 +16246,138 @@
         "ORDINARY"
       ]
     },
+    "SpotProposalRules": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "observedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "referenceFailure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "referencePurposes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 256
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRuleReference"
+          },
+          "maxItems": 2
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRuleEvaluation"
+          },
+          "maxItems": 272
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 272
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "outcome",
+        "rules",
+        "unresolvedObligations",
+        "references",
+        "referencePurposes",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
     "SpotRuleConstraint": {
       "type": "object",
       "properties": {
@@ -16262,6 +16420,50 @@
         "unsupportedFields"
       ]
     },
+    "SpotRuleEvaluation": {
+      "type": "object",
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "origin": {
+          "$ref": "#/$defs/SpotRuleOrigin"
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "reasonCode": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "ruleType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/SpotRuleScope"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "origin",
+        "ruleType",
+        "applicable",
+        "outcome",
+        "reasonCode"
+      ]
+    },
     "SpotRuleField": {
       "type": "object",
       "properties": {
@@ -16290,6 +16492,55 @@
         "EXCHANGE_INFO",
         "ACCOUNT_FILTERS",
         "EXECUTION_RULES"
+      ]
+    },
+    "SpotRuleReference": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intervalMinutes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "maximum": 1440,
+          "minimum": 0
+        },
+        "kind": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "price": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerObservedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "providerObservedAt",
+        "receivedAt",
+        "digest"
       ]
     },
     "SpotRuleScope": {
@@ -16373,6 +16624,52 @@
             "value"
           ]
         }
+      ]
+    },
+    "SpotRulesQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "SpotRulesRefresh": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "expectedStateVersion"
       ]
     },
     "StrategyCancel": {

@@ -815,6 +815,7 @@ pub enum RiskDecisionReasonCode {
     MarketClosed,
     MarketHalted,
     InstrumentRulesUnavailable,
+    InstrumentRulesRejected,
     CorporateActionCoverageUnavailable,
     HistoricalAdjustmentUnavailable,
     CounterUnavailable,
@@ -913,6 +914,8 @@ pub struct RiskDecision {
     pub state_version: String,
     pub inputs: Vec<RiskDecisionInputReference>,
     pub checks: Vec<RiskCheckResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_rules: Option<crate::spot_proposal_rules::SpotProposalRules>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -2269,6 +2272,7 @@ pub(crate) fn evaluate(
         state_version: String::new(),
         inputs,
         checks,
+        spot_rules: None,
     }
 }
 

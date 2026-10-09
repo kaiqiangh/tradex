@@ -395,11 +395,16 @@ declare const validators: {
   SpotDepthCoverage: (value: unknown) => boolean;
   SpotDepthLevel: (value: unknown) => boolean;
   SpotMarketEnvironment: (value: unknown) => boolean;
+  SpotProposalRules: (value: unknown) => boolean;
   SpotRuleConstraint: (value: unknown) => boolean;
+  SpotRuleEvaluation: (value: unknown) => boolean;
   SpotRuleField: (value: unknown) => boolean;
   SpotRuleOrigin: (value: unknown) => boolean;
+  SpotRuleReference: (value: unknown) => boolean;
   SpotRuleScope: (value: unknown) => boolean;
   SpotRuleValue: (value: unknown) => boolean;
+  SpotRulesQuery: (value: unknown) => boolean;
+  SpotRulesRefresh: (value: unknown) => boolean;
   StrategyCancel: (value: unknown) => boolean;
   StrategyDefinition: (value: unknown) => boolean;
   StrategyDirection: (value: unknown) => boolean;
