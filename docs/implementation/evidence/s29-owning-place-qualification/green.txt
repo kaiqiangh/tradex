@@ -1,0 +1,27 @@
+S29.8 — Owning Binance Spot Live PLACE qualification from exact capacity and interval inputs
+GREEN after implementation.
+
+The five public tests recorded as RED above now pass against the same test file, driven through
+the public account/source/draft/Proposal/rules/capacity/interval/risk/approval flow with only
+the external HTTP producer faked.
+
+Command (new behaviour): cd src-tauri && cargo test --test binance_rules owning_spot_qualification -- --test-threads=1
+Observed at 2026-10-09T20:59:48Z.
+
+running 5 tests
+test owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved ... ok
+test owning_spot_qualification_derives_current_declared_headroom_without_granting_authority ... ok
+test owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence ... ok
+test owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances ... ok
+test owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 89 filtered out; finished in 3.31s
+
+Command (whole file, regression): cd src-tauri && cargo test --test binance_rules -- --test-threads=1
+Observed at 2026-10-09T21:02:43Z. Duration 157.52s. EXIT=0.
+
+test result: ok. 94 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 157.52s
+
+No pre-existing binance_rules test regressed: the ordinary live review paths stay inert because
+the owning gate is enabled only for an ordinary Binance Spot Live account whose Spot rule source
+has already been selected, so every other suite keeps its previous outcome.

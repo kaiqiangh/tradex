@@ -1,0 +1,146 @@
+S29.8 — Owning Binance Spot Live PLACE qualification from exact capacity and interval inputs
+Public RED before implementation.
+
+Base: dev@7307787 (planning handoff). A detached worktree at that commit carries only the
+new test file; the slice implementation (src-tauri/src/spot_owning.rs, its lib.rs wiring and
+the RiskDecision field) is absent, so the failures below are real observable behaviour rather
+than a hand-written expectation. `grep -c spot_owning src-tauri/src/lib.rs` prints 0 there.
+
+Command: CARGO_TARGET_DIR=/tmp/tx-s298-red-target cargo test --test binance_rules owning_spot_qualification -- --test-threads=1
+Observed at 2026-10-09T20:59:43Z.
+
+   Compiling tradex v0.1.0 (/private/tmp/tx-s298-red/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.75s
+     Running tests/binance_rules.rs (/tmp/tx-s298-red-target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 5 tests
+test owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved ... FAILED
+test owning_spot_qualification_derives_current_declared_headroom_without_granting_authority ... FAILED
+test owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence ... FAILED
+test owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances ... FAILED
+test owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold ... FAILED
+
+failures:
+
+---- owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved stdout ----
+
+running 1 test
+test owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved ... FAILED
+
+failures:
+
+failures:
+    owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.20s
+
+
+thread 'owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved' (12393920) panicked at src-tauri/tests/binance_rules.rs:5932:5:
+assertion `left == right` failed
+  left: Null
+ right: "REJECT"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved' (12393914) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- owning_spot_qualification_derives_current_declared_headroom_without_granting_authority stdout ----
+
+running 1 test
+test owning_spot_qualification_derives_current_declared_headroom_without_granting_authority ... FAILED
+
+failures:
+
+failures:
+    owning_spot_qualification_derives_current_declared_headroom_without_granting_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.15s
+
+
+thread 'owning_spot_qualification_derives_current_declared_headroom_without_granting_authority' (12394368) panicked at src-tauri/tests/binance_rules.rs:5791:5:
+assertion `left == right` failed: {"accountId":"b4662573-f007-44f7-90f4-cd080c3a1803","checks":[{"checkId":"PROPOSAL_IDENTITY","outcome":"PASS","reason":"The immutable proposal is current in this workspace.","reasonCode":"WITHIN_LIMIT"},{"checkId":"POLICY_VERSION","outcome":"PASS","reason":"The proposal is bound to the current policy version.","reasonCode":"WITHIN_LIMIT"},{"checkId":"POLICY_CONFIGURED","outcome":"UNAVAILABLE","reason":"A persisted risk policy is not configured.","reasonCode":"POLICY_UNCONFIGURED"},{"checkId":"ACCOUNT_BINDING","outcome":"PASS","reason":"The proposal is bound to the exact account and environment.","reasonCode":"WITHIN_LIMIT"},{"checkId":"ACCOUNT_HEALTH","outcome":"PASS","reason":"The saved account connection and authentication are healthy.","reasonCode":"WITHIN_LIMIT"},{"checkId":"ACCOUNT_ARMING","outcome":"UNAVAILABLE","reason":"The exact Live account must be armed before approval review.","reasonCode":"ACCOUNT_NOT_ARMED"},{"checkId":"ALLOWED_ACCOUNT","outcome":"PASS","reason":"The account allow-list does not block this proposal.","reasonCode":"WITHIN_LIMIT"},{"checkId":"BLOCKED_ACCOUNT","outcome":"PASS","reason":"The account is not in the configured block-list.","reasonCode":"WITHIN_LIMIT"},{"checkId":"ALLOWED_ENVIRONMENT","outcome":"PASS","reason":"The execution environment is allowed by policy.","reasonCode":"WITHIN_LIMIT"},{"checkId":"ALLOWED_VENUE","outcome":"PASS","reason":"The venue is allowed by policy or no venue allow-list is configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"ALLOWED_INSTRUMENT","outcome":"PASS","reason":"The instrument is allowed by policy or no instrument allow-list is configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"BLOCKED_VENUE","outcome":"PASS","reason":"The venue is not in the configured block-list.","reasonCode":"WITHIN_LIMIT"},{"checkId":"BLOCKED_INSTRUMENT","outcome":"PASS","reason":"The instrument is not in the configured block-list.","reasonCode":"WITHIN_LIMIT"},{"checkId":"ORDER_NOTIONAL","outcome":"PASS","reason":"Order notional limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"ORDER_QUANTITY","outcome":"PASS","reason":"Order quantity limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"POSITION_SIZE","outcome":"PASS","reason":"Position size limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"SINGLE_INSTRUMENT_EXPOSURE","outcome":"PASS","reason":"Single-instrument exposure percent limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"ASSET_CLASS_EXPOSURE","outcome":"PASS","reason":"Asset-class exposure is within limits or no class limit is configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"DAILY_TRADED_NOTIONAL","outcome":"PASS","reason":"Daily traded notional limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"DAILY_REALIZED_LOSS","outcome":"PASS","reason":"Daily realized-loss limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"OPEN_ORDER_COUNT","outcome":"PASS","reason":"Open-order limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"RESERVED_CAPITAL","outcome":"PASS","reason":"Reserved-capital limit is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"MARKET_ORDER","outcome":"PASS","reason":"The proposal is a limit order; market-order policy is not applicable.","reasonCode":"NOT_APPLICABLE"},{"checkId":"MARKET_ORDER_SLIPPAGE","outcome":"PASS","reason":"Market-order slippage is not applicable to this proposal.","reasonCode":"NOT_APPLICABLE"},{"checkId":"QUOTE_FRESHNESS","outcome":"UNAVAILABLE","reason":"Market entitlement or time confidence is not trusted.","reasonCode":"EVIDENCE_UNTRUSTED"},{"checkId":"MARKET_DATA_USE","outcome":"PASS","reason":"The ordinary public Spot financial data-use gate is not applicable to this source/context.","reasonCode":"NOT_APPLICABLE"},{"checkId":"MARKET_SESSION","outcome":"PASS","reason":"Current exact-account/symbol Spot venue admission is satisfied. This establishes no equity calendar, complete order rules, data-use rights or execution authority.","reasonCode":"WITHIN_LIMIT"},{"checkId":"PRICE_DEVIATION","outcome":"PASS","reason":"Maximum price deviation is not configured.","reasonCode":"LIMIT_NOT_CONFIGURED"},{"checkId":"CORPORATE_ACTION_COVERAGE","outcome":"PASS","reason":"This corporate-action prerequisite applies to external equity placement, not this execution context.","reasonCode":"NOT_APPLICABLE"},{"checkId":"HISTORICAL_ADJUSTMENT","outcome":"PASS","reason":"This corporate-action prerequisite applies to external equity placement, not this execution context.","reasonCode":"NOT_APPLICABLE"},{"checkId":"INSTRUMENT_RULES","outcome":"UNAVAILABLE","reason":"Per-Proposal static results are captured, but applicable missing reference, dynamic or unsupported obligations remain unavailable.","reasonCode":"INSTRUMENT_RULES_UNAVAILABLE"},{"checkId":"LIVE_INACTIVITY","outcome":"PASS","reason":"Live inactivity timeout applies to a later Arm session, not this policy evaluation.","reasonCode":"NOT_APPLICABLE"}],"decisionId":"risk-decision:f98a8c3e-f833-4849-ab19-d2e95d6c3c73","environment":"BINANCE_LIVE","evaluatedAt":"2026-10-09T20:59:39.590561Z","inputs":[{"digest":"sha256:f925ab84d49821d8c66b2e6a249f865e25d19bed9cc49f02b6f3392a80a462e0","kind":"POLICY","observedAt":"2026-10-09T20:59:39.509616Z","referenceId":"risk-policy:1"},{"digest":"sha256:4fad00acba8985d0d5a4b60b3199b0fc5e02fe3d240d9c9d37d799875c47091c","kind":"ACCOUNT","observedAt":"2026-10-09T20:59:39.515001Z","referenceId":"b4662573-f007-44f7-90f4-cd080c3a1803"},{"digest":"sha256:e46a2f4d52a982e2ca0956d8a58df0360aec40453964310778e0178fa17070ce","kind":"PORTFOLIO","observedAt":"2026-10-09T20:59:39.582Z","referenceId":"portfolio:2026-10-09T20:59:39.582Z"},{"digest":"sha256:9b1aade6d31fe805d3f1c77a01b752dd9521a7c65e6faed149662180cf07311a","kind":"MARKET","referenceId":"crypto:BTC/USDT:spot"},{"digest":"sha256:e42dca6db8960ba603a42a9ebc756ec033292189e5a49521c2671c63d45f0e1c","kind":"TIME","observedAt":"2026-10-09T20:59:39.583Z","referenceId":"time:2026-10-09T20:59:39.583Z"},{"digest":"sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945","kind":"RESERVATIONS","observedAt":"2026-10-09T20:59:39.583Z","referenceId":"reservations:650b3aa5-15d8-4103-ae78-466605a86740"},{"digest":"sha256:2ccf0d86b7d0343cbc1ae0f2de2001747e23b0b05dcc705a222666d913a54943","kind":"SPOT_ORDER_INTERVALS","observedAt":"2026-10-09T20:59:39.544Z","referenceId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090"},{"digest":"sha256:7dac0d8b0b0f2fab5636cb9797621b3dfff5687ff3451b35dddcee7af51cabd3","kind":"SPOT_CAPACITY","observedAt":"2026-10-09T20:59:39.571Z","referenceId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090"},{"digest":"sha256:af10b6427e58f5dd2c0c0c33e5b25716fa4adffa2b1a2da06f1c2c2ab9da5861","kind":"INSTRUMENT_RULES","observedAt":"2026-10-09T20:59:39.518Z","referenceId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090"}],"policyStateVersion":"risk:650b3aa5-15d8-4103-ae78-466605a86740:1","policyVersion":1,"proposalHash":"sha256:af17a986b1e5db48ff98befe0bb23afdca59bcc757e312a2e5e1865e417bf027","proposalId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090","spotCapacity":{"accountId":"b4662573-f007-44f7-90f4-cd080c3a1803","baseAsset":"BTC","bindingVersion":"sha256:feea7290f2c4e13ca1fc02592de1fec8319e85ba2de44ec9597c8297ac01a25a","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"e903fd94-1943-4e12-9e82-afe5211c699b","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":null,"accountOpenOrders":"2","classificationsComplete":true,"listCoverageComplete":null,"missingListLegs":null,"orderCoverageComplete":true,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":null,"symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":null,"oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T20:59:39.571Z","startedAt":"2026-10-09T20:59:39.567Z"},{"digest":"1eefa5f66af0d0dae007a968e6225ed0c3fce1bc7c7a11e01c3baacae6de49ec","kind":"OPEN_ORDERS_ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":"1700000000000","oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T20:59:39.577Z","startedAt":"2026-10-09T20:59:39.573Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:af17a986b1e5db48ff98befe0bb23afdca59bcc757e312a2e5e1865e417bf027","proposalId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"852f4e1d5115f6624c8e1188bd7f3e407b0492c4c98c449a984dd818bbefe18b","sourceVersion":"BINANCE_SPOT_RULES:650b3aa5-15d8-4103-ae78-466605a86740:1","stateVersion":"sha256:d75337af7a861bb64871fdceac6f36e1e7d7686d4d06f8a3bd87ae47a63a8ca4","status":"OBSERVED","workspaceId":"650b3aa5-15d8-4103-ae78-466605a86740"},"spotOrderIntervals":{"accountId":"b4662573-f007-44f7-90f4-cd080c3a1803","baseAsset":"BTC","bindingVersion":"sha256:feea7290f2c4e13ca1fc02592de1fec8319e85ba2de44ec9597c8297ac01a25a","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"localRoundTripBoundMs":"4","receivedAt":"2026-10-09T20:59:39.542Z","serverTimeMs":"1791579579542","startedAt":"2026-10-09T20:59:39.538Z"},"collectionId":"fce04c5e-9c33-404b-a122-fa9da8946784","counters":[{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"9007199254740993","interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"coverageComplete":true,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"REQUEST_WEIGHT"},{"interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"4535018568224b66750496fd02a9b649c1eeda90eee760a6fa2653f0f5f77364","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T20:59:39.544Z","startedAt":"2026-10-09T20:59:39.542Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T20:59:39.549Z","startedAt":"2026-10-09T20:59:39.546Z"},{"digest":"3e34ce73e5c92d1892953341110fa715844608af80cb0b5404f73cdd763d95bd","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T20:59:39.554Z","startedAt":"2026-10-09T20:59:39.551Z"}],"timeAssociation":"DERIVED_UNCERTAIN","unresolvedObligations":["COUNTER_SNAPSHOT_TIME_UNAVAILABLE","DERIVED_WINDOW_ASSOCIATION_UNCERTAIN","INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:af17a986b1e5db48ff98befe0bb23afdca59bcc757e312a2e5e1865e417bf027","proposalId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090","providerWaitSeconds":null,"qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","retirementReason":null,"ruleMaterialVersion":"852f4e1d5115f6624c8e1188bd7f3e407b0492c4c98c449a984dd818bbefe18b","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:650b3aa5-15d8-4103-ae78-466605a86740:1","stateVersion":"sha256:b0c2c2a53e93a07365cc4c52bc08b8fa19362044cfe2be4747c5cf809c618593","status":"OBSERVED","workspaceId":"650b3aa5-15d8-4103-ae78-466605a86740"},"spotRules":{"accountId":"b4662573-f007-44f7-90f4-cd080c3a1803","baseAsset":"BTC","bindingVersion":"sha256:feea7290f2c4e13ca1fc02592de1fec8319e85ba2de44ec9597c8297ac01a25a","instrumentId":"crypto:BTC/USDT:spot","materialVersion":"852f4e1d5115f6624c8e1188bd7f3e407b0492c4c98c449a984dd818bbefe18b","observedAt":"2026-10-09T20:59:39.518Z","outcome":"UNAVAILABLE","priceRangePreview":{"boundsDigest":null,"directions":[{"direction":"BID","enforced":true,"lowerMultiplier":"0.9999","upperMultiplier":"1.0001"},{"direction":"ASK","enforced":true,"lowerMultiplier":"0.9999","upperMultiplier":"1.0001"}],"explanation":"EXECUTION_REFERENCE_PRICE_MISSING","lowerBound":null,"reference":null,"side":"BUY","state":"REFERENCE_MISSING","unit":"USDT/BTC","upperBound":null},"proposalHash":"sha256:af17a986b1e5db48ff98befe0bb23afdca59bcc757e312a2e5e1865e417bf027","proposalId":"proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090","quoteAsset":"USDT","referenceFailure":null,"referencePurposes":["ExecutionRules:Execution:PRICE_RANGE"],"references":[],"rules":[{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ruleType":"ORDER_FORM","scope":"SYMBOL","unit":null},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PRICE_FILTER","scope":"SYMBOL","unit":"USDT/BTC"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"LOT_SIZE","scope":"SYMBOL","unit":"BTC"},{"applicable":true,"origin":"EXECUTION_RULES","outcome":"UNAVAILABLE","reasonCode":"EXECUTION_REFERENCE_PRICE_MISSING","ruleType":"PRICE_RANGE","scope":"EXECUTION","unit":"USDT/BTC"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"CURRENT_ACCOUNT_EXCHANGE_ORDER_COUNTS_REQUIRED","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE","unit":null},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MIN_NOTIONAL","scope":"SYMBOL","unit":"USDT"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MAX_ASSET","scope":"ASSET","unit":"BTC"}],"sourceVersion":"BINANCE_SPOT_RULES:650b3aa5-15d8-4103-ae78-466605a86740:1","stateVersion":"sha256:97b7edb323717b9ef9b05055c4900e20d5ed0035a57fca4e7b023d0e90f41494","unresolvedObligations":["ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","EXECUTION_PRICE_RANGE_UNQUALIFIED","AccountFilters:Exchange:EXCHANGE_MAX_NUM_ORDERS"],"workspaceId":"650b3aa5-15d8-4103-ae78-466605a86740"},"stateVersion":"risk-decision:proposal:65ca7d42-dc21-42d1-b630-5bb5ee251090:2","status":"UNAVAILABLE","workspaceId":"650b3aa5-15d8-4103-ae78-466605a86740"}
+  left: Null
+ right: "PASS"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_spot_qualification_derives_current_declared_headroom_without_granting_authority' (12394301) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_spot_qualification_derives_current_declared_headroom_without_granting_authority
+
+---- owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence stdout ----
+
+running 1 test
+test owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence ... FAILED
+
+failures:
+
+failures:
+    owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.17s
+
+
+thread 'owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence' (12394474) panicked at src-tauri/tests/binance_rules.rs:5979:5:
+assertion `left == right` failed: null
+  left: Null
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence' (12394385) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence
+
+---- owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances stdout ----
+
+running 1 test
+test owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances ... FAILED
+
+failures:
+
+failures:
+    owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 0.15s
+
+
+thread 'owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances' (12394495) panicked at src-tauri/tests/binance_rules.rs:5879:5:
+assertion `left == right` failed: null
+  left: Null
+ right: "PASS"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances' (12394491) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances
+
+---- owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold stdout ----
+
+running 1 test
+test owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold ... FAILED
+
+failures:
+
+failures:
+    owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 93 filtered out; finished in 1.26s
+
+
+thread 'owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold' (12394518) panicked at src-tauri/tests/binance_rules.rs:6081:5:
+assertion `left == right` failed: null
+  left: Null
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold' (12394510) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold
+
+
+failures:
+    owning_spot_qualification_blocks_an_exhausted_order_rate_window_from_being_approved
+    owning_spot_qualification_derives_current_declared_headroom_without_granting_authority
+    owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evidence
+    owning_spot_qualification_shows_exactly_one_slot_until_the_venue_counter_advances
+    owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold
+
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 89 filtered out; finished in 3.35s
+
+error: test failed, to rerun pass `--test binance_rules`

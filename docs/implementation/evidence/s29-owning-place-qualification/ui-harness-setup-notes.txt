@@ -1,0 +1,38 @@
+S29.8 browser acceptance — harness setup corrections
+
+These are instrumentation mistakes made while running tests/spot-owning-admission-ui.mjs. None
+was a product defect and none required a production change. The two genuine public-surface
+findings are recorded separately in ui-red.txt and ui-contract-red.txt.
+
+1. binance.live.capacity.fixture returned IPC_PAYLOAD_INVALID because the seam is gated behind
+   the http.binance_rules_ui capability. The server was restarted with TRADEX_SOURCE_ONLY_FIXTURE=1
+   TRADEX_BINANCE_RULE_HTTP_FIXTURE=1 TRADEX_LIVE_APPROVAL_FIXTURE=1, matching the standing
+   configuration used by the earlier S29 rule slices.
+
+2. Pressing the interval read immediately after replacing the venue rule source returned
+   STATE_VERSION_CONFLICT ("The state cursor cannot be resumed. Reload authoritative state.").
+   Replacing the source retires both consumed observations, so each read now first waits for its
+   own panel to show "not observed · Read-only inputs · Execution qualification unavailable",
+   which proves the panel polled the new binding before the compare-and-set refresh is offered.
+   The same correction was already needed by the S29.6 and S29.7 harnesses.
+
+3. Because replacing the source retires both observations, re-reading only the interval inputs
+   leaves the capacity inputs retired and the owning statement is then simply absent from the
+   decision. Both inputs are read after every switch.
+
+4. An assertion expected a period after the declared symbol open-order count; React renders that
+   value bare, and the following definition supplies its own sentence. The expectation was
+   corrected, not the rendering.
+
+5. Assertions on the exact number of rendered statements were racy against the history query's
+   own refetch cadence: the approval review also saves the evaluation it relied on, so the same
+   blocked statement legitimately appears more than once. The assertions are now content-based —
+   the newest statement is the one just assessed, the blocked and original statements both stay
+   readable, and the oldest is byte-identical to the one first relied on.
+
+6. The pre-arm region cannot be screenshotted after the phase that asserted it, because that
+   phase closes the dialog it opened. The adapter takes that visual from a fresh open in the same
+   still-blocked state.
+
+After these corrections the run reports passed=true with no console errors and the four region
+screenshots archived.

@@ -1,0 +1,63 @@
+{
+  "passed": true,
+  "error": null,
+  "stack": null,
+  "admission": {
+    "admissionText": "Captured Proposal Spot owning admission\n\nThe venue's own declared figures admit this intent: 50 further orders (ORDERS 50/1 HOUR).\n\nSaved assessment. Reading this history never renews the qualification, re-reads the venue or restores consent. Arm, consent, dispatch, fees, required FX, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nProposal\nproposal:fa91d90c-bcaf-4a76-a3c5-c08fb0f53f77 · sha256:74b98a45d7adcbc76eda3398b70e2a0467b66dc747c060c2a1058489bffc25c0\nExact account\n58ca2894-6f16-4155-a0e4-079b4c3d019d\nInstrument / declared unit\ncrypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. This statement is read in USDT; USDT is not USD.\nDeclared origin · open-order and balance inventory\nprovider declared open orders. Covers the declared open-order count, the symbol open-buy quantity, the BASE free/locked figures and the capacity observation time.\nDeclared origin · order-rate counters\nprovider declared order rate counters. Covers the remaining slots, the binding declared bucket, any standing provider cooldown and the interval observation time.\nRemaining venue-declared order slots\n50 · ORDERS 50/1 HOUR. Derived from the tighter declared bucket, never stored, never decremented locally and never rolled forward to a new window.\nDeclared open orders for this symbol\n1\nDeclared symbol open-buy quantity\n0.1. Reported as declared exposure only; it is never read as available balance.\nDeclared BASE free / locked\n0.10000000 / 0.02000000. Reported verbatim; order locks inside a provider's free figure are never subtracted a second time.\nProvider request cooldown at this assessment\nNone declared. This is not an order-rate reset time and is not this qualification's gate.\nDeclared capacity / interval observation times\nNot declared / Not declared. The interval counters carry no provider timestamp, so any local time association stays explicitly uncertain.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\ncounter snapshot time unavailable\nderived window association uncertain\ninterval inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot, and the venue recalculates its order-rate windows on its own clock, so a future taker phase can still expire. Nothing here is a fill promise, an admission guarantee or an approval.\n\nBound evidence versions\nsha256:2bda4c2a29fc4d6e66a527c3616436083fc28630784350878fd80ce6dbeee190 · sha256:c6cdf7738172292c92d6ed5d1cfebd1a34237f5290ba678392c3b5a56b9a1fd7",
+    "widths": [
+      {
+        "viewport": 1280,
+        "body": 1280,
+        "panel": 390,
+        "client": 390
+      },
+      {
+        "viewport": 768,
+        "body": 768,
+        "panel": 422,
+        "client": 422
+      },
+      {
+        "viewport": 390,
+        "body": 390,
+        "panel": 268,
+        "client": 268
+      }
+    ]
+  },
+  "blocked": {
+    "blockedText": "Captured Proposal Spot owning admission\n\nspot interval quota exhausted: The venue's declared order-rate window has no remaining slot, so it would not admit another order now.\n\nThis is not a smaller number. Until the single fact above is resolved by a fresh, bound observation, no venue-declared slot can be relied on for this intent.\n\nSaved assessment. Reading this history never renews the qualification, re-reads the venue or restores consent. Arm, consent, dispatch, fees, required FX, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nProposal\nproposal:fa91d90c-bcaf-4a76-a3c5-c08fb0f53f77 · sha256:74b98a45d7adcbc76eda3398b70e2a0467b66dc747c060c2a1058489bffc25c0\nExact account\n58ca2894-6f16-4155-a0e4-079b4c3d019d\nInstrument / declared unit\ncrypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. This statement is read in USDT; USDT is not USD.\nDeclared origin · open-order and balance inventory\nprovider declared open orders. Covers the declared open-order count, the symbol open-buy quantity, the BASE free/locked figures and the capacity observation time.\nDeclared origin · order-rate counters\nprovider declared order rate counters. Covers the remaining slots, the binding declared bucket, any standing provider cooldown and the interval observation time.\nRemaining venue-declared order slots\nNone can be relied on. Derived from the tighter declared bucket, never stored, never decremented locally and never rolled forward to a new window.\nDeclared open orders for this symbol\n1\nDeclared symbol open-buy quantity\n0.1. Reported as declared exposure only; it is never read as available balance.\nDeclared BASE free / locked\n0.10000000 / 0.02000000. Reported verbatim; order locks inside a provider's free figure are never subtracted a second time.\nProvider request cooldown at this assessment\nNone declared. This is not an order-rate reset time and is not this qualification's gate.\nDeclared capacity / interval observation times\nNot declared / Not declared. The interval counters carry no provider timestamp, so any local time association stays explicitly uncertain.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\ncounter snapshot time unavailable\nderived window association uncertain\ninterval inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot, and the venue recalculates its order-rate windows on its own clock, so a future taker phase can still expire. Nothing here is a fill promise, an admission guarantee or an approval.\n\nBound evidence versions\nsha256:f941331e742e8fdbd5d0b1c02f6ac143f7bbee55a9160607fdbf3b432700c6f8 · sha256:bd7575f59b61eca01e58b0bf350c5ab119e71e0d732f5ff86bc4edf1c5df7046",
+    "prearmText": "Captured Proposal Spot owning admission\n\nspot interval quota exhausted: The venue's declared order-rate window has no remaining slot, so it would not admit another order now.\n\nThis is not a smaller number. Until the single fact above is resolved by a fresh, bound observation, no venue-declared slot can be relied on for this intent.\n\nSaved assessment. Reading this history never renews the qualification, re-reads the venue or restores consent. Arm, consent, dispatch, fees, required FX, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nProposal\nproposal:fa91d90c-bcaf-4a76-a3c5-c08fb0f53f77 · sha256:74b98a45d7adcbc76eda3398b70e2a0467b66dc747c060c2a1058489bffc25c0\nExact account\n58ca2894-6f16-4155-a0e4-079b4c3d019d\nInstrument / declared unit\ncrypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. This statement is read in USDT; USDT is not USD.\nDeclared origin · open-order and balance inventory\nprovider declared open orders. Covers the declared open-order count, the symbol open-buy quantity, the BASE free/locked figures and the capacity observation time.\nDeclared origin · order-rate counters\nprovider declared order rate counters. Covers the remaining slots, the binding declared bucket, any standing provider cooldown and the interval observation time.\nRemaining venue-declared order slots\nNone can be relied on. Derived from the tighter declared bucket, never stored, never decremented locally and never rolled forward to a new window.\nDeclared open orders for this symbol\n1\nDeclared symbol open-buy quantity\n0.1. Reported as declared exposure only; it is never read as available balance.\nDeclared BASE free / locked\n0.10000000 / 0.02000000. Reported verbatim; order locks inside a provider's free figure are never subtracted a second time.\nProvider request cooldown at this assessment\nNone declared. This is not an order-rate reset time and is not this qualification's gate.\nDeclared capacity / interval observation times\nNot declared / Not declared. The interval counters carry no provider timestamp, so any local time association stays explicitly uncertain.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\ncounter snapshot time unavailable\nderived window association uncertain\ninterval inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot, and the venue recalculates its order-rate windows on its own clock, so a future taker phase can still expire. Nothing here is a fill promise, an admission guarantee or an approval.\n\nBound evidence versions\nsha256:f941331e742e8fdbd5d0b1c02f6ac143f7bbee55a9160607fdbf3b432700c6f8 · sha256:bd7575f59b61eca01e58b0bf350c5ab119e71e0d732f5ff86bc4edf1c5df7046",
+    "widths": [
+      {
+        "viewport": 1280,
+        "body": 1280,
+        "panel": 608,
+        "client": 608
+      },
+      {
+        "viewport": 768,
+        "body": 768,
+        "panel": 608,
+        "client": 608
+      },
+      {
+        "viewport": 390,
+        "body": 390,
+        "panel": 326,
+        "client": 326
+      }
+    ],
+    "eligible": false,
+    "armEnabled": false,
+    "armingPerformed": false,
+    "savedStatementPreserved": true
+  },
+  "recovery": {
+    "recoveredText": "Captured Proposal Spot owning admission\n\nThe venue's own declared figures admit this intent: 50 further orders (ORDERS 50/1 HOUR).\n\nSaved assessment. Reading this history never renews the qualification, re-reads the venue or restores consent. Arm, consent, dispatch, fees, required FX, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nProposal\nproposal:fa91d90c-bcaf-4a76-a3c5-c08fb0f53f77 · sha256:74b98a45d7adcbc76eda3398b70e2a0467b66dc747c060c2a1058489bffc25c0\nExact account\n58ca2894-6f16-4155-a0e4-079b4c3d019d\nInstrument / declared unit\ncrypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. This statement is read in USDT; USDT is not USD.\nDeclared origin · open-order and balance inventory\nprovider declared open orders. Covers the declared open-order count, the symbol open-buy quantity, the BASE free/locked figures and the capacity observation time.\nDeclared origin · order-rate counters\nprovider declared order rate counters. Covers the remaining slots, the binding declared bucket, any standing provider cooldown and the interval observation time.\nRemaining venue-declared order slots\n50 · ORDERS 50/1 HOUR. Derived from the tighter declared bucket, never stored, never decremented locally and never rolled forward to a new window.\nDeclared open orders for this symbol\n1\nDeclared symbol open-buy quantity\n0.1. Reported as declared exposure only; it is never read as available balance.\nDeclared BASE free / locked\n0.10000000 / 0.02000000. Reported verbatim; order locks inside a provider's free figure are never subtracted a second time.\nProvider request cooldown at this assessment\nNone declared. This is not an order-rate reset time and is not this qualification's gate.\nDeclared capacity / interval observation times\nNot declared / Not declared. The interval counters carry no provider timestamp, so any local time association stays explicitly uncertain.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\ncounter snapshot time unavailable\nderived window association uncertain\ninterval inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot, and the venue recalculates its order-rate windows on its own clock, so a future taker phase can still expire. Nothing here is a fill promise, an admission guarantee or an approval.\n\nBound evidence versions\nsha256:ed824c03e6b83887bbdf2705dd32e745b4e283be0e102a4df5e999eb8be199da · sha256:054bc7dc7e2f73dacf1112f1853f954609b59e0cb2b19d78c3c5e3f0796d6e32",
+    "blockedAssessmentPreserved": true,
+    "armPerformed": false
+  },
+  "consoleErrors": [],
+  "diagnostics": null
+}

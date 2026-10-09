@@ -3127,6 +3127,20 @@ PRICE_RANGE 是官方执行规则，不是下单过滤器。四个乘数（`bidL
 
 Pending/失败/过期 refresh、绑定/来源/账户/规则材料/市场/策略/工作区/会话/时间变化、重开与晚到或更新 owner 结果都撤下当前预览；缓存 get 不续收据。RiskDecision 捕获保留预览配置、状态与两个 digest，同时剥离执行参考价与快照边界，使已保存审核仍能指认其所依据的参考与边界 digest，同时不持久化任何快照价。权利/报价/流动性/权限/健康/费用FX/资金/动态准入/预留/Arm/同意/Prepare/Gateway 均不升级，精确 CANCEL/reconciliation 保持独立。中英文 wire、金融与证据契约同步；原型代码未改，来源验收与完整父项/native/provider/financial/physical/prototype/main 验收分开。
 
+### 41.48 拥有方 Spot Live PLACE 容量与下单频率准入资格（S29.8 #129，IN_PROGRESS）
+
+面向普通 Binance Spot Live 账户的既有拥有方 Live PLACE 路径，现改为真正消费两个已交付的只读观测，而不再把它们当作装饰。不新增命令、账户、来源、配置，也不新增第二套容量投影；渲染器不提供金额、标的、计数、上限或资格，本资格自身不执行任何提供方或 vault 读取。`RiskDecision` 新增一个可选的有界 `spotOwning` 聚合，其推导所用的 `spotCapacity` 与 `spotOrderIntervals` 与复核已携带者完全相同。
+
+该资格绑定到两个输入的精确不可变身份。workspace、Proposal、Proposal hash、账户、标的、BASE/QUOTE、规则材料版本与来源代际在两个输入之间互相比较，其中任一项不匹配即退役证据，而不是靠假设调和。state version 刻意以不同方式绑定：每个输入自身的 state version 已由产出它的已交付切片按其自身预期游标强制校验，随后两者被折叠进该资格产出的两个证据版本摘要。两个输入的 state version 之间不做比较，因为它们各自是不同端点观测的内容摘要，两个这样的摘要不可能相等；要求相等会阻塞一个完全当前且合格的意图，而不是退役陈旧证据。观测缺失、失败、过期或已退役，以及分类不完整、订单覆盖不完整、order list 覆盖不完整，或超出两条固定出处标签之外的任何真实未决容量义务，都以待 `RISK_EVIDENCE_UNAVAILABLE` 语义使资格失败关闭，而不是给出一个更小的数字。
+
+已交付切片的固定标签描述的是证据如何取得，而非它未能覆盖什么：容量切片始终携带 `NON_ATOMIC_PROVIDER_SNAPSHOT` 与 `DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED`、`atomic: false` 且无提供方观测时间；时段切片始终携带 `COUNTER_SNAPSHOT_TIME_UNAVAILABLE`、`DERIVED_WINDOW_ASSOCIATION_UNCERTAIN` 与 `INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED`。它们被原样载入 `carriedLimitations`，并明确不作为准入否决，因为任何公开接缝上的观测都必然带有它们。致命集合恰为「未知覆盖」。
+
+剩余准入额度用既有精确十进制辅助函数按「声明上限 − 声明计数」推导，取最紧的声明桶并给出其身份；计数绝不本地递减、重置或向前滚动，也绝不假设窗口边界已越过。该资格携带状态枚举 `SPOT_OWNING_QUALIFIED | SPOT_OWNING_EVIDENCE_MISMATCH | SPOT_CAPACITY_EVIDENCE_UNAVAILABLE | SPOT_CAPACITY_COVERAGE_INCOMPLETE | SPOT_INTERVAL_EVIDENCE_UNAVAILABLE | SPOT_INTERVAL_QUOTA_EXHAUSTED | SPOT_INTERVAL_WINDOW_UNCERTAIN`、声明单位（买单 QUOTE、卖单 BASE）、每个数字的声明出处（`PROVIDER_DECLARED_OPEN_ORDERS` 对应声明的开放订单数、标的开放买单数量、BASE free/locked 数字与容量观测时间；`PROVIDER_DECLARED_ORDER_RATE_COUNTERS` 对应剩余额度、绑定声明桶、任何既有冷却与时段观测时间）、声明的开放订单数、声明的标的开放买单数量、声明的 BASE free/locked 数字、任何既有的提供方请求冷却、两个观测时间、`carriedLimitations` 以及绑定的证据版本。声明数字按原值上报：不轧差，不对已排除订单锁定的提供方 `free` 数字二次扣减，也不对「资产级 `locked` 数字」与「标的范围库存」断言矛盾，因为资产锁定有开放订单之外的既定成因。
+
+非 `PASS` 的资格向不可变审批复核贡献恰好一条类型化阻塞，使复核不合格，并由既有 Prepare 合格性路径以 `RISK_EVIDENCE_UNAVAILABLE` 拒绝；不新增第二重可能分歧的准入检查。拥有方门禁始终针对新近推导的求值结果求值，因此已过期或用尽的准入绝不从被复核的判定中重放。这两个 Spot 输入与除预留台账之外的每个被复核输入一样属于审批绑定输入，且其声明数字不被归一化掉，因此该证据的真实变化——包括交易所自身订单速率计数前进——会改变复核摘要并使复核不合格。因此再次准入该意图需要一份重新复核过的审批，而不是陈旧的那份。
+
+即使所有数字都当前可用，该资格仍保持执行未获资格：它不是成交承诺、不是未来 taker 阶段的准入保证（交易所按自己的时钟重算窗口），也不能替代 rights、quotes、permissions、health、费用、所需 FX、funding、reservations、Arm、consent、Prepare、Gateway 或即时认证 preflight。Exact CANCEL/对账保持独立。源码实现验收与完整父项/原生/hosted/金融/物理/原型/main 验收相互独立；原型代码未改。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：
