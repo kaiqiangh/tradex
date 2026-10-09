@@ -3101,7 +3101,7 @@ RiskDecision 与捕获评审/历史保留有界结果、引用/digest/时间，�
 
 公开 clock 响应同样限制原始 JSON512KiB，并在私有读取前拒绝重复字段。公开 clock418 将实际 Retry-After 共享至 IP 范围。返回的外部资产/标的身份是有界原始不透明文本（最长64，允许非 ASCII）；不作为请求参数、不推断 BASE 归属、不投影原始明细。
 
-### 41.46 精确账户时段订单额度输入（S29.6 #127，IN_PROGRESS）
+### 41.46 精确账户时段订单额度输入（S29.6 #127，SOURCE_VERIFIED / FULL_ACCEPTANCE_PENDING）
 
 可信本地 `trade.spot_order_intervals.get {workspaceId, proposalId}` 与显式 CAS `trade.spot_order_intervals.refresh {workspaceId, proposalId, expectedStateVersion}` 复用 `SpotRulesQuery`/`SpotRulesRefresh`；拒绝未知 renderer authority 字段。后端导出普通 Binance Live BTC/USDT 或 ETH/USDT 不可变意图/hash、已保存 account/remote UID/key 归属及 source/rule-material/market/policy/workspace/session/time/refresh 归属。Get 不读 vault/provider。固定 filtered exchangeInfo 必须仅返回导出的 symbol/BASE/QUOTE；不扫描全部标的，不新增设置或隐式读取。
 

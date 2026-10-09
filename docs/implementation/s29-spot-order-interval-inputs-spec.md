@@ -2,9 +2,9 @@
 
 Parent: [Verify trusted Binance Spot Live execution](https://github.com/kaiqiangh/tradex/issues/121). Completed prerequisite: [Exact-account open orders and capacity inputs](https://github.com/kaiqiangh/tradex/issues/126). Starting implementation/review baseline `dev@91e2f2a99808a1a97004bef396a23c14b764ca4d`. [中文](s29-spot-order-interval-inputs-spec_zh.md).
 
-Current single ticket: [Provide exact-account interval order-limit inputs](https://github.com/kaiqiangh/tradex/issues/127), assigned kaiqiangh, ready-for-agent/wayfinder:task; native parent121, completed dependency126,0 open blockers. [Published specification](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6083562531).
+Completed single ticket: [Provide exact-account interval order-limit inputs](https://github.com/kaiqiangh/tradex/issues/127), CLOSED, all8AC checked; native parent121, completed dependency126,0 open blockers. [Published specification](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6083562531).
 
-Source implementation VERIFIED against163 frozen committed inputs; final regression/ordinary build/Gateway pin/actual UI and independent serial Standards→Spec pass. Exact remote/tracker handoff remains pending. [Acceptance evidence](s29-spot-order-interval-inputs-evidence.md). Standing single-ticket/public seam applies unchanged; full parent/map/native/provider/financial/physical/prototype/main acceptance remains separate.
+Source implementation VERIFIED against163 frozen committed inputs; final regression/ordinary build/Gateway pin/actual UI and independent serial Standards→Spec pass. Exact dev delivery and all8AC closure verified; see the final acceptance record. [Acceptance evidence](s29-spot-order-interval-inputs-evidence.md). Standing single-ticket/public seam applies unchanged; full parent/map/native/provider/financial/physical/prototype/main acceptance remains separate.
 
 ## Problem Statement
 

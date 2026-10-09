@@ -3101,7 +3101,7 @@ Pending explicit refresh retires the previous current observation before vault/n
 
 Public clock responses obey the same512KiB original-JSON bound and reject duplicate fields before private reads. A public-clock418 shares its actual Retry-After at IP scope. Returned foreign asset/symbol identities are bounded opaque original text (max64, including non-ASCII); they are never request parameters, inferred BASE membership or projected raw inventory.
 
-### 41.46 Exact-account interval order-limit inputs (S29.6 #127, IN_PROGRESS)
+### 41.46 Exact-account interval order-limit inputs (S29.6 #127, SOURCE_VERIFIED / FULL_ACCEPTANCE_PENDING)
 
 Trusted local `trade.spot_order_intervals.get {workspaceId, proposalId}` and explicit CAS `trade.spot_order_intervals.refresh {workspaceId, proposalId, expectedStateVersion}` reuse `SpotRulesQuery`/`SpotRulesRefresh`; unknown renderer authority fields are rejected. Derive ordinary Binance Live BTC/USDT or ETH/USDT immutable intent/hash, saved account/remote UID/key ownership and source/rule-material/market/policy/workspace/session/time/refresh ownership. Get never reads vault/providers. Fixed filtered exchangeInfo must return exactly the derived symbol/BASE/QUOTE; no universe scan, new setup or implicit read.
 

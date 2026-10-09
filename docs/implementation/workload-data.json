@@ -1,6 +1,6 @@
 {
-  "generated": "2026-10-09 19:15 +0100",
-  "commit": "2289d9d",
+  "generated": "2026-10-09 20:14 +0100",
+  "commit": "22646b3",
   "branch": "dev",
   "ahead": 0,
   "req_total": 203,
@@ -19,7 +19,7 @@
     "NOT_STARTED": 29
   },
   "issue_total": 126,
-  "issue_open": 9,
+  "issue_open": 8,
   "open_issues": [
     1,
     56,
@@ -28,8 +28,7 @@
     115,
     116,
     117,
-    121,
-    127
+    121
   ],
   "slice_closed": 25,
   "slice_inprog": 4,
@@ -669,8 +668,8 @@
         126,
         127
       ],
-      "issues_closed": 5,
-      "issues_open": 2,
+      "issues_closed": 6,
+      "issues_open": 1,
       "total": 2,
       "not_started": 0,
       "in_progress": 1,
@@ -3374,5 +3373,5 @@
   },
   "phase_basis": "两套口径均为唯一归属：first = 最小切片号（引入阶段）；last = 最大切片号（收口阶段）",
   "slice_basis": "切片为映射计数口径（同一需求映射多切片时分别计入）；S06 为决策类切片，无直接映射的编号需求",
-  "snapshot_note": "S29 子票 #122–#126 已全部关闭（账户交易状态、精确 Spot 规则与准入、Hot 报价与连续深度、Proposal 静态规则、开放订单与容量输入）；当前单票 #127「精确账户时段订单额度输入」OPEN，父 Spec #121 保持 OPEN。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除。"
+  "snapshot_note": "S29 子票 #122–#127 已全部关闭（账户交易状态、精确 Spot 规则与准入、Hot 报价与连续深度、Proposal 静态规则、开放订单与容量输入、精确账户时段输入）；#127 绑定源码5d7c597/交付22646b3与8AC关闭回读，父 Spec #121 保持 OPEN。下一项S29金融前置依赖仍按单票串行细化。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除。"
 }

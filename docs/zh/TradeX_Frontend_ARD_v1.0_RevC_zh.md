@@ -743,7 +743,7 @@ UI §14.27 完整目标仍 IN_PROGRESS。Markets 与所选 Trade Proposal 必须
 
 CurrentSpotCapacity 为所选不可变 Proposal 使用类型化本地 `trade.spot_capacity.get`，通过显式 CAS `trade.spot_capacity.refresh` 读取实际所需经认证输入。本地轮询只反映过期/绑定变化，不采集服务商。显示精确身份/BASE/QUOTE 单位、用途、独立账户/标的 total/algo/iceberg/list 计数、不可用与零的区别、覆盖/部分成交/外部资产/列表腿缺口、原始余额/BUY 组成、非原子质量、读取窗口、原始 update/transaction 时间与收据及摘要。说明脱敏失败/恢复及独立执行资格。规则材料/用途不可用时禁用私有刷新；busy 或投影错误不能保留当前成功。捕获 RiskDecision/历史/Arm 前只展示已保存 `spotCapacity`，无刷新或轮询，不能续证据或同意。核验键盘及1280/768/390，保留独立金融门禁。Backend §41.45 与 UI §14.29 定义契约；原型代码未改，实施验收仍待完成。
 
-### 13.31 Proposal 专属账户时段输入（S29.6 #127，IN_PROGRESS）
+### 13.31 Proposal 专属账户时段输入（S29.6 #127，SOURCE_VERIFIED / FULL_ACCEPTANCE_PENDING）
 
 CurrentSpotOrderIntervals 使用生成的本地 `trade.spot_order_intervals.get` 和显式 CAS `trade.spot_order_intervals.refresh`；本地1s投影轮询不调用 provider。展示不可变身份/BASE/QUOTE、跨 key/IP/API 账户范围、实际定义与原始精确字符串 count/limit/intervalNum、完整/未解决 tuple 覆盖、非原子读取窗口/digest、原始 provider clock 与缺失 counter snapshot time、导出的不确定关联/撤下、失败和请求冷却。开放订单 filter 库存、ORDERS 时段用量、REQUEST_WEIGHT/RAW_REQUESTS 与 reservation 分开。Busy/error/已撤下输入不能仍展示当前成功。捕获 RiskDecision/历史/pre-arm 展示保存的 `spotOrderIntervals`，不刷新/轮询或续收据/同意。保留 keyboard 与1280/768/390；完整 dynamic/financial/Arm/同意/Prepare/Gateway 门禁独立。Backend §41.46 与 UI §14.30 定义 wire/交互；原型代码未改，来源验收不意味着完整产品验收。
 

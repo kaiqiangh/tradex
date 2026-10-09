@@ -2,9 +2,9 @@
 
 父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。已完成前置：[精确账户开放订单与容量输入](https://github.com/kaiqiangh/tradex/issues/126)。实现/复审起始基线`dev@91e2f2a99808a1a97004bef396a23c14b764ca4d`。[English](s29-spot-order-interval-inputs-spec.md)。
 
-当前单票：[提供 Binance 精确账户时段订单额度输入](https://github.com/kaiqiangh/tradex/issues/127)，已由kaiqiangh领取，ready-for-agent/wayfinder:task；原生父项121、已完成依赖126、0 open blockers。[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6083562531)。
+已完成单票：[提供 Binance 精确账户时段订单额度输入](https://github.com/kaiqiangh/tradex/issues/127)，CLOSED，8AC已勾选；原生父项121、已完成依赖126、0 open blockers。[已发布规范](https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6083562531)。
 
-来源实现 VERIFIED，163个冻结输入与提交相同；最终回归/普通构建/Gateway pin/实际UI及独立串行Standards→Spec通过。精确远端/tracker交付待完成。[验收证据](s29-spot-order-interval-inputs-evidence_zh.md)。既有单票/公开接缝不变；完整父项/全图/原生/提供方/金融/物理/原型/main验收独立。
+来源实现 VERIFIED，163个冻结输入与提交相同；最终回归/普通构建/Gateway pin/实际UI及独立串行Standards→Spec通过。精确dev交付及8AC关闭已核对，见最终验收记录。[验收证据](s29-spot-order-interval-inputs-evidence_zh.md)。既有单票/公开接缝不变；完整父项/全图/原生/提供方/金融/物理/原型/main验收独立。
 
 ## 问题
 

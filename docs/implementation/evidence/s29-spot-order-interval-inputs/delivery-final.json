@@ -1,0 +1,57 @@
+{
+  "stage": "Exact source/evidence dev delivery and tracker closure read back",
+  "sourceCommit": "5d7c597617d7596e7a1d0cdf8665d5c01a6bc677",
+  "evidenceDeliveryCommit": "22646b32064bb7cf6a25fc04053b6c4ab26e1922",
+  "sourceInputsVerified": 163,
+  "sourceUnchanged": true,
+  "issue": {
+    "assignees": [
+      {
+        "id": "MDQ6VXNlcjkwMTQwNjI=",
+        "login": "kaiqiangh",
+        "name": "Kai",
+        "databaseId": 9014062
+      }
+    ],
+    "body": "## Parent\n\nPart of [验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121). Starting implementation/review baseline `dev@91e2f2a99808a1a97004bef396a23c14b764ca4d`. The completed exact-account capacity prerequisite supplies the immutable current/captured contract. Retain the approved single-ticket/public external seam.\n\n## What to build\n\nAn existing immutable ordinary Binance Live BTC/USDT or ETH/USDT Proposal can explicitly collect actual ORDERS interval definitions and authenticated exact-account interval usage through bounded fixed GETs, then show original count/limit/units, coverage/read windows/clock uncertainty, age and sanitized recovery in current and captured/pre-arm review. Open inventory, interval usage, request-weight budgets and local reservations remain distinct. This complete read-only source dependency supports later owning dynamic qualification; no financial authority, probe, mutation or new account/source setup.\n\n## Acceptance criteria\n\n- [x] AC1. Trusted local get/explicit CAS refresh derives immutable Proposal/hash, exact ordinary account/UID/key, canonical symbol and source/rule/market/policy/workspace/session/time/ownership bindings. Renderer endpoint/symbol/UID/count/limit/interval/time/authority/foreign intent is rejected; no implicit provider read or unnecessary private collection.\n- [x] AC2. Fixed filtered public exchangeInfo/clock and signed USER_DATA account/rateLimit/order use actual original UID proof, existing vault/zeroization/HMAC/recvWindow and P3 actual UID+IP costs/caps/shared418/429. No fabricated public UID, reset, redirect, CP lock over I/O, unrelated inventory scan or provider mutation/probe. Overall deadline30s and12s completion margin remain bounded.\n- [x] AC3. Actual declared ORDERS tuple/limit coverage is matched to original counters. Strict duplicate/original integer/range/size/array parsing preserves signed64-bit values as exact strings;512KiB/response,32 intervals,8 runtime slots. Missing/extra/unknown/contradictory coverage is unavailable/unresolved, not unlimited/zero/truncated complete. At/over-limit count and zero reported limit are not clamped or treated as disabled.\n- [x] AC4. Account-wide all-key/IP/API interval usage remains separate from open-order filter counts, read budgets and local reservations. No local fill/cancel/expiry or header absence fabricates decrement/reset. Provider clock/read windows are not counter snapshot time; no manufactured resetAt/remaining slots/execution-qualified window or atomic guarantee. Cached get/history cannot renew first receipts; conservative age/possible rollover retirement is explicit.\n- [x] AC5. Pending/failed refresh, expiry/account/key/source/rule/market/policy/Proposal/workspace/session/time changes, reopen, newer ownership and late/deadline results retire current inputs with sanitized recovery. Reopen restores configuration/history only; no implicit private collection or old success while pending/error.\n- [x] AC6. Actual React→Rust current/captured/pre-arm review explains identity, separate quota concepts, original units/coverage/time uncertainty/read windows/digests and explicit refresh/error/recovery. Keyboard1280/768/390 no overflow; captured history has no refresh/polling or receipt renewal and cannot be rewritten by current source changes. Only approved bounded aggregate/digests persist; no raw private account/definition/counter response or secret.\n- [x] AC7. Input qualification always remains UNAVAILABLE/not execution qualified. No complete-rule/rights/quote/liquidity/permissions/health/feesFX/funding/Arm/consent/Prepare/reservation/Gateway upgrade or positive financial snapshot setter. Exact CANCEL/reconciliation preserved; full parent/map/native/hosted/financial/physical/prototype/main gates stay separate.\n- [x] AC8. Genuine public RED/GREEN and external normal/fault/lifecycle/scope/precision/coverage/quota tests, current full/affected rule/capacity/Hot/Gateway checks, schema/bilingual/manifest/traceability, ordinary build/Gateway pin, actual frozen UI, independent serial Standards→Spec and exact source/evidence/remote/tracker handoff establish this source slice. No CI or broader acceptance claim without corresponding evidence.\n\n## Blocked by\n\nNo open blocker. Completed [提供 Binance 精确账户开放订单与容量输入](https://github.com/kaiqiangh/tradex/issues/126) is the native completed dependency. S28, physical lifecycle and later owning qualification are separate scheduling/fog, not manufactured edges.\n\n## Standing boundaries\n\nUse the paired S29.6 specification published on the parent. Confirmed single-ticket granularity and highest public React/Rust/disposable-storage/external-provider seam apply unchanged; no repeat approval quiz. Implementation starts only after this planning handoff is published and verified. Existing complete-goal scope remains; real transactions need a concrete separately approved plan/human action, and main remains human-reviewed PR only after the full map is verified.\n",
+    "closedAt": "2026-10-09T19:12:44Z",
+    "labels": [
+      {
+        "id": "LA_kwDOUOX8L88AAAACz--d0w",
+        "name": "ready-for-agent",
+        "description": "Specified and ready for agent execution",
+        "color": "0E8A16"
+      },
+      {
+        "id": "LA_kwDOUOX8L88AAAACz--eKA",
+        "name": "wayfinder:task",
+        "description": "Work resolving a Wayfinder decision",
+        "color": "1D76DB"
+      }
+    ],
+    "number": 127,
+    "state": "CLOSED",
+    "title": "[S29.6] 提供 Binance 精确账户时段订单额度输入",
+    "url": "https://github.com/kaiqiangh/tradex/issues/127"
+  },
+  "resolution": "https://github.com/kaiqiangh/tradex/issues/127#issuecomment-6087556222",
+  "nativeParent": 121,
+  "nativeChildClosedReadback": true,
+  "mapPointerReadback": true,
+  "parentPointerReadback": true,
+  "openIssues": [
+    1,
+    56,
+    107,
+    113,
+    115,
+    116,
+    117,
+    121
+  ],
+  "remoteMain": "5312ec006ae3e7fc14cead3f7173604588a6ed59",
+  "remoteCI": "NOT_RUN_NO_REPOSITORY_WORKFLOWS",
+  "fullParentMapAcceptance": "OPEN",
+  "prototypeCodeUnchanged": true,
+  "nextCommit": "Metadata followup only; no runtime/source input change"
+}
