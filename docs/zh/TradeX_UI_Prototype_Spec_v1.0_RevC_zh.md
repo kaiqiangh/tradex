@@ -1048,3 +1048,7 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 ## 14.33 拥有方费用与所需执行 FX 捕获复核（S29.9 #131，IN_PROGRESS）
 
 当前保存评估、不可变历史及pre-arm复核在精确rate/单位/出处/实际notional旁同时说明route阻断与独立未知fee currency。缺失观察区别于声明rate、比较基准区别于费额估计、同币种identity区别于外部执行FX、provider时间区别于首次收据。不制造费用/换汇/maximum/parity。捕获无refresh/polling；账户/source变化、get与reopen不重写历史。实际keyboard1280/768/390当前/捕获/pre-arm须无溢出且门禁失败时Arm禁用。适用Backend §41.49/Frontend §13.34；source-only不关闭完整金融/原生/物理/main验收。原型代码未改。
+
+## 14.34 精确标的佣金来源披露（S29.10 #133，限定来源PASS）
+
+为已保存普通 Binance Live Proposal 展示当前佣金面板，单独提供键盘可用的“Read symbol commission terms”。区分未观察、已观察声明、失败和过期，来源成功明确没有执行资格。精确展示 standard/tax/special maker/taker/buyer/seller，标注收到资产费率单位及签名标的出处，原始折扣声明不做算术，BUY BASE / SELL QUOTE 分支及需要余额/换算证据的条件 BNB/回退。已知声明齐全与未知活动条款、完整金融资格分开。USDT≠USD、精确身份/hash/source/material、缺失的提供方时间和原始收讫/digest 相邻，不制造费用或提供方时间。保存的 risk/history/pre-arm 面板携带原评估，没有读取控制或鲜度更新。验证键盘1280/768/390、完整原因披露及金融保护失败时 Arm 禁用。适用 Backend§41.50/Frontend§13.35。原型代码未改，规范文字本身不是运行 PASS。

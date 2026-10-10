@@ -1305,6 +1305,8 @@ Owning Spot fee/required-FX review consumes the already-read account commission 
 
 ---
 
+A separate explicit exact-symbol commission source may collect the complete declared rate families and conditional charging branches for the saved Proposal. Original account comparison rates and this source declaration are distinct; neither establishes a numeric total fee, a guaranteed future charging asset or required execution FX. Missing or changed terms retire current evidence; saved assessments retain original receipts. Backend §41.50/UI §14.34 define the source-only contract.
+
 # 22. Pre-approval and Pre-execution Validation
 
 Every live order goes through two deterministic checks.

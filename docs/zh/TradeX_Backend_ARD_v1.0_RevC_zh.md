@@ -3151,6 +3151,19 @@ Pending/失败/过期 refresh、绑定/来源/账户/规则材料/市场/策略/
 
 当前输入下feeCurrency/origin为UNKNOWN、费用及workspace-base等价金额缺失，USDT到三字母workspace base无支持的执行路径；产品接缝不可达PASS/SPOT_FEE_FX_QUALIFIED。纯导出契约测试不证明产品资格/金融验收。重开只恢复捕获陈述/配置，无当前观察或provider读取；get/refresh不续收据或重写历史。后续拥有方须同时建立真正费用/计入币种证据及所需执行FX，再完成完整规则/rights/quote/permissions/funding/preflight/lifecycle与授权金融验收。本切片只交付有界拒绝/解释，不代表完整费额估计能力或S29验收；原型代码未改。
 
+
+### 41.50 精确标的佣金声明来源（S29.10 #133，限定来源PASS）
+
+`trade.spot_commission.get` 使用 `SpotRulesQuery`；显式 `trade.spot_commission.refresh` 使用 `SpotRulesRefresh` 与当前版本 token，均返回 `SpotCommissionInputs`。只允许 UI/stdio 消费者；renderer/Agent 不能传入费率、资产、费用、URL 或资格。复用已有普通 Binance 连接的密钥及固定普通主机，有界读取提供方时间/账户 UID/`GET /api/v3/account/commission?symbol=...`（weight2/20/20），只签名精确规范 BTCUSDT/ETHUSDT。无订单/test-order POST 或保存来源/凭据变更。
+
+`SpotCommissionInputs` 绑定 workspace、不可变 Proposal/hash、精确 account/instrument/BASE/QUOTE/side、rule source/material、binding/state version、NOT_OBSERVED/OBSERVED/UNAVAILABLE/STALE 状态、始终 UNAVAILABLE 的 qualification 及可选 observation/failure。复用规则绑定中的账户/来源/session/时间/policy 代际。运行时最多保留8个 Proposal slot；刷新比较并设置，采集前退休旧当前数据，拒绝过期作业。采集在 Control Plane 锁外运行，沿用30s deadline、vault/HTTP预算/退避，并从首个私有响应收讫按 min(policy quote-age threshold,30s) 单调过期。get、缓存渲染及捕获历史不更新鲜度。
+
+`SpotCommissionObservation` 保留精确 symbol/远端UID、READ_ONLY_SYMBOL_COMMISSION 质量、standard/tax/special 各自 maker/taker/buyer/seller 原串、账户/标的折扣开关/资产/值、termsComplete、receivedAsset、conditionalDiscountAsset、chargingAssetQualified=false、providerObservedAt=null、两个原始读取收讫/digest、有界 extensionKeys 与 unresolvedObligations。费率为最长64字符精确非负十进制原串，折扣值在[0,1]内，不解释或计算。缺失、畸形、重复及矛盾声明失败关闭。未知活动字段仍未解决，最多32个带 scope 字段名；超界披露失败，不能截断成完整。未知折扣资产保留为未解决条款。响应体上限65,536bytes。
+
+收到资产扣费分支为 BUY BASE / SELL QUOTE。两项折扣开关均生效时，声明的折扣资产仍取决于足够余额及真实换算证据，同时展示收到资产回退。不建立未来扣费资产、数值费用、折扣换算或金额上界。termsComplete 仅表示已知声明类别齐全，不表示金融完整；两次数据库读取非原子，佣金响应没有观察时间。这些限制持续可见。
+
+`RiskDecisionInputKind::SPOT_COMMISSION` 与可选 `RiskDecision.spotCommission` 将来源变化及原始收讫/digest 绑定当前复核与不可变 risk/history/pre-arm 捕获。已有拥有方费用/FX 及其他 approval/Prepare 保护不变，来源成功不增加权威或预留。没有该可选字段的历史仍可读。来源证据不是完整 S29/原生/金融/物理/release 验收。适用 Frontend§13.35/UI§14.34，原型代码未改。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

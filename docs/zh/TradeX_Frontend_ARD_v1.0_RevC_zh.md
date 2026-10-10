@@ -1207,3 +1207,7 @@ Settings 渲染生成的 credentialKind 与 cleanupPending 字段。专用安全
 ### 13.34 捕获的拥有方费用与所需执行 FX 解释（S29.9 #131，IN_PROGRESS）
 
 渲染既有保存RiskDecision/approval/pre-arm的spotFeeFx：精确账户/Proposal/hash/instrument/BASE/QUOTE、原始声明rate/比较基准、实际意图notional/明确声明的maximum、fee currency/origin、所需direction、provider pair/quality/time/首次收据/cost、两个evidence version、carried limitations、一项绑定reason及共存fee事实。缺失佣金不称已声明，缺失费用/换汇仍不可用。无refresh/polling或历史续期；USDT≠USD及keyboard1280/768/390无溢出。陈述成功不代表费用/FX资格，当前Spot输入仍阻断。Backend §41.49/UI §14.33为权威；完整父项/原生/金融/物理/原型/main门禁独立。
+
+### 13.35 当前及捕获的标的佣金声明（S29.10 #133，限定来源PASS）
+
+渲染生成的 `SpotCommissionInputs` 当前状态及 history/approval/pre-arm 的 `RiskDecision.spotCommission` 捕获。展示十二个类别/角色原始费率、原始折扣开关/资产/值、收到资产与条件折扣/回退分支、精确身份/单位/出处、缺失的提供方时间、两个原始本地开始/收讫/digest 及全部未解决限制。不替代账户费率比较，不制造总费用/扣费资产/换算。只有当前“Read symbol commission terms”触发认证刷新；投影 polling/get 不采集提供方。忙碌/失败/过期隐藏旧当前成功；捕获视图没有刷新/输入/polling，后续读取或重开不改写历史。保持键盘1280/768/390 无溢出或控制台错误，完整金融拒绝可见。Backend§41.50/UI§14.34 为权威，原型代码未改。
