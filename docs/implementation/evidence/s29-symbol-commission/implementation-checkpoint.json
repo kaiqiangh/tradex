@@ -1,0 +1,21 @@
+{
+  "status": "LOCAL_SOURCE_ACCEPTANCE_PASS_DELIVERY_PENDING",
+  "sourceCommit": "a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f",
+  "contractCommit": "ba82e59d06000f991bd2ddefc9e36236bfde507c",
+  "reviewBaseline": "90745562fe19d1ceac4490a39311c306befc660e",
+  "frozenInputs": 172,
+  "checks": "checks-review-final.json",
+  "ordinaryBuild": "desktop-build-review-final-inputs.json",
+  "actualUi": "ui-review-final-report.json",
+  "serialReview": "review-final.md",
+  "next": "exact dev push/committed hashes/remote/tracker closure",
+  "issuesStillOpen": [
+    132,
+    133,
+    121,
+    1
+  ],
+  "sourceQualification": "Execution UNAVAILABLE; monetary fee/charging and required USDT/BNB FX remain mandatory",
+  "prototypeChanged": false,
+  "mainChanged": false
+}

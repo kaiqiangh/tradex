@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.74s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source ... FAILED
+
+failures:
+
+failures:
+    symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 107 filtered out; finished in 0.15s
+
+
+thread 'symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source' (13779585) panicked at src-tauri/tests/binance_rules.rs:6835:5:
+assertion `left == right` failed: An out-of-range discount is not a valid complete source: {"data":{"accountId":"be9dbcc6-b099-402d-a29b-7754c8974640","baseAsset":"BTC","bindingVersion":"sha256:1d4a94a130ffc889838e0adfd568e8ab1d2da848eed4be849c22bb6b70dd9064","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"chargingAssetQualified":false,"collectionId":"commission:2","conditionalDiscountAsset":"BNB","discount":{"discount":"1.00000001","discountAsset":"BNB","enabledForAccount":true,"enabledForSymbol":true},"extensionKeys":[],"providerObservedAt":null,"quality":"READ_ONLY_SYMBOL_COMMISSION","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-10T13:39:37.173Z","startedAt":"2026-10-10T13:39:37.169Z"},{"digest":"6acbcd54317c9522ad14fc23835a4723f0c0bd9f88e70f7af37d958d9ac32d27","kind":"SYMBOL_COMMISSION","receivedAt":"2026-10-10T13:39:37.178Z","startedAt":"2026-10-10T13:39:37.174Z"}],"receivedAsset":"BTC","remoteAccountId":"9007199254740993","specialCommission":{"buyer":"0.03000000","maker":"0.01000000","seller":"0.04000000","taker":"0.02000000"},"standardCommission":{"buyer":"0.00000030","maker":"0.00000010","seller":"0.00000040","taker":"0.00000020"},"symbol":"BTCUSDT","taxCommission":{"buyer":"0.00000118","maker":"0.00000112","seller":"0.00000116","taker":"0.00000114"},"termsComplete":true,"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","FEE_AMOUNT_AND_CHARGING_ASSET_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:20788227f4f3f75ba4813b16253d6947ba5d438988f82267a3ab43030b362739","proposalId":"proposal:42eb17e4-bdc9-455c-9eb0-2ef99bd5b657","qualification":"UNAVAILABLE","quoteAsset":"USDT","ruleMaterialVersion":"f50e1338cf542a11522f07657b41defd5f2ab2b399ba8d838265c416192154b6","side":"BUY","sourceVersion":"BINANCE_SPOT_RULES:dedd618d-6a09-431c-8f9d-d260163d71e8:1","stateVersion":"sha256:9f9ab016c3195b0572fc7ecdf29527fc66d2e81d604fb864d25f264b4341d267","status":"OBSERVED","workspaceId":"dedd618d-6a09-431c-8f9d-d260163d71e8"},"ok":true,"requestId":"commission-collection","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source' (13779583) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source ... FAILED
+
+failures:
+
+failures:
+    symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 107 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `--test binance_rules`

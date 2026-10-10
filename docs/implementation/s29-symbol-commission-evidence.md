@@ -1,0 +1,26 @@
+# S29.10 exact-symbol commission source acceptance
+
+[中文](s29-symbol-commission-evidence_zh.md). Fixed human-confirmed implementation/review baseline `90745562fe19d1ceac4490a39311c306befc660e`. Source `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`, paired contracts `ba82e59d06000f991bd2ddefc9e36236bfde507c`. Final local validation PASS; exact dev/tracker handoff pending and issues132/133 remain OPEN until remote/closure readback is verified.
+
+The explicit read uses existing credentials and the fixed ordinary host, verifies account UID, then collects only the saved canonical symbol declaration. All twelve standard/tax/special maker/taker/buyer/seller rate strings and the original two flags, discount asset and value are retained. BUY received-BASE / SELL received-QUOTE and conditional BNB/fallback are disclosed. Source validity remains distinct from monetary fee/charging-asset and required execution-FX qualification; no numeric fee or conversion is inferred. Unknown active terms stay unresolved, original receipts are not renewed by getters/capture, changed or expired sources retire current evidence, and captured history remains immutable.
+
+| Implementation/spec AC | Evidence |
+|---|---|
+| 1 | Public exact-account normal/UID/symbol/method/signature cases; fixed ordinary signed GET allowlist |
+| 2 | Typed Rust/shared schema/client; schema check and actual React decoding |
+| 3 | Invalid-discount RED/GREEN; missing/numeric/duplicate/unknown/oversized-key public cases |
+| 4 | BUY BASE/SELL QUOTE; enabled/disabled/unsupported asset and unresolved balance/conversion public disclosures |
+| 5 | Public provider/auth/rate failures, late source-generation callback, expiry without new HTTP, shared owning deadline/budget guards |
+| 6 | Genuine changed-source review digest/capture RED/GREEN; no approval/Prepare state; actual close/reopen history |
+| 7 | Final actual React populated current/captured/pre-arm panels and keyboard1280/768/390, console and screenshots |
+| 8 | Final frozen complete checks, ordinary build/pin, serial independent source reviews, exact committed/remote/tracker delivery |
+
+[TDD record](evidence/s29-symbol-commission/tdd-current.json) distinguishes three genuine public backend RED/GREEN cycles and one actual UI cycle from four first-pass regression groups. The initial incorrect IPC build invocation is recorded as a tooling error, never as product RED. No source/authority setter was added; only external HTTP/vault/WS producer responses change at the accepted public seam.
+
+Final check/build/UI records below bind the committed source; exact closure readback is still pending. Source review [Standards then Spec](evidence/s29-symbol-commission/review-final.md) is PASS with zero remaining findings. Reviewers ran source-only reads; they did not run tests, builds, UI or tracker mutations.
+
+Parent121/map1/full financial/native/provider/physical/release gates remain OPEN. AC-035 remains NOT_STARTED and requirement/screen statuses are unchanged. No real provider request, order/test-order POST, Arm, consent, reservation or dispatch was performed. Prototype sources and main are unchanged. Complete monetary fees/charging conditions and genuine required USDT/BNB execution FX remain mandatory later owning work. No CI workflow is present; local checks are not CI evidence.
+
+[Final complete checks](evidence/s29-symbol-commission/checks-review-final.json): all eight exit0,172 unchanged frozen inputs;517 Rust passed/0failed/39pre-existing ignored over34 result suites,17Node,49BinanceHot,19StockHot,23Gateway, schema/frontend and203-requirement/70-screen/13-QA/23-file traceability. Ordinary build/pin and frozen actual UI passed; exact delivery remains pending.
+
+[Ordinary desktop build](evidence/s29-symbol-commission/desktop-build-review-final-inputs.json) exit0; desktop SHA681ac530…, restored ordinary Gateway SHA257f637c…, embedded pin matches,172 inputs unchanged. This is compilation evidence, not native/real-provider acceptance. [Final actual React/Rust UI](evidence/s29-symbol-commission/ui-review-final-report.json) passes populated current/captured/pre-arm keyboard1280/768/390 with all nine no-overflow measurements, immutable captures, no console warnings/errors and no Arm/consent. Screenshots were visually inspected. Integration IPC uses a runtime Gateway pin, not the ordinary desktop embedded-pin contract. Retained tooling/duplicate-scenario quota failures and the independent final PASS are separately documented; no source or quota guard was changed. Owned tabs5/6 and1428 processes are closed; viewport restored, port absent.

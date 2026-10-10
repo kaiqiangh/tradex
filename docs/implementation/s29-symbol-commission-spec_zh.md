@@ -1,6 +1,6 @@
 # S29.10 — 精确标的佣金来源与条件扣费证据
 
-[English](s29-symbol-commission-spec.md)。[父项](https://github.com/kaiqiangh/tradex/issues/121)、[规范门禁](https://github.com/kaiqiangh/tradex/issues/132)、[单一实现票](https://github.com/kaiqiangh/tradex/issues/133)。规划已发布，实现NOT_STARTED；原生121→132→133，已完成依赖123/131，0开放阻塞。
+[English](s29-symbol-commission-spec.md)。[父项](https://github.com/kaiqiangh/tradex/issues/121)、[规范门禁](https://github.com/kaiqiangh/tradex/issues/132)、[单一实现票](https://github.com/kaiqiangh/tradex/issues/133)。源码实现 `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`；172输入未变的最终本地检查/普通构建/pin/冻结UI/串行复审PASS，精确远端/tracker交付仍待完成；原生121→132→133，已完成依赖123/131，0开放阻塞。
 
 ## 问题陈述
 

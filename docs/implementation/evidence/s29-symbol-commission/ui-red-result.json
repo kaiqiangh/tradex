@@ -1,0 +1,4 @@
+{
+  "passed": false,
+  "error": "Error: Error: Playwright selector deadline exceeded\nlocator.waitFor(visible) timed out for selector internal:role=region[name=\"Current Proposal symbol commission terms\"s]\nLocator diagnostics: {\"kind\":\"no_matches\",\"action\":\"waitFor\",\"locator\":\"internal:role=region[name=\\\"Current Proposal symbol commission terms\\\"s]\",\"matchCount\":0,\"matches\":[],\"visibleCount\":0,\"truncated\":false}"
+}

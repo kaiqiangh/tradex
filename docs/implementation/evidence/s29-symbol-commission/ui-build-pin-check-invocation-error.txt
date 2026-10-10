@@ -1,0 +1,3 @@
+Both cargo build commands exited0. The orchestration then failed with AssertionError at `assert gateway.encode() in ipc`.
+This assertion was incorrect for the integration-only IPC: src-tauri/src/bin/ipc.rs reads std::env::var("TRADEX_ORDER_GATEWAY_SHA256") at runtime. Only the ordinary desktop main.rs embeds option_env!("TRADEX_ORDER_GATEWAY_SHA256").
+No product code or frozen source input was changed. The same successful build logs/binaries are recorded with the corrected runtime-pin contract in ui-review-final-build-inputs.json. Final host invocation must pass the recorded hash; UI acceptance performs no dispatch. This is a tooling validation error, not a product RED or financial acceptance.

@@ -1,6 +1,6 @@
 # S29.10 — Exact-symbol commission source and conditional fee-asset evidence
 
-[中文](s29-symbol-commission-spec_zh.md). [Parent](https://github.com/kaiqiangh/tradex/issues/121), [specification gate](https://github.com/kaiqiangh/tradex/issues/132), [single implementation ticket](https://github.com/kaiqiangh/tradex/issues/133). Planning published; implementation NOT_STARTED. Native121→132→133 hierarchy, completed123/131 dependencies,0 open blockers.
+[中文](s29-symbol-commission-spec_zh.md). [Parent](https://github.com/kaiqiangh/tradex/issues/121), [specification gate](https://github.com/kaiqiangh/tradex/issues/132), [single implementation ticket](https://github.com/kaiqiangh/tradex/issues/133). Source implementation `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`; final local checks/ordinary build/pin/frozen UI/serial review PASS at172 unchanged inputs. Exact remote/tracker handoff remains pending. Native121→132→133 hierarchy, completed123/131 dependencies,0 open blockers.
 
 ## Problem Statement
 
