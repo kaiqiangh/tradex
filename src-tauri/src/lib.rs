@@ -34,6 +34,7 @@ pub mod research;
 pub mod risk;
 pub mod screener;
 pub mod spot_capacity;
+pub mod spot_commission;
 pub mod spot_fee_fx;
 pub mod spot_order_intervals;
 pub mod spot_owning;
@@ -2390,6 +2391,7 @@ pub struct ControlPlane {
     financial_source_runtime: financial_sources::FinancialSourceRuntime,
     spot_rule_runtime: spot_proposal_rules::Runtime,
     spot_capacity_runtime: spot_capacity::Runtime,
+    spot_commission_runtime: spot_commission::Runtime,
     spot_order_interval_runtime: spot_order_intervals::Runtime,
     quote_source_epoch: String,
     quote_connection_generation: String,
@@ -2422,6 +2424,7 @@ impl ControlPlane {
             financial_source_runtime: Default::default(),
             spot_rule_runtime: Default::default(),
             spot_capacity_runtime: Default::default(),
+            spot_commission_runtime: Default::default(),
             spot_order_interval_runtime: Default::default(),
             quote_source_epoch: uuid::Uuid::new_v4().to_string(),
             quote_connection_generation: uuid::Uuid::new_v4().to_string(),
@@ -3441,6 +3444,7 @@ impl ControlPlane {
                     self.financial_source_runtime = Default::default();
                     self.spot_rule_runtime = Default::default();
                     self.spot_capacity_runtime = Default::default();
+                    self.spot_commission_runtime = Default::default();
                     self.spot_order_interval_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
@@ -3498,6 +3502,7 @@ impl ControlPlane {
                     self.financial_source_runtime = Default::default();
                     self.spot_rule_runtime = Default::default();
                     self.spot_capacity_runtime = Default::default();
+                    self.spot_commission_runtime = Default::default();
                     self.spot_order_interval_runtime = Default::default();
                     self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
                     self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
@@ -3583,6 +3588,15 @@ impl ControlPlane {
                 }
                 let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
                 let result = spot_order_intervals::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
+            }
+            "trade.spot_commission.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_commission::get(self, &input)?;
                 let version = result.state_version.clone();
                 Ok((json!(result), Some(version)))
             }
@@ -8012,6 +8026,11 @@ impl ControlPlane {
         } else {
             None
         };
+        let spot_commission = if spot_rules.is_some() {
+            spot_commission::get(self, &spot_proposal_rules::SpotRulesQuery {
+                workspace_id: workspace_id.into(), proposal_id: proposal.proposal_id.clone(),
+            }).ok()
+        } else { None };
         let spot_order_intervals = if spot_rules.is_some() {
             spot_order_intervals::get(
                 self,
@@ -8055,6 +8074,10 @@ impl ControlPlane {
             }
             None => None,
         };
+        if let Some(commission) = &spot_commission {
+            inputs.push(risk::input_reference(risk::RiskDecisionInputKind::SpotCommission,
+                proposal.proposal_id.clone(), commission.observation.as_ref().and_then(|o|o.reads.first()).map(|r|r.received_at.clone()), commission)?);
+        }
         if let Some(intervals) = &spot_order_intervals {
             inputs.push(risk::input_reference(
                 risk::RiskDecisionInputKind::SpotOrderIntervals,
@@ -8141,6 +8164,7 @@ impl ControlPlane {
         decision.spot_order_intervals = spot_order_intervals;
         decision.spot_owning = spot_owning;
         decision.spot_fee_fx = spot_fee_fx;
+        decision.spot_commission = spot_commission;
         decision.spot_rules = spot_rules.map(|mut captured| {
             for reference in &mut captured.references {
                 reference.price = None;
@@ -8518,7 +8542,8 @@ impl ControlPlane {
         // The owning Spot admission gate is part of the reviewed decision: when the venue's own
         // declared capacity or order-rate evidence does not currently admit this intent, the
         // review is not eligible and the blocker names the single binding fact.
-        let owning_required = proposal.fields.environment == protocol::ExecutionContext::BinanceLive
+        let owning_required = proposal.fields.environment
+            == protocol::ExecutionContext::BinanceLive
             && financial_sources::spot_rules_selected_once(self)?;
         if owning_required {
             match current_decision.spot_owning.as_ref() {

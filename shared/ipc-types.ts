@@ -553,7 +553,8 @@ export type RiskDecisionInputKind =
   | "CURRENCY_RATES"
   | "SPOT_CAPACITY"
   | "SPOT_ORDER_INTERVALS"
-  | "SPOT_FEE_FX";
+  | "SPOT_FEE_FX"
+  | "SPOT_COMMISSION";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotCapacityQuality".
@@ -574,6 +575,21 @@ export type SpotCapacityPurpose = "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" |
  * via the `definition` "SpotCapacityStatus".
  */
 export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionQuality".
+ */
+export type SpotCommissionQuality = "READ_ONLY_SYMBOL_COMMISSION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionReadKind".
+ */
+export type SpotCommissionReadKind = "ACCOUNT_IDENTITY" | "SYMBOL_COMMISSION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionStatus".
+ */
+export type SpotCommissionStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
 /**
  * The conservative declared basis this statement relies on; present whenever the venue declares
  * commission rates, even when no fee amount can be stated because the fee-charging asset is
@@ -1084,6 +1100,7 @@ export type ReplyData =
   | RiskPolicyState
   | SpotProposalRules
   | SpotCapacityInputs
+  | SpotCommissionInputs
   | SpotOrderIntervalInputs
   | RiskDecision
   | RiskDecisionHistory
@@ -1411,6 +1428,7 @@ export interface IpcSchema {
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
   spotCapacityInputs: SpotCapacityInputs;
+  spotCommissionInputs: SpotCommissionInputs;
   spotOrderIntervalInputs: SpotOrderIntervalInputs;
   spotProposalRules: SpotProposalRules;
   spotRulesQuery: SpotRulesQuery;
@@ -3674,6 +3692,7 @@ export interface RiskDecision {
   proposalHash: string;
   proposalId: string;
   spotCapacity?: SpotCapacityInputs | null;
+  spotCommission?: SpotCommissionInputs | null;
   spotFeeFx?: SpotFeeFxStatement | null;
   spotOrderIntervals?: SpotOrderIntervalInputs | null;
   spotOwning?: SpotOwningQualification | null;
@@ -3926,6 +3945,96 @@ export interface SpotCapacityRead {
   oldestProviderUpdateTimeMs?: string | null;
   receivedAt: string;
   startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionInputs".
+ */
+export interface SpotCommissionInputs {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  failure?: string | null;
+  instrumentId: string;
+  observation?: SpotCommissionObservation | null;
+  proposalHash: string;
+  proposalId: string;
+  qualification: RiskCheckOutcome;
+  quoteAsset: string;
+  ruleMaterialVersion?: string | null;
+  side: OrderSide;
+  sourceVersion: string;
+  stateVersion: string;
+  status: SpotCommissionStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionObservation".
+ */
+export interface SpotCommissionObservation {
+  chargingAssetQualified: boolean;
+  collectionId: string;
+  conditionalDiscountAsset?: string | null;
+  discount: SpotCommissionDiscount;
+  /**
+   * @maxItems 32
+   */
+  extensionKeys: string[];
+  /**
+   * The database response supplies no provider observation timestamp.
+   */
+  providerObservedAt?: string | null;
+  quality: SpotCommissionQuality;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  reads: [SpotCommissionReceipt, SpotCommissionReceipt];
+  /**
+   * Received-asset branch, not a guaranteed fill-time fee currency.
+   */
+  receivedAsset: string;
+  remoteAccountId: string;
+  specialCommission: SpotCommissionRates;
+  standardCommission: SpotCommissionRates;
+  symbol: string;
+  taxCommission: SpotCommissionRates;
+  termsComplete: boolean;
+  /**
+   * @maxItems 4
+   */
+  unresolvedObligations: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionDiscount".
+ */
+export interface SpotCommissionDiscount {
+  discount: string;
+  discountAsset: string;
+  enabledForAccount: boolean;
+  enabledForSymbol: boolean;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionReceipt".
+ */
+export interface SpotCommissionReceipt {
+  digest: string;
+  kind: SpotCommissionReadKind;
+  receivedAt: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionRates".
+ */
+export interface SpotCommissionRates {
+  buyer: string;
+  maker: string;
+  seller: string;
+  taker: string;
 }
 /**
  * One exact statement of the reviewed intent's owning fee and genuinely-required execution FX.

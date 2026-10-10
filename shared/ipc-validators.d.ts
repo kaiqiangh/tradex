@@ -402,6 +402,14 @@ declare const validators: {
   SpotCapacityRead: (value: unknown) => boolean;
   SpotCapacityReadKind: (value: unknown) => boolean;
   SpotCapacityStatus: (value: unknown) => boolean;
+  SpotCommissionDiscount: (value: unknown) => boolean;
+  SpotCommissionInputs: (value: unknown) => boolean;
+  SpotCommissionObservation: (value: unknown) => boolean;
+  SpotCommissionQuality: (value: unknown) => boolean;
+  SpotCommissionRates: (value: unknown) => boolean;
+  SpotCommissionReadKind: (value: unknown) => boolean;
+  SpotCommissionReceipt: (value: unknown) => boolean;
+  SpotCommissionStatus: (value: unknown) => boolean;
   SpotDeclaredCommission: (value: unknown) => boolean;
   SpotDepthCoverage: (value: unknown) => boolean;
   SpotDepthLevel: (value: unknown) => boolean;

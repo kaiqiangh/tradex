@@ -262,6 +262,7 @@ async fn control(
                     | "data.binance_rules.refresh"
                     | "trade.spot_rules.refresh"
                     | "trade.spot_capacity.refresh"
+                    | "trade.spot_commission.refresh"
                     | "trade.spot_order_intervals.refresh"
             )
         ) {

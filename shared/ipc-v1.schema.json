@@ -460,6 +460,9 @@
     "spotCapacityInputs": {
       "$ref": "#/$defs/SpotCapacityInputs"
     },
+    "spotCommissionInputs": {
+      "$ref": "#/$defs/SpotCommissionInputs"
+    },
     "spotOrderIntervalInputs": {
       "$ref": "#/$defs/SpotOrderIntervalInputs"
     },
@@ -600,6 +603,7 @@
     "spotRulesQuery",
     "spotProposalRules",
     "spotCapacityInputs",
+    "spotCommissionInputs",
     "spotOrderIntervalInputs",
     "riskDecisionQuery",
     "saveRiskPolicy",
@@ -13434,6 +13438,9 @@
           "$ref": "#/$defs/SpotCapacityInputs"
         },
         {
+          "$ref": "#/$defs/SpotCommissionInputs"
+        },
+        {
           "$ref": "#/$defs/SpotOrderIntervalInputs"
         },
         {
@@ -14630,6 +14637,16 @@
             }
           ]
         },
+        "spotCommission": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCommissionInputs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "spotFeeFx": {
           "anyOf": [
             {
@@ -14760,7 +14777,8 @@
         "CURRENCY_RATES",
         "SPOT_CAPACITY",
         "SPOT_ORDER_INTERVALS",
-        "SPOT_FEE_FX"
+        "SPOT_FEE_FX",
+        "SPOT_COMMISSION"
       ]
     },
     "RiskDecisionInputReference": {
@@ -16709,6 +16727,331 @@
       ]
     },
     "SpotCapacityStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_OBSERVED",
+        "OBSERVED",
+        "UNAVAILABLE",
+        "STALE"
+      ]
+    },
+    "SpotCommissionDiscount": {
+      "type": "object",
+      "properties": {
+        "discount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "discountAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "enabledForAccount": {
+          "type": "boolean"
+        },
+        "enabledForSymbol": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "enabledForAccount",
+        "enabledForSymbol",
+        "discountAsset",
+        "discount"
+      ]
+    },
+    "SpotCommissionInputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCommissionObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "qualification": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotCommissionStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "side",
+        "sourceVersion",
+        "status",
+        "qualification",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotCommissionObservation": {
+      "type": "object",
+      "properties": {
+        "chargingAssetQualified": {
+          "type": "boolean"
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "conditionalDiscountAsset": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "discount": {
+          "$ref": "#/$defs/SpotCommissionDiscount"
+        },
+        "extensionKeys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 32
+        },
+        "providerObservedAt": {
+          "description": "The database response supplies no provider observation timestamp.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/SpotCommissionQuality"
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCommissionReceipt"
+          },
+          "maxItems": 2,
+          "minItems": 2
+        },
+        "receivedAsset": {
+          "description": "Received-asset branch, not a guaranteed fill-time fee currency.",
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "specialCommission": {
+          "$ref": "#/$defs/SpotCommissionRates"
+        },
+        "standardCommission": {
+          "$ref": "#/$defs/SpotCommissionRates"
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "taxCommission": {
+          "$ref": "#/$defs/SpotCommissionRates"
+        },
+        "termsComplete": {
+          "type": "boolean"
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "remoteAccountId",
+        "symbol",
+        "quality",
+        "standardCommission",
+        "taxCommission",
+        "specialCommission",
+        "discount",
+        "termsComplete",
+        "receivedAsset",
+        "chargingAssetQualified",
+        "reads",
+        "extensionKeys",
+        "unresolvedObligations"
+      ]
+    },
+    "SpotCommissionQuality": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY_SYMBOL_COMMISSION"
+      ]
+    },
+    "SpotCommissionRates": {
+      "type": "object",
+      "properties": {
+        "buyer": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "maker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "seller": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "taker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "maker",
+        "taker",
+        "buyer",
+        "seller"
+      ]
+    },
+    "SpotCommissionReadKind": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_IDENTITY",
+        "SYMBOL_COMMISSION"
+      ]
+    },
+    "SpotCommissionReceipt": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "kind": {
+          "$ref": "#/$defs/SpotCommissionReadKind"
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "startedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotCommissionStatus": {
       "type": "string",
       "enum": [
         "NOT_OBSERVED",

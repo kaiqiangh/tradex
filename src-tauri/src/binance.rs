@@ -153,6 +153,7 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
             "/sapi/v1/account/apiRestrictions"
                 | "/sapi/v1/account/apiTradingStatus"
                 | "/api/v3/myFilters"
+                | "/api/v3/account/commission"
                 | "/api/v3/openOrderList"
                 | "/api/v3/rateLimit/order"
         ))
@@ -189,6 +190,11 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     keys.remove("timestamp");
     keys.remove("recvWindow");
     match route {
+        "/api/v3/account/commission" => {
+            endpoint == ProviderEndpoint::BinanceLive
+                && keys.len() == 1
+                && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
+        }
         "/api/v3/account" | "/api/v3/openOrderList" | "/api/v3/rateLimit/order" => keys.is_empty(),
         "/api/v3/openOrders" => {
             keys.is_empty()

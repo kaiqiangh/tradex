@@ -2156,6 +2156,9 @@ pub fn execute_refresh(
             control, request, consumer, vault, http,
         );
     }
+    if request["command"] == "trade.spot_commission.refresh" {
+        return crate::spot_commission::execute_refresh(control, request, consumer, vault, http);
+    }
     if request["command"] == "trade.spot_capacity.refresh" {
         return crate::spot_capacity::execute_refresh(control, request, consumer, vault, http);
     }

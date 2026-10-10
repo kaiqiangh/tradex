@@ -301,6 +301,23 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.commission.fixture") {
+                // Only the external HTTP producer changes; this never sets Control Plane evidence.
+                let mode=match request["payload"]["scenario"].as_str() {
+                    Some("NORMAL")=>Some(fixtures::BinanceCommissionFixture::Normal),
+                    Some("CHANGED")=>Some(fixtures::BinanceCommissionFixture::Changed),
+                    Some("INCOMPLETE")=>Some(fixtures::BinanceCommissionFixture::Incomplete),
+                    Some("EXTENSIONS")=>Some(fixtures::BinanceCommissionFixture::Extensions),
+                    _=>None,
+                };
+                let reply=if let Some(mode)=mode.filter(|_|http.binance_rules_ui) {
+                    http.binance_commission_ui.set(mode);
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                } else {json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})};
+                write_frame(&output,&json!({"kind":"result","result":reply}))?;
+                frame.clear();oversized=false;continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.live.capacity.fixture") {
                 // Only external HTTP responses change. No Control Plane capacity
                 // or financial authority is populated by this disposable UI seam.
@@ -1428,6 +1445,7 @@ fn main() -> io::Result<()> {
                         | "data.binance_rules.refresh"
                         | "trade.spot_rules.refresh"
                         | "trade.spot_capacity.refresh"
+                        | "trade.spot_commission.refresh"
                         | "trade.spot_order_intervals.refresh"
                 )
             ) {

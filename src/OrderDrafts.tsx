@@ -1,3 +1,4 @@
+import { CurrentSpotCommission, SpotCommissionExplanation } from './SpotCommissionInputs.tsx';
 import { CurrentSpotOrderIntervals, SpotOrderIntervalExplanation } from './SpotOrderIntervalInputs.tsx';
 import { CurrentSpotCapacity, SpotCapacityExplanation } from './SpotCapacityInputs.tsx';
 import { CurrentSpotRules, SpotRulesExplanation } from './SpotProposalRules.tsx';
@@ -1514,6 +1515,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <SpotRuleContext workspaceId={workspaceId} accountId={proposalDetail.data.fields.accountId ?? undefined} instrumentId={proposalDetail.data.fields.instrumentId} />}
             <FxSourceContext workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotRules key={proposalDetail.data.proposalId} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
+            {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotCommission key={`commission:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotCapacity key={`capacity:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotOrderIntervals key={`intervals:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
@@ -1811,6 +1813,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <h3>Quote evidence before arming</h3>
         <p className="muted">Read only. This observation does not approve or arm the account. After arming, a new independent review revalidates the proposal and current evidence.</p>
         {liveArmReview.quoteReview?.riskDecision.spotRules && <SpotRulesExplanation rules={liveArmReview.quoteReview.riskDecision.spotRules} captured />}
+        {liveArmReview.quoteReview?.riskDecision.spotCommission && <SpotCommissionExplanation inputs={liveArmReview.quoteReview?.riskDecision.spotCommission} captured />}
         {liveArmReview.quoteReview?.riskDecision.spotCapacity && <SpotCapacityExplanation inputs={liveArmReview.quoteReview.riskDecision.spotCapacity} captured />}
         {liveArmReview.quoteReview?.riskDecision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={liveArmReview.quoteReview.riskDecision.spotOrderIntervals} captured />}
         {liveArmReview.quoteReview?.riskDecision.spotOwning && <SpotOwningExplanation qualification={liveArmReview.quoteReview.riskDecision.spotOwning} />}
@@ -1854,6 +1857,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
       {approvalReview.riskDecision.spotRules && <SpotRulesExplanation rules={approvalReview.riskDecision.spotRules} captured />}
+        {approvalReview.riskDecision.spotCommission && <SpotCommissionExplanation inputs={approvalReview.riskDecision.spotCommission} captured />}
         {approvalReview.riskDecision.spotCapacity && <SpotCapacityExplanation inputs={approvalReview.riskDecision.spotCapacity} captured />}
         {approvalReview.riskDecision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={approvalReview.riskDecision.spotOrderIntervals} captured />}
         {approvalReview.riskDecision.spotOwning && <SpotOwningExplanation qualification={approvalReview.riskDecision.spotOwning} />}
@@ -1969,6 +1973,7 @@ function RiskDecisionPanel({ history, loading, error, busy, onEvaluate }: {
           <strong>{check.checkId} · {check.outcome}</strong><span>{check.reasonCode}: {check.reason}</span>
         </li>)}</ul>
         {decision.spotRules && <SpotRulesExplanation rules={decision.spotRules} captured />}
+        {decision.spotCommission && <SpotCommissionExplanation inputs={decision.spotCommission} captured />}
         {decision.spotCapacity && <SpotCapacityExplanation inputs={decision.spotCapacity} captured />}
         {decision.spotOrderIntervals && <SpotOrderIntervalExplanation inputs={decision.spotOrderIntervals} captured />}
         {decision.spotOwning && <SpotOwningExplanation qualification={decision.spotOwning} />}

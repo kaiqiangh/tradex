@@ -4876,6 +4876,14 @@ impl tradex::provider_io::ProviderHttp for RuleHttp {
             "/api/v3/account" => {
                 json!({"uid":self.uid.get(),"accountType":"SPOT","canTrade":true,"permissions":["SPOT"]})
             }
+            "/api/v3/account/commission" => {
+                assert!(query.starts_with("symbol=BTCUSDT&timestamp="));
+                json!({"symbol":"BTCUSDT",
+                    "standardCommission":{"maker":"0.00000010","taker":"0.00000020","buyer":"0.00000030","seller":"0.00000040"},
+                    "taxCommission":{"maker":"0.00000112","taker":"0.00000114","buyer":"0.00000118","seller":"0.00000116"},
+                    "specialCommission":{"maker":"0.01000000","taker":"0.02000000","buyer":"0.03000000","seller":"0.04000000"},
+                    "discount":{"enabledForAccount":true,"enabledForSymbol":true,"discountAsset":"BNB","discount":"0.75000000"}})
+            }
             "/api/v3/rateLimit/order" => {
                 assert!(query.starts_with("timestamp=") && !query.contains("symbol="));
                 json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64,"count":9007199254740993u64}])
@@ -6706,4 +6714,208 @@ fn owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider
     let current = command(&mut reopened, "trade.spot_capacity.get", query);
     assert!(current["data"]["observation"].is_null());
     assert_eq!(external.calls.borrow().len(), calls);
+}
+
+// S29.10 public source path: normal application commands; only external HTTP/vault are fake.
+fn commission_get(rig: &RuleRig, proposal: &Value) -> Value {
+    command(
+        &mut rig.control.lock().unwrap(),
+        "trade.spot_commission.get",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    )
+}
+fn commission_refresh(rig: &RuleRig, proposal: &Value, external: &RuleHttp) -> Value {
+    let before = commission_get(rig, proposal);
+    tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"commission-collection","schemaVersion":1,"command":"trade.spot_commission.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        external,
+    )
+}
+#[test]
+fn symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority() {
+    if isolated_rule_scenario(
+        "symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let missing = commission_get(&rig, &proposal);
+    assert_eq!(
+        missing["ok"], true,
+        "A user must be able to inspect the exact Proposal fee-source state: {missing}"
+    );
+    assert_eq!(missing["data"]["status"], "NOT_OBSERVED");
+    let first = external.calls.borrow().len();
+    let collected = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(collected["data"]["status"], "OBSERVED", "{collected}");
+    assert_eq!(collected["data"]["qualification"], "UNAVAILABLE");
+    assert_eq!(collected["data"]["proposalHash"], proposal["proposalHash"]);
+    assert_eq!(collected["data"]["accountId"], rig.account["connectionId"]);
+    let terms = &collected["data"]["observation"];
+    assert_eq!(terms["symbol"], "BTCUSDT");
+    assert_eq!(terms["standardCommission"]["maker"], "0.00000010");
+    assert_eq!(terms["taxCommission"]["seller"], "0.00000116");
+    assert_eq!(terms["specialCommission"]["buyer"], "0.03000000");
+    assert_eq!(terms["discount"]["discount"], "0.75000000");
+    assert_eq!(terms["termsComplete"], true);
+    assert!(terms["providerObservedAt"].is_null());
+    assert_eq!(
+        terms["receivedAsset"], "BTC",
+        "BUY fees come from the received BASE branch"
+    );
+    assert_eq!(terms["conditionalDiscountAsset"], "BNB");
+    assert_eq!(terms["chargingAssetQualified"], false);
+    assert!(terms["feeAmount"].is_null());
+    let calls = external.calls.borrow();
+    let fresh = &calls[first..];
+    assert_eq!(
+        fresh.len(),
+        3,
+        "One bounded explicit collection uses time/account/commission GETs: {fresh:?}"
+    );
+    assert!(
+        fresh[0] == "/api/v3/time"
+            && fresh[1].starts_with("/api/v3/account?timestamp=")
+            && fresh[2].starts_with("/api/v3/account/commission?symbol=BTCUSDT&timestamp=")
+    );
+    drop(calls);
+    let retained = commission_get(&rig, &proposal);
+    assert_eq!(
+        retained["data"], collected["data"],
+        "Reading cached evidence must not renew its receipt"
+    );
+    assert_eq!(external.calls.borrow().len(), first + 3);
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["data"]["eligible"], false);
+    let account = command(
+        &mut rig.control.lock().unwrap(),
+        "account.get",
+        json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]}),
+    );
+    assert_eq!(account["data"]["health"]["arming"], "DISARMED");
+}
+
+#[test]
+fn symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification() {
+    if isolated_rule_scenario("symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification") { return; }
+    let rig=RuleRig::new();let external=RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");
+    let proposal=rig.decision();assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
+    let captured=risk_evaluate(&rig,&proposal);
+    assert_eq!(captured["spotCommission"]["observation"]["standardCommission"]["maker"],"0.00000010","Risk history must carry the symbol-specific declaration: {captured}");
+    let first=request_approval(&rig,&proposal);assert_eq!(first["data"]["eligible"],false);
+    external.edit.set(Some(|route,body| {if route=="/api/v3/account/commission" {body["standardCommission"]["maker"]=json!("0.00000025");body["discount"]["enabledForSymbol"]=json!(false);}}));
+    let changed=commission_refresh(&rig,&proposal,&external);assert_eq!(changed["data"]["status"],"OBSERVED");
+    assert!(changed["data"]["observation"]["conditionalDiscountAsset"].is_null());
+    let second=request_approval(&rig,&proposal);
+    assert_eq!(second["data"]["riskDecision"]["spotCommission"]["observation"]["standardCommission"]["maker"],"0.00000025");
+    assert_ne!(first["data"]["reviewDigest"],second["data"]["reviewDigest"]);
+    assert_eq!(second["data"]["eligible"],false);
+    assert_eq!(second["data"]["riskDecision"]["spotFeeFx"]["feeCurrency"],"UNKNOWN");
+    let calls=external.calls.borrow().len();
+    let history=command(&mut rig.control.lock().unwrap(),"risk.decision.list",json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}));
+    let saved=history["data"]["decisions"].as_array().unwrap().iter().find(|d|d["decisionId"]==captured["decisionId"]).unwrap();
+    assert_eq!(saved["spotCommission"],captured["spotCommission"]);
+    assert_eq!(external.calls.borrow().len(),calls,"Captured reads do not call the provider");
+}
+
+#[test]
+fn symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source() {
+    if isolated_rule_scenario("symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source") {return;}
+    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["discount"]["discount"]=json!("1.00000001");}}));
+    let failed=commission_refresh(&rig,&proposal,&external);
+    assert_eq!(failed["data"]["status"],"UNAVAILABLE","An out-of-range discount is not a valid complete source: {failed}");
+    assert_eq!(failed["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+    assert!(failed["data"]["observation"].is_null());
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["taxCommission"].as_object_mut().unwrap().remove("seller");}}));
+    let missing=commission_refresh(&rig,&proposal,&external);
+    assert_eq!(missing["data"]["status"],"UNAVAILABLE");assert!(missing["data"]["observation"].is_null());
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["standardCommission"]["maker"]=json!(0.001);}}));
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+    external.edit.set(None);
+    *external.raw.borrow_mut()=Some(("/api/v3/account/commission".into(),b"{\"symbol\":\"BTCUSDT\",\"symbol\":\"ETHUSDT\"}".to_vec()));
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+    *external.raw.borrow_mut()=None;
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
+}
+
+#[test]
+fn symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified() {
+    if isolated_rule_scenario("symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified") {return;}
+    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=sell_proposal(&rig);
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["specialCommission"]["futureFee"]=json!("private-undeclared-fee-term");}}));
+    let source=commission_refresh(&rig,&proposal,&external);
+    assert_eq!(source["data"]["status"],"OBSERVED");let observation=&source["data"]["observation"];
+    assert_eq!(observation["receivedAsset"],"USDT","SELL receives the quote asset");
+    assert_eq!(observation["termsComplete"],false);
+    assert_eq!(observation["extensionKeys"],json!(["specialCommission.futureFee"]));
+    assert!(observation["unresolvedObligations"].as_array().unwrap().contains(&json!("UNKNOWN_ACTIVE_COMMISSION_FIELDS_UNRESOLVED")));
+    assert!(!source.to_string().contains("private-undeclared-fee-term"));
+    assert_eq!(observation["chargingAssetQualified"],false);
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["discount"]["enabledForAccount"]=json!(false);}}));
+    let disabled=commission_refresh(&rig,&proposal,&external);
+    assert_eq!(disabled["data"]["status"],"OBSERVED");assert!(disabled["data"]["observation"]["conditionalDiscountAsset"].is_null());
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["discount"]["discountAsset"]=json!("FUTURETOKEN");}}));
+    let unsupported=commission_refresh(&rig,&proposal,&external);assert_eq!(unsupported["data"]["observation"]["termsComplete"],false);
+    assert!(unsupported["data"]["observation"]["unresolvedObligations"].as_array().unwrap().contains(&json!("UNSUPPORTED_DISCOUNT_ASSET")));
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["standardCommission"]["x".repeat(65)]=json!("0.1");}}));
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+}
+
+#[test]
+fn symbol_commission_identity_and_provider_failures_never_reuse_an_older_success() {
+    if isolated_rule_scenario("symbol_commission_identity_and_provider_failures_never_reuse_an_older_success") {return;}
+    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
+    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["symbol"]=json!("ETHUSDT");}}));
+    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_IDENTITY_CHANGED");
+    external.edit.set(None);external.uid.set(1);
+    let first=external.calls.borrow().len();let mismatched=commission_refresh(&rig,&proposal,&external);
+    assert_eq!(mismatched["data"]["failure"],"PROVIDER_IDENTITY_CHANGED");assert_eq!(external.calls.borrow().len()-first,2,"A wrong UID stops before the symbol read");
+    external.uid.set(rig.account["data"]["remoteAccountId"].as_str().unwrap().parse().unwrap());
+    for (status,reason) in [(401,"PROVIDER_AUTHENTICATION_FAILED"),(403,"PROVIDER_PERMISSION_BLOCKED"),(500,"PROVIDER_UNAVAILABLE"),(429,"PROVIDER_RATE_LIMITED")] {
+        *external.response.borrow_mut()=Some(("/api/v3/account/commission".into(),status,2));
+        let result=commission_refresh(&rig,&proposal,&external);assert_eq!(result["data"]["status"],"UNAVAILABLE","{result}");assert_eq!(result["data"]["failure"],reason);assert!(result["data"]["observation"].is_null());
+    }
+}
+
+#[test]
+fn symbol_commission_late_source_generation_and_renderer_authority_are_refused() {
+    if isolated_rule_scenario("symbol_commission_late_source_generation_and_renderer_authority_are_refused") {return;}
+    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
+    let before=commission_get(&rig,&proposal);let first=external.calls.borrow().len();
+    let forged=tradex::financial_sources::execute_refresh(&rig.control,&json!({"requestId":"forged-fee","schemaVersion":1,"command":"trade.spot_commission.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"],"qualification":"PASS"}}),"main",&rig.vault,&external);
+    assert_eq!(forged["ok"],false);assert_eq!(external.calls.borrow().len(),first);
+    let control=rig.control.clone();let workspace=rig.workspace.clone();let account_id=rig.account["connectionId"].clone();
+    *external.hook.borrow_mut()=Some(("/api/v3/account/commission".into(),Box::new(move || {
+        let mut cp=control.lock().unwrap();let source=command(&mut cp,"data.binance_rules.connection",json!({"workspaceId":workspace}));
+        let changed=command(&mut cp,"data.binance_rules.configure",json!({"workspaceId":workspace,"connectionId":account_id,"instrumentId":"crypto:BTC/USDT:spot","expectedStateVersion":source["data"]["stateVersion"]}));assert_eq!(changed["ok"],true);
+    })));
+    let late=commission_refresh(&rig,&proposal,&external);assert_eq!(late["error"]["code"],"STATE_VERSION_CONFLICT","{late}");
+    *external.hook.borrow_mut()=None;
+    assert!(commission_get(&rig,&proposal)["data"]["observation"].is_null());
+    let unavailable=commission_refresh(&rig,&proposal,&external);assert_eq!(unavailable["error"]["code"],"ORDER_FILTERS_UNAVAILABLE");
+}
+
+#[test]
+fn symbol_commission_expires_without_renewal_and_captured_history_survives_reopen() {
+    if isolated_rule_scenario("symbol_commission_expires_without_renewal_and_captured_history_survives_reopen") {return;}
+    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
+    let collected=commission_refresh(&rig,&proposal,&external);assert_eq!(collected["data"]["status"],"OBSERVED");let captured=risk_evaluate(&rig,&proposal);
+    let calls=external.calls.borrow().len();std::thread::sleep(std::time::Duration::from_secs(6));
+    let expired=commission_get(&rig,&proposal);assert_eq!(expired["data"]["status"],"STALE");assert!(expired["data"]["observation"].is_null());assert_eq!(external.calls.borrow().len(),calls);
+    let query=json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]});
+    let RuleRig{_folder,control,..}=rig;drop(control);
+    let mut reopened=ControlPlane::new(_folder.path().into());assert_eq!(command(&mut reopened,"workspace.open",json!({}))["ok"],true);
+    let history=command(&mut reopened,"risk.decision.list",query);
+    let saved=history["data"]["decisions"].as_array().unwrap().iter().find(|d|d["decisionId"]==captured["decisionId"]).unwrap();
+    assert_eq!(saved["spotCommission"],captured["spotCommission"]);assert_eq!(external.calls.borrow().len(),calls);
 }

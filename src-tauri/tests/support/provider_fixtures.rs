@@ -77,11 +77,15 @@ impl BinanceCapacityFixture {
     }
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum BinanceCommissionFixture { #[default] Normal, Changed, Incomplete, Extensions }
+
 pub struct Http {
     // External response mode used only by disposable FX browser QA.
     pub fx_ui: bool,
     pub binance_rules_ui: bool,
     pub binance_capacity_ui: Cell<BinanceCapacityFixture>,
+    pub binance_commission_ui: Cell<BinanceCommissionFixture>,
     pub alpaca_quote_status: Cell<u16>,
     pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
     pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
@@ -145,6 +149,7 @@ impl Default for Http {
             fx_ui: false,
             binance_rules_ui: false,
             binance_capacity_ui: Cell::new(BinanceCapacityFixture::Normal),
+            binance_commission_ui: Cell::new(BinanceCommissionFixture::Normal),
             alpaca_quote_status: Cell::new(200),
             alpaca_quote_body: RefCell::new(None),
             alpaca_condition_body: RefCell::new(None),
@@ -1095,6 +1100,20 @@ impl ProviderHttp for Http {
                     if self.binance_rules_ui && self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
                         if self.binance_capacity_ui.get()==BinanceCapacityFixture::Delayed { std::thread::sleep(std::time::Duration::from_millis(1500)); }
                         value["balances"].as_array_mut().unwrap().extend([json!({"asset":"BTC","free":"0.10000000","locked":"0.02000000"}),json!({"asset":"ETH","free":"1.00000000","locked":"0.00000000"})]);
+                    }
+                    value
+                },
+                "/api/v3/account/commission" if self.binance_rules_ui => {
+                    let mut value=json!({"symbol":param("symbol").unwrap(),
+                        "standardCommission":{"maker":"0.00000010","taker":"0.00000020","buyer":"0.00000030","seller":"0.00000040"},
+                        "taxCommission":{"maker":"0.00000112","taker":"0.00000114","buyer":"0.00000118","seller":"0.00000116"},
+                        "specialCommission":{"maker":"0.01000000","taker":"0.02000000","buyer":"0.03000000","seller":"0.04000000"},
+                        "discount":{"enabledForAccount":true,"enabledForSymbol":true,"discountAsset":"BNB","discount":"0.75000000"}});
+                    match self.binance_commission_ui.get() {
+                        BinanceCommissionFixture::Normal=>(),
+                        BinanceCommissionFixture::Changed=>{value["standardCommission"]["maker"]=json!("0.00000025");value["discount"]["enabledForSymbol"]=json!(false);},
+                        BinanceCommissionFixture::Incomplete=>{value["taxCommission"].as_object_mut().unwrap().remove("seller");},
+                        BinanceCommissionFixture::Extensions=>{value["specialCommission"]["futureActiveFee"]=json!("0.1");},
                     }
                     value
                 },

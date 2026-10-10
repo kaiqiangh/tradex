@@ -846,6 +846,7 @@ pub enum RiskDecisionInputKind {
     SpotCapacity,
     SpotOrderIntervals,
     SpotFeeFx,
+    SpotCommission,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -927,6 +928,8 @@ pub struct RiskDecision {
     pub spot_owning: Option<crate::spot_owning::SpotOwningQualification>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_fee_fx: Option<crate::spot_fee_fx::SpotFeeFxStatement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_commission: Option<crate::spot_commission::SpotCommissionInputs>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1086,7 +1089,8 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
         | RiskDecisionInputKind::CurrencyRates
         | RiskDecisionInputKind::SpotCapacity
         | RiskDecisionInputKind::SpotOrderIntervals
-        | RiskDecisionInputKind::SpotFeeFx => {}
+        | RiskDecisionInputKind::SpotFeeFx
+        | RiskDecisionInputKind::SpotCommission => {}
     }
 }
 
@@ -2291,6 +2295,7 @@ pub(crate) fn evaluate(
         spot_order_intervals: None,
         spot_owning: None,
         spot_fee_fx: None,
+        spot_commission: None,
     }
 }
 
