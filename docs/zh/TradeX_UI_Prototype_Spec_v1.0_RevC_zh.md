@@ -1044,3 +1044,7 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 ## 14.32 拥有方 Spot Live 准入陈述（S29.8 #129，IN_PROGRESS）
 
 对所选中的、未变更的普通 Binance Live Proposal，在 Live 批准复核、pre-arm 捕获证据与 RiskDecision 历史中、于已交付的容量与时段面板旁渲染拥有方准入陈述。用平实语言给出精确原因；随后在同一行给出交易所自身声明的剩余下单额度及其绑定声明桶，或在无法依赖任何额度时给出唯一类型化阻塞，使数字与其阻塞总是被一起阅读。标明声明单位（买单 QUOTE、卖单 BASE）、每个数字的声明出处、声明的开放订单数与标的开放买单数量，并明确说明后者只是声明敞口、绝非可用余额；给出声明的 BASE free/locked 数字，并明确说明提供方 free 已排除订单锁定且绝不二次扣减。把任何既有提供方请求冷却明确标注为并非本门禁，并给出两个观测时间，且明确说明时段计数时间戳缺失。把 `carriedLimitations` 列为其证据如何取得而非覆盖缺口，并明确保留交易所 taker 阶段重算、可能过期以及不存在任何成交、准入或批准承诺。合格陈述绝不渲染为权威；Arm、同意、派发、费用/FX、资金、Prepare、Gateway 与精确 CANCEL/reconciliation 保持独立。捕获 risk/history/pre-arm 保持为已保存评估，无刷新控件、无轮询、不续期收据或同意；拥有方陈述不存在「当前」形态，因为它只会在已保存的 RiskDecision 内派生。验证 keyboard1280/768/390。适用 Backend §41.48 与 Frontend §13.33。原型代码未改；本目标文本本身不构成运行时 PASS。
+
+## 14.33 拥有方费用与所需执行 FX 捕获复核（S29.9 #131，IN_PROGRESS）
+
+当前保存评估、不可变历史及pre-arm复核在精确rate/单位/出处/实际notional旁同时说明route阻断与独立未知fee currency。缺失观察区别于声明rate、比较基准区别于费额估计、同币种identity区别于外部执行FX、provider时间区别于首次收据。不制造费用/换汇/maximum/parity。捕获无refresh/polling；账户/source变化、get与reopen不重写历史。实际keyboard1280/768/390当前/捕获/pre-arm须无溢出且门禁失败时Arm禁用。适用Backend §41.49/Frontend §13.34；source-only不关闭完整金融/原生/物理/main验收。原型代码未改。

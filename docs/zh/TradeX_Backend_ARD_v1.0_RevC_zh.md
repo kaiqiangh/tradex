@@ -3141,6 +3141,16 @@ Pending/失败/过期 refresh、绑定/来源/账户/规则材料/市场/策略/
 
 即使所有数字都当前可用，该资格仍保持执行未获资格：它不是成交承诺、不是未来 taker 阶段的准入保证（交易所按自己的时钟重算窗口），也不能替代 rights、quotes、permissions、health、费用、所需 FX、funding、reservations、Arm、consent、Prepare、Gateway 或即时认证 preflight。Exact CANCEL/对账保持独立。源码实现验收与完整父项/原生/hosted/金融/物理/原型/main 验收相互独立；原型代码未改。
 
+### 41.49 拥有方 Spot 费用与真正所需执行 FX 陈述（S29.9 #131，IN_PROGRESS）
+
+不新增command/source/凭证/provider读取：风险评估与当前审批复核从绑定的`spotCapacity.observation.declaredCommission`及既有Proposal专属FX requirements/observation导出可选`spotFeeFx`。账户响应原始maker/taker/buyer/seller十进制字符串投影，不估算费用或其计入资产。最多公开16个排序未知佣金字段名（每项1–64个Unicode字符）；这是有界披露，不是完整schema认证。未知项义务保留，空/超长名称在wire投影前拒绝，不持久化extension值。maker/taker以精确十进制比较，只确定比较基准，不构成完整佣金；无float或推测币种/金额。
+
+`SpotFeeFxStatement`绑定workspaceId/proposalId/proposalHash/accountId/instrumentId/baseAsset/quoteAsset/side/baseCurrency。hash及feeEvidenceVersion/routeEvidenceVersion为精确71字符sha256: digest；IDs128、asset/currency16、原始rate/amount64、reason512单行、blocker128、carriedLimitations最多5项128。费用字段：feeCurrency/feeCurrencyOrigin、可选feeRateBasis MAKER/TAKER、declaredMakerRate/declaredTakerRate/declaredBuyerRate/declaredSellerRate、expectedFee/expectedSpendQuote/maximumAuthorizedSpendQuote/workspaceBaseExpectedSpend/workspaceBaseExpectedFee。routes最多2项：purpose INTENT_POLICY/INTENT_FUNDING、fromCurrency/toCurrency、可选精确6字符providerPair、state QUALIFIED/UNQUALIFIED/UNSUPPORTED_ROUTE/EVIDENCE_UNAVAILABLE、可选providerQuality/providerTimestamp/firstReceipt/conservativeCost(max64)、reason256。状态沿用RiskCheckOutcome；typed reasonCode为SPOT_FEE_FX_QUALIFIED/SPOT_FEE_FX_EVIDENCE_MISMATCH/SPOT_FEE_EVIDENCE_UNAVAILABLE/SPOT_FEE_CURRENCY_UNKNOWN/SPOT_FEE_RATE_UNSUPPORTED/SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE/SPOT_REQUIRED_FX_UNQUALIFIED/SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE。
+
+仅导出INTENT_POLICY及BUY的INTENT_FUNDING，不包含portfolio/account/balance/position/open-order目的。仅精确恒等无需汇率可QUALIFIED；存在的已交付只读方向汇率在缺少执行质量/成本时仍UNQUALIFIED，绝非执行资格。支持pair仍EURUSD/USDEUR；USDT不同于USD，不制造parity、反向pair或bridge。Scope mismatch优先于route缺失，再是fee事实；复用拥有方activation predicate，在独立容量blocker之后追加一项绑定blocker。缺失佣金明确为缺失，不称已声明。风险输入SPOT_FEE_FX及review digest绑定陈述；声明佣金变化会改变费用/review digest。当前证据不可用时review/approval/Prepare拒绝，无审批签发/预留/写入/重放。既有已签发审批的currency失败与settlement/CANCEL/reconciliation测试不改；不新增正向金融快照setter。
+
+当前输入下feeCurrency/origin为UNKNOWN、费用及workspace-base等价金额缺失，USDT到三字母workspace base无支持的执行路径；产品接缝不可达PASS/SPOT_FEE_FX_QUALIFIED。纯导出契约测试不证明产品资格/金融验收。重开只恢复捕获陈述/配置，无当前观察或provider读取；get/refresh不续收据或重写历史。后续拥有方须同时建立真正费用/计入币种证据及所需执行FX，再完成完整规则/rights/quote/permissions/funding/preflight/lifecycle与授权金融验收。本切片只交付有界拒绝/解释，不代表完整费额估计能力或S29验收；原型代码未改。
+
 ## 42. Backend-to-Frontend Event Surface
 
 代表性 events：

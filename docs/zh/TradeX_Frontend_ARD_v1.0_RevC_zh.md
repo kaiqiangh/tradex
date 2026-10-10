@@ -1203,3 +1203,7 @@ Settings 渲染生成的 credentialKind 与 cleanupPending 字段。专用安全
 已配置 OD-001 的股票详情持有一个临时 `market.hot.acquire` 租约，绑定 workspace、canonical instrument 与来源连接的 `stateVersion`。视图渲染 `market.hot.get` 投影，renderer 不直接拉取提供方报价。本地投影可每 500 ms 刷新，最多一个请求进行中；它不能替代后端 WebSocket producer。认证/订阅标志及 stream status 与 `MarketDetail.status`、报价 freshness 分别展示。导航、切换标的、打开 screener、workspace 变化、卸载及 document 隐藏均释放租约；cleanup 后才返回的 acquire 也必须释放其租约。Failed/stale 投影提供显式所选 feed 重试。旧 effect 的迟到响应不能覆盖新视图。未配置股票与其他资产类别沿用原有受保护详情路径。仅 HTTP 刷新不能展示为 Hot 订阅更新。
 
 自动重连时，视图仍用其 `leaseId` / lease `generation` 读取和释放；单独展示轮换的 `connectionGeneration` 与 `reconnectAttempt`（0–3）。`RECONNECTING` 清除认证/订阅标志，旧报价非 current；视图不得自行 acquire 第二条连接或将 ACK 当作恢复的报价。
+
+### 13.34 捕获的拥有方费用与所需执行 FX 解释（S29.9 #131，IN_PROGRESS）
+
+渲染既有保存RiskDecision/approval/pre-arm的spotFeeFx：精确账户/Proposal/hash/instrument/BASE/QUOTE、原始声明rate/比较基准、实际意图notional/明确声明的maximum、fee currency/origin、所需direction、provider pair/quality/time/首次收据/cost、两个evidence version、carried limitations、一项绑定reason及共存fee事实。缺失佣金不称已声明，缺失费用/换汇仍不可用。无refresh/polling或历史续期；USDT≠USD及keyboard1280/768/390无溢出。陈述成功不代表费用/FX资格，当前Spot输入仍阻断。Backend §41.49/UI §14.33为权威；完整父项/原生/金融/物理/原型/main门禁独立。

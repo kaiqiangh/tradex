@@ -1301,6 +1301,8 @@ The owning Live PLACE admission statement is derived from those already-delivere
 
 The PRICE_RANGE execution rule is explained as a snapshot, never as eligibility. Show the selected side's actual configured multipliers, where a documented omission is not enforced and a reported zero is a real multiplier, the genuine provider reference price that alone qualifies the bound, the exact selected-side snapshot bound with its unit, and clear separation between verified non-enforcement, a provider-reported explicit null, an unavailable or stale lookup and an unsupported configuration. Keep the taker-phase recalculation, possible expiry and the absence of any fill or admission promise explicit. No snapshot preview, reference read or captured review approves, places, reserves or promises a trade, and the venue reference price is never persisted into saved history. Backend §41.47 and UI §14.31 define this contract; prototype code unchanged.
 
+Owning Spot fee/required-FX review consumes the already-read account commission and proposal-scoped routes, preserving declared rates, comparison basis, exact units/origins and independently missing fee/route evidence. Unknown fee currency, unsupported USDT conversion or binding mismatch prevents financial approval/Prepare rather than fabricating a fee, parity or converted maximum. Captured history cannot be renewed. Current input refusal is a source slice only; genuinely established fees and required execution FX remain mandatory for the complete Live path. Backend §41.49/UI §14.33 define this contract; prototype code unchanged.
+
 ---
 
 # 22. Pre-approval and Pre-execution Validation

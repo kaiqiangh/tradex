@@ -9,12 +9,7 @@ This design implements `docs/implementation/s29-fee-and-required-fx-spec.md` (an
 (risk evaluation → immutable approval review → Prepare → authenticated child Gateway) for an ordinary
 Binance Spot Live account on the exact-amount Market/Limit boundary only.
 
-> **READ FIRST — pinned technical findings (§9).** Two of the four PM "存疑" questions resolve to
-> findings that change what a reachable positive case looks like at the public seam. They are stated
-> in full in §9. **All four items are now CLOSED by team-lead ruling (§8)** — two of them make the
-> slice's reachable positive statement-level and its terminal state a documented fail-closed refusal.
-> The Engineer must not "fix" them by relaxing producers, adding parity, adding a supported provider
-> pair, or widening the base currency. §8 also carries three binding pins (P1/P2/P3) for T02/T04/T05.
+> **READ FIRST — current acceptance authority.** Fresh #130/#131 AC and §10 supersede the original positive sequence/test sketches and historical team-lead rulings below for this zero-new-read source/refusal slice. Those sketches remain mandatory remaining full-goal work, not delivered proof. Neither provider capability absence nor permanent full-goal refusal is established. BOTH complete symbol/side fee/charging-currency evidence AND required USDT execution FX remain necessary. Any present delivered read-only rate is UNQUALIFIED without execution cost/quality; only identity needs no rate. No positive fixture or authority setter is added.
 
 ---
 
@@ -439,7 +434,7 @@ publish time.
    code, so `spot_fee_fx.rs:435`'s `SpotFeeFxQualified` branch and the `Pass` outcome are dead at the
    public seam (see §9 裁定 2 and the new "Reachability of the statement's outcomes" section). The
    honest terminal is therefore: **the whole Binance Spot Live authorization path fails closed
-   permanently, for two independent reasons** — not "fee qualified + FX closed". **Explicit
+   with the currently delivered inputs, for two independent reasons** — not "fee qualified + FX closed". **Explicit
    prohibition: do NOT restore a positive by relaxing the producer, adding a supported pair,
    introducing parity, or widening `valid_base_currency`.**
 
@@ -502,7 +497,7 @@ publish time.
   two-axis review are still in progress; the Spec gate #130 and the implementation ticket #131 stay
   OPEN and only enter `## Decisions so far` after closure). Under the delivered bounded FX producer
   (only `EURUSD`/`USDEUR`) and the delivered fixed ordinary hosts, **the entire Binance Spot Live
-  authorization path fails closed permanently at the approval-review gate with
+  authorization path fails closed with the currently delivered inputs at the approval-review gate with
   `RISK_EVIDENCE_UNAVAILABLE`**, for **two independent reasons**: (1) every permitted Spot intent's
   genuinely-required intent route is `USDT → base` and has no supported producer pair (a structural
   impossibility, independent of evidence freshness — `base` is a three-letter fiat only and `USDT` is
@@ -512,7 +507,7 @@ publish time.
   and no `Pass` is granted. This is the correct fail-closed outcome, **not a green path**, and must
   not be presented as a positive result. **Real financial acceptance — one of the remaining S29 items
   (immediate authenticated preflight, private-stream lifecycle, real financial acceptance) — must
-  first resolve ONE of the two independent reasons above**: (a) a fixed ordinary host that declares
+  resolve BOTH independent reasons above**: (a) a fixed ordinary host that declares
   the fee-charging asset appears, or (b) the bounded FX producer's route allow-list is extended from
   `EURUSD`/`USDEUR` to cover the `USDT` side — **but that belongs to a later slice; this slice does
   none of it and must not relax any producer to route around it.** It is written into
@@ -576,7 +571,7 @@ supported pair — it is not. The "genuinely required conversion reached QUALIFI
   SpotFeeCurrencyUnknown`. Since the delivered account response never declares a fee-charging asset
   (裁定 1), `fee_code` is always `Some`, so `spot_fee_fx.rs:435`'s `SpotFeeFxQualified` branch and the
   `Pass` outcome at `:438-442` are **never reached at the public seam**. The honest terminal is that
-  **the whole authorization path fails closed permanently, for two independent reasons** — not "fee
+  **the whole authorization path fails closed with the currently delivered inputs, for two independent reasons** — not "fee
   qualified + FX closed".
 - **Explicit prohibition (team-lead ruling, binding):** do **not** restore a positive by relaxing the
   producer, adding a supported pair, introducing parity, or widening `valid_base_currency`. §8 item 1
@@ -663,3 +658,13 @@ graph LR
 ```
 
 - **Shared knowledge, unclear items and the 裁定 1–4 conclusions** are as recorded in §7, §8 and §9.
+
+### 10. Current implementation/evidence correction (2026-10-10)
+
+T03 display and T04 public regressions are now exercised. Added genuine public RED/GREEN for malformed commission extension names and for an absent commission falsely described as declared; actual React RED/GREEN adds provider-time disclosure. Changed actual commission rates update both fee and approval-review digests. Public capture/refresh/reopen preserves saved values without provider reads. The new test that set an internal market snapshot with the owning gate inactive was removed; new fee tests stay at the approved public external seam. Pure defensive derivation tests are contract-only, never product financial evidence.
+
+The phrase permanent refusal in earlier design sections means only under the currently delivered producer/input combination; it does not redefine the full goal. Official symbol-specific commission information exists on the ordinary fixed host, including separate commission categories and discount configuration, but it is not consumed in this zero-new-read slice. Later work must establish BOTH a trustworthy fee/charging-currency statement and genuinely required USDT execution FX, then complete the other parent gates. It need not wait for a new host to appear. Maker/taker comparison alone is not an all-in fee estimate; AC-035 stays NOT_STARTED. Final verification/review/delivery are still pending.
+
+### Review correction: current external FX contract
+
+A matching delivered rate alone is UNQUALIFIED, never QUALIFIED: its original quality and timestamps remain visible but conservative execution cost is absent. Identity is QUALIFIED without rate or cost. Missing current observation is EVIDENCE_UNAVAILABLE and unsupported pair is UNSUPPORTED_ROUTE. Public USDT refusal is unchanged. Fee-class unit cases explicitly isolate identity routes; unqualified directional-rate tests are defensive retained-contract evidence only. All earlier positive sequence/testing sketches are deferred full-goal requirements, not current source acceptance.
