@@ -1,0 +1,69 @@
+{
+  "stage": "Review correction verified; final full checks/build/UI/delivery pending",
+  "reviewBaseline": "1f8e231de3fe67aec16db1ae7392f34981617330",
+  "head": "bdc21b20bcabe1672ab5f6331238c873954a382c",
+  "cycles": [
+    {
+      "behavior": "Commission extension names obey the wire bound",
+      "red": "red-extension-name-bound.txt",
+      "green": "green-extension-name-bound.txt"
+    },
+    {
+      "behavior": "Missing commission is not described as declared",
+      "red": "red-missing-commission-fact.txt",
+      "green": "green-missing-commission-fact.txt"
+    },
+    {
+      "behavior": "Actual fee review discloses provider time",
+      "red": "ui-before-time-label-result.json",
+      "green": "ui-current-report.json"
+    },
+    {
+      "behavior": "Retained present read-only FX never becomes execution qualification",
+      "kind": "derivation contract only; current public USDT seam unreachable",
+      "red": "red-unqualified-execution-rate.txt",
+      "green": "green-unqualified-execution-rate.txt",
+      "intermediateFailure": "unqualified-rate-first-correction.txt"
+    }
+  ],
+  "firstPassPublicRegressions": [
+    "public-declared-basis.txt",
+    "public-fee-fx-current.txt",
+    "public-commission-current.txt",
+    "public-captured-reopen.txt"
+  ],
+  "contractOnly": "derivation-contract-current.txt",
+  "inheritedT02Summaries": [
+    "red.txt",
+    "green.txt"
+  ],
+  "inheritedSummaryNote": "Earlier T02 summaries are historical, not new independently reproduced RED cycles",
+  "removedTest": "Uncommitted test set an internal market snapshot while the owning fee gate was inactive; removed rather than claimed as fee/FX proof",
+  "schemaSync": "schema-drift-note.json",
+  "notProven": [
+    "Actual monetary fee/charging-asset qualification",
+    "Required USDT execution FX",
+    "Arm/consent/Prepare grant/dispatch",
+    "Native/real-provider/physical/full-map/main acceptance"
+  ],
+  "evidenceHashes": {
+    "derivation-contract-current.txt": "cdc338a98a20d8b66cf88c13f52410ae0bdec71f052d2251236d51f087abc9fe",
+    "green-extension-name-bound.txt": "2840e56618bdd363a1bb0b710061e1ba4e6ed3e8718635bd314a7284cc57d081",
+    "green-missing-commission-fact.txt": "5105a0dce6dd172923012961fec14e87f74dc1756428efede862cf391afb92bc",
+    "green.txt": "b1fdc1a607613a3b47bbe060fd73ff8d486f0fb77647d1ba7f04c8837d39b494",
+    "public-captured-reopen.txt": "2dd2d183d47017d2f3a6c2ca20457efde4329a8e56c7924991d13011132b8010",
+    "public-commission-current.txt": "021b462145154b6f238010b27fc0951ca5eeaeb2365f29ef93e232134da00462",
+    "public-declared-basis.txt": "dd4d9bdad7392bb6c409119bfc7d2efbea47992b8d33d9e06e4bca261178f9c4",
+    "public-fee-fx-current.txt": "8855d37227d1a31c9cc6444293ba853c57c1e637d933ebfa997531e1a5700238",
+    "red-extension-name-bound.txt": "581a51112f4a0b4e9d173453ec432cf6e567f3834acbac54c6f88e38b85fdece",
+    "red-missing-commission-fact.txt": "933e358127c9c82d4beae22a68c972f02dae3e388932682004be17510af79dab",
+    "red.txt": "c4c773d0aeee08995a68eb72c3e7c4e546ebfdb246afc5ff4d8d396e9569bf49",
+    "schema-drift-note.json": "534f005884ef3d57cfabcb66e69702b6374df5718af95bacba1789daeaa67f99",
+    "ui-before-time-label-result.json": "9e7c5d52e613ec356c63d43ed8135e62fcacdd4b93b7593711845327038d7ff7",
+    "ui-current-report.json": "a787b940e2e9aeccb29c7b678d8942898fcdc039ba1e135089e709230dcb676e",
+    "red-unqualified-execution-rate.txt": "ca43e0ef5388abbe8d03a08bb2acd52314c2c66568607fee2207d4f8799ffe12",
+    "green-unqualified-execution-rate.txt": "9d413f34579c57c7b73faa61cbee3637d694b79b319f078776d9ef25a63636e9",
+    "unqualified-rate-first-correction.txt": "dd7d6b057db35dac96ce6f2ab553a36fd0e4f7c6b37dc29ccdf077e1c317e0c1"
+  },
+  "contractOnlyAfterReview": "green-unqualified-execution-rate.txt"
+}

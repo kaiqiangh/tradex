@@ -1,0 +1,17 @@
+{
+  "status": "INTERRUPTED_SUPERSEDED",
+  "reason": "Independent Spec found retained unqualified route defect; stop owned build before source correction, rerun after fix. No current build PASS claimed.",
+  "ownedPids": [
+    1413,
+    1877,
+    3944,
+    4220,
+    4221,
+    4223,
+    4246,
+    4271,
+    4289,
+    4321,
+    84643
+  ]
+}

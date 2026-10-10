@@ -1,0 +1,10 @@
+
+running 3 tests
+test capacity_commission_extension_names_must_fit_the_declared_wire_bound ... ok
+test capacity_seventeen_unknown_commission_keys_stay_an_obligation_and_are_bounded_and_sorted ... ok
+test owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 101 filtered out; finished in 1.18s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)

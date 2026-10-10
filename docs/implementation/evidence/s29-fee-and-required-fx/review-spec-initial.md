@@ -1,0 +1,3 @@
+NOT PASS
+
+Independent serial Spec initial review found two material defects: active paired spec45/56/58 contradicts current zero-new-read refusal AC by requiring currency PASS and public positive fixtures; qualify_route274 labels merely present UnqualifiedFxRate QUALIFIED without execution cost (fixture661, assertion784). Current public USDT path cannot reach the second defect; it is retained-contract evidence only. Correct current slice vs mandatory remaining full-goal targets in both languages, preserve unqualified FX as UNQUALIFIED and isolate fee-only contract cases with identity routes. Reviewer ran no validation; final delivery pending.

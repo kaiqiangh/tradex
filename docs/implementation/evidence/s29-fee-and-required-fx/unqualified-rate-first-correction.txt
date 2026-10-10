@@ -1,0 +1,30 @@
+
+running 7 tests
+test spot_fee_fx::tests::returns_none_when_the_capacity_does_not_describe_the_same_immutable_intent ... ok
+test spot_fee_fx::tests::fails_closed_with_rate_unsupported_when_the_declared_rates_are_not_exact_decimals ... ok
+test spot_fee_fx::tests::fails_closed_with_evidence_unavailable_when_no_current_commission_is_bound ... ok
+test spot_fee_fx::tests::fails_closed_with_currency_unknown_when_rates_are_valid_but_the_fee_asset_is_undeclared ... ok
+test spot_fee_fx::tests::never_reaches_qualified_or_pass_even_when_every_declared_input_is_present ... ok
+test spot_fee_fx::tests::present_read_only_fx_rate_never_establishes_execution_qualification ... ok
+test spot_fee_fx::tests::reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent ... FAILED
+
+failures:
+
+---- spot_fee_fx::tests::reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent stdout ----
+
+thread 'spot_fee_fx::tests::reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent' (13451057) panicked at src-tauri/src/spot_fee_fx.rs:952:13:
+assertion `left == right` failed
+  left: Unqualified
+ right: Qualified
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    spot_fee_fx::tests::reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent
+
+test result: FAILED. 6 passed; 1 failed; 0 ignored; 0 measured; 243 filtered out; finished in 0.00s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.86s
+     Running unittests src/lib.rs (target/debug/deps/tradex-e514ccf2eccb02df)
+error: test failed, to rerun pass `--lib`

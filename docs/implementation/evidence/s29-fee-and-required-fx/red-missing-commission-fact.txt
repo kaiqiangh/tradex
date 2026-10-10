@@ -1,0 +1,34 @@
+
+running 1 test
+test owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation ... 
+running 1 test
+test owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation ... FAILED
+
+failures:
+
+failures:
+    owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 103 filtered out; finished in 0.13s
+
+FAILED
+
+failures:
+
+failures:
+    owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 103 filtered out; finished in 0.39s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.00s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation' (13272931) panicked at src-tauri/tests/binance_rules.rs:6532:5:
+Missing rates cannot be described as declared: {"accountId":"fc79cf6e-d214-40d7-a4ca-1b8da8d01fb6","baseAsset":"BTC","baseCurrency":"USD","bindingBlocker":"SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE","carriedLimitations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"],"expectedSpendQuote":"60","feeCurrency":"UNKNOWN","feeCurrencyOrigin":"UNKNOWN","feeEvidenceVersion":"sha256:553c69875602e15effab7ea839ae573107108f104ed6c01110197c2deca619f2","instrumentId":"crypto:BTC/USDT:spot","outcome":"UNAVAILABLE","proposalHash":"sha256:4c7d4f4d3cae1ce08e2838138ecdf864a20d90885316a31e163b5e97ee1ec4ec","proposalId":"proposal:5937f45e-336c-4953-942c-d6eef9774642","quoteAsset":"USDT","reason":"The genuinely-required execution conversion USDT -> USD is unsupported by the selected bounded FX producer, so no qualified rate can bound this intent; The venue declares commission rates but not the fee-charging asset, so the fee currency remains UNKNOWN and no fee amount is fabricated.","reasonCode":"SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE","routeEvidenceVersion":"sha256:be8543f3349c7b38cbfd3328deacf8c05305a38d8fe3b3e35062a63c283f1a91","routes":[{"fromCurrency":"USDT","purpose":"INTENT_FUNDING","reason":"The monetary input and target share one currency, so no external rate is required.","state":"QUALIFIED","toCurrency":"USDT"},{"fromCurrency":"USDT","purpose":"INTENT_POLICY","reason":"This required conversion is unsupported by the selected bounded FX producer; currency parity is never assumed.","state":"UNSUPPORTED_ROUTE","toCurrency":"USD"}],"side":"BUY","workspaceId":"ae92385d-d054-426c-9378-ac7392d7eea3"}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation' (13272929) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `-p tradex --test binance_rules`

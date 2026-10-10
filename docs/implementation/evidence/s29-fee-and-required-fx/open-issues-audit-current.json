@@ -1,0 +1,201 @@
+{
+  "sampledAt": "2026-10-10T08:41:39Z",
+  "openCount": 10,
+  "issues": [
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 131,
+      "title": "[S29.9] 交付拥有方费用陈述与真正所需执行 FX 并声明可达性",
+      "closureGap": "S29.9 source-slice final review/build/UI/exact delivery pending"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 130,
+      "title": "[Spec] 拥有方 Spot 费用陈述与真正所需执行 FX（S29.9）",
+      "closureGap": "S29.9 source-slice final review/build/UI/exact delivery pending"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 121,
+      "title": "[Spec] 验证 Binance Spot Live 可信执行（S29）",
+      "closureGap": "Complete fee/charging-currency and execution FX, rules/preflight/private/real financial acceptance incomplete"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 117,
+      "title": "[Spec] 补齐 S28 生产金融前置证据",
+      "closureGap": "Full S28 financial prerequisite acceptance incomplete"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--dww",
+          "name": "needs-info",
+          "description": "Waiting for missing information",
+          "color": "D876E3"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 116,
+      "title": "[S28] 接入已配置 Alpaca 报价与 Hot 订阅",
+      "closureGap": "Positive AC4 approval/Prepare/Gateway and independent financial evidence incomplete"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 115,
+      "title": "[Spec] 接入 Alpaca 已配置数据源与生产报价（S28）",
+      "closureGap": "Alpaca production positive financial acceptance incomplete"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 113,
+      "title": "[Spec] 验证 Trading 212 Live 可信执行（S28）",
+      "closureGap": "Trading212 full Live financial/permissions evidence incomplete"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 107,
+      "title": "[Spec] 恢复 Live 执行并协调中断工作（S27）",
+      "closureGap": "Skipped actual OS Sleep/Wake plus full native/provider acceptance"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "name": "wayfinder:task",
+          "description": "Work resolving a Wayfinder decision",
+          "color": "1D76DB"
+        }
+      ],
+      "number": 56,
+      "title": "[Spec] 完成 Alpaca Paper 交易生命周期",
+      "closureGap": "Skipped positive real Paper lifecycle; requires human final financial action"
+    },
+    {
+      "labels": [
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "name": "ready-for-agent",
+          "description": "Specified and ready for agent execution",
+          "color": "0E8A16"
+        },
+        {
+          "id": "LA_kwDOUOX8L88AAAACz--eBw",
+          "name": "wayfinder:map",
+          "description": "Wayfinder destination and decision index",
+          "color": "5319E7"
+        }
+      ],
+      "number": 1,
+      "title": "[Wayfinder] 完整构建 TradeX v1.0 RevC",
+      "closureGap": "Full map incomplete"
+    }
+  ],
+  "immediatelyClosable": [],
+  "currentTicket": 131,
+  "goal": "ACTIVE",
+  "prototypeChanged": false,
+  "mainChanged": false
+}

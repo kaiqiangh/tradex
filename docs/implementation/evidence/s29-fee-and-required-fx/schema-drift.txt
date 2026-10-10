@@ -1,0 +1,10 @@
+npm notice run tradex@0.1.0 schema:check
+npm notice run node scripts/ipc-schema.mjs --check
+file:///Users/kai/Desktop/my-repo/tradex/scripts/ipc-schema.mjs:33
+    if (await readFile(file, 'utf8') !== contents) throw new Error(`IPC schema drift: ${file}`);
+                                                         ^
+
+Error: IPC schema drift: shared/ipc-v1.schema.json
+    at file:///Users/kai/Desktop/my-repo/tradex/scripts/ipc-schema.mjs:33:58
+
+Node.js v24.19.0

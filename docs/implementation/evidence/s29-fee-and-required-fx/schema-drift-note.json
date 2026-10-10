@@ -1,0 +1,8 @@
+{
+  "cause": "Corrected commission-basis documentation is emitted into schema descriptions",
+  "changedSchemaPaths": [
+    "/$defs/SpotFeeRateBasis/description"
+  ],
+  "semanticConstraintsUnchanged": true,
+  "action": "Regenerated all IPC artifacts before rerunning full checks"
+}
