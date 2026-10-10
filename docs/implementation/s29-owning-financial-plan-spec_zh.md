@@ -1,8 +1,8 @@
 # S29.11 — 完整 Spot 拥有方金融计划
 
-父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。已发布草案：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / needs-info / 已认领，父项native子项、已完成依赖133/131。规划基线：`dev@70ce33ec5aa0286eff82e924f281c4588e03b3be`。[英文权威](s29-owning-financial-plan-spec.md)。
+父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。已发布规范：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / ready-for-agent / 已认领，父项native子项、已完成依赖133/131。规划基线：`dev@70ce33ec5aa0286eff82e924f281c4588e03b3be`。[英文权威](s29-owning-financial-plan-spec.md)。
 
-**状态：规范草案，尚非实现验收，也尚未就绪发布实现票。** 这是下一张单一拥有方工作项，保留[金融输入研究交接](s29-financial-inputs-research.md)的全部20项需求，不以另一个始终未资格化的来源投影代替目标。金额模型/授权与BNB估算决策已在下文具体化；获准配置来源/用途/质量及准确可执行路由profile仍待解决。本文件不记录实现、来源选择、使用权授予、金融操作或需求状态升级。**原型代码未改**。
+**状态：完整单一拥有方实现规范已具体化；实现验收全部待完成。** 这是下一张单一拥有方工作项，保留[金融输入研究交接](s29-financial-inputs-research.md)的全部20项需求，不以另一个始终未资格化的来源投影代替目标。金额模型/授权与BNB估算决策已在下文具体化；条件来源选择/用途/质量及有限用途准确路由profile已在下文具体化，真实账户/来源激活证据仍未证明。本文件不记录实现、来源选择、使用权授予、金融操作或需求状态升级。**原型代码未改**。
 
 ## 问题
 
@@ -92,11 +92,19 @@ Prepare 在一个事务内消费审批并预留完整原币资产向量；Gatewa
 
 S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或只读声明已建立的定理。本票选定模型保留PRD§44估算费用及**提交前**硬支出检查，不暗改成未来精确收费保证；只有原生参数真正强制的更强边界才披露为券商保证。不以source-only验收宣称已实现。
 
-## 待解决来源/证据，不豁免实现
+## 来源与路由契约 — 开发决策，真实激活仍待验证
 
-1. **获准配置 FX 来源：** 明确实际用途及适用 provider/account/dataset/jurisdiction 条款，再绑定来源与 entitlement/quality。10月10日官方 Alpaca library 链接的条款区分个人非商业用途、第三方内容、对外分发及美国居民使用意图；个人用途段落不能单独证明本用户完整适用使用权。来源/dataset 选择及有关账户协议尚未证明；当前用途问题是收集上下文，不是授权使用权。
+[第一方来源研究](s29-fx-source-contract-research.md)补齐适配器与路由设计。2026-10-10用户确认：**仅本人本地非商业使用，Alpaca原始行情不分发、不发送给云端模型**。记录为人类提供的实际用途，不是提供方entitlement或VERIFIED许可；上下文问题已解决。适用账户协议、具体选定dataset访问及当前观察仍属真实激活/验收事实，不阻塞条件实现设计。
 
-此前费用授权/舍入及BNB方法的设计义务由上面模型解决；实现/验收仍待完成。来源义务包含准确可执行币对/路径、获准金融用途、适用规模/成本及first receipt/新鲜度/脱锚/质量契约，不只是账户checkbox；缺它就无法取得必需真实公开生产者正向。仍不得标完整规范ready或发布虚假的ready实现票，也不得放弃完整目标或以source-only票替代。
+1. **显式选择及有限用途。** 普通保存来源配置扩展已有Alpaca凭据引用、显式crypto location（仅`us/us-1/eu-1`）、普通data host及所需本位币路由；初始未选择，本规范不替用户选定、不暗换地区/feed。个人本地profile的Alpaca观察仅供Rust `POLICY_VALUATION`；既有普通Binance Hot供标的价格，独立allowlist的内部`BNBUSDT`连续簿供`FEE_ESTIMATE`及BNB政策估值。发现来源不增加BNB可交易目录、不授权交易、不发金融mutation。不支持location/来源/路由形态类型化拒绝。
+2. **使用依据、访问及质量独立。** 版本化source-policy catalog保留第一方条款/文档URL、原始hash、使用约束及判断适用所需account/product/dataset事实。Control Plane依据这些文档与实际用途派生评估；配置只收证据/上下文，不能收`verified/allowed`金融权威flag。人类/提供方UI协议证据保留声明来源，不伪装API事实。未识别/矛盾协议或缺少必需适用事实为`SOURCE_USE_UNRESOLVED`，已知限制为`SOURCE_USE_DENIED`。适用普通个人条款不要求虚构专用金融估值许可；HTTP200、ACTIVE或Basic/IEX不证明全部数据权利。准确认证dataset成功单独建立技术访问；拒绝/凭据失效/profile、协议、policy或来源代次改变均退休观察。必须实现真实证据收取及policy求值，不用构造器正向或永久不可用适配器代替。适用证据未解决前真实激活仍不可用；条件测试不授予本用户使用权。
+3. **真实生产者及原值。** 认证Alpaca crypto latest请求选定location的准确`USDT/USD`，保留`bp/bs/ap/as`原始数字token及RFC3339 `t`；不用浮点、不用匿名成功改认证契约。非USD本位腿向认证forex latest准确请求`USD{workspaceBase}`，保留`bp/mp/ap/t`；缺币对不可用，不填零/推断倒数。认证仅用保存vault凭据。原始body digest、凭据/profile代次、请求币对、首次可读body receipt及配额/拒绝为不可变来源；getter不更新时间。沿用有界deadline/配额/late fence；仅在原时钟有效期内缓存。
+4. **估值路由及成本。** USDT资金来自准确原生钱包余额，不是FX购买。USDT→USD用选定quote，非USD另加明确USD→base forex腿，USD→USD为identity。逐腿负债用ask、资产/收入用bid，mid仅显示。BNB→USDT负债用内部Binance ask；收到BASE→BNB模型明确用该标的USDT ask/BNBUSDT bid，收到USDT→BNB明确用1/BNBUSDT bid。本规范批准并逐腿记录这些有限表达式，不是通用自动桥接/倒数，也不等同内部平均价。支出按向外有理数舍入，收入净额按已定floor。无size的forex/Alpaca quote仅政策估值，执行深度/换汇交易成本为`NOT_APPLICABLE_TO_POLICY_VALUATION`，不伪造流动性或零交易成本、不授权补资/转账；交易quote的slippage/depth与费用模型覆盖另行必需。
+5. **质量及金额范围。** 必需可信clock、真实provider time≤now、first receipt≥request、非负elapsed、正且不交叉bid/ask、同来源代次。每消费腿在review/Prepare/即时preflight的最大年龄为来源30秒与当前stale-quote policy最小值（默认3秒）；不把延迟/reference改实时。固定质量规则`USDT_USD_ONE_PERCENT_V1`：bid及ask均须含边界落在`[0.99,1.01] USD/USDT`；超界披露脱锚并阻塞依赖Live估值。这是明确保守来源质量决策，不是假定平价或替用户设金额偏好，版本/阈值进入金融材料及review。陈旧/12秒研究样本不通过。保留Alpaca size及文档解释，但价格估值不由单位解释宣称可执行规模。Binance费用模型要求真实best-level BASE数量：实际消费的标的ask覆盖完整收到资产换算额，BNB bid覆盖完整模型BNB费用，BNB ask覆盖实际估值BNB负债；不足阻塞，不造VWAP/无限深度/安全系数。完整费用总额消费size一次，不逐族重复声明足额。
+6. **费用专用连续簿。** 复用普通Binance depth生命周期，仅`BNBUSDT`；准确当前metadata证明BASE=BNB/QUOTE=USDT及有效状态。REST前buffer diff、以`lastUpdateId`及`U/u`接续、绝对量更新/零量删除。REST无market time不能单独资格化；必需连续事件`E`、first receipt、簿/session代次及连续sequence。gap/reset/reconnect、陈旧/未来/非法/交叉、metadata/profile改变或断开均退休，真实重建后恢复。仅普通host、文档weight/ping/pong/reconnect及有界buffer；新增symbol仅内部费用，不可建订单。
+7. **本地消费及单一拥有方。** 选定Alpaca profile的原始观察（含共享缓存）在model/tool序列化、research/export artifact或外部consumer前强制本地范围；本地UI可查原值，原始quote/rate/body不进入prompt/export。测试检查真正外发边界，不只查标签。来源材料供同一fee/funds/risk/review/Prepare，原值另存不可变审计。profile/source/policy/terms/intent、价格/深度、分支/金额仍绑定，仅沿用数值相同格式/receipt-only明确例外。新鲜相同证据不延长审批、不更新历史，也不豁免独立data-use、交易permission、Arm、审批/对账或真实/原生门禁。
+
+**就绪区分：** 上述为完整拥有方实现决策，不是实际来源选择或资格化。单一实现票必须保留14AC/20交接，包含在真实适用使用依据下的生产者→拥有方→risk/Prepare正向以及本用户尚未证明真实激活的拒绝路径；不得source-only结案或放松其他要求。
 
 ## 测试决策
 
@@ -148,6 +156,6 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 
 ## 补充
 
-真实已完成前置：[精确标的佣金声明](https://github.com/kaiqiangh/tradex/issues/133)、[拥有方费用/必需FX拒绝与捕获](https://github.com/kaiqiangh/tradex/issues/131)以及真正消费的现有本金/容量/行情/规则。不得为调度添加S28或物理阻塞边。解决开放来源/路由契约后只发布当前一个实现票，保留真实native依赖及已确认单票粒度。92544f5的旧规划回读是初稿三个问题的不可变当时记录，不是后续已明确模型决策的当前陈述。
+真实已完成前置：[精确标的佣金声明](https://github.com/kaiqiangh/tradex/issues/133)、[拥有方费用/必需FX拒绝与捕获](https://github.com/kaiqiangh/tradex/issues/131)以及真正消费的现有本金/容量/行情/规则。不得为调度添加S28或物理阻塞边。按已明确的条件来源/路由契约只发布当前一个完整实现票，保留真实native依赖及已确认单票粒度。92544f5的旧规划回读是初稿三个问题的不可变当时记录，不是后续已明确模型决策的当前陈述。
 
 主来源、日期及所有20项交接映射与[英文权威](s29-owning-financial-plan-spec.md)一致。本稿是规划证据，不是法律使用权结论或真实金融验收。

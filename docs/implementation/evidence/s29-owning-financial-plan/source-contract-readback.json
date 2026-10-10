@@ -1,0 +1,23 @@
+{
+  "kind": "SOURCE_CONTRACT_PLANNING_ONLY_NOT_IMPLEMENTATION_ACCEPTANCE",
+  "checkedAt": "2026-10-10T21:00:50.061615+00:00",
+  "sourceBaseline": "3a6db06729ca0fb3f01c73fe1b4cc68756bc342a",
+  "userContext": "OWN_LOCAL_NONCOMMERCIAL_NO_ALPACA_RAW_REDISTRIBUTION_OR_MODEL_TRANSMISSION",
+  "contextIsProviderRightsProof": false,
+  "stories": 32,
+  "pendingAcceptanceCriteria": 14,
+  "handoffRequirements": 20,
+  "conditionalDesignReady": true,
+  "actualProfileSelected": false,
+  "realAccessOrMarketQualified": false,
+  "publicTddRun": false,
+  "applicationTestsOrBuildRun": false,
+  "requirementStatusesUpgraded": false,
+  "prototypeChanged": false,
+  "documentHashes": {
+    "docs/implementation/s29-fx-source-contract-research.md": "4a47b47964070007a15abd9b9c4d8effe289c02601577bec731a851e52148ad8",
+    "docs/implementation/s29-owning-financial-plan-spec.md": "cea15b1a8c1ddd4f74ae7f8ce0f6ce75012e6b19e95cd9d1d66a07cf79168e60",
+    "docs/implementation/s29-owning-financial-plan-spec_zh.md": "d7c83d320dceadc5d537cbf2946f475550418384468926d5d13dd68f4dbe78a7"
+  },
+  "productManifestHashesUnchanged": 20
+}

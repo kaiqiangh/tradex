@@ -1,6 +1,6 @@
 # TradeX RevC 需求清单与串行实现方案
 
-当前串行工作：S29.11 [完整 Spot 逐资产金融计划与真实必需 FX 草案](s29-owning-financial-plan-spec_zh.md)，[已发布规范](https://github.com/kaiqiangh/tradex/issues/134)为 OPEN / needs-info。覆盖研究全部20项交接；金额授权、完整角色/BNB模型、逐族有理数ceil18已具体化，7个合成算例仅验证规划oracle。获准来源/选定profile及实际可执行路由、用途/entitlement/质量契约尚待解决；不发布虚假的ready实现票、不计正向金融或全图验收。当前9个开放issues；现有需求/屏幕状态不变。
+当前串行工作：S29.11 [完整 Spot 逐资产金融计划与真实必需 FX](s29-owning-financial-plan-spec_zh.md)，[已发布规范](https://github.com/kaiqiangh/tradex/issues/134)为 OPEN / ready-for-agent。覆盖全部20项交接、32故事及14待完成AC；金额/BNB模型和条件来源/路由契约已具体化。用户确认本人本地非商业使用、Alpaca原始行情不外发；认证访问、适用协议、具体选择及当前质量仍属真实激活证据，不升级为使用权。下一步按既定单票、公开接缝串行实施，真实金融/原生/物理/release仍开放；7个金额算例及来源研究只属规划证据。当前9个开放issues；需求/屏幕状态不变。
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
