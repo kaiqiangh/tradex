@@ -10,7 +10,7 @@ const SURFACE_LABEL = 'Captured Proposal Spot fee and required execution FX';
 // One genuinely-required execution conversion, rendered on a single line so its state and evidence
 // can never be read apart from the currency pair they qualify.
 const routeLine = (route: SpotRequiredRoute) =>
-  `${human(route.purpose)} · ${route.fromCurrency} -> ${route.toCurrency} · ${human(route.state)} · provider pair ${route.providerPair ?? 'no supported pair'} · rate quality ${declared(route.providerQuality)} · first receipt ${declared(route.firstReceipt)} · declared cost ${route.conservativeCost ?? 'no declared cost'} · ${route.reason}`;
+  `${human(route.purpose)} · ${route.fromCurrency} -> ${route.toCurrency} · ${human(route.state)} · provider pair ${route.providerPair ?? 'no supported pair'} · rate quality ${declared(route.providerQuality)} · provider time ${declared(route.providerTimestamp)} · first receipt ${declared(route.firstReceipt)} · declared cost ${route.conservativeCost ?? 'no declared cost'} · ${route.reason}`;
 
 // One exact statement of the reviewed intent's owning fee and genuinely-required execution FX.
 // It reports two independent facts that must both remain readable: the single binding blocker and
@@ -31,7 +31,7 @@ export function SpotFeeFxExplanation({ statement }: { statement: SpotFeeFxStatem
       <div><dt>Reason code</dt><dd>{statement.reasonCode}</dd></div>
       <div><dt>Binding blocker</dt><dd>{blocker ?? 'None'}</dd></div>
       <div><dt>Fee currency · declared origin</dt><dd>{statement.feeCurrency} · {statement.feeCurrencyOrigin}. This is an independent fact, reported even when the binding blocker above is the required execution route.</dd></div>
-      <div><dt>Fee rate basis · declared origin ACCOUNT_DECLARED_COMMISSION_RATES</dt><dd>{declared(statement.feeRateBasis)}. The conservative declared basis this statement relies on; present whenever the venue declares commission rates, even when no fee amount can be stated because the fee-charging asset is undeclared.</dd></div>
+      <div><dt>Fee rate basis · declared origin ACCOUNT_DECLARED_COMMISSION_RATES</dt><dd>{declared(statement.feeRateBasis)}. The larger declared maker/taker comparison basis, not a complete fee estimate. The account rates do not establish the complete symbol/side commission or fee-charging asset.</dd></div>
       <div><dt>Declared maker / taker rate · origin ACCOUNT_DECLARED_COMMISSION_RATES</dt><dd>{declared(statement.declaredMakerRate)} / {declared(statement.declaredTakerRate)}. Reported verbatim, never promoted into a hidden gate.</dd></div>
       <div><dt>Declared buyer / seller rate · origin ACCOUNT_DECLARED_COMMISSION_RATES</dt><dd>{declared(statement.declaredBuyerRate)} / {declared(statement.declaredSellerRate)}</dd></div>
       <div><dt>Expected fee · declared origin {statement.feeCurrencyOrigin}</dt><dd>{declared(statement.expectedFee)}. Never fabricated from an unknown fee currency.</dd></div>

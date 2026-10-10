@@ -654,6 +654,12 @@ pub(crate) fn execute_refresh(
                 .filter(|key| !matches!(key.as_str(), "maker" | "taker" | "buyer" | "seller"))
                 .cloned()
                 .collect::<Vec<_>>();
+            if extension_keys
+                .iter()
+                .any(|key| key.is_empty() || key.chars().count() > 64)
+            {
+                return Err(invalid());
+            }
             extension_keys.sort();
             extension_keys.truncate(16);
             account_extensions |= !extension_keys.is_empty();

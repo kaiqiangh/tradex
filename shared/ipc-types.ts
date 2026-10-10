@@ -578,7 +578,7 @@ export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "
  * The conservative declared basis this statement relies on; present whenever the venue declares
  * commission rates, even when no fee amount can be stated because the fee-charging asset is
  * undeclared. It is always the **larger** of the declared maker and taker rates, compared as exact
- * decimals (never `f64`), so it can never understate the fee.
+ * decimals (never `f64`), without claiming an all-in fee amount.
  *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotFeeRateBasis".

@@ -6250,3 +6250,460 @@ fn owning_fee_fx_stays_visible_when_capacity_evidence_is_absent() {
     );
 }
 
+#[test]
+fn owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visible() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visible",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let statement = &decision["spotFeeFx"];
+    // P2 priority: the unsupported required route is the single binding blocker, because a
+    // structural impossibility precedes any fee arithmetic.
+    assert_eq!(
+        statement["reasonCode"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        "{statement}"
+    );
+    assert_eq!(
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        "{statement}"
+    );
+    // The co-occurring fee-currency fact is still reported and never silently dropped.
+    assert_eq!(statement["feeCurrency"], "UNKNOWN", "{statement}");
+    assert_eq!(statement["feeCurrencyOrigin"], "UNKNOWN", "{statement}");
+    assert!(
+        statement["reason"]
+            .as_str()
+            .unwrap()
+            .contains("fee currency remains UNKNOWN"),
+        "The fee-currency fact must survive in the reason: {statement}"
+    );
+    // The binding route is the intent-policy USDT -> base conversion that has no supported pair.
+    let intent = statement["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|route| route["purpose"] == "INTENT_POLICY")
+        .expect("The intent-policy route must be named");
+    assert_eq!(intent["state"], "UNSUPPORTED_ROUTE", "{statement}");
+    assert!(intent["providerPair"].is_null(), "{statement}");
+}
+
+#[test]
+fn owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["commissionRates"] =
+                json!({"maker":"0.0010","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let first = request_approval(&rig, &proposal);
+    assert_eq!(first["ok"], true, "{first}");
+    assert_eq!(first["data"]["eligible"], false, "{first}");
+    assert_eq!(
+        first["data"]["spotFeeFx"]["declaredMakerRate"], "0.0010",
+        "{first}"
+    );
+    assert_eq!(
+        first["data"]["spotFeeFx"]["feeRateBasis"], "TAKER",
+        "{first}"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["commissionRates"] =
+                json!({"maker":"0.0020","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+        }
+    }));
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let second = request_approval(&rig, &proposal);
+    assert_eq!(second["ok"], true, "{second}");
+    assert_eq!(second["data"]["eligible"], false, "{second}");
+    assert_eq!(
+        second["data"]["spotFeeFx"]["declaredMakerRate"], "0.0020",
+        "{second}"
+    );
+    assert_eq!(
+        second["data"]["spotFeeFx"]["feeRateBasis"], "MAKER",
+        "{second}"
+    );
+    assert_ne!(
+        first["data"]["spotFeeFx"]["feeEvidenceVersion"],
+        second["data"]["spotFeeFx"]["feeEvidenceVersion"]
+    );
+    assert_ne!(
+        first["data"]["reviewDigest"],
+        second["data"]["reviewDigest"]
+    );
+    assert!(second["data"]["spotFeeFx"]["expectedFee"].is_null());
+    assert_eq!(second["data"]["spotFeeFx"]["feeCurrency"], "UNKNOWN");
+    assert_eq!(
+        second["data"]["spotFeeFx"]["bindingBlocker"],
+        "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+    );
+}
+
+#[test]
+fn owning_fee_fx_gate_refuses_approval_and_leaves_no_partial_state() {
+    if isolated_rule_scenario("owning_fee_fx_gate_refuses_approval_and_leaves_no_partial_state") {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        interval_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(review["data"]["eligible"], false, "{review}");
+    // The approval action carries the immutable proposal identity, not the risk decision's.
+    let current = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.proposal.get",
+        json!({"workspaceId": rig.workspace, "proposalId": proposal["proposalId"]}),
+    );
+    assert_eq!(current["ok"], true, "{current}");
+    // The fee/FX gate refuses issuance itself: the exact reviewed material is carried and the
+    // approval is still refused with RISK_EVIDENCE_UNAVAILABLE before any approval exists.
+    let approve = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.approve",
+        json!({
+            "workspaceId": rig.workspace,
+            "proposalId": proposal["proposalId"],
+            "proposalHash": current["data"]["proposalHash"],
+            "reviewedRiskDecisionId": review["data"]["riskDecision"]["decisionId"],
+            "reviewDigest": review["data"]["reviewDigest"],
+            "expectedStateVersion": current["data"]["stateVersion"],
+        }),
+    );
+    assert_eq!(approve["ok"], false, "{approve}");
+    assert_eq!(
+        approve["error"]["code"], "RISK_EVIDENCE_UNAVAILABLE",
+        "{approve}"
+    );
+    // No partial state: no approval is issued and the proposal never left NEEDS_APPROVAL.
+    let approvals = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.approval.list",
+        json!({"workspaceId": rig.workspace, "proposalId": proposal["proposalId"]}),
+    );
+    assert_eq!(approvals["ok"], true, "{approvals}");
+    assert!(
+        approvals["data"]["approvals"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "No approval may be issued while the fee/FX gate withholds: {approvals}"
+    );
+    let retained = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.proposal.get",
+        json!({"workspaceId": rig.workspace, "proposalId": proposal["proposalId"]}),
+    );
+    assert_eq!(retained["ok"], true, "{retained}");
+    assert_eq!(
+        retained["data"]["status"], "NEEDS_APPROVAL",
+        "The proposal must remain NEEDS_APPROVAL: {retained}"
+    );
+}
+
+#[test]
+fn capacity_seventeen_unknown_commission_keys_stay_an_obligation_and_are_bounded_and_sorted() {
+    if isolated_rule_scenario(
+        "capacity_seventeen_unknown_commission_keys_stay_an_obligation_and_are_bounded_and_sorted",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            let mut rates =
+                json!({"maker":"0.0010","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+            if let Some(object) = rates.as_object_mut() {
+                for index in 0..20 {
+                    object.insert(format!("futureKey{index:02}"), json!("0.0001"));
+                }
+            }
+            body["commissionRates"] = rates;
+        }
+    }));
+    let observed = capacity_refresh(&rig, &proposal, &external);
+    assert_eq!(observed["data"]["status"], "OBSERVED", "{observed}");
+    let observation = &observed["data"]["observation"];
+    // The delivered unknown-key obligation still holds even though the projection is bounded.
+    assert!(
+        observation["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("UNKNOWN_ACTIVE_ACCOUNT_FIELDS_UNRESOLVED")),
+        "Unknown commission keys silently disappeared: {observed}"
+    );
+    let commission = &observation["declaredCommission"];
+    assert_eq!(commission["maker"], "0.0010", "{observation}");
+    assert_eq!(commission["taker"], "0.0015", "{observation}");
+    let keys = commission["extensionKeys"].as_array().unwrap();
+    assert_eq!(
+        keys.len(),
+        16,
+        "At most 16 unknown commission keys are reported: {commission}"
+    );
+    let mut sorted = keys.clone();
+    sorted.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+    assert_eq!(
+        *keys, sorted,
+        "The reported unknown keys must be sorted: {commission}"
+    );
+    let first = keys.first().unwrap().as_str().unwrap();
+    let last = keys.last().unwrap().as_str().unwrap();
+    assert_eq!(first, "futureKey00", "{commission}");
+    assert_eq!(last, "futureKey15", "{commission}");
+    // The unknown key VALUES are never projected into a rate or leaked into the observation.
+    assert!(
+        !observed.to_string().contains("0.0001"),
+        "An unknown commission value leaked into the projection: {observed}"
+    );
+}
+
+#[test]
+fn capacity_commission_extension_names_must_fit_the_declared_wire_bound() {
+    if isolated_rule_scenario(
+        "capacity_commission_extension_names_must_fit_the_declared_wire_bound",
+    ) {
+        return;
+    }
+    let cases: [fn(&str, &mut Value); 2] = [
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["commissionRates"] = json!({"maker":"0.0010","taker":"0.0015","buyer":"0.0000","seller":"0.0000", "": "not a projected rate"});
+            }
+        },
+        |route, body| {
+            if route == "/api/v3/account" {
+                body["commissionRates"] =
+                    json!({"maker":"0.0010","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+                body["commissionRates"]
+                    .as_object_mut()
+                    .unwrap()
+                    .insert("x".repeat(65), json!("not a projected rate"));
+            }
+        },
+    ];
+    for mutate in cases {
+        let rig = RuleRig::new();
+        let external = RuleHttp::default();
+        assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+        let proposal = rig.decision();
+        external.edit.set(Some(mutate));
+        let result = capacity_refresh(&rig, &proposal, &external);
+        assert_eq!(result["data"]["status"], "UNAVAILABLE", "{result}");
+        assert!(
+            result["data"]["observation"].is_null(),
+            "Malformed disclosure must not leave observed data: {result}"
+        );
+    }
+}
+
+#[test]
+fn owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate",
+    ) {
+        return;
+    }
+    let cases: [(fn(&str, &mut Value), &str); 3] = [
+        (
+            |route, body| {
+                if route == "/api/v3/account" {
+                    body["commissionRates"] = json!({"maker":"0.00100","taker":"0.0010","buyer":"0.0000","seller":"0.0000"});
+                }
+            },
+            "TAKER",
+        ),
+        (
+            |route, body| {
+                if route == "/api/v3/account" {
+                    body["commissionRates"] = json!({"maker":"0.0020","taker":"0.0010","buyer":"0.0000","seller":"0.0000"});
+                }
+            },
+            "MAKER",
+        ),
+        (
+            |route, body| {
+                if route == "/api/v3/account" {
+                    body["commissionRates"] = json!({"maker":"0.0010","taker":"0.0020","buyer":"0.0000","seller":"0.0000"});
+                }
+            },
+            "TAKER",
+        ),
+    ];
+    for (mutate, expected_basis) in cases {
+        let rig = RuleRig::new();
+        let external = RuleHttp::default();
+        assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+        let proposal = rig.decision();
+        external.edit.set(Some(mutate));
+        assert_eq!(
+            capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+            "OBSERVED"
+        );
+        let decision = risk_evaluate(&rig, &proposal);
+        let statement = &decision["spotFeeFx"];
+        assert_eq!(statement["feeRateBasis"], expected_basis, "{statement}");
+        assert!(statement["declaredMakerRate"].is_string());
+        assert!(statement["declaredTakerRate"].is_string());
+        assert_eq!(statement["feeCurrency"], "UNKNOWN");
+        assert!(statement["expectedFee"].is_null());
+        assert_eq!(statement["outcome"], "UNAVAILABLE");
+    }
+}
+
+#[test]
+fn owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body.as_object_mut().unwrap().remove("commissionRates");
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let statement = &decision["spotFeeFx"];
+    assert_eq!(
+        statement["bindingBlocker"],
+        "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+    );
+    assert!(statement["declaredMakerRate"].is_null());
+    assert!(statement["declaredTakerRate"].is_null());
+    assert!(
+        statement["reason"]
+            .as_str()
+            .unwrap()
+            .contains("No current declared commission observation"),
+        "Missing rates cannot be described as declared: {statement}"
+    );
+    assert!(
+        !statement["reason"]
+            .as_str()
+            .unwrap()
+            .contains("The venue declares commission rates")
+    );
+}
+
+#[test]
+fn owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider_read() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider_read",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["commissionRates"] =
+                json!({"maker":"0.0010","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let captured = risk_evaluate(&rig, &proposal);
+    assert_eq!(captured["spotFeeFx"]["declaredMakerRate"], "0.0010");
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["commissionRates"] =
+                json!({"maker":"0.0020","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+        }
+    }));
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let query = json!({"workspaceId": rig.workspace, "proposalId": proposal["proposalId"]});
+    let history = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.decision.list",
+        query.clone(),
+    );
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == captured["decisionId"])
+        .unwrap();
+    assert_eq!(saved["spotFeeFx"], captured["spotFeeFx"]);
+    let calls = external.calls.borrow().len();
+    let RuleRig {
+        _folder, control, ..
+    } = rig;
+    drop(control);
+    let mut reopened = ControlPlane::new(_folder.path().into());
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(&mut reopened, "risk.decision.list", query.clone());
+    let saved = restored["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == captured["decisionId"])
+        .unwrap();
+    assert_eq!(saved["spotFeeFx"], captured["spotFeeFx"]);
+    let current = command(&mut reopened, "trade.spot_capacity.get", query);
+    assert!(current["data"]["observation"].is_null());
+    assert_eq!(external.calls.borrow().len(), calls);
+}

@@ -33793,7 +33793,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 		]
 	};
 	var schema188 = {
-		"description": "The conservative declared basis this statement relies on; present whenever the venue declares\ncommission rates, even when no fee amount can be stated because the fee-charging asset is\nundeclared. It is always the **larger** of the declared maker and taker rates, compared as exact\ndecimals (never `f64`), so it can never understate the fee.",
+		"description": "The conservative declared basis this statement relies on; present whenever the venue declares\ncommission rates, even when no fee amount can be stated because the fee-charging asset is\nundeclared. It is always the **larger** of the declared maker and taker rates, compared as exact\ndecimals (never `f64`), without claiming an all-in fee amount.",
 		"type": "string",
 		"enum": ["MAKER", "TAKER"]
 	};

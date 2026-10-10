@@ -311,6 +311,8 @@ fn main() -> io::Result<()> {
                     Some("DELAYED") => Some(fixtures::BinanceCapacityFixture::Delayed),
                     Some("COMPLETE_COVERAGE") => Some(fixtures::BinanceCapacityFixture::CompleteCoverage),
                     Some("ORDER_RATE_EXHAUSTED") => Some(fixtures::BinanceCapacityFixture::OrderRateExhausted),
+                    Some("FEE_DECLARED") => Some(fixtures::BinanceCapacityFixture::FeeDeclared),
+                    Some("FEE_CHANGED") => Some(fixtures::BinanceCapacityFixture::FeeChanged),
                     _ => None,
                 };
                 let reply = if let Some(mode) = mode.filter(|_| http.binance_rules_ui) {

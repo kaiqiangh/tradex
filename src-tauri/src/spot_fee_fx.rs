@@ -7,7 +7,7 @@
 //! fabricates a venue number, and it never assumes currency parity.
 //!
 //! Fail-closed discipline (S29.9 team-lead rulings):
-//! - `fee_currency` is `UNKNOWN`: no fixed ordinary public host in the delivered set declares a Spot
+//! - `fee_currency` is `UNKNOWN`: the already-consumed account response does not establish a Spot
 //!   account's fee-charging **asset** (the account response declares commission *rates* only), so the
 //!   fee statement fails closed with `SPOT_FEE_CURRENCY_UNKNOWN` and no expected-fee amount is
 //!   fabricated. The delivered declared rates are still reported verbatim.
@@ -28,7 +28,7 @@
 //! Declaring the shorter 64 makes the generated wire schema reject the real value and the React
 //! decoder throws `IPC_SCHEMA_INCOMPATIBLE`; that is the S29.8 lesson and it is enforced here.
 use crate::protocol::{
-    FxRateEvidence, FxRequirementNeed, FxRequirementPurpose, FxRouteRequirement, FxRequirements,
+    FxRateEvidence, FxRequirementNeed, FxRequirementPurpose, FxRequirements, FxRouteRequirement,
     OrderProposal, OrderSide, Result,
 };
 use crate::risk::RiskCheckOutcome;
@@ -64,7 +64,7 @@ pub enum SpotFeeFxReasonCode {
 /// The conservative declared basis this statement relies on; present whenever the venue declares
 /// commission rates, even when no fee amount can be stated because the fee-charging asset is
 /// undeclared. It is always the **larger** of the declared maker and taker rates, compared as exact
-/// decimals (never `f64`), so it can never understate the fee.
+/// decimals (never `f64`), without claiming an all-in fee amount.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SpotFeeRateBasis {
@@ -212,8 +212,9 @@ const CARRIED_CAPACITY_LIMITATIONS: [&str; 2] = [
     "DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED",
 ];
 
-/// The declared rate basis that bounds the fee without ever understating it: the **larger** of the
-/// venue's declared maker and taker rates, compared as exact decimals (never `f64`).
+/// The declared comparison basis (not a complete fee estimate): the **larger** of the
+/// venue's declared maker and taker rates, compared as exact decimals (never `f64`). This
+/// comparison does not establish a total commission or its charging asset.
 fn conservative_basis(
     commission: &spot_capacity::SpotDeclaredCommission,
 ) -> Result<SpotFeeRateBasis> {
@@ -225,8 +226,8 @@ fn conservative_basis(
 }
 
 fn digest(value: &impl Serialize) -> Result<String> {
-    let bytes =
-        serde_json::to_vec(value).map_err(|_| crate::protocol::TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    let bytes = serde_json::to_vec(value)
+        .map_err(|_| crate::protocol::TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
     Ok(format!("sha256:{:x}", Sha256::digest(bytes)))
 }
 
@@ -272,8 +273,8 @@ fn qualify_route(
         ),
         FxRequirementNeed::ExternalRate => match (&pair, observed) {
             (Some(_), Some(_)) => (
-                SpotRequiredRouteState::Qualified,
-                "A current bounded directional rate binds this required conversion.",
+                SpotRequiredRouteState::Unqualified,
+                "A directional read-only rate is present, but execution quality and conservative execution cost are not established.",
             ),
             (Some(_), None) => (
                 SpotRequiredRouteState::EvidenceUnavailable,
@@ -297,7 +298,8 @@ fn qualify_route(
             .unwrap_or_else(|| "UNKNOWN".to_string()),
         provider_pair: pair,
         state,
-        provider_quality: observation.and_then(|observation| quality_label(&observation.provider_quality)),
+        provider_quality: observation
+            .and_then(|observation| quality_label(&observation.provider_quality)),
         provider_timestamp: observed.map(|rate| rate.provider_timestamp.clone()),
         first_receipt: observation.map(|observation| observation.observed_at.clone()),
         // The conservative cost of a required conversion is never fabricated: a rate read alone does
@@ -308,8 +310,8 @@ fn qualify_route(
 }
 
 /// The fee evidence situation, derived only from the already-validated declared commission. There
-/// is deliberately no `Qualified` state: no fixed ordinary public host in the delivered set
-/// declares the fee-charging asset, so the fee statement always fails closed on `fee_currency`.
+/// is deliberately no `Qualified` state: the already-consumed account response does not
+/// establish the fee-charging asset, so the fee statement always fails closed on `fee_currency`.
 enum FeeSituation {
     /// No current declared commission observation is bound to the intent.
     EvidenceUnavailable,
@@ -418,32 +420,41 @@ pub(crate) fn derive(
         FeeSituation::RateUnsupported => Some(SpotFeeFxReasonCode::SpotFeeRateUnsupported),
     };
 
-    // Binding priority: a structurally-unsupported required route precedes any fee-currency fact.
-    // The other fact is never silently dropped: it stays in `fee_currency`/`fee_currency_origin`
-    // and in the human-readable reason.
-    let (reason_code, binding_blocker_code) = match route_blocker(&routes) {
-        Some((code, code_label)) => (code, Some(code_label.to_string())),
-        None => match fee_code {
-            Some(code) => (
-                code,
-                Some(
-                    match code {
-                        SpotFeeFxReasonCode::SpotFeeEvidenceUnavailable => {
-                            "SPOT_FEE_EVIDENCE_UNAVAILABLE"
-                        }
-                        SpotFeeFxReasonCode::SpotFeeCurrencyUnknown => "SPOT_FEE_CURRENCY_UNKNOWN",
-                        SpotFeeFxReasonCode::SpotFeeRateUnsupported => "SPOT_FEE_RATE_UNSUPPORTED",
-                        _ => "SPOT_FEE_FX_QUALIFICATION_BLOCKED",
+    // Binding priority, most fundamental first: **identity -> route -> fee**.
+    //   1. identity: the FX requirement evidence must describe THIS immutable intent (workspace,
+    //      Proposal and base currency); a foreign requirement set is never reconciled by assumption.
+    //   2. route: a genuinely-required conversion must be supported by the bounded producer.
+    //   3. fee: only then does the fee-currency fact bound the statement.
+    // All three tiers are reachable; the final arm is the future contract for a host that genuinely
+    // declares the fee-charging asset. The non-binding facts are never silently dropped: the route
+    // stays in `routes`/`reason` and the fee currency stays in `fee_currency`/`fee_currency_origin`.
+    let route_block = route_blocker(&routes);
+    let (reason_code, binding_blocker_code) = if !requirements_match {
+        (
+            SpotFeeFxReasonCode::SpotFeeFxEvidenceMismatch,
+            Some("SPOT_FEE_FX_EVIDENCE_MISMATCH".to_string()),
+        )
+    } else if let Some((code, code_label)) = route_block {
+        (code, Some(code_label.to_string()))
+    } else if let Some(code) = fee_code {
+        (
+            code,
+            Some(
+                match code {
+                    SpotFeeFxReasonCode::SpotFeeEvidenceUnavailable => {
+                        "SPOT_FEE_EVIDENCE_UNAVAILABLE"
                     }
-                    .to_string(),
-                ),
+                    SpotFeeFxReasonCode::SpotFeeCurrencyUnknown => "SPOT_FEE_CURRENCY_UNKNOWN",
+                    SpotFeeFxReasonCode::SpotFeeRateUnsupported => "SPOT_FEE_RATE_UNSUPPORTED",
+                    _ => "SPOT_FEE_FX_QUALIFICATION_BLOCKED",
+                }
+                .to_string(),
             ),
-            None if !requirements_match => (
-                SpotFeeFxReasonCode::SpotFeeFxEvidenceMismatch,
-                Some("SPOT_FEE_FX_EVIDENCE_MISMATCH".to_string()),
-            ),
-            None => (SpotFeeFxReasonCode::SpotFeeFxQualified, None),
-        },
+        )
+    } else {
+        // Reserved arm for complete owning fee and execution-FX evidence. Unreachable
+        // on the delivered seam; see the module header note.
+        (SpotFeeFxReasonCode::SpotFeeFxQualified, None)
     };
     let outcome = if binding_blocker_code.is_none() {
         RiskCheckOutcome::Pass
@@ -451,18 +462,32 @@ pub(crate) fn derive(
         RiskCheckOutcome::Unavailable
     };
 
-    // A single-line, human-readable reason that reports the binding fact and never hides the
-    // co-occurring fee-currency fact. It must not contain a newline: the review UI joins blockers
-    // with ' · ' on one line.
+    // A single-line, human-readable reason that reports the binding fact under the same
+    // identity -> route -> fee priority and never hides a co-occurring fact. It must not contain a
+    // newline: the review UI joins blockers with ' · ' on one line.
     let route_fact = routes.iter().find(|route| {
         matches!(
             route.state,
-            SpotRequiredRouteState::UnsupportedRoute | SpotRequiredRouteState::EvidenceUnavailable
+            SpotRequiredRouteState::UnsupportedRoute
+                | SpotRequiredRouteState::EvidenceUnavailable
+                | SpotRequiredRouteState::Unqualified
         )
     });
-    let fee_fact = "The venue declares commission rates but not the fee-charging asset, so the fee currency remains UNKNOWN and no fee amount is fabricated.";
-    let reason = match route_blocker(&routes) {
-        Some(_) => match route_fact {
+    let fee_fact = match fee {
+        FeeSituation::EvidenceUnavailable => {
+            "No current declared commission observation is available; fee currency remains UNKNOWN and no fee amount is fabricated."
+        }
+        FeeSituation::RateUnsupported => {
+            "The declared commission rates cannot provide a valid decimal basis; fee currency remains UNKNOWN and no fee amount is fabricated."
+        }
+        FeeSituation::CurrencyUnknown => {
+            "The venue declares commission rates but not the fee-charging asset, so the fee currency remains UNKNOWN and no fee amount is fabricated."
+        }
+    };
+    let reason = if !requirements_match {
+        "The FX requirement evidence does not describe this unchanged intent, so no fee/FX statement can bind it.".to_string()
+    } else if route_block.is_some() {
+        match route_fact {
             Some(route) => format!(
                 "The genuinely-required execution conversion {} -> {} is {}; {fee_fact}",
                 route.from_currency,
@@ -470,31 +495,27 @@ pub(crate) fn derive(
                 match route.state {
                     SpotRequiredRouteState::UnsupportedRoute =>
                         "unsupported by the selected bounded FX producer, so no qualified rate can bound this intent",
-                    _ =>
-                        "unbound because no current proposal-scoped rate qualifies it",
+                    SpotRequiredRouteState::Unqualified =>
+                        "execution-unqualified because the read-only rate establishes no conservative execution cost",
+                    _ => "unbound because no current proposal-scoped rate qualifies it",
                 }
             ),
             None => fee_fact.to_string(),
-        },
-        None => match reason_code {
+        }
+    } else {
+        match reason_code {
             SpotFeeFxReasonCode::SpotFeeFxQualified => {
                 "Both the owning fee statement and every genuinely-required execution conversion are current and complete; this carries no execution authority by itself.".to_string()
             }
             SpotFeeFxReasonCode::SpotFeeEvidenceUnavailable => {
                 "No current declared commission observation is bound to this unchanged intent, so the owning fee cannot be stated.".to_string()
             }
-            SpotFeeFxReasonCode::SpotFeeFxEvidenceMismatch => {
-                "The FX requirement evidence does not describe this unchanged intent, so no fee/FX statement can bind it.".to_string()
-            }
             _ => fee_fact.to_string(),
-        },
+        }
     };
 
     let fee_rate_basis = fee_basis;
-    let fee_evidence_version = digest(&(
-        capacity.binding_version.as_str(),
-        commission,
-    ))?;
+    let fee_evidence_version = digest(&(capacity.binding_version.as_str(), commission))?;
     let route_evidence_version = digest(&(
         fx_requirements.material_version.as_str(),
         fx_observation.map(|observation| observation.material_version.as_str()),
@@ -546,14 +567,14 @@ mod tests {
     //! Contract tests for [`super::derive`]'s decision table.
     //!
     //! Each test builds a **fully supported** intent route (an `INTENT_POLICY` `EUR -> USD`
-    //! requirement whose provider pair is `EURUSD`, with `base_currency = "USD"`) so that
-    //! [`super::route_blocker`] is empty, and then varies only the declared-commission evidence.
+    //! exact EUR identity to isolate fee facts; supported EURUSD retains its unqualified rate.
+    //! Identity requires no external rate; only the declared-commission evidence varies in fee cases.
     //! They pin the four fee-side outcomes of `derive` and prove that identity is bound rather than
     //! silently succeeding.
     //!
-    //! These are contract tests, not end-to-end reachability tests: no delivered host declares a
-    //! Spot account's fee-charging **asset**, so on the real seam the fee statement is permanently
-    //! non-`Pass` (see the module documentation and the S29.9 rulings).
+    //! These are contract tests, not end-to-end reachability tests: the consumed account response
+    //! does not establish the fee-charging asset and current USDT execution FX is unsupported.
+    //! Full positive qualification remains mandatory later work, never waived by this refusal.
     use super::*;
     use crate::protocol::{
         ExecutionContext, FinancialEvidenceBinding, FinancialEvidenceQuality, FxObservedRate,
@@ -742,9 +763,61 @@ mod tests {
         .expect("a bound identity always yields a visible statement")
     }
 
+    /// Isolate fee facts using exact EUR identity; retained contract evidence, not product acceptance.
+    fn derive_identity(declared_commission: Option<SpotDeclaredCommission>) -> SpotFeeFxStatement {
+        let capacity = capacity(declared_commission);
+        let mut requirements = requirements();
+        requirements.base_currency = "EUR".into();
+        requirements.requirements[0].to_currency = Some("EUR".into());
+        requirements.requirements[0].need = FxRequirementNeed::Identity;
+        requirements.requirements[0].provider_pair = None;
+        derive(
+            &capacity,
+            &requirements,
+            None,
+            &proposal(),
+            OrderSide::Buy,
+            "EUR",
+        )
+        .expect("identity contract")
+        .expect("bound statement")
+    }
+
+    #[test]
+    fn present_read_only_fx_rate_never_establishes_execution_qualification() {
+        let requirements = requirements();
+        let evidence = evidence();
+        let route = qualify_route(
+            SpotRequiredRoutePurpose::IntentPolicy,
+            &requirements.requirements[0],
+            Some(&evidence),
+        );
+        assert_eq!(route.state, SpotRequiredRouteState::Unqualified);
+        assert_eq!(
+            route.provider_quality.as_deref(),
+            Some("UNQUALIFIED_FX_RATE")
+        );
+        assert_eq!(
+            route.provider_timestamp.as_deref(),
+            Some("2024-01-01T00:00:00Z")
+        );
+        assert!(route.conservative_cost.is_none());
+        let statement = derive_supported(Some(commission("0.0010", "0.0015")));
+        assert_eq!(
+            statement.reason_code,
+            SpotFeeFxReasonCode::SpotRequiredFxUnqualified
+        );
+        assert_eq!(
+            statement.binding_blocker.as_deref(),
+            Some("SPOT_REQUIRED_FX_UNQUALIFIED")
+        );
+        assert!(statement.reason.contains("execution-unqualified"));
+        assert!(statement.reason.contains("fee currency remains UNKNOWN"));
+    }
+
     #[test]
     fn fails_closed_with_currency_unknown_when_rates_are_valid_but_the_fee_asset_is_undeclared() {
-        let statement = derive_supported(Some(commission("0.0010", "0.0015")));
+        let statement = derive_identity(Some(commission("0.0010", "0.0015")));
         assert_eq!(
             statement.reason_code,
             SpotFeeFxReasonCode::SpotFeeCurrencyUnknown
@@ -762,7 +835,7 @@ mod tests {
         assert!(statement.expected_fee.is_none());
         assert_eq!(statement.declared_maker_rate.as_deref(), Some("0.0010"));
         assert_eq!(statement.declared_taker_rate.as_deref(), Some("0.0015"));
-        // The genuinely-required supported route is qualified, so it does not block.
+        // Exact identity requires no external rate and isolates the fee-class fact.
         assert_eq!(statement.routes.len(), 1);
         assert_eq!(statement.routes[0].state, SpotRequiredRouteState::Qualified);
     }
@@ -771,7 +844,7 @@ mod tests {
     fn fails_closed_with_rate_unsupported_when_the_declared_rates_are_not_exact_decimals() {
         // A negative declared rate cannot be compared as an exact decimal, so the whole statement
         // fails closed on the fee basis instead of silently ignoring the unusable rate.
-        let statement = derive_supported(Some(commission("-0.0010", "0.0015")));
+        let statement = derive_identity(Some(commission("-0.0010", "0.0015")));
         assert_eq!(
             statement.reason_code,
             SpotFeeFxReasonCode::SpotFeeRateUnsupported
@@ -788,7 +861,7 @@ mod tests {
 
     #[test]
     fn fails_closed_with_evidence_unavailable_when_no_current_commission_is_bound() {
-        let statement = derive_supported(None);
+        let statement = derive_identity(None);
         assert_eq!(
             statement.reason_code,
             SpotFeeFxReasonCode::SpotFeeEvidenceUnavailable
@@ -805,10 +878,13 @@ mod tests {
     #[test]
     fn never_reaches_qualified_or_pass_even_when_every_declared_input_is_present() {
         // `SPOT_FEE_FX_QUALIFIED` (the fourth fee-side code) and a `Pass` outcome are the future
-        // contract: they are unreachable through the delivered producers because no host declares
-        // the fee-charging asset. This pins that a complete input set still stays visibly non-Pass.
+        // contract: the current account response does not establish a fee-charging asset and
+        // delivered FX is read-only. Every presently declared input still stays visibly non-Pass.
         let statement = derive_supported(Some(commission("0.0010", "0.0015")));
-        assert_ne!(statement.reason_code, SpotFeeFxReasonCode::SpotFeeFxQualified);
+        assert_ne!(
+            statement.reason_code,
+            SpotFeeFxReasonCode::SpotFeeFxQualified
+        );
         assert_ne!(statement.outcome, RiskCheckOutcome::Pass);
         assert!(statement.binding_blocker.is_some());
         assert_eq!(statement.proposal_hash.len(), 71);
@@ -834,5 +910,47 @@ mod tests {
         )
         .expect("derive never fails for a mismatched identity");
         assert!(bound.is_none());
+    }
+
+    #[test]
+    fn reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent() {
+        // Identity mismatch binds before the independently execution-unqualified supported rate.
+        // Foreign workspace, Proposal or base requirements are never reused by assumption.
+        let cases: [fn(&mut FxRequirements); 3] = [
+            |requirements| requirements.workspace_id = "workspace-other".into(),
+            |requirements| requirements.proposal_id = Some("proposal-other".into()),
+            |requirements| requirements.base_currency = "EUR".into(),
+        ];
+        for mutate in cases {
+            let capacity = capacity(Some(commission("0.0010", "0.0015")));
+            let mut requirements = requirements();
+            mutate(&mut requirements);
+            let evidence = evidence();
+            let statement = derive(
+                &capacity,
+                &requirements,
+                Some(&evidence),
+                &proposal(),
+                OrderSide::Buy,
+                "USD",
+            )
+            .expect("derive never fails for a bound identity")
+            .expect("a bound identity always yields a visible statement");
+            assert_eq!(
+                statement.reason_code,
+                SpotFeeFxReasonCode::SpotFeeFxEvidenceMismatch
+            );
+            assert_eq!(statement.outcome, RiskCheckOutcome::Unavailable);
+            assert_eq!(
+                statement.binding_blocker.as_deref(),
+                Some("SPOT_FEE_FX_EVIDENCE_MISMATCH")
+            );
+            // Preserve the independent unqualified route while identity mismatch binds first.
+            assert_eq!(statement.routes.len(), 1);
+            assert_eq!(
+                statement.routes[0].state,
+                SpotRequiredRouteState::Unqualified
+            );
+        }
     }
 }

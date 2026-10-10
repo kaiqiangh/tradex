@@ -62,6 +62,8 @@ pub enum BinanceCapacityFixture {
     /// The same completely covered inventory with the declared ORDERS/HOUR counter already at
     /// its declared limit, so the venue's own window would admit no further order.
     OrderRateExhausted,
+    FeeDeclared,
+    FeeChanged,
 }
 
 impl BinanceCapacityFixture {
@@ -71,7 +73,7 @@ impl BinanceCapacityFixture {
         matches!(self, Self::BaseLists | Self::Malformed | Self::Delayed)
     }
     fn covered_inventory(self) -> bool {
-        matches!(self, Self::CompleteCoverage | Self::OrderRateExhausted)
+        matches!(self, Self::CompleteCoverage | Self::OrderRateExhausted | Self::FeeDeclared | Self::FeeChanged)
     }
 }
 
@@ -1086,6 +1088,10 @@ impl ProviderHttp for Http {
             return Ok(serde_json::to_vec(&match route {
                 "/api/v3/account"=>{
                     let mut value=json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]});
+                    if self.binance_rules_ui && matches!(self.binance_capacity_ui.get(), BinanceCapacityFixture::FeeDeclared | BinanceCapacityFixture::FeeChanged) {
+                        let maker = if self.binance_capacity_ui.get() == BinanceCapacityFixture::FeeChanged { "0.0020" } else { "0.0010" };
+                        value["commissionRates"] = json!({"maker":maker,"taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+                    }
                     if self.binance_rules_ui && self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
                         if self.binance_capacity_ui.get()==BinanceCapacityFixture::Delayed { std::thread::sleep(std::time::Duration::from_millis(1500)); }
                         value["balances"].as_array_mut().unwrap().extend([json!({"asset":"BTC","free":"0.10000000","locked":"0.02000000"}),json!({"asset":"ETH","free":"1.00000000","locked":"0.00000000"})]);
