@@ -60,3 +60,5 @@ Both languages preserve requirement IDs, A–K screen IDs, QA case IDs/statuses,
 - Coverage status: FAILED / PARTIAL / SOURCE_ONLY / RUNTIME_PENDING / DEFERRED.
 
 S29.5 #126 is CLOSED. Source `b4d137a` and verified dev handoff `96a9577` bind current checks/build/pin/UI,161 source hashes and serial Standards/Spec PASS. [Paired evidence](implementation/s29-spot-capacity-inputs-evidence.md) records final7-AC closure readback. Dynamic qualification and parent/map/native/financial/physical release gates remain separate; prototype/main unchanged.
+
+S29.9 specification #130 and implementation #131 are CLOSED for the zero-new-read fee/required-FX statement and refusal slice. [Paired evidence](implementation/s29-fee-and-required-fx-evidence.md) binds source7b99f8e, verified dev source/evidence delivery2c7dad1, final checks/build/pin/UI and serial independent review. Parent #121 remains OPEN: BOTH complete symbol/side fee and charging-currency evidence AND required USDT execution FX still need owning implementation. AC-035 remains NOT_STARTED; no real financial/native/physical acceptance, prototype or main change is claimed.

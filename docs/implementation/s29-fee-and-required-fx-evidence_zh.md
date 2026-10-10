@@ -1,6 +1,6 @@
 # S29.9 费用与真正所需执行FX来源证据
 
-[English](s29-fee-and-required-fx-evidence.md)。源码`7b99f8e`，配对契约`00d4f14`，固定实现/复审基线`1f8e231de3fe67aec16db1ae7392f34981617330`。规范#130与实现#131仍OPEN，待精确远端/跟踪器交付。限定来源/拒绝片的最终本地验收PASS。
+[English](s29-fee-and-required-fx-evidence.md)。源码`7b99f8e`，配对契约`00d4f14`，固定实现/复审基线`1f8e231de3fe67aec16db1ae7392f34981617330`。规范#130与实现#131已CLOSED，当前片全部AC已勾选并回读。源码/证据交付`2c7dad1540358b00dc3d33dbb39e3c84ea68be9d`与远端dev一致。限定来源/拒绝片最终验收PASS。[实现决议](https://github.com/kaiqiangh/tradex/issues/131#issuecomment-6097896018)、[规范决议](https://github.com/kaiqiangh/tradex/issues/130#issuecomment-6097897385)。
 
 本零新增读取来源片报告账户maker/taker/buyer/seller原始费率、精确maker/taker比较基准，仅意图策略及BUY出资路径、绑定版本及唯一拥有方复核阻塞。缺失佣金如实描述；未知extension义务保留，字段名有界。当前费用币种/出处UNKNOWN、费用/换算金额缺失，必需USDT→工作区基准路径不支持。存在的已交付只读方向FX在缺少执行质量/成本时仍UNQUALIFIED，恒等无需汇率。比较基准不是完整费用估算。完整symbol/side费用及计入币种与真正所需USDT执行FX两项后续都必须建立；拒绝不能作为完整goal豁免或提供方能力缺失声明。
 
@@ -14,7 +14,7 @@
 | 7 | 真实外部佣金变化摘要、拒绝无审批/部分状态；既有已签发审批的缺FX Prepare测试不改 |
 | 8 | 防御推导纯契约场景，明确不是公开产品资格 |
 | 10 | 实际当前/捕获/pre-arm UI及refresh/reopen不变捕获，最终冻结UI PASS |
-| 11 | 配对契约/计划/map、独立串行复审，精确远端/跟踪器交付待完成 |
+| 11 | 配对契约/计划/map、独立串行复审，精确远端/跟踪器交付已核对 |
 
 #130 AC1–7对应上表契约/投影/身份/路由/基准/阻塞/拒绝/摘要；AC8对应实际UI/捕获；AC9对应明确可达性；AC10对应最终精确交付。当前来源陈述不建立完整费用或执行FX资格。
 
@@ -25,3 +25,5 @@
 父121、map1、S28、S17、物理S27、S33及dev→main仍开放。AC-035仍NOT_STARTED，仅目标拥有方及PRD行指针改变。未执行真实provider写/Arm/consent/派发，不声明原生/物理验收。原型代码未改，main未变。
 
 最终普通桌面构建exit0，嵌入Gateway pin与恢复的普通Gateway一致（`5f2799d6…`）。[构建/输入记录](evidence/s29-fee-and-required-fx/desktop-build-review-final-inputs.json)绑定全部169输入。[最终实际React/Rust UI](evidence/s29-fee-and-required-fx/ui-review-final-report.json)通过缺失/声明/变化/捕获/pre-arm披露、不变历史及1280/768/390宽度检查，无控制台错误，未执行Arm或consent。拥有方1427主机与tab已关闭，viewport已恢复。桌面构建是构建证据，不是原生/真实提供方验收。
+
+[远端交付](evidence/s29-fee-and-required-fx/delivery-before-close.json)核对169提交的源码/构建输入、提交的证据哈希、原生121→130→131层级、已完成依赖129与0开放阻塞。[跟踪器回读](evidence/s29-fee-and-required-fx/tracker-closure-readback.json)确认131 CLOSED/11项AC、130 CLOSED/10项AC、父121与map1 OPEN。未发现CI工作流，本地检查不冒充CI。

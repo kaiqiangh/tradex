@@ -1,6 +1,6 @@
 # S29.9 — 为精确金额 Binance Spot Live PLACE 履行「费用证据与真正所需执行 FX」拥有方资格
 
-父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。实现/复审起始基线 `dev@1f8e231de3fe67aec16db1ae7392f34981617330`。[English](s29-fee-and-required-fx-spec.md)。实现 IN_PROGRESS；最终验证、独立复审与精确交付仍待完成。
+父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。实现/复审起始基线 `dev@1f8e231de3fe67aec16db1ae7392f34981617330`。[English](s29-fee-and-required-fx-spec.md)。限定来源/拒绝片实现VERIFIED，规范130与实现131 CLOSED；原始完整goal正向费用/FX要求仍待完成。[配对验收证据](s29-fee-and-required-fx-evidence_zh.md)。
 
 ## 原始完整goal问题（历史上下文，仍须完成）
 
@@ -79,4 +79,4 @@
 
 当前票按其AC实现零新增读取的拥有方陈述/拒绝，不是原始正向费用/FX完整能力。当前数字费额估计、完整fee/计入币种资格及USDT执行FX均未证实，仍由后续拥有方完成。两个独立缺口必须同时解决；只解决一个不能使完整金融路径可用。普通symbol专属佣金API已有官方契约，但当前账户层rate不足以建立未来计入资产或完整佣金。见[官方佣金契约](https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/faqs/commission_faq.md)。不为本票制造正向路径、licence、parity或放宽currency validator。
 
-当前公开佣金精度/变化/拒绝、有界披露失败及捕获/reopen通过；中间源码的实际React缺失/声明/变化/pre-arm/不变捕获与1280/768/390通过。Backend §41.49、Frontend §13.34及UI §14.33同步。完整检查/普通构建/串行复审/精确源码/证据/远端/tracker交付待完成。不可达分支纯契约测试不证明产品ready。
+当前公开佣金精度/变化/拒绝、有界披露失败及捕获/reopen通过；中间源码的实际React缺失/声明/变化/pre-arm/不变捕获与1280/768/390通过。Backend §41.49、Frontend §13.34及UI §14.33同步。最终完整检查/普通构建/pin/冻结UI/串行复审/精确源码/证据/远端/tracker交付已PASS，源码7b99f8e、源码/证据交付2c7dad1；两票CLOSED且当前片全部AC已勾选。这仅验证限定来源/拒绝片。不可达分支纯契约测试不证明产品ready。
