@@ -1,6 +1,6 @@
 # S29.10 — Exact-symbol commission source and conditional fee-asset evidence
 
-[中文](s29-symbol-commission-spec_zh.md). [Parent](https://github.com/kaiqiangh/tradex/issues/121), [specification gate](https://github.com/kaiqiangh/tradex/issues/132), [single implementation ticket](https://github.com/kaiqiangh/tradex/issues/133). Source implementation `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`; final local checks/ordinary build/pin/frozen UI/serial review PASS at172 unchanged inputs. Exact remote/tracker handoff remains pending. Native121→132→133 hierarchy, completed123/131 dependencies,0 open blockers.
+[中文](s29-symbol-commission-spec_zh.md). [Parent](https://github.com/kaiqiangh/tradex/issues/121), [specification gate](https://github.com/kaiqiangh/tradex/issues/132), [single implementation ticket](https://github.com/kaiqiangh/tradex/issues/133). Source implementation `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`; final local checks/ordinary build/pin/frozen UI/serial review PASS at172 unchanged inputs. Verified dev delivery `3d507c0d79c8a35fa0106382c0dce4c3e5eee80e`; implementation133/specification132 CLOSED with all8ACs read back. Full parent/map/financial gates remain OPEN. Native121→132→133 hierarchy, completed123/131 dependencies,0 open blockers.
 
 ## Problem Statement
 
@@ -47,14 +47,14 @@ Use the highest accepted product seam. External fixtures change HTTP/vault respo
 
 ## Acceptance Criteria
 
-- [ ] AC1. The public explicit collection traverses the real typed Control Plane and external producer seam, verifies exact remote account identity and reads only the pinned ordinary account/commission GETs for the saved exact symbol using existing credentials.
-- [ ] AC2. Rust/schema/TypeScript agree on a bounded source observation containing all three four-rate families, original discount declaration, exact identity, source/version, original receipts, absent provider timestamp and source-only state/quality.
-- [ ] AC3. Missing, malformed, duplicate, contradictory or unknown active terms never become zero/complete; obligations remain visible, with no float comparison or rounding and no account-rate substitute.
-- [ ] AC4. BUY BASE / SELL QUOTE received-asset branches and conditional BNB/fallback are disclosed correctly; flags never select a guaranteed future charging asset, and no fee/BNB arithmetic is fabricated.
-- [ ] AC5. Deadlines, current-job/generation/version guards, shared read budget, authentication/backoff, bounded observations and monotonic expiry retire failures/obsolete completions without renewing original receipts.
-- [ ] AC6. Current risk/review captures bind genuine fee-source changes in their digest, preserve old captures and keep financial approval/Prepare unavailable through the existing independent owning gates; source validity creates no authority or partial financial state.
-- [ ] AC7. Actual React current/captured/pre-arm and keyboard1280/768/390 show complete declared origin/units/conditions and independent unresolved owning gaps, with immutable refresh/reopen history, no overflow or console errors.
-- [ ] AC8. Public normal/error/incomplete/contradictory/lifecycle RED/GREEN, current checks/schema/ordinary build/pin/frozen UI and independent serial Standards then Spec review pass at the committed source bytes. Paired evidence and verified dev/tracker handoff close only this prerequisite; parent/map/full financial gates remain OPEN.
+- [x] AC1. The public explicit collection traverses the real typed Control Plane and external producer seam, verifies exact remote account identity and reads only the pinned ordinary account/commission GETs for the saved exact symbol using existing credentials.
+- [x] AC2. Rust/schema/TypeScript agree on a bounded source observation containing all three four-rate families, original discount declaration, exact identity, source/version, original receipts, absent provider timestamp and source-only state/quality.
+- [x] AC3. Missing, malformed, duplicate, contradictory or unknown active terms never become zero/complete; obligations remain visible, with no float comparison or rounding and no account-rate substitute.
+- [x] AC4. BUY BASE / SELL QUOTE received-asset branches and conditional BNB/fallback are disclosed correctly; flags never select a guaranteed future charging asset, and no fee/BNB arithmetic is fabricated.
+- [x] AC5. Deadlines, current-job/generation/version guards, shared read budget, authentication/backoff, bounded observations and monotonic expiry retire failures/obsolete completions without renewing original receipts.
+- [x] AC6. Current risk/review captures bind genuine fee-source changes in their digest, preserve old captures and keep financial approval/Prepare unavailable through the existing independent owning gates; source validity creates no authority or partial financial state.
+- [x] AC7. Actual React current/captured/pre-arm and keyboard1280/768/390 show complete declared origin/units/conditions and independent unresolved owning gaps, with immutable refresh/reopen history, no overflow or console errors.
+- [x] AC8. Public normal/error/incomplete/contradictory/lifecycle RED/GREEN, current checks/schema/ordinary build/pin/frozen UI and independent serial Standards then Spec review pass at the committed source bytes. Paired evidence and verified dev/tracker handoff close only this prerequisite; parent/map/full financial gates remain OPEN.
 
 ## Out of Scope
 

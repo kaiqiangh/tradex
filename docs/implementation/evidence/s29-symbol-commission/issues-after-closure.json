@@ -1,0 +1,45 @@
+{
+  "issueTotal": 132,
+  "openIssues": [
+    {
+      "number": 121,
+      "state": "OPEN",
+      "title": "[Spec] 验证 Binance Spot Live 可信执行（S29）"
+    },
+    {
+      "number": 117,
+      "state": "OPEN",
+      "title": "[Spec] 补齐 S28 生产金融前置证据"
+    },
+    {
+      "number": 116,
+      "state": "OPEN",
+      "title": "[S28] 接入已配置 Alpaca 报价与 Hot 订阅"
+    },
+    {
+      "number": 115,
+      "state": "OPEN",
+      "title": "[Spec] 接入 Alpaca 已配置数据源与生产报价（S28）"
+    },
+    {
+      "number": 113,
+      "state": "OPEN",
+      "title": "[Spec] 验证 Trading 212 Live 可信执行（S28）"
+    },
+    {
+      "number": 107,
+      "state": "OPEN",
+      "title": "[Spec] 恢复 Live 执行并协调中断工作（S27）"
+    },
+    {
+      "number": 56,
+      "state": "OPEN",
+      "title": "[Spec] 完成 Alpaca Paper 交易生命周期"
+    },
+    {
+      "number": 1,
+      "state": "OPEN",
+      "title": "[Wayfinder] 完整构建 TradeX v1.0 RevC"
+    }
+  ]
+}

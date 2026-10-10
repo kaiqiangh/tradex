@@ -17,8 +17,8 @@ This manifest excludes its own hash to avoid self-reference. Existing docs/agent
 | File / 文件 | Purpose / 用途 | Lines / 行数 | SHA-256 |
 |---|---|---:|---|
 | `AGENTS.md` | Agent entry point / Agent 文档入口 | 30 | `c3242039e90c7f6c684b0de2fd3de2ad16132839293b508facb06ecbd14be9dc` |
-| `docs/README.md` | English documentation index | 64 | `a51095455aae2fd24a271f3892fc62934276a0c8a715c190a4c52ea36114c8a8` |
-| `docs/zh/README.md` | 中文文档目录 | 59 | `f63e69db37f04aa7fe7e29a853da8c7165b9e7d6f48d719665cc92e2135afdc6` |
+| `docs/README.md` | English documentation index | 66 | `941c857977b0d38d1f6a1b5f593e6bb3d75d56f54493d03ce321c53833fd6aa5` |
+| `docs/zh/README.md` | 中文文档目录 | 61 | `9f881b8e6f6592b393c08b734d1f6e4ec9e4e85a91f8d2133958f6b3e34bdc8d` |
 | `docs/TradeX_PRD_v1.0_RevC.md` | English PRD | 3683 | `00265a8e441efeac060ec94ba85b10113229e6cda5d32d05b6eef8831b676538` |
 | `docs/zh/TradeX_PRD_v1.0_RevC_zh.md` | 中文 PRD | 3675 | `fccbae321656688637dd35df8823c6e040d14ddf88c758bf24b4319f34367dac` |
 | `docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md` | English UI Spec | 1339 | `b91a07a7dc3fb5e204e0775b8cac79c76549d4c3d63c9e475288c25441c396c9` |

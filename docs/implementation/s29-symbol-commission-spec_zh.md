@@ -1,6 +1,6 @@
 # S29.10 — 精确标的佣金来源与条件扣费证据
 
-[English](s29-symbol-commission-spec.md)。[父项](https://github.com/kaiqiangh/tradex/issues/121)、[规范门禁](https://github.com/kaiqiangh/tradex/issues/132)、[单一实现票](https://github.com/kaiqiangh/tradex/issues/133)。源码实现 `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`；172输入未变的最终本地检查/普通构建/pin/冻结UI/串行复审PASS，精确远端/tracker交付仍待完成；原生121→132→133，已完成依赖123/131，0开放阻塞。
+[English](s29-symbol-commission-spec.md)。[父项](https://github.com/kaiqiangh/tradex/issues/121)、[规范门禁](https://github.com/kaiqiangh/tradex/issues/132)、[单一实现票](https://github.com/kaiqiangh/tradex/issues/133)。源码实现 `a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f`；172输入未变的最终本地检查/普通构建/pin/冻结UI/串行复审PASS，已核对dev交付 `3d507c0d79c8a35fa0106382c0dce4c3e5eee80e`，实现133/规范132均CLOSED且8项AC全部回读通过，完整父项/全图/金融门禁仍OPEN；原生121→132→133，已完成依赖123/131，0开放阻塞。
 
 ## 问题陈述
 
@@ -47,14 +47,14 @@
 
 ## 验收标准
 
-- [ ] AC1. 公开显式采集贯穿实际类型化 Control Plane 及外部生产者接缝，验证精确远端账户身份，只使用已有凭据为已保存精确 symbol 读取固定普通账户/佣金 GET。
-- [ ] AC2. Rust/schema/TypeScript 对有界来源观察一致，包含三类四费率、原始折扣声明、精确身份、来源/版本、原始收讫、缺失的提供方时间及来源限定状态/质量。
-- [ ] AC3. 缺失、畸形、重复、矛盾或未知活动条款不能变成零/完整；义务可见，无浮点比较/舍入或账户费率替代。
-- [ ] AC4. 正确披露 BUY BASE / SELL QUOTE 收到资产分支及条件 BNB/回退；开关不选择保证的未来扣费资产，不制造费用/BNB 算术。
-- [ ] AC5. Deadline、当前作业/代际/版本保护、共享读取预算、认证/退避、有界观察及单调过期，使失败/迟到结果退役，不更新原始收讫。
-- [ ] AC6. 当前 risk/review 捕获在摘要中绑定真实费用来源变化，保留旧捕获，并由已有独立拥有方门禁继续使金融审批/Prepare 不可用；来源有效不产生权威或金融部分状态。
-- [ ] AC7. 实际 React 当前/捕获/pre-arm 与键盘1280/768/390 展示完整出处/单位/条件及独立未解决拥有方缺口，刷新/重开历史不变，无溢出或控制台错误。
-- [ ] AC8. 公开正常/错误/不完整/矛盾/生命周期 RED/GREEN、当前检查/schema/普通构建/pin/冻结UI 及独立串行 Standards 后 Spec 复审在提交源码通过。配对证据与核对的 dev/tracker 交付只关闭本前置；父/map/完整金融门禁保持 OPEN。
+- [x] AC1. 公开显式采集贯穿实际类型化 Control Plane 及外部生产者接缝，验证精确远端账户身份，只使用已有凭据为已保存精确 symbol 读取固定普通账户/佣金 GET。
+- [x] AC2. Rust/schema/TypeScript 对有界来源观察一致，包含三类四费率、原始折扣声明、精确身份、来源/版本、原始收讫、缺失的提供方时间及来源限定状态/质量。
+- [x] AC3. 缺失、畸形、重复、矛盾或未知活动条款不能变成零/完整；义务可见，无浮点比较/舍入或账户费率替代。
+- [x] AC4. 正确披露 BUY BASE / SELL QUOTE 收到资产分支及条件 BNB/回退；开关不选择保证的未来扣费资产，不制造费用/BNB 算术。
+- [x] AC5. Deadline、当前作业/代际/版本保护、共享读取预算、认证/退避、有界观察及单调过期，使失败/迟到结果退役，不更新原始收讫。
+- [x] AC6. 当前 risk/review 捕获在摘要中绑定真实费用来源变化，保留旧捕获，并由已有独立拥有方门禁继续使金融审批/Prepare 不可用；来源有效不产生权威或金融部分状态。
+- [x] AC7. 实际 React 当前/捕获/pre-arm 与键盘1280/768/390 展示完整出处/单位/条件及独立未解决拥有方缺口，刷新/重开历史不变，无溢出或控制台错误。
+- [x] AC8. 公开正常/错误/不完整/矛盾/生命周期 RED/GREEN、当前检查/schema/普通构建/pin/冻结UI 及独立串行 Standards 后 Spec 复审在提交源码通过。配对证据与核对的 dev/tracker 交付只关闭本前置；父/map/完整金融门禁保持 OPEN。
 
 ## 本前置票不包含
 

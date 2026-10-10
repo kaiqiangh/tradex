@@ -57,3 +57,5 @@ S25.4 #100 已在收窄范围内于已审查的 `dev@f67463d` 关闭：新鲜且
 - ID 配对检查只证明结构；金融条件、权限作用域、失败恢复和动作语义必须逐段同步，英文变更在同次修改中更新中文。
 
 S29.5 #126已CLOSED，源码`b4d137a`和已核对dev交付`96a9577`绑定当前检查/构建/pin/UI、161源码哈希及串行Standards/Spec PASS。[配对证据](../implementation/s29-spot-capacity-inputs-evidence_zh.md)记录最终7项AC关闭回读。动态资格及父项/全图/原生/金融/物理门禁独立保留；原型/main未改。
+
+S29.10精确标的佣金声明来源的规范与实现均CLOSED；[配对验收](../implementation/s29-symbol-commission-evidence_zh.md)绑定源码a3127a5/已核对dev3d507c0、172输入、完整检查/build/pin/冻结当前及捕获与pre-arm UI、串行独立复审。完整金额费用/扣费及真正必需USDT/BNB执行FX仍必须后续拥有方补齐，父项/map/金融/native/物理/release门禁保持OPEN。原型/main与需求/屏幕状态未改。
