@@ -37,3 +37,5 @@ S29.2 [收口](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-60525
 已交付单一来源前置：[读取并绑定精确标的佣金与条件扣费证据](https://github.com/kaiqiangh/tradex/issues/133#issuecomment-6098801386)、[规范门禁](https://github.com/kaiqiangh/tradex/issues/132#issuecomment-6098802377)、[配对验收](s29-symbol-commission-evidence_zh.md)。两票均CLOSED、各8AC关闭回读通过；源码a3127a5/契约ba82e59/已核对dev3d507c0，基线9074556。同一已批准公开外部生产者接缝，172已提交输入绑定8项检查/普通build+pin/最终实际UI/独立串行Standards→Spec PASS。三类原始完整声明及条件扣费分支可见，不授予金额或FX资格。父121/map1仍OPEN。完整金额费用上界、条件BNB扣费/换算及真正必需USDT/BNB执行FX仍必须后续拥有方补齐，再进行认证preflight/私有生命周期/真实验收。原型/main与全局需求/屏幕状态未改。
 
 下一拥有方准备：[金融输入研究与20项交接](s29-financial-inputs-research.md)固定完整手续费公式、真实路由候选、使用权限制、原币支出/估算区分及预留/货币风控依赖。下一实现票尚未发布或验收；完整所需FX与条件费用分支仍必须补齐，不因技术可读就选定无金融使用权证明的来源，也不暗加资金兑换范围。
+
+当前串行拥有方：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / needs-info。[配对草案](s29-owning-financial-plan-spec_zh.md)涵盖全部20交接需求、32故事、14待完成AC；native已完成依赖133/131、0开放阻塞。来源/profile使用证据、估算/授权/原生边界及BNB/舍入方法仍需落实后才能发布ready实现票。这只是规划进展，不以另一个source-only关闭或正向金融验收替代目标。父项/全图/真实/原生/物理/发布仍OPEN；原型/main未改。

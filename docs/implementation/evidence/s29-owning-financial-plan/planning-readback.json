@@ -1,0 +1,53 @@
+{
+  "kind": "PLANNING_ONLY_NOT_IMPLEMENTATION_ACCEPTANCE",
+  "checkedAt": "2026-10-10T19:39:08.334397+00:00",
+  "planningBaseline": "70ce33ec5aa0286eff82e924f281c4588e03b3be",
+  "issue": {
+    "number": 134,
+    "state": "OPEN",
+    "triage": "needs-info",
+    "parent": 121,
+    "completedNativeDependencies": [
+      133,
+      131
+    ],
+    "openNativeBlockers": 0
+  },
+  "openIssues": [
+    1,
+    56,
+    107,
+    113,
+    115,
+    116,
+    117,
+    121,
+    134
+  ],
+  "storiesPerLanguage": 32,
+  "pendingAcPerLanguage": 14,
+  "handoffRequirements": 20,
+  "productManifestHashesMatched": 20,
+  "traceability": "203 requirements / 70 screens / 13 QA / 23 baseline files; PASS; application behavior not established",
+  "implementationTicketPublished": false,
+  "applicationChanged": false,
+  "runtimeTestsAndBuild": "NOT_RUN_THIS_PLANNING_CHANGE",
+  "nativeFinancialPhysicalAcceptance": "NOT_CLAIMED",
+  "independentCodeReview": "NOT_RUN_THIS_DRAFT",
+  "prototypeChanged": false,
+  "mainChanged": false,
+  "goal": "ACTIVE",
+  "pendingContractDuties": [
+    "permitted configured source/profile and actual entitlement/quality",
+    "current-estimate rounding versus authorization/native bounds",
+    "BNB conversion/allowance methodology"
+  ],
+  "documentHashes": {
+    "docs/implementation/s29-owning-financial-plan-spec.md": "ec22d587117cc98c6a7e87cb030e68c07d527a936e9d26c27a237f448934374e",
+    "docs/implementation/s29-owning-financial-plan-spec_zh.md": "a90216d2e193d02c11770848adf84fe2c253203d2ef0fdae9a46612d44a12ad7",
+    "docs/implementation/s29-binance-live-plan.md": "720b84347404b3dc1472621ee5489296ac9a500357772081ec04ad6697bca53a",
+    "docs/implementation/s29-binance-live-plan_zh.md": "6daa5e074ef9587bc83c52084808478bcc2a9359d9286bd46eaedb75a372a1b0",
+    "docs/implementation/README.md": "1d6c402075cbfdaae72b92d6ef56304345e8327e074d0efdd1c68429ffea19b6",
+    "docs/implementation/workload-dashboard.html": "21cf0c5385c9bc367de831117062dd2b812cd874d0167a1f3b3669dd5c691e1a"
+  }
+}
