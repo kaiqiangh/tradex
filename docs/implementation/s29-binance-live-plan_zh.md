@@ -38,4 +38,4 @@ S29.2 [收口](https://github.com/kaiqiangh/tradex/issues/123#issuecomment-60525
 
 下一拥有方准备：[金融输入研究与20项交接](s29-financial-inputs-research.md)固定完整手续费公式、真实路由候选、使用权限制、原币支出/估算区分及预留/货币风控依赖。下一实现票尚未发布或验收；完整所需FX与条件费用分支仍必须补齐，不因技术可读就选定无金融使用权证明的来源，也不暗加资金兑换范围。
 
-当前串行拥有方：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / needs-info。[配对草案](s29-owning-financial-plan-spec_zh.md)涵盖全部20交接需求、32故事、14待完成AC；native已完成依赖133/131、0开放阻塞。来源/profile使用证据、估算/授权/原生边界及BNB/舍入方法仍需落实后才能发布ready实现票。这只是规划进展，不以另一个source-only关闭或正向金融验收替代目标。父项/全图/真实/原生/物理/发布仍OPEN；原型/main未改。
+当前串行拥有方：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / needs-info。[配对草案](s29-owning-financial-plan-spec_zh.md)涵盖全部20交接需求、32故事、14待完成AC；native已完成依赖133/131、0开放阻塞。金额决策已固定完整有理数逐族ceil18、fallback/BNB独立完整角色选择、本地提交前硬预算/原币额度、材料与回执区分及超额度真值恢复；[7个合成金额算例](evidence/s29-owning-financial-plan/model-arithmetic-readback.json)仅验证规划oracle。获准配置来源/profile及准确可执行路由/用途/entitlement/质量契约仍待解决后才能发布ready实现票；实际用途确认仅是上下文，不是使用权setter。这只是规划进展，不以另一个source-only关闭或正向金融验收替代目标。父项/全图/真实/原生/物理/发布仍OPEN；原型/main未改。
