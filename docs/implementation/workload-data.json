@@ -1,8 +1,8 @@
 {
-  "generated": "2026-10-10 09:45 +0100",
-  "commit": "bdc21b2",
+  "generated": "2026-10-11 10:03 +0100",
+  "commit": "308747a",
   "branch": "dev",
-  "ahead": 7,
+  "ahead": 0,
   "req_total": 203,
   "req_status": {
     "IMPLEMENTED_UNVERIFIED": 68,
@@ -18,7 +18,7 @@
     "IMPLEMENTED_UNVERIFIED": 39,
     "NOT_STARTED": 29
   },
-  "issue_total": 130,
+  "issue_total": 134,
   "issue_open": 10,
   "open_issues": [
     1,
@@ -29,8 +29,8 @@
     116,
     117,
     121,
-    130,
-    131
+    134,
+    135
   ],
   "slice_closed": 25,
   "slice_inprog": 4,
@@ -672,9 +672,13 @@
         128,
         129,
         130,
-        131
+        131,
+        132,
+        133,
+        134,
+        135
       ],
-      "issues_closed": 8,
+      "issues_closed": 12,
       "issues_open": 3,
       "total": 3,
       "not_started": 1,
@@ -1346,9 +1350,9 @@
   "owners": [
     {
       "id": "kaiqiangh",
-      "total": 116,
+      "total": 120,
       "open": 9,
-      "closed": 107
+      "closed": 111
     },
     {
       "id": "unassigned",
@@ -3363,5 +3367,5 @@
   },
   "phase_basis": "两套口径均为唯一归属：first = 最小切片号（引入阶段）；last = 最大切片号（收口阶段）",
   "slice_basis": "切片为映射计数口径（同一需求映射多切片时分别计入）；S06 为决策类切片，无直接映射的编号需求",
-  "snapshot_note": "S29 子票 #122–#129 已全部关闭（账户交易状态 #122、精确 Spot 规则与准入 #123、Hot 报价与连续深度 #124、Proposal 静态规则 #125、开放订单与容量输入 #126、精确账户时段订单额度 #127、Proposal 价格区间执行解释 #128、Spot Live PLACE 拥有方准入资格 #129）；父 Spec #121 保持 OPEN，状态仅到「源码已交付、父门禁未关」。S29.9 规格门控 #130 与其实现 #131 仍 OPEN（拥有方 Spot 费用陈述与真正所需执行 FX）。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除。"
+  "snapshot_note": "S29 子票 #122–#133 已全部关闭（账户交易状态 #122、精确 Spot 规则与准入 #123、Hot 报价与连续深度 #124、Proposal 静态规则 #125、开放订单与容量输入 #126、精确账户时段订单额度 #127、Proposal 价格区间执行解释 #128、Spot Live PLACE 拥有方准入资格 #129、拥有方 Spot 费用陈述与真正所需执行 FX（S29.9 #130/#131）、精确标的佣金与条件扣费证据（S29.10 #132/#133））；父 Spec #121 保持 OPEN，状态仅到「源码已交付、父门禁未关」。S29.11 规格门控 #134 与其实现 #135 仍 OPEN（逐资产 Spot 金融计划与真实必需 FX）。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除。"
 }
