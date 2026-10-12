@@ -6,6 +6,8 @@ import { createPortal } from 'react-dom';
 import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchFocus, ResearchToolId, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadTurn, TimeStatus, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
+import { AccountHealth } from './AccountHealth.tsx';
+import { AboutPrivacySettings, AppearanceSettings } from './SettingsSurfaces.tsx';
 import { Models } from './Models.tsx';
 import { RiskDefaults, draftFromPolicy, type RiskDraft } from './RiskDefaults.tsx';
 import { DataSources } from './DataSources.tsx';
@@ -804,19 +806,22 @@ export default function App() {
             </>}
             {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} runtime={state.runtime.data} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} newThreadContexts={newThreadScreenerContexts} selectedThreadContexts={currentThreadScreenerContexts?.threadId === selectedThreadId ? currentThreadScreenerContexts?.contexts ?? [] : []} onContextsConsumed={() => setCurrentThreadScreenerContexts(undefined)} onOpenStrategies={openStrategies} />}
             {page === 'Settings' && <>
-              <div className="page-heading"><h1>Settings</h1><p>Manage your local workspace and connected services.</p></div>
+              <div className="page-heading"><h1>Settings</h1><p>Manage your local workspace, account health, privacy, and connected services.</p></div>
               <div className="settings-tabs" role="group" aria-label="Settings sections">{['Providers & Models', 'Risk & Limits', 'Data & Storage', 'Account Health', 'Appearance', 'About'].map(tab =>
                 <button key={tab} aria-pressed={settingsTab === tab} onClick={() => setSettingsTab(tab)}>{tab}</button>)}</div>
               <section className="card settings-section"><h2>{settingsTab}</h2>
-                {workspace && (settingsTab === 'Providers & Models' || settingsTab === 'Account Health') && <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} healthOnly={settingsTab === 'Account Health'} />}
+                {workspace && settingsTab === 'Account Health' && <AccountHealth key={workspace.workspaceId} workspaceId={workspace.workspaceId} />}
                 {workspace && settingsTab === 'Account Health' && <TimeHealth workspaceId={workspace.workspaceId} />}
-                {workspace && settingsTab === 'Providers & Models' && <Models key={`models:${workspace.workspaceId}`} workspaceId={workspace.workspaceId} model={model} modelError={modelProjection.error} reloadModel={modelProjection.reload} />}
-                {settingsTab === 'Providers & Models' || settingsTab === 'About' ? <>
-                  <p className="muted">{settingsTab === 'About' ? 'TradeX 0.1.0 · local desktop workspace' : modelReady ? 'A verified model route is available; agent turns remain disabled until Codex App Server is configured.' : modelState.reason}</p>
-                  <ul className="component-list">{state.runtime.data?.components.map(component => <li key={component.id}><div><strong>{component.id === 'cliproxyapi' ? 'CLIProxyAPI' : component.id === 'codex' ? 'Codex App Server' : component.id === 'control-plane' ? 'Control Plane' : 'Order Gateway'}</strong><p>{component.message}</p></div><span className="badge">{state.runtime.isError ? 'Unavailable' : component.status === 'RUNNING' ? 'Available' : component.status.replaceAll('_', ' ')}</span></li>)}</ul>
-                  <button onClick={() => { void state.runtime.refetch(); }} disabled={state.runtime.isFetching}>Refresh runtime status</button>
-                </> : settingsTab === 'Risk & Limits' && workspace ? <RiskSettings workspace={workspace} risk={risk} /> : settingsTab === 'Data & Storage' && workspace ? <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => { setWorkspacePicker(true); setSetup(false); }}>Open another workspace</button><WorkspaceArchive key={`workspace-archive:${workspace.workspaceId}`} workspace={workspace} onOpenRestored={async path => { await state.opening.mutateAsync({ path }); setSelectedThreadId(undefined); setWorkspacePicker(false); setSetup(false); setPage('Settings'); }} /><DataSources key={workspace.workspaceId} workspaceId={workspace.workspaceId} /></> :
-                  <p className="muted">{settingsTab === 'Account Health' ? 'Connection, authentication, stream, reconciliation and execution are separate checks.' : 'The workspace currently uses the RevC light theme.'}</p>}
+                {workspace && settingsTab === 'Providers & Models' && <>
+                  <p className="muted">{modelReady ? 'A verified model route is available; agent turns remain disabled until Codex App Server is configured.' : modelState.reason}</p>
+                  <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} />
+                  <Models key={`models:${workspace.workspaceId}`} workspaceId={workspace.workspaceId} model={model} modelError={modelProjection.error} reloadModel={modelProjection.reload} />
+                </>}
+                {settingsTab === 'About' && <AboutPrivacySettings runtime={state.runtime.data} runtimeLoading={state.runtime.isFetching} runtimeError={state.runtime.error} onRefresh={() => { void state.runtime.refetch(); }} />}
+                {settingsTab === 'Appearance' && <AppearanceSettings />}
+                {settingsTab === 'Risk & Limits' && workspace && <RiskSettings workspace={workspace} risk={risk} />}
+                {settingsTab === 'Data & Storage' && workspace && <><p className="muted">Local workspace folder</p><p className="path">{workspace.path}</p><button onClick={() => { setWorkspacePicker(true); setSetup(false); }}>Open another workspace</button><WorkspaceArchive key={`workspace-archive:${workspace.workspaceId}`} workspace={workspace} onOpenRestored={async path => { await state.opening.mutateAsync({ path }); setSelectedThreadId(undefined); setWorkspacePicker(false); setSetup(false); setPage('Settings'); }} /><DataSources key={workspace.workspaceId} workspaceId={workspace.workspaceId} /></>}
+                {!workspace && settingsTab !== 'About' && settingsTab !== 'Appearance' && <p className="muted">Open a workspace to view {settingsTab.toLowerCase()}.</p>}
               </section>
             </>}
             {page === 'Accounts' && <><div className="page-heading"><h1>Accounts</h1><p>Connect and inspect your provider accounts.</p></div>{workspace ? <Accounts key={workspace.workspaceId} workspaceId={workspace.workspaceId} /> : <p>Open a workspace to manage accounts.</p>}</>}

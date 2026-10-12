@@ -641,7 +641,7 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
   </section>;
 }
 
-export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: string; healthOnly?: boolean }) {
+export function Accounts({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient();
   const catalog = useQuery({ queryKey: ['providers'], queryFn: () => request('provider.list_definitions', {}) });
   const risk = useDomainProjection('risk', workspaceId, fromRiskSnapshot);
@@ -729,7 +729,7 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
   return <div className="accounts-panel">
     {failure != null && <div className="error-banner" role="alert"><p>{explainError(failure)}</p><button onClick={() => { setError(null); void list.refetch(); void catalog.refetch(); void paper.refetch(); if (selectedId) void selected.reload(); }}>Reload account state</button></div>}
     {notice && <p role="status">{notice}</p>}{busy && <p role="status">Completing account operation…</p>}
-    {!healthOnly && <section className="card provider-config" aria-labelledby="broker-providers"><h2 id="broker-providers">Broker &amp; exchange providers</h2>
+    <section className="card provider-config" aria-labelledby="broker-providers"><h2 id="broker-providers">Broker &amp; exchange providers</h2>
       <p>Local Paper is a built-in TradeX simulation and needs no credentials; provider forms below are for external accounts.</p>
       <form onSubmit={event => { event.preventDefault(); if (schema && connectionSource === 'new') void run(() => request('provider.connect', { step: 'test', workspaceId, providerId: schema.providerId, environment: schema.environment, label }), 'connect-account'); }}>
         <label className="field">Connection source<select value={connectionSource} onChange={event => { const value = event.target.value; setConnectionSource(value); const existing = accounts.find(account => account.connectionId === value); if (existing) { setSelectedId(existing.connectionId); setSelection(`${existing.providerId}/${existing.environment}`); setLabel(existing.label); } }} disabled={busy}>
@@ -747,11 +747,11 @@ export function Accounts({ workspaceId, healthOnly = false }: { workspaceId: str
           <button id="use-existing-account" type="button" className="primary" disabled={busy || !canReuseExisting || !(desktop || browserIntegration)} onClick={() => { if (existingAccount && canReuseExisting) void run(() => request('account.refresh', mutation(existingAccount)), 'use-existing-account'); }}>Use existing account</button>
         </>}
       </form>
-    </section>}
+    </section>
     {paper.isPending && <p role="status">Loading Local Paper simulation…</p>}
     {paper.data && <LocalPaperSummary state={paper.data} />}
-    {!healthOnly && showPortfolio && <Portfolio workspaceId={workspaceId} />}
-    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title" tabIndex={-1}>Account connections</h2><p className="muted">Select an account to inspect its provider truth or TradeX simulation state.</p></div><div className="account-actions">{liveAccounts.length > 0 && <button type="button" id="disable-all-live" disabled={busy} onClick={() => { void run(() => request('account.disable_all_live', { workspaceId }), 'disable-all-live').then(success => { if (success) setNotice('All Live accounts are disarmed.'); }); }}>Disable All Live Execution</button>}{!healthOnly && <button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button>}</div></div>
+    {showPortfolio && <Portfolio workspaceId={workspaceId} />}
+    <section aria-labelledby="connections-title"><div className="section-heading"><div><h2 id="connections-title" tabIndex={-1}>Account connections</h2><p className="muted">Select an account to inspect its provider truth or TradeX simulation state.</p></div><div className="account-actions">{liveAccounts.length > 0 && <button type="button" id="disable-all-live" disabled={busy} onClick={() => { void run(() => request('account.disable_all_live', { workspaceId }), 'disable-all-live').then(success => { if (success) setNotice('All Live accounts are disarmed.'); }); }}><span>Disable All Live Execution</span></button>}<button type="button" onClick={() => setShowPortfolio(value => !value)} aria-expanded={showPortfolio}>{showPortfolio ? 'Hide portfolio' : 'Open portfolio'}</button></div></div>
       {list.isLoading ? <p role="status">Loading local connections…</p> : !accounts.length ? <p>No account observations are available.</p> : <div className="account-list">{accounts.map(account => { const localPaper = account.providerId === 'local-paper' && account.environment === 'LOCAL'; return <button className="account-row" key={account.connectionId} aria-pressed={selectedId === account.connectionId} onClick={() => setSelectedId(account.connectionId)}><strong>{account.label}</strong><span>{account.providerId} · {account.environment}{localPaper ? ' · LOCAL_PAPER' : ''}</span>{localPaper && <small>TRADEX_SIMULATION · {account.health.reason}</small>}<span>{account.connectionState} · {account.health.connection}</span><span>Equity / balance: {account.data?.balances.map(balance => `${balance.asset} ${balance.total ?? balance.available}`).join(' · ') || 'Unavailable'}</span><span>Arming: {account.health.arming}</span><small>Last sync: {time(account.lastSuccessfulSync)}</small></button>; })}</div>}
     </section>
     {selected.data && <AccountDetail key={selected.data.connectionId} account={selected.data} eligibility={list.data?.liveArmingEligibility.find(item => item.connectionId === selected.data?.connectionId)} riskConfigured={risk.data?.configured} busy={busy} run={run} onDelete={deleteLocalAccount} />}

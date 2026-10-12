@@ -189,6 +189,27 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .settings-tabs button { background: transparent; font-size: 11px; }
 .settings-tabs [aria-pressed="true"] { background: var(--blue-light); color: var(--blue); border-color: #bfdbfe; }
 .settings-section > p { font-size: 12px; }
+.account-health-surface, .about-settings { display: grid; gap: 14px; min-width: 0; }
+.account-health-heading, .account-health-card-heading, .about-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.account-health-heading p { margin: 0; }
+.account-health-list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+.account-health-card { min-width: 0; padding: 16px; }
+.account-health-card h3, .appearance-settings h3, .about-settings h3 { margin: 0; font-size: 14px; }
+.account-health-card-heading p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.account-health-dimensions, .account-health-observations, .about-facts, .privacy-facts { display: grid; gap: 10px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 0 0; }
+.account-health-dimensions > div, .account-health-observations > div, .about-facts > div, .privacy-facts > div { min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.account-health-dimensions dt, .account-health-observations dt, .about-facts dt, .privacy-facts dt { color: var(--muted); font-size: 11px; }
+.account-health-dimensions dd, .account-health-observations dd, .about-facts dd, .privacy-facts dd { margin: 5px 0 0; overflow-wrap: anywhere; font-size: 12px; }
+.account-health-dimensions code { white-space: normal; }
+.account-health-observations dd { color: var(--muted); }
+.about-section-heading { flex-wrap: wrap; margin-bottom: 12px; }
+.privacy-facts dd p { margin: 7px 0 0; color: var(--muted); }
+.privacy-status > p { font-size: 11px; }
+.appearance-options { display: grid; gap: 8px; max-width: 620px; }
+.appearance-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.appearance-option.selected { border-color: #93c5fd; background: var(--blue-light); color: var(--blue); }
+.appearance-option.future { color: var(--muted); background: var(--surface2); }
+.appearance-option span { flex-shrink: 0; font-size: 11px; }
 .data-sources { margin-top: 26px; border-top: 1px solid var(--border); padding-top: 20px; }
 .workspace-archive { display: grid; gap: 16px; margin: 22px 0; padding: 16px; }
 .workspace-archive h3, .workspace-archive h4 { margin: 0; }
@@ -444,6 +465,9 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
   .market-search input { flex-basis: 100%; }
   .market-search button { width: 100%; }
   .page-heading { flex-direction: column; align-items: stretch; }
+  .account-health-heading, .account-health-card-heading, .about-section-heading { align-items: stretch; flex-direction: column; }
+  .account-health-heading > button { width: 100%; }
+  .account-health-dimensions, .account-health-observations, .about-facts, .privacy-facts { grid-template-columns: minmax(0, 1fr); }
   .page-heading > button { width: 100%; }
   .artifact-meta, .artifact-provenance-grid, .workspace-data-categories dl { grid-template-columns: minmax(0, 1fr); }
   .artifact-row { align-items: flex-start; flex-direction: column; }
