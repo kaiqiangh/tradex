@@ -1211,3 +1211,9 @@ Settings 渲染生成的 credentialKind 与 cleanupPending 字段。专用安全
 ### 13.35 当前及捕获的标的佣金声明（S29.10 #133，限定来源PASS）
 
 渲染生成的 `SpotCommissionInputs` 当前状态及 history/approval/pre-arm 的 `RiskDecision.spotCommission` 捕获。展示十二个类别/角色原始费率、原始折扣开关/资产/值、收到资产与条件折扣/回退分支、精确身份/单位/出处、缺失的提供方时间、两个原始本地开始/收讫/digest 及全部未解决限制。不替代账户费率比较，不制造总费用/扣费资产/换算。只有当前“Read symbol commission terms”触发认证刷新；投影 polling/get 不采集提供方。忙碌/失败/过期隐藏旧当前成功；捕获视图没有刷新/输入/polling，后续读取或重开不改写历史。保持键盘1280/768/390 无溢出或控制台错误，完整金融拒绝可见。Backend§41.50/UI§14.34 为权威，原型代码未改。
+
+### 13.36 工作区归档与保留 UI（S31 #137）
+
+Settings → Data & Storage 显示保留限制，以及相互独立的 Backup Now、Export Workspace 与 Import / Restore 操作。三个归档操作依赖原生桌面文件/对话框边界；browser 模式禁用它们并解释原因。保存保留设置时使用返回的 `stateVersion`，且绝不删除数据。Apply retention now 需要单独确认，并报告删除的普通 artifact、行情行和缓存文件数。未设置限制即不清理。
+
+导入使用键盘可操作的明确 dialog：选择归档后，显示校验/schema 兼容性、manifest 身份/时间/大小、包含的数据类别记录数、warnings 与 Keychain 引用状态；选择目标目录后，用户再明确确认恢复或取消。展示进行中、失败和成功状态；快照完成暂存与校验后，在新 workspace 打开，并报告已保存的恢复前备份。`PRESENT_UNVERIFIED` 必须解释为仅 Keychain 条目存在，绝不能表述为认证或权限已成功。secret/reference 不进入 renderer state。在 1280/768/390 px 下，dialog 内容和长路径均清晰可读且无横向溢出。Backend §41.51 与 UI §14.3–14.4 定义权威存储契约与导入顺序；原型代码保持未修改。

@@ -5,6 +5,7 @@ import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, A
 import { decode } from './projection.ts';
 import type { ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest, ManualResolutionRequest, ResolutionEvidenceQuery, ResolutionEvidenceQueryResult, ResolutionEvidenceRefresh } from '../shared/ipc-types.ts';
 import type { Trading212DemoOrderBook, Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh } from '../shared/ipc-types.ts';
+import type { WorkspaceArchiveExport, WorkspaceArchivePreviewRequest, WorkspaceArchiveRestoreRequest, WorkspaceArchiveExportResult, WorkspaceArchivePreview, WorkspaceArchiveRestoreResult, WorkspaceRetention, WorkspaceRetentionQuery, WorkspaceRetentionUpdate } from '../shared/ipc-types.ts';
 
 interface Inputs {
   'model.get_gateway': WorkspaceQuery;
@@ -71,6 +72,13 @@ interface Inputs {
   'bitget.demo.order.attempt.get': BitgetDemoOrderAttemptQuery;
   'bitget.demo.order.reconcile': BitgetDemoOrderReconcile;
   'workspace.open': OpenWorkspace;
+  'workspace.archive.backup': WorkspaceQuery;
+  'workspace.archive.export': WorkspaceArchiveExport;
+  'workspace.archive.preview': WorkspaceArchivePreviewRequest;
+  'workspace.archive.restore': WorkspaceArchiveRestoreRequest;
+  'workspace.retention.get': WorkspaceRetentionQuery;
+  'workspace.retention.set': WorkspaceRetentionUpdate;
+  'workspace.retention.apply': WorkspaceRetentionQuery;
   'runtime.status': EmptyPayload;
   'time.status': WorkspaceQuery;
   'time.revalidate': WorkspaceQuery;
@@ -234,6 +242,13 @@ interface Outputs {
   'bitget.demo.order.attempt.get': BitgetDemoOrderAttemptQueryResult;
   'bitget.demo.order.reconcile': BitgetDemoOrderAttempt;
   'workspace.open': Workspace;
+  'workspace.archive.backup': WorkspaceArchiveExportResult;
+  'workspace.archive.export': WorkspaceArchiveExportResult;
+  'workspace.archive.preview': WorkspaceArchivePreview;
+  'workspace.archive.restore': WorkspaceArchiveRestoreResult;
+  'workspace.retention.get': WorkspaceRetention;
+  'workspace.retention.set': WorkspaceRetention;
+  'workspace.retention.apply': WorkspaceRetention;
   'runtime.status': RuntimeStatus;
   'time.status': TimeStatus;
   'time.revalidate': TimeStatus;
@@ -397,6 +412,13 @@ const definitions = {
   'bitget.demo.order.attempt.get': ['BitgetDemoOrderAttemptQuery', 'BitgetDemoOrderAttemptQueryResult'],
   'bitget.demo.order.reconcile': ['BitgetDemoOrderReconcile', 'BitgetDemoOrderAttempt'],
   'workspace.open': ['OpenWorkspace', 'Workspace'],
+  'workspace.archive.backup': ['WorkspaceQuery', 'WorkspaceArchiveExportResult'],
+  'workspace.archive.export': ['WorkspaceArchiveExport', 'WorkspaceArchiveExportResult'],
+  'workspace.archive.preview': ['WorkspaceArchivePreviewRequest', 'WorkspaceArchivePreview'],
+  'workspace.archive.restore': ['WorkspaceArchiveRestoreRequest', 'WorkspaceArchiveRestoreResult'],
+  'workspace.retention.get': ['WorkspaceRetentionQuery', 'WorkspaceRetention'],
+  'workspace.retention.set': ['WorkspaceRetentionUpdate', 'WorkspaceRetention'],
+  'workspace.retention.apply': ['WorkspaceRetentionQuery', 'WorkspaceRetention'],
   'runtime.status': ['EmptyPayload', 'RuntimeStatus'],
   'time.status': ['WorkspaceQuery', 'TimeStatus'],
   'time.revalidate': ['WorkspaceQuery', 'TimeStatus'],

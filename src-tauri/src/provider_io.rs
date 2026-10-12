@@ -12,7 +12,7 @@ use crate::{
         ResolutionEvidenceOutcome, ResolutionEvidenceRefresh, Result, TimeInForce, TradeXError,
         Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
         Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
-        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
+        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin, WorkspaceArchiveCredentialStatus,
     },
     providers::*,
 };
@@ -264,6 +264,27 @@ pub trait CredentialVault {
 
 #[derive(Clone, Copy)]
 pub struct NativeVault;
+
+impl NativeVault {
+    pub fn check_reference(&self, reference: &str) -> WorkspaceArchiveCredentialStatus {
+        #[cfg(target_os = "macos")]
+        {
+            match security_framework::passwords::get_generic_password(SERVICE, reference) {
+                Ok(bytes) => {
+                    drop(Zeroizing::new(bytes));
+                    WorkspaceArchiveCredentialStatus::PresentUnverified
+                }
+                Err(error) if error.code() == -25300 => WorkspaceArchiveCredentialStatus::Missing,
+                Err(_) => WorkspaceArchiveCredentialStatus::Unavailable,
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = reference;
+            WorkspaceArchiveCredentialStatus::Unavailable
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 impl CredentialVault for NativeVault {

@@ -580,11 +580,38 @@
     "watchlistRename": {
       "$ref": "#/$defs/WatchlistRename"
     },
+    "workspaceArchiveExport": {
+      "$ref": "#/$defs/WorkspaceArchiveExport"
+    },
+    "workspaceArchiveExportResult": {
+      "$ref": "#/$defs/WorkspaceArchiveExportResult"
+    },
+    "workspaceArchivePreview": {
+      "$ref": "#/$defs/WorkspaceArchivePreview"
+    },
+    "workspaceArchivePreviewRequest": {
+      "$ref": "#/$defs/WorkspaceArchivePreviewRequest"
+    },
+    "workspaceArchiveRestoreRequest": {
+      "$ref": "#/$defs/WorkspaceArchiveRestoreRequest"
+    },
+    "workspaceArchiveRestoreResult": {
+      "$ref": "#/$defs/WorkspaceArchiveRestoreResult"
+    },
     "workspaceOpen": {
       "$ref": "#/$defs/OpenWorkspace"
     },
     "workspaceQuery": {
       "$ref": "#/$defs/WorkspaceQuery"
+    },
+    "workspaceRetention": {
+      "$ref": "#/$defs/WorkspaceRetention"
+    },
+    "workspaceRetentionQuery": {
+      "$ref": "#/$defs/WorkspaceRetentionQuery"
+    },
+    "workspaceRetentionUpdate": {
+      "$ref": "#/$defs/WorkspaceRetentionUpdate"
     }
   },
   "required": [
@@ -613,6 +640,15 @@
     "result",
     "event",
     "workspaceOpen",
+    "workspaceArchiveExport",
+    "workspaceArchivePreviewRequest",
+    "workspaceArchiveRestoreRequest",
+    "workspaceArchiveExportResult",
+    "workspaceArchivePreview",
+    "workspaceArchiveRestoreResult",
+    "workspaceRetention",
+    "workspaceRetentionQuery",
+    "workspaceRetentionUpdate",
     "aggregate",
     "subscribe",
     "empty",
@@ -7156,7 +7192,8 @@
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
             "binance-testnet-order-book",
-            "bitget-demo-order-attempt"
+            "bitget-demo-order-attempt",
+            "workspace-retention"
           ]
         },
         "eventId": {
@@ -7195,7 +7232,9 @@
             "alpaca.paper.order.book.changed",
             "binance.testnet.order.attempt.changed",
             "binance.testnet.order.book.changed",
-            "bitget.demo.order.attempt.changed"
+            "bitget.demo.order.attempt.changed",
+            "workspace.retention.changed",
+            "workspace.retention.applied"
           ]
         },
         "occurredAt": {
@@ -7239,6 +7278,9 @@
         },
         {
           "$ref": "#/$defs/Workspace"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceRetention"
         },
         {
           "$ref": "#/$defs/AccountConnection"
@@ -13405,6 +13447,18 @@
           "$ref": "#/$defs/Workspace"
         },
         {
+          "$ref": "#/$defs/WorkspaceRetention"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceArchiveExportResult"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceArchivePreview"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceArchiveRestoreResult"
+        },
+        {
           "$ref": "#/$defs/Snapshot"
         },
         {
@@ -16278,7 +16332,8 @@
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
             "binance-testnet-order-book",
-            "bitget-demo-order-attempt"
+            "bitget-demo-order-attempt",
+            "workspace-retention"
           ]
         },
         "lastSequence": {
@@ -19312,7 +19367,8 @@
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
             "binance-testnet-order-book",
-            "bitget-demo-order-attempt"
+            "bitget-demo-order-attempt",
+            "workspace-retention"
           ]
         },
         "lastSequence": {
@@ -21157,7 +21213,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 37,
+          "maximum": 38,
           "minimum": 1
         },
         "workspaceId": {
@@ -21176,6 +21232,309 @@
         "storageSchemaVersion"
       ]
     },
+    "WorkspaceArchiveCredentialCheck": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/WorkspaceArchiveCredentialStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "providerId",
+        "environment",
+        "label",
+        "status"
+      ]
+    },
+    "WorkspaceArchiveCredentialStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_CHECKED",
+        "PRESENT_UNVERIFIED",
+        "MISSING",
+        "UNAVAILABLE"
+      ]
+    },
+    "WorkspaceArchiveDataCategory": {
+      "type": "object",
+      "properties": {
+        "categoryId": {
+          "$ref": "#/$defs/WorkspaceArchiveDataCategoryId"
+        },
+        "recordCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 4294967295,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "categoryId",
+        "recordCount"
+      ]
+    },
+    "WorkspaceArchiveDataCategoryId": {
+      "type": "string",
+      "enum": [
+        "ACCOUNTS",
+        "CONVERSATIONS",
+        "RESEARCH",
+        "STRATEGIES_AND_BACKTESTS",
+        "FINANCIAL_HISTORY"
+      ]
+    },
+    "WorkspaceArchiveExport": {
+      "type": "object",
+      "properties": {
+        "destinationPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "destinationPath"
+      ]
+    },
+    "WorkspaceArchiveExportResult": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "bytes",
+        "contentHash",
+        "warnings"
+      ]
+    },
+    "WorkspaceArchivePreview": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1
+        },
+        "capturedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "credentialChecks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkspaceArchiveCredentialCheck"
+          },
+          "maxItems": 256
+        },
+        "dataCategories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkspaceArchiveDataCategory"
+          },
+          "maxItems": 5,
+          "minItems": 5
+        },
+        "formatVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 1,
+          "minimum": 1
+        },
+        "manifestHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 16,
+          "minimum": 1
+        },
+        "storageSchemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 38,
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceName": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "workspaceName",
+        "capturedAt",
+        "formatVersion",
+        "storageSchemaVersion",
+        "memberCount",
+        "bytes",
+        "manifestHash",
+        "warnings",
+        "dataCategories",
+        "credentialChecks"
+      ]
+    },
+    "WorkspaceArchivePreviewRequest": {
+      "type": "object",
+      "properties": {
+        "archivePath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "archivePath"
+      ]
+    },
+    "WorkspaceArchiveRestoreRequest": {
+      "type": "object",
+      "properties": {
+        "archivePath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "destinationParent": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "manifestHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "archivePath",
+        "destinationParent",
+        "manifestHash"
+      ]
+    },
+    "WorkspaceArchiveRestoreResult": {
+      "type": "object",
+      "properties": {
+        "backupPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "restoredPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "restoredPath",
+        "backupPath",
+        "warnings"
+      ]
+    },
     "WorkspaceQuery": {
       "type": "object",
       "properties": {
@@ -21188,6 +21547,144 @@
       "additionalProperties": false,
       "required": [
         "workspaceId"
+      ]
+    },
+    "WorkspaceRetention": {
+      "type": "object",
+      "properties": {
+        "artifactRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "cacheRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "lastAppliedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastDeletedArtifacts": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 256,
+          "minimum": 0
+        },
+        "lastDeletedCacheFiles": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "lastDeletedMarketRows": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "marketDataRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "lastDeletedArtifacts",
+        "lastDeletedCacheFiles",
+        "lastDeletedMarketRows",
+        "stateVersion"
+      ]
+    },
+    "WorkspaceRetentionQuery": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "WorkspaceRetentionUpdate": {
+      "type": "object",
+      "properties": {
+        "artifactRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "default": null,
+          "maximum": 3650,
+          "minimum": 1
+        },
+        "cacheRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "default": null,
+          "maximum": 3650,
+          "minimum": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "marketDataRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "default": null,
+          "maximum": 3650,
+          "minimum": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
       ]
     }
   },

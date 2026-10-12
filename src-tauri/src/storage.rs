@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{ErrorKind, Write},
     path::{Component, Path, PathBuf},
@@ -15,7 +15,9 @@ use std::{
     },
 };
 
-use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::{
+    Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior, params,
+};
 use sha2::{Digest, Sha256};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
@@ -55,15 +57,20 @@ use crate::protocol::{
     Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrderAttempt,
     Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
     Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
-    WatchlistItem, Watchlists, Workspace,
+    WatchlistItem, Watchlists, Workspace, WorkspaceArchiveCredentialCheck,
+    WorkspaceArchiveCredentialStatus, WorkspaceArchiveDataCategory, WorkspaceArchiveDataCategoryId,
+    WorkspaceArchiveExportResult, WorkspaceArchivePreview, WorkspaceArchiveRestoreResult,
+    WorkspaceRetention, WorkspaceRetentionUpdate,
 };
 use crate::providers::{
     AccountConnection, AccountMutation, ConnectionState, LIVE_RECONCILIATION_PROVIDER_IDS,
 };
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
+use crate::workspace_archive::{self, Manifest as WorkspaceArchiveManifest};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 37;
+pub(crate) const SCHEMA_VERSION: u32 = 38;
+const MAX_RETENTION_RECORDS: usize = 100_000;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -242,6 +249,29 @@ pub struct Store {
     connection: Connection,
     _lock: WorkspaceLock,
     pub path: PathBuf,
+}
+
+struct WorkspaceTempDirectory {
+    path: PathBuf,
+}
+
+impl WorkspaceTempDirectory {
+    fn new() -> Result<Self> {
+        let path = std::env::temp_dir().join(format!("tradex-workspace-{}", Uuid::new_v4()));
+        fs::create_dir(&path).map_err(storage_error)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).map_err(storage_error)?;
+        }
+        Ok(Self { path })
+    }
+}
+
+impl Drop for WorkspaceTempDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1011,6 +1041,9 @@ impl Store {
             }
             if version < 37 {
                 tx.execute_batch("CREATE TABLE binance_market_source_config (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE binance_market_source_config_audit (generation INTEGER PRIMARY KEY CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL); PRAGMA user_version=37;").map_err(storage_error)?;
+            }
+            if version < 38 {
+                tx.execute_batch("CREATE TABLE workspace_retention (singleton INTEGER PRIMARY KEY CHECK(singleton=1), workspace_id TEXT NOT NULL UNIQUE, sequence INTEGER NOT NULL CHECK(sequence>=0), projection TEXT NOT NULL); PRAGMA user_version=38;").map_err(storage_error)?;
             }
             tx.commit().map_err(storage_error)?;
         }
@@ -1928,6 +1961,10 @@ impl Store {
                 || event.aggregate_type != kind
                 || match kind {
                     "workspace" => event.event_type != "workspace.opened",
+                    "workspace-retention" => !matches!(
+                        event.event_type.as_str(),
+                        "workspace.retention.changed" | "workspace.retention.applied"
+                    ),
                     "account" => !matches!(
                         event.event_type.as_str(),
                         "account.health.changed" | "account.arming.changed"
@@ -2013,6 +2050,469 @@ impl Store {
         self.connection
             .query_row("SELECT workspace_id FROM workspace", [], |r| r.get(0))
             .map_err(storage_error)
+    }
+
+    pub fn export_workspace_archive(
+        &self,
+        destination: &Path,
+    ) -> Result<WorkspaceArchiveExportResult> {
+        self.create_workspace_archive(destination)
+    }
+
+    pub fn backup_workspace_archive(&self) -> Result<WorkspaceArchiveExportResult> {
+        let backups = self.path.join("backups");
+        if fs::symlink_metadata(&backups).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        fs::create_dir_all(&backups).map_err(storage_error)?;
+        if !backups.is_dir() || has_unapproved_symlink_ancestor(&backups) {
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        let backups = backups.canonicalize().map_err(storage_error)?;
+        self.create_workspace_archive(
+            &backups.join(format!("TradeX-backup-{}.tradex", Uuid::new_v4())),
+        )
+    }
+
+    fn create_workspace_archive(&self, destination: &Path) -> Result<WorkspaceArchiveExportResult> {
+        let destination = validate_workspace_archive_destination(destination)?;
+        let workspace = read_workspace(&self.connection, &self.path)?;
+        let temp = WorkspaceTempDirectory::new()?;
+        let snapshot_path = temp.path.join("workspace.sqlite3");
+        self.connection
+            .backup("main", &snapshot_path, None)
+            .map_err(storage_error)?;
+        let warnings = workspace_archive_warnings();
+        let manifest = WorkspaceArchiveManifest {
+            app_id: APPLICATION_ID,
+            format_version: 1,
+            workspace_id: workspace.workspace_id,
+            workspace_name: workspace.name,
+            captured_at: timestamp()?,
+            storage_schema_version: SCHEMA_VERSION,
+            member_name: "workspace.sqlite3".into(),
+            member_bytes: 0,
+            member_sha256: String::new(),
+            warnings: warnings.clone(),
+        };
+        let (bytes, content_hash) =
+            workspace_archive::write_archive(&snapshot_path, &destination, manifest)?;
+        Ok(WorkspaceArchiveExportResult {
+            path: destination.to_string_lossy().into_owned(),
+            bytes,
+            content_hash,
+            warnings,
+        })
+    }
+
+    pub fn preview_workspace_archive(
+        &self,
+        archive_path: &Path,
+    ) -> Result<WorkspaceArchivePreview> {
+        let archive_path = validate_workspace_archive_path(archive_path)?;
+        let mut archive = workspace_archive::validate_archive(&archive_path, SCHEMA_VERSION)?;
+        let temp = WorkspaceTempDirectory::new()?;
+        let database_path = temp.path.join("workspace.sqlite3");
+        workspace_archive::extract_member(&mut archive, &database_path)?;
+        let (workspace_id, workspace_name, schema_version) =
+            inspect_workspace_database(&database_path)?;
+        if workspace_id != archive.manifest.workspace_id
+            || workspace_name != archive.manifest.workspace_name
+            || schema_version != archive.manifest.storage_schema_version
+        {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        let credential_checks = archive_credential_checks(&database_path, &workspace_id)?;
+        let data_categories = archive_data_categories(&database_path, &workspace_id)?;
+        Ok(WorkspaceArchivePreview {
+            workspace_id,
+            workspace_name,
+            captured_at: archive.manifest.captured_at,
+            format_version: archive.manifest.format_version,
+            storage_schema_version: schema_version,
+            member_count: 1,
+            bytes: archive.archive_bytes,
+            manifest_hash: archive.manifest_hash,
+            warnings: archive.manifest.warnings,
+            data_categories,
+            credential_checks,
+        })
+    }
+
+    pub fn archive_credential_references(
+        &self,
+        archive_path: &Path,
+    ) -> Result<(String, Vec<(String, String)>)> {
+        let archive_path = validate_workspace_archive_path(archive_path)?;
+        let mut archive = workspace_archive::validate_archive(&archive_path, SCHEMA_VERSION)?;
+        let temp = WorkspaceTempDirectory::new()?;
+        let database_path = temp.path.join("workspace.sqlite3");
+        workspace_archive::extract_member(&mut archive, &database_path)?;
+        let (workspace_id, workspace_name, schema_version) =
+            inspect_workspace_database(&database_path)?;
+        if workspace_id != archive.manifest.workspace_id
+            || workspace_name != archive.manifest.workspace_name
+            || schema_version != archive.manifest.storage_schema_version
+        {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        let manifest_hash = archive.manifest_hash.clone();
+        let references = archive_credential_references(&database_path, &workspace_id)?;
+        Ok((manifest_hash, references))
+    }
+
+    pub fn restore_workspace_archive(
+        &self,
+        archive_path: &Path,
+        destination_parent: &Path,
+        expected_manifest_hash: &str,
+        credential_statuses: Option<&HashMap<String, WorkspaceArchiveCredentialStatus>>,
+    ) -> Result<WorkspaceArchiveRestoreResult> {
+        let archive_path = validate_workspace_archive_path(archive_path)?;
+        let mut archive = workspace_archive::validate_archive(&archive_path, SCHEMA_VERSION)?;
+        if archive.manifest_hash != expected_manifest_hash {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_CHANGED"));
+        }
+        let parent = create_workspace_restore_parent(destination_parent)?;
+        let restore_id = Uuid::new_v4();
+        let staging = parent.join(format!(".tradex-restore-{restore_id}.tmp"));
+        let restored = parent.join(format!("TradeX-Restored-{restore_id}"));
+        fs::create_dir(&staging).map_err(storage_error)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(error) = fs::set_permissions(&staging, fs::Permissions::from_mode(0o700)) {
+                let _ = fs::remove_dir_all(&staging);
+                return Err(storage_error(error));
+            }
+        }
+        let staged_result = (|| {
+            let database_path = staging.join("workspace.sqlite3");
+            workspace_archive::extract_member(&mut archive, &database_path)?;
+            let (manifest_workspace_id, manifest_workspace_name, manifest_schema) =
+                inspect_workspace_database(&database_path)?;
+            if manifest_workspace_id != archive.manifest.workspace_id
+                || manifest_workspace_name != archive.manifest.workspace_name
+                || manifest_schema != archive.manifest.storage_schema_version
+            {
+                return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+            }
+            let options = OpenWorkspace {
+                path: Some(staging.to_string_lossy().into_owned()),
+                name: None,
+                base_currency: None,
+            };
+            let mut imported = Store::open(staging.clone(), &options)?;
+            let imported_workspace_id = imported.workspace_id()?;
+            if imported_workspace_id != archive.manifest.workspace_id {
+                return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+            }
+            imported.invalidate_restored_authority()?;
+            imported.mark_accounts_stale_with_credentials(credential_statuses)?;
+            imported.save_gateway(GatewayState::stopped(imported_workspace_id.clone()))?;
+            let mut model = imported.model_or_new()?;
+            let previous_model = model.clone();
+            model.reset_for_session();
+            if model != previous_model {
+                imported.save_model(model, "model.provider.changed")?;
+            }
+            imported.verify_integrity()?;
+            drop(imported);
+            Ok(imported_workspace_id)
+        })();
+        let imported_workspace_id = match staged_result {
+            Ok(workspace_id) => workspace_id,
+            Err(error) => {
+                let _ = fs::remove_dir_all(&staging);
+                return Err(error);
+            }
+        };
+
+        // Preserve the currently open workspace before publishing the restored copy.
+        let backup_directory = self.path.join("backups");
+        if fs::symlink_metadata(&backup_directory)
+            .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        fs::create_dir_all(&backup_directory).map_err(|error| {
+            let _ = fs::remove_dir_all(&staging);
+            storage_error(error)
+        })?;
+        let backup_path =
+            backup_directory.join(format!("TradeX-before-restore-{restore_id}.tradex"));
+        if let Err(error) = self.create_workspace_archive(&backup_path) {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error);
+        }
+        if fs::rename(&staging, &restored).is_err() {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_RESTORE_FAILED"));
+        }
+        Ok(WorkspaceArchiveRestoreResult {
+            workspace_id: imported_workspace_id,
+            restored_path: restored.to_string_lossy().into_owned(),
+            backup_path: backup_path.to_string_lossy().into_owned(),
+            warnings: archive.manifest.warnings,
+        })
+    }
+
+    fn invalidate_restored_authority(&mut self) -> Result<()> {
+        let workspace_id = self.workspace_id()?;
+        let now = timestamp()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        invalidate_financial_approvals_tx(
+            &tx,
+            &workspace_id,
+            None,
+            None,
+            "WORKSPACE_RESTORED",
+            &now,
+        )?;
+        let cancellation_ids = {
+            let mut statement = tx
+                .prepare("SELECT intent_id FROM cancellation_intents WHERE workspace_id=?1 AND status='CURRENT'")
+                .map_err(storage_error)?;
+            statement
+                .query_map([&workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for intent_id in cancellation_ids {
+            invalidate_cancellation_intent_tx(&tx, &intent_id, "WORKSPACE_RESTORED", &now)?;
+        }
+        tx.commit().map_err(storage_error)
+    }
+
+    fn verify_integrity(&self) -> Result<()> {
+        let integrity: String = self
+            .connection
+            .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+            .map_err(storage_error)?;
+        let foreign_key_violation: Option<String> = self
+            .connection
+            .query_row("PRAGMA foreign_key_check", [], |row| row.get(0))
+            .optional()
+            .map_err(storage_error)?;
+        if integrity != "ok" || foreign_key_violation.is_some() {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(())
+    }
+
+    pub fn workspace_retention(&self) -> Result<WorkspaceRetention> {
+        let workspace_id = self.workspace_id()?;
+        let stored: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT sequence,projection FROM workspace_retention WHERE singleton=1 AND workspace_id=?1",
+                [&workspace_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        match stored {
+            Some((sequence, projection)) => {
+                let retention: WorkspaceRetention = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if sequence < 1
+                    || retention.workspace_id != workspace_id
+                    || retention.state_version
+                        != format!("workspace-retention:{workspace_id}:{sequence}")
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                Ok(retention)
+            }
+            None => Ok(WorkspaceRetention {
+                workspace_id: workspace_id.clone(),
+                artifact_retention_days: None,
+                cache_retention_days: None,
+                market_data_retention_days: None,
+                last_applied_at: None,
+                last_deleted_artifacts: 0,
+                last_deleted_cache_files: 0,
+                last_deleted_market_rows: 0,
+                state_version: format!("workspace-retention:{workspace_id}:0"),
+            }),
+        }
+    }
+
+    pub fn save_workspace_retention(
+        &mut self,
+        input: &WorkspaceRetentionUpdate,
+    ) -> Result<WorkspaceRetention> {
+        let current = self.workspace_retention()?;
+        if input.workspace_id != current.workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if input.expected_state_version != current.state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if input
+            .artifact_retention_days
+            .is_some_and(|days| !(1..=3650).contains(&days))
+            || input
+                .cache_retention_days
+                .is_some_and(|days| !(1..=3650).contains(&days))
+            || input
+                .market_data_retention_days
+                .is_some_and(|days| !(1..=3650).contains(&days))
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let next_sequence = retention_sequence(&current.state_version)?
+            .checked_add(1)
+            .filter(|sequence| *sequence <= MAX_SEQUENCE)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let mut next = current;
+        next.artifact_retention_days = input.artifact_retention_days;
+        next.cache_retention_days = input.cache_retention_days;
+        next.market_data_retention_days = input.market_data_retention_days;
+        next.state_version = format!("workspace-retention:{}:{next_sequence}", next.workspace_id);
+        self.write_workspace_retention(next, next_sequence, "workspace.retention.changed")
+    }
+
+    pub fn apply_workspace_retention(&mut self) -> Result<WorkspaceRetention> {
+        let current = self.workspace_retention()?;
+        let artifact_ids = self.expired_artifact_ids(current.artifact_retention_days)?;
+        let cache_files = self.expired_cache_files(current.cache_retention_days)?;
+        let deleted_market_rows = current
+            .market_data_retention_days
+            .map(|days| market::prune_history_before(&self.path, days))
+            .transpose()?
+            .unwrap_or_default();
+        for path in &cache_files {
+            fs::remove_file(path).map_err(storage_error)?;
+        }
+        let next_sequence = retention_sequence(&current.state_version)?
+            .checked_add(1)
+            .filter(|sequence| *sequence <= MAX_SEQUENCE)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        for artifact_id in &artifact_ids {
+            tx.execute(
+                "DELETE FROM artifacts WHERE workspace_id=?1 AND artifact_id=?2",
+                params![current.workspace_id, artifact_id],
+            )
+            .map_err(storage_error)?;
+        }
+        let next = WorkspaceRetention {
+            workspace_id: current.workspace_id.clone(),
+            artifact_retention_days: current.artifact_retention_days,
+            cache_retention_days: current.cache_retention_days,
+            market_data_retention_days: current.market_data_retention_days,
+            last_applied_at: Some(timestamp()?),
+            last_deleted_artifacts: artifact_ids.len() as u32,
+            last_deleted_cache_files: cache_files.len() as u32,
+            last_deleted_market_rows: deleted_market_rows as u32,
+            state_version: format!(
+                "workspace-retention:{}:{next_sequence}",
+                current.workspace_id
+            ),
+        };
+        write_retention_event(&tx, &next, next_sequence, "workspace.retention.applied")?;
+        tx.commit().map_err(storage_error)?;
+        Ok(next)
+    }
+
+    fn write_workspace_retention(
+        &mut self,
+        retention: WorkspaceRetention,
+        sequence: u64,
+        event_type: &str,
+    ) -> Result<WorkspaceRetention> {
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        write_retention_event(&tx, &retention, sequence, event_type)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(retention)
+    }
+
+    fn expired_artifact_ids(&self, retention_days: Option<u16>) -> Result<Vec<String>> {
+        let Some(days) = retention_days else {
+            return Ok(Vec::new());
+        };
+        let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(days));
+        let mut statement = self
+            .connection
+            .prepare("SELECT artifact_id,projection FROM artifacts WHERE workspace_id=?1")
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map([self.workspace_id()?], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(storage_error)?;
+        let mut expired = Vec::new();
+        for row in rows {
+            let (artifact_id, projection) = row.map_err(storage_error)?;
+            let value: serde_json::Value = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let created_at = value
+                .get("createdAt")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let has_financial_refs = value
+                .get("provenance")
+                .and_then(|value| value.get("relatedOrderIds"))
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(|values| !values.is_empty());
+            if created_at < cutoff && !has_financial_refs {
+                expired.push(artifact_id);
+                if expired.len() > MAX_RETENTION_RECORDS {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+        }
+        Ok(expired)
+    }
+
+    fn expired_cache_files(&self, retention_days: Option<u16>) -> Result<Vec<PathBuf>> {
+        let Some(days) = retention_days else {
+            return Ok(Vec::new());
+        };
+        let cache = self.path.join("cache");
+        let metadata = match fs::symlink_metadata(&cache) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(storage_error(error)),
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        let cutoff = std::time::SystemTime::now()
+            .checked_sub(Duration::from_secs(u64::from(days) * 24 * 60 * 60))
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let mut expired = Vec::new();
+        for entry in fs::read_dir(&cache).map_err(storage_error)? {
+            let entry = entry.map_err(storage_error)?;
+            let metadata = entry.file_type().map_err(storage_error)?;
+            if !metadata.is_file() || metadata.is_symlink() {
+                continue;
+            }
+            if entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .is_ok_and(|modified| modified < cutoff)
+            {
+                expired.push(entry.path());
+                if expired.len() > MAX_RETENTION_RECORDS {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+        }
+        Ok(expired)
     }
 
     pub fn base_currency(&self) -> Result<String> {
@@ -2843,6 +3343,16 @@ impl Store {
             } else {
                 Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))
             };
+        }
+        if kind == "workspace-retention" && self.workspace_id()? == id {
+            let retention = self.workspace_retention()?;
+            let sequence = retention_sequence(&retention.state_version)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::WorkspaceRetention(retention),
+                last_sequence: sequence,
+            });
         }
         if kind == "model-gateway" && self.workspace_id()? == id {
             let gateway = self.gateway()?;
@@ -10628,8 +11138,32 @@ impl Store {
     }
 
     pub fn mark_accounts_stale(&mut self) -> Result<()> {
+        self.mark_accounts_stale_with_credentials(None)
+    }
+
+    fn mark_accounts_stale_with_credentials(
+        &mut self,
+        credential_statuses: Option<&HashMap<String, WorkspaceArchiveCredentialStatus>>,
+    ) -> Result<()> {
         for mut account in self.accounts()? {
             let was_armed = account.environment == "LIVE" && account.health.arming == "ARMED";
+            if credential_statuses.and_then(|statuses| statuses.get(&account.connection_id))
+                == Some(&WorkspaceArchiveCredentialStatus::Missing)
+            {
+                if was_armed {
+                    account.health.arming = "DISARMED".into();
+                    account.health.arming_reason = "WORKSPACE_RESTORED".into();
+                }
+                account.connection_state = ConnectionState::Failed;
+                account.health.connection = "FAILED".into();
+                account.health.authentication = "UNVERIFIED".into();
+                account.health.credential = "MISSING".into();
+                account.health.reconciliation = "STALE".into();
+                account.health.execution_eligibility = "BLOCKED".into();
+                account.health.reason = "The matching OS Keychain credential is missing. Reconnect this account before use.".into();
+                self.save_account(account)?;
+                continue;
+            }
             if was_armed {
                 account.health.arming = "DISARMED".into();
                 account.health.arming_reason = "APPLICATION_RESTART".into();
@@ -10665,6 +11199,359 @@ impl Store {
         }
         Ok(())
     }
+}
+
+fn archive_credential_references(
+    database_path: &Path,
+    workspace_id: &str,
+) -> Result<Vec<(String, String)>> {
+    let connection = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut statement = connection
+        .prepare("SELECT connection_id,projection FROM accounts ORDER BY rowid")
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut references = Vec::new();
+    for row in rows {
+        let (connection_id, projection) =
+            row.map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        let account: AccountConnection = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if account.connection_id != connection_id {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        account
+            .validate_persisted(workspace_id)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if !account.is_local_paper() {
+            references.push((connection_id, account.credential_ref()));
+            if references.len() > 256 {
+                return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+            }
+        }
+    }
+    Ok(references)
+}
+
+fn archive_data_categories(
+    database_path: &Path,
+    workspace_id: &str,
+) -> Result<Vec<WorkspaceArchiveDataCategory>> {
+    const CATEGORIES: &[(WorkspaceArchiveDataCategoryId, &[&str])] = &[
+        (WorkspaceArchiveDataCategoryId::Accounts, &["accounts"]),
+        (WorkspaceArchiveDataCategoryId::Conversations, &["threads"]),
+        (
+            WorkspaceArchiveDataCategoryId::Research,
+            &["watchlists", "screeners", "artifacts"],
+        ),
+        (
+            WorkspaceArchiveDataCategoryId::StrategiesAndBacktests,
+            &["strategy_versions", "strategy_runs", "backtest_runs"],
+        ),
+        (
+            WorkspaceArchiveDataCategoryId::FinancialHistory,
+            &[
+                "order_drafts",
+                "order_proposals",
+                "order_proposal_events",
+                "risk_decisions",
+                "financial_approvals",
+                "approval_rejections",
+                "cancellation_intents",
+                "cancellation_rejections",
+                "execution_attempts",
+                "execution_reservations",
+                "execution_preparation_rejections",
+                "execution_dispatch_grants",
+                "resolution_evidence",
+                "live_order_settlements",
+                "live_order_trade_facts",
+                "paper_orders",
+                "paper_fills",
+                "paper_events",
+                "alpaca_paper_order_attempts",
+                "alpaca_paper_order_books",
+                "trading212_demo_order_attempts",
+                "trading212_demo_order_books",
+                "binance_testnet_order_attempts",
+                "binance_testnet_order_books",
+                "bitget_demo_order_attempts",
+                "bitget_demo_order_books",
+            ],
+        ),
+    ];
+
+    let connection = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    CATEGORIES
+        .iter()
+        .map(|(category_id, tables)| {
+            let mut record_count = 0_u32;
+            for table in *tables {
+                let table_exists: bool = connection
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name=?1)",
+                        [table],
+                        |row| row.get(0),
+                    )
+                    .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                if !table_exists {
+                    continue;
+                }
+                let has_workspace_id = {
+                    let mut statement = connection
+                        .prepare(&format!("PRAGMA table_info(\"{table}\")"))
+                        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                    let columns = statement
+                        .query_map([], |row| row.get::<_, String>(1))
+                        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                    columns
+                        .collect::<std::result::Result<Vec<_>, _>>()
+                        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?
+                        .iter()
+                        .any(|column| column == "workspace_id")
+                };
+                let count: i64 = if has_workspace_id {
+                    connection.query_row(
+                        &format!("SELECT COUNT(*) FROM \"{table}\" WHERE workspace_id=?1"),
+                        [workspace_id],
+                        |row| row.get(0),
+                    )
+                } else {
+                    // Some workspace-local tables, such as accounts, are scoped by their database.
+                    connection.query_row(&format!("SELECT COUNT(*) FROM \"{table}\""), [], |row| {
+                        row.get(0)
+                    })
+                }
+                .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                record_count = record_count
+                    .checked_add(
+                        u32::try_from(count)
+                            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?,
+                    )
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+            }
+            Ok(WorkspaceArchiveDataCategory {
+                category_id: *category_id,
+                record_count,
+            })
+        })
+        .collect()
+}
+
+fn archive_credential_checks(
+    database_path: &Path,
+    workspace_id: &str,
+) -> Result<Vec<WorkspaceArchiveCredentialCheck>> {
+    let connection = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut statement = connection
+        .prepare("SELECT connection_id,projection FROM accounts ORDER BY rowid")
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut checks = Vec::new();
+    for row in rows {
+        let (connection_id, projection) =
+            row.map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        let account: AccountConnection = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if account.connection_id != connection_id {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        account
+            .validate_persisted(workspace_id)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if account.is_local_paper() {
+            continue;
+        }
+        checks.push(WorkspaceArchiveCredentialCheck {
+            connection_id,
+            provider_id: account.provider_id,
+            environment: account.environment,
+            label: account.label,
+            status: WorkspaceArchiveCredentialStatus::NotChecked,
+        });
+        if checks.len() > 256 {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+    }
+    Ok(checks)
+}
+
+fn workspace_archive_warnings() -> Vec<String> {
+    vec![
+        "Broker/API secrets are not included; restored account credential references require re-test before use.".into(),
+        "Market history (market.duckdb) and cache files are not included because source-specific data rights are not verified.".into(),
+        "Restored accounts remain stale and disarmed; unresolved orders and reservations are retained for reconciliation.".into(),
+    ]
+}
+
+fn validate_workspace_archive_destination(destination: &Path) -> Result<PathBuf> {
+    let raw = destination.to_string_lossy();
+    if raw.is_empty()
+        || raw.len() > 4096
+        || raw.chars().any(char::is_control)
+        || !destination.is_absolute()
+        || destination
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+    {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    let parent = destination
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or_else(|| TradeXError::new("WORKSPACE_PATH_INVALID"))?;
+    if !parent.is_dir() || has_unapproved_symlink_ancestor(parent) {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    let name = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty() && name.len() <= 255)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_PATH_INVALID"))?;
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| TradeXError::new("WORKSPACE_PATH_INVALID"))?;
+    Ok(canonical_parent.join(name))
+}
+
+fn validate_workspace_archive_path(path: &Path) -> Result<PathBuf> {
+    if !path.is_absolute()
+        || path.as_os_str().len() > 4096
+        || path
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+    {
+        return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+    }
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    if has_unapproved_symlink_ancestor(parent) {
+        return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+    }
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let name = path
+        .file_name()
+        .filter(|name| !name.is_empty())
+        .ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    Ok(canonical_parent.join(name))
+}
+
+fn create_workspace_restore_parent(parent: &Path) -> Result<PathBuf> {
+    if !parent.is_absolute()
+        || parent.as_os_str().len() > 4096
+        || parent
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+        || has_unapproved_symlink_ancestor(parent)
+    {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    fs::create_dir_all(parent).map_err(storage_error)?;
+    if !parent.is_dir() || has_unapproved_symlink_ancestor(parent) {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    parent
+        .canonicalize()
+        .map_err(|_| TradeXError::new("WORKSPACE_PATH_INVALID"))
+}
+
+fn inspect_workspace_database(path: &Path) -> Result<(String, String, u32)> {
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let integrity: String = connection
+        .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let foreign_key_violation: Option<String> = connection
+        .query_row("PRAGMA foreign_key_check", [], |row| row.get(0))
+        .optional()
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let app_id: u32 = connection
+        .pragma_query_value(None, "application_id", |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let version: u32 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let identity: Option<(String, String)> = connection
+        .query_row(
+            "SELECT workspace_id,name FROM workspace WHERE singleton=1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    if integrity != "ok"
+        || foreign_key_violation.is_some()
+        || app_id != APPLICATION_ID
+        || version == 0
+        || version > SCHEMA_VERSION
+    {
+        return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+    }
+    let (workspace_id, workspace_name) =
+        identity.ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    Ok((workspace_id, workspace_name, version))
+}
+
+fn retention_sequence(state_version: &str) -> Result<u64> {
+    state_version
+        .rsplit_once(':')
+        .and_then(|(_, sequence)| sequence.parse::<u64>().ok())
+        .filter(|sequence| *sequence <= MAX_SEQUENCE)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+}
+
+fn write_retention_event(
+    tx: &Transaction<'_>,
+    retention: &WorkspaceRetention,
+    sequence: u64,
+    event_type: &str,
+) -> Result<()> {
+    if !matches!(
+        event_type,
+        "workspace.retention.changed" | "workspace.retention.applied"
+    ) || retention.state_version
+        != format!("workspace-retention:{}:{sequence}", retention.workspace_id)
+        || sequence == 0
+        || sequence > MAX_SEQUENCE
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let projection = DomainProjection::WorkspaceRetention(retention.clone());
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: event_type.into(),
+        schema_version: 1,
+        occurred_at: timestamp()?,
+        aggregate_type: "workspace-retention".into(),
+        aggregate_id: retention.workspace_id.clone(),
+        sequence,
+        payload: projection,
+    };
+    tx.execute(
+        "INSERT INTO workspace_retention(singleton,workspace_id,sequence,projection) VALUES(1,?1,?2,?3) ON CONFLICT(singleton) DO UPDATE SET workspace_id=excluded.workspace_id,sequence=excluded.sequence,projection=excluded.projection",
+        params![retention.workspace_id, sequence as i64, serde_json::to_string(retention).map_err(storage_error)?],
+    )
+    .map_err(storage_error)?;
+    tx.execute(
+        "INSERT INTO outbox(aggregate_type,aggregate_id,sequence,event_id,envelope) VALUES('workspace-retention',?1,?2,?3,?4)",
+        params![retention.workspace_id, sequence as i64, event.event_id, serde_json::to_string(&event).map_err(storage_error)?],
+    )
+    .map_err(storage_error)?;
+    Ok(())
 }
 
 fn validate_watchlist_name(name: &str) -> Result<String> {

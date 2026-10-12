@@ -51,6 +51,179 @@ pub struct OpenWorkspace {
     pub base_currency: Option<String>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveExport {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub destination_path: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchivePreviewRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub archive_path: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveRestoreRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub archive_path: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub destination_parent: String,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub manifest_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveExportResult {
+    #[schemars(length(min = 1, max = 4096))]
+    pub path: String,
+    #[schemars(range(min = 1, max = 1_073_741_824_u64))]
+    pub bytes: u64,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub content_hash: String,
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveCredentialCheck {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub label: String,
+    pub status: WorkspaceArchiveCredentialStatus,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkspaceArchiveCredentialStatus {
+    NotChecked,
+    PresentUnverified,
+    Missing,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkspaceArchiveDataCategoryId {
+    Accounts,
+    Conversations,
+    Research,
+    StrategiesAndBacktests,
+    FinancialHistory,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveDataCategory {
+    pub category_id: WorkspaceArchiveDataCategoryId,
+    #[schemars(range(min = 0, max = 4_294_967_295_u32))]
+    pub record_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchivePreview {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub workspace_name: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub captured_at: String,
+    #[schemars(range(min = 1, max = 1))]
+    pub format_version: u32,
+    #[schemars(range(min = 1, max = 38))]
+    pub storage_schema_version: u32,
+    #[schemars(range(min = 1, max = 16))]
+    pub member_count: u32,
+    #[schemars(range(min = 1, max = 1_073_741_824_u64))]
+    pub bytes: u64,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub manifest_hash: String,
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub warnings: Vec<String>,
+    #[schemars(length(min = 5, max = 5))]
+    pub data_categories: Vec<WorkspaceArchiveDataCategory>,
+    #[schemars(length(max = 256))]
+    pub credential_checks: Vec<WorkspaceArchiveCredentialCheck>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveRestoreResult {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub restored_path: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub backup_path: String,
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceRetention {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_retention_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_retention_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_data_retention_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_applied_at: Option<String>,
+    #[schemars(range(min = 0, max = 256))]
+    pub last_deleted_artifacts: u32,
+    #[schemars(range(min = 0, max = 100_000))]
+    pub last_deleted_cache_files: u32,
+    #[schemars(range(min = 0, max = 100_000))]
+    pub last_deleted_market_rows: u32,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceRetentionQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceRetentionUpdate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[serde(default)]
+    #[schemars(range(min = 1, max = 3650))]
+    pub artifact_retention_days: Option<u16>,
+    #[serde(default)]
+    #[schemars(range(min = 1, max = 3650))]
+    pub cache_retention_days: Option<u16>,
+    #[serde(default)]
+    #[schemars(range(min = 1, max = 3650))]
+    pub market_data_retention_days: Option<u16>,
+}
+
 fn present<'de, D, T>(value: D) -> std::result::Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -130,7 +303,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt", "workspace-retention"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -163,6 +336,10 @@ pub struct SuccessEnvelope {
 #[serde(untagged)]
 pub enum ReplyData {
     Workspace(Workspace),
+    WorkspaceRetention(WorkspaceRetention),
+    WorkspaceArchiveExport(WorkspaceArchiveExportResult),
+    WorkspaceArchivePreview(WorkspaceArchivePreview),
+    WorkspaceArchiveRestore(WorkspaceArchiveRestoreResult),
     Snapshot(Snapshot),
     Runtime(RuntimeStatus),
     Time(TimeStatus),
@@ -301,6 +478,15 @@ pub struct IpcSchema {
     pub result: ResultEnvelope,
     pub event: DomainEvent,
     pub workspace_open: OpenWorkspace,
+    pub workspace_archive_export: WorkspaceArchiveExport,
+    pub workspace_archive_preview_request: WorkspaceArchivePreviewRequest,
+    pub workspace_archive_restore_request: WorkspaceArchiveRestoreRequest,
+    pub workspace_archive_export_result: WorkspaceArchiveExportResult,
+    pub workspace_archive_preview: WorkspaceArchivePreview,
+    pub workspace_archive_restore_result: WorkspaceArchiveRestoreResult,
+    pub workspace_retention: WorkspaceRetention,
+    pub workspace_retention_query: WorkspaceRetentionQuery,
+    pub workspace_retention_update: WorkspaceRetentionUpdate,
     pub aggregate: Aggregate,
     pub subscribe: Subscribe,
     pub empty: EmptyPayload,
@@ -482,7 +668,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 37))]
+    #[schemars(range(min = 1, max = 38))]
     pub storage_schema_version: u32,
 }
 
@@ -6269,6 +6455,7 @@ pub enum DomainProjection {
     Gateway(GatewayState),
     Model(ModelState),
     Workspace(Workspace),
+    WorkspaceRetention(WorkspaceRetention),
     Account(Box<AccountConnection>),
     Risk(Box<RiskPolicyState>),
     RiskDecision(Box<RiskDecision>),
@@ -6296,6 +6483,7 @@ impl DomainProjection {
             Self::Gateway(g) => &g.workspace_id,
             Self::Model(m) => &m.workspace_id,
             Self::Workspace(w) => &w.workspace_id,
+            Self::WorkspaceRetention(r) => &r.workspace_id,
             Self::Account(a) => &a.connection_id,
             Self::Risk(r) => &r.workspace_id,
             Self::RiskDecision(d) => &d.proposal_id,
@@ -6322,6 +6510,7 @@ impl DomainProjection {
             Self::Gateway(_) => "model-gateway",
             Self::Model(_) => "model",
             Self::Workspace(_) => "workspace",
+            Self::WorkspaceRetention(_) => "workspace-retention",
             Self::Account(_) => "account",
             Self::Risk(_) => "risk",
             Self::RiskDecision(_) => "risk-decision",
@@ -6350,12 +6539,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.adjusted", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.live_order.settlement.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.adjusted", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.live_order.settlement.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed", "workspace.retention.changed", "workspace.retention.applied"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt", "workspace-retention"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -6367,7 +6556,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt", "workspace-retention"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,

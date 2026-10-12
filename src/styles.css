@@ -190,6 +190,26 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .settings-tabs [aria-pressed="true"] { background: var(--blue-light); color: var(--blue); border-color: #bfdbfe; }
 .settings-section > p { font-size: 12px; }
 .data-sources { margin-top: 26px; border-top: 1px solid var(--border); padding-top: 20px; }
+.workspace-archive { display: grid; gap: 16px; margin: 22px 0; padding: 16px; }
+.workspace-archive h3, .workspace-archive h4 { margin: 0; }
+.workspace-archive .artifact-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.workspace-archive .notice { line-height: 1.5; }
+.workspace-retention { border-top: 1px solid var(--border); padding-top: 16px; }
+.workspace-retention > p { font-size: 11px; }
+.workspace-retention-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.workspace-retention-fields .field { min-width: 0; }
+.workspace-retention-fields input { width: 100%; }
+.workspace-retention .form-actions { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+.workspace-import-dialog { display: grid; gap: 14px; max-height: 88vh; overflow-y: auto; }
+.workspace-archive-validated { margin: 0; color: var(--success, #18704e); font-weight: 600; }
+.workspace-import-dialog > ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 11px; }
+.workspace-import-dialog .folder-input { min-width: 0; }
+.workspace-import-dialog .folder-input .path { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.workspace-data-categories h3 { margin: 0 0 8px; font-size: 13px; }
+.workspace-data-categories dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.workspace-data-categories dl > div { display: flex; justify-content: space-between; gap: 10px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.workspace-data-categories dt, .workspace-data-categories dd { min-width: 0; overflow-wrap: anywhere; }
+.workspace-data-categories dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .data-sources h3 { margin: 0; font-size: 15px; }
 .data-sources > p { font-size: 11px; }
 .data-source-grid { display: grid; gap: 12px; margin-top: 16px; }
@@ -425,7 +445,7 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
   .market-search button { width: 100%; }
   .page-heading { flex-direction: column; align-items: stretch; }
   .page-heading > button { width: 100%; }
-  .artifact-meta, .artifact-provenance-grid { grid-template-columns: minmax(0, 1fr); }
+  .artifact-meta, .artifact-provenance-grid, .workspace-data-categories dl { grid-template-columns: minmax(0, 1fr); }
   .artifact-row { align-items: flex-start; flex-direction: column; }
   .artifact-row-meta { text-align: left; justify-items: start; }
   .screener-predicate { grid-template-columns: minmax(0, 1fr); }
@@ -622,6 +642,9 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
   .summary-list > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .onboarding-actions { justify-content: stretch; }
   .onboarding-actions button { flex: 1; }
+  .workspace-retention-fields { grid-template-columns: minmax(0, 1fr); }
+  .workspace-archive .form-actions, .workspace-archive .artifact-actions { justify-content: stretch; }
+  .workspace-archive .form-actions button, .workspace-archive .artifact-actions button { flex: 1; }
 }
 
 .strategy-surface { display: grid; gap: 16px; }

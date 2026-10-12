@@ -2618,6 +2618,14 @@ At minimum, provenance should include where applicable:
 - related proposal/order IDs;
 - creation timestamp.
 
+## 55.2 Workspace archive and retention boundary (S31 #137)
+
+The v1 workspace archive is a bounded, versioned local file containing one validated SQLite workspace snapshot. Its manifest binds the workspace identity, capture time, storage schema, fixed member path, byte length, and SHA-256 digest. The snapshot retains saved workspace records and their provenance, including unresolved orders, cancellations, reservations, settlements, and audit history. Credentials remain represented only by opaque local references; broker/API secrets, OAuth material, Keychain contents, logs, DuckDB market history, and cache files are excluded unless a separate data-rights decision permits their export.
+
+Preview is read-only and reports archive compatibility, included data categories and record counts, credential-reference status, and warnings. Restore requires an explicit user confirmation, stages and validates the database, runs supported migrations and integrity checks, creates a backup of the current workspace, and publishes the restored workspace separately. It invalidates prior approvals and current cancellation consent, stops the model gateway, leaves every Live account DISARMED and stale, and requires fresh authentication and reconciliation before execution readiness. A present Keychain entry is only a local reference check; it does not prove provider authentication or trading permission.
+
+Retention has no effect while a category has no configured limit. Saving limits does not delete data; a separate explicit Apply action removes only expired ordinary artifacts without order references, regular files directly under the workspace cache directory, and old local market-history rows. It never removes unresolved financial execution, reconciliation, reservation, settlement, risk, approval, or audit records.
+
 ---
 
 # 56. Privacy Model

@@ -3330,6 +3330,7 @@ Backtest 和大型 analytics 使用 worker thread/process，确保 Control Plane
 - 支持时 transactional migration；
 - migration 后 integrity check；
 - migration/reconciliation 成功前不启用 Live readiness。
+- schema 38 增加带版本的 `workspace_retention` projection，并在 workspace outbox 记录明确的保留设置/应用；已识别的旧 schema 在既有 migration 前备份后进行事务迁移。
 
 ### 45.2 Runtime compatibility
 
@@ -3461,3 +3462,15 @@ Tauri desktop 与 bundled/managed sidecar 进入可重复的 signed release pipe
 已配置数据源没有已接受报价时，Market 详情投影为 UNAVAILABLE。匹配的 Hot 租约通过有限生命周期原因解释缺少观察（连接、认证、等待订阅或等待实际报价）。成功的认证报价访问探测或订阅确认不会制造 snapshot。没有匹配租约时，数据源验证或失败原因仍然可见；可用数据源尚无报价则提示按需刷新。旧的适配器未配置原因不用于描述已明确配置的生产数据源。
 
 控制消息格式遵循[官方股票流契约](https://docs.alpaca.markets/us/docs/streaming-market-data)：success/error/subscription 消息使用单元素数组。控制消息与报价或其他控制消息混合时，在应用任何确认或观察前拒绝整条消息。有限的多报价数据数组仍然允许。提供方元数据读取也在 Control Plane 锁外执行；等待读取期间切换数据源或 feed 会使旧结果及 socket 失效。
+
+### 41.51 工作区归档、恢复与保留（S31 #137）
+
+Schema 38 增加 `workspace_retention`，这是 workspace-scoped 且具有单调递增 `stateVersion` 的 projection。`workspace.retention.get {workspaceId}` 返回三个可选天数限制、上次应用时间和删除计数。`workspace.retention.set {workspaceId, expectedStateVersion, artifactRetentionDays?, cacheRetentionDays?, marketDataRetentionDays?}` 接受 1–3650 天的各项限制；版本过期时拒绝且不变更，并发送 `workspace.retention.changed`。`workspace.retention.apply {workspaceId}` 是单独的明确破坏性操作，并发送 `workspace.retention.applied`；未设置限制时不清理。两个事件遵循常规 snapshot/subscribe/replay 与 outbox 契约。
+
+归档格式为 `TRDXAR01`、版本 1，包含一个未压缩的固定成员 `workspace.sqlite3`。严格 JSON manifest 绑定 app ID、格式版本、workspace ID/名称、捕获时间、storage schema 版本、成员路径、字节数、成员 SHA-256 与 warnings。manifest 最大 256 KiB，完整归档最大 1 GiB；未知字段、路径、布局、不支持的未来 schema 与摘要不匹配均 fail closed。导出先写入权限受限的临时同级文件，再原子发布且不覆盖现存目标。Backup 在 workspace 的 `backups` 目录生成唯一归档。此格式包含 SQLite 工作区快照；由于本契约尚未确立其导出权限/归属，它排除 `market.duckdb`、缓存文件、日志与外部导出文件。
+
+命令为：`workspace.archive.backup {workspaceId}` 和 `workspace.archive.export {workspaceId, destinationPath}` → `WorkspaceArchiveExportResult {path, bytes, contentHash, warnings}`；`workspace.archive.preview {workspaceId, archivePath}` → `WorkspaceArchivePreview {workspaceId, workspaceName, capturedAt, formatVersion, storageSchemaVersion, memberCount, bytes, manifestHash, warnings, dataCategories, credentialChecks}`；以及 `workspace.archive.restore {workspaceId, archivePath, destinationParent, manifestHash}` → `WorkspaceArchiveRestoreResult {workspaceId, restoredPath, backupPath, warnings}`。preview 会校验归档及内嵌 SQLite 快照，不修改当前打开的 workspace。它报告 accounts、conversations、research、strategies/backtests、financial history 的记录数，并为每个非 Local Paper 账户报告一个状态。凭据状态为 `NOT_CHECKED`、`PRESENT_UNVERIFIED`、`MISSING` 或 `UNAVAILABLE`；受信任的原生边界只检查对应的 OS Keychain 引用，并返回状态 metadata。原生检查会绑定到已校验归档的 manifest 摘要，只有摘要与 preview 或 restore 输入一致时才应用。Renderer payload 不含凭据引用或 secret。`PRESENT_UNVERIFIED` 不代表认证、权限、提供方状态或数据权利已确认。
+
+恢复会重新验证 preview 中的 manifest hash，在权限受限的目录暂存快照，迁移支持的 schema 并检查 SQLite integrity/foreign keys，然后为当前打开的 workspace 创建恢复归档并发布一个新的恢复工作区。发布前失败时，当前 workspace 保持完整。保留历史 proposal、风险/执行证据、未决 PLACE/CANCEL attempt、预留、结算及审计溯源。使既有 approval 和当前撤单 authority 失效，停止 model Gateway 并重置会话；所有 Live 账户保持 DISARMED，恢复账户保持 stale/blocked，直到重新认证并完成对账。恢复过程不发出 provider 请求。
+
+应用保留策略仅删除：没有相关订单 ID 的过期 artifact 记录、workspace cache 目录下直接存放的普通非符号链接文件，以及现有行情数据库中过期的历史行。嵌套路径、外部路径与符号链接均排除。金融执行、对账、预留、结算、风险、approval 与审计记录不在清理范围内。返回的 `WorkspaceRetention` 计数表示最近一次明确应用删除的行/文件数。

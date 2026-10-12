@@ -42,6 +42,7 @@ pub mod spot_proposal_rules;
 mod storage;
 pub mod strategy;
 pub mod time;
+pub mod workspace_archive;
 
 use ::time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
 use capability::{CapabilityQuery, ResearchToolId};
@@ -73,6 +74,8 @@ use protocol::{
     Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh,
     Trading212DemoOrderBookStatus, Trading212DemoOrderCancel, Trading212DemoOrderSubmit,
     Trading212DemoRateLimits, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    WorkspaceArchiveCredentialStatus, WorkspaceArchiveExport, WorkspaceArchivePreviewRequest,
+    WorkspaceArchiveRestoreRequest, WorkspaceRetentionQuery, WorkspaceRetentionUpdate,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -82,7 +85,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -96,6 +99,11 @@ pub struct StartupLiveRecoveryPlan {
     pub workspace_id: String,
     pub unresolved_attempts: Vec<protocol::ResolutionEvidenceRefresh>,
     pub account_ids: Vec<String>,
+}
+
+pub struct WorkspaceArchiveCredentialStatuses {
+    pub manifest_hash: String,
+    pub statuses: HashMap<String, WorkspaceArchiveCredentialStatus>,
 }
 
 struct PreparedTurn {
@@ -2449,6 +2457,18 @@ impl ControlPlane {
         self.dispatch_with_events(request, "headless", None)
     }
 
+    pub fn workspace_archive_credential_references(
+        &self,
+        workspace_id: &str,
+        archive_path: &Path,
+    ) -> Result<(String, Vec<(String, String)>)> {
+        self.require_workspace(workspace_id)?;
+        self.store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?
+            .archive_credential_references(archive_path)
+    }
+
     pub fn issue_live_dispatch_grant(
         &mut self,
         attempt_id: &str,
@@ -3352,6 +3372,17 @@ impl ControlPlane {
         sink: Option<EventSink>,
         runtime_access: Option<codex_runtime::RuntimeAccess>,
     ) -> Value {
+        self.dispatch_with_credential_statuses(request, consumer, sink, runtime_access, None)
+    }
+
+    pub fn dispatch_with_credential_statuses(
+        &mut self,
+        request: Value,
+        consumer: &str,
+        sink: Option<EventSink>,
+        runtime_access: Option<codex_runtime::RuntimeAccess>,
+        credential_statuses: Option<&WorkspaceArchiveCredentialStatuses>,
+    ) -> Value {
         let id = request
             .get("requestId")
             .and_then(Value::as_str)
@@ -3364,7 +3395,13 @@ impl ControlPlane {
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
             return self.dispatch_data_source_probe(request);
         }
-        match self.execute(request, consumer, sink, runtime_access.as_ref()) {
+        match self.execute(
+            request,
+            consumer,
+            sink,
+            runtime_access.as_ref(),
+            credential_statuses,
+        ) {
             Ok((data, version)) => {
                 let mut reply = json!({"requestId":id,"schemaVersion":1,"ok":true,"data":data});
                 if let Some(version) = version {
@@ -3393,6 +3430,7 @@ impl ControlPlane {
         consumer: &str,
         sink: Option<EventSink>,
         runtime_access: Option<&codex_runtime::RuntimeAccess>,
+        credential_statuses: Option<&WorkspaceArchiveCredentialStatuses>,
     ) -> Result<(Value, Option<String>)> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
             Some(1) => (),
@@ -3521,6 +3559,77 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let status = self.time.status(&input.workspace_id)?;
                 Ok((json!(status), None))
+            }
+            "workspace.archive.backup" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self.store.as_ref().unwrap().backup_workspace_archive()?;
+                Ok((json!(result), None))
+            }
+            "workspace.archive.export" => {
+                let input: WorkspaceArchiveExport = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .export_workspace_archive(Path::new(&input.destination_path))?;
+                Ok((json!(result), None))
+            }
+            "workspace.archive.preview" => {
+                let input: WorkspaceArchivePreviewRequest = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let mut result = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .preview_workspace_archive(Path::new(&input.archive_path))?;
+                let credential_statuses = credential_statuses
+                    .filter(|statuses| statuses.manifest_hash == result.manifest_hash);
+                for check in &mut result.credential_checks {
+                    if let Some(status) = credential_statuses
+                        .and_then(|statuses| statuses.statuses.get(&check.connection_id))
+                    {
+                        check.status = *status;
+                    }
+                }
+                Ok((json!(result), None))
+            }
+            "workspace.archive.restore" => {
+                let input: WorkspaceArchiveRestoreRequest = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let credential_statuses = credential_statuses
+                    .filter(|statuses| statuses.manifest_hash == input.manifest_hash)
+                    .map(|statuses| &statuses.statuses);
+                let result = self.store.as_ref().unwrap().restore_workspace_archive(
+                    Path::new(&input.archive_path),
+                    Path::new(&input.destination_parent),
+                    &input.manifest_hash,
+                    credential_statuses,
+                )?;
+                Ok((json!(result), None))
+            }
+            "workspace.retention.get" => {
+                let input: WorkspaceRetentionQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self.store.as_ref().unwrap().workspace_retention()?;
+                Ok((json!(result), None))
+            }
+            "workspace.retention.set" => {
+                let input: WorkspaceRetentionUpdate = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .save_workspace_retention(&input)?;
+                Ok((json!(result), Some(result.state_version.clone())))
+            }
+            "workspace.retention.apply" => {
+                let input: WorkspaceRetentionQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self.store.as_mut().unwrap().apply_workspace_retention()?;
+                Ok((json!(result), Some(result.state_version.clone())))
             }
             "time.revalidate" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
@@ -13912,6 +14021,9 @@ mod thread_tests {
             )
             .unwrap();
         migration_database
+            .execute("DROP TABLE workspace_retention", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -20729,6 +20841,356 @@ mod live_approval_tests {
                 )
                 .unwrap(),
             None,
+        );
+    }
+
+    #[test]
+    fn workspace_restore_invalidates_issued_live_approval_and_keeps_accounts_disarmed() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("approval-restore.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({
+                "workspaceId": workspace_id,
+                "destinationPath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({"workspaceId":workspace_id,"archivePath":archive_path.to_string_lossy()}),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let credential_check = preview["data"]["credentialChecks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(credential_check["status"], "NOT_CHECKED");
+        let credential_statuses = WorkspaceArchiveCredentialStatuses {
+            manifest_hash: preview["data"]["manifestHash"].as_str().unwrap().to_owned(),
+            statuses: HashMap::from([(
+                account.connection_id.clone(),
+                WorkspaceArchiveCredentialStatus::Missing,
+            )]),
+        };
+        let restored = control.dispatch_with_credential_statuses(
+            request(
+                "workspace.archive.restore",
+                json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+                "destinationParent": archive_path.parent().unwrap().join("restored").to_string_lossy(),
+                "manifestHash": preview["data"]["manifestHash"],
+                }),
+            ),
+            "main",
+            None,
+            None,
+            Some(&credential_statuses),
+        );
+        assert_eq!(restored["ok"], true, "{restored}");
+        let reopened = dispatch_main(
+            &mut control,
+            "workspace.open",
+            json!({"path":restored["data"]["restoredPath"]}),
+        );
+        assert_eq!(reopened["ok"], true, "{reopened}");
+
+        let history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        let restored_approval = history["data"]["approvals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["approvalId"] == approval["data"]["approvalId"])
+            .unwrap();
+        assert_eq!(restored_approval["status"], "INVALIDATED");
+        assert_eq!(
+            restored_approval["invalidationReason"],
+            "WORKSPACE_RESTORED"
+        );
+
+        let accounts = dispatch_main(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(accounts["ok"], true, "{accounts}");
+        let restored_account = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(restored_account["health"]["arming"], "DISARMED");
+        assert_eq!(restored_account["health"]["reconciliation"], "STALE");
+        assert_eq!(restored_account["health"]["credential"], "MISSING");
+        assert_eq!(restored_account["connectionState"], "FAILED");
+    }
+
+    #[test]
+    fn workspace_archive_contains_account_reference_but_no_credential_values() {
+        let (_folder, mut control, workspace_id, account, _proposal, _review) =
+            reviewed_live_capacity_fixture();
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("secret-scan.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({
+                "workspaceId": workspace_id,
+                "destinationPath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+
+        let secrets = provider_io::Credentials::new(vec![
+            "synthetic-archive-api-key".into(),
+            "synthetic-archive-api-secret".into(),
+        ])
+        .unwrap()
+        .values()
+        .unwrap();
+        let archive = std::fs::read(&archive_path).unwrap();
+        assert!(secrets.iter().all(|secret| {
+            !archive
+                .windows(secret.len())
+                .any(|window| window == secret.as_bytes())
+        }));
+        let credential_reference = account.credential_ref();
+        assert!(
+            archive
+                .windows(credential_reference.len())
+                .any(|window| window == credential_reference.as_bytes())
+        );
+
+        let expected_accounts = control.store.as_ref().unwrap().accounts().unwrap().len() as u64;
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let account_records = preview["data"]["dataCategories"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|category| category["categoryId"] == "ACCOUNTS")
+            .unwrap()["recordCount"]
+            .as_u64()
+            .unwrap();
+        assert_eq!(account_records, expected_accounts);
+    }
+
+    #[test]
+    fn workspace_archive_credential_statuses_are_bound_to_manifest_hash() {
+        let (_folder, mut control, workspace_id, account, _proposal, _review) =
+            reviewed_live_capacity_fixture();
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("credential-status-binding.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({
+                "workspaceId": workspace_id,
+                "destinationPath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let manifest_hash = preview["data"]["manifestHash"].as_str().unwrap().to_owned();
+        let stale_statuses = WorkspaceArchiveCredentialStatuses {
+            manifest_hash: "0".repeat(64),
+            statuses: HashMap::from([(
+                account.connection_id.clone(),
+                WorkspaceArchiveCredentialStatus::Missing,
+            )]),
+        };
+
+        let checked_preview = control.dispatch_with_credential_statuses(
+            request(
+                "workspace.archive.preview",
+                json!({
+                    "workspaceId": workspace_id,
+                    "archivePath": archive_path.to_string_lossy(),
+                }),
+            ),
+            "main",
+            None,
+            None,
+            Some(&stale_statuses),
+        );
+        assert_eq!(checked_preview["ok"], true, "{checked_preview}");
+        let preview_status = checked_preview["data"]["credentialChecks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["connectionId"] == account.connection_id)
+            .unwrap()["status"]
+            .as_str()
+            .unwrap();
+        assert_eq!(preview_status, "NOT_CHECKED");
+
+        let restored = control.dispatch_with_credential_statuses(
+            request(
+                "workspace.archive.restore",
+                json!({
+                    "workspaceId": workspace_id,
+                    "archivePath": archive_path.to_string_lossy(),
+                    "destinationParent": archive_path.parent().unwrap().join("stale-credential-restore").to_string_lossy(),
+                    "manifestHash": manifest_hash,
+                }),
+            ),
+            "main",
+            None,
+            None,
+            Some(&stale_statuses),
+        );
+        assert_eq!(restored["ok"], true, "{restored}");
+        let reopened = dispatch_main(
+            &mut control,
+            "workspace.open",
+            json!({"path":restored["data"]["restoredPath"]}),
+        );
+        assert_eq!(reopened["ok"], true, "{reopened}");
+        let accounts = dispatch_main(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(accounts["ok"], true, "{accounts}");
+        let restored_account = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(restored_account["health"]["credential"], "UNCHECKED");
+    }
+
+    #[test]
+    fn workspace_restore_retains_unknown_execution_and_reservation_records() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_bitget_live_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let capacity: protocol::CapacityProjection =
+            serde_json::from_value(review["capacityProjection"].clone()).unwrap();
+        let attempt = control
+            .seed_bitget_live_unknown_attempt_fixture(
+                &workspace_id,
+                proposal["proposalId"].as_str().unwrap(),
+                approval["data"]["approvalId"].as_str().unwrap(),
+                capacity,
+            )
+            .unwrap();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert!(before.reservation.is_some());
+
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("unknown-restore.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({"workspaceId":workspace_id,"destinationPath":archive_path.to_string_lossy()}),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({"workspaceId":workspace_id,"archivePath":archive_path.to_string_lossy()}),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let restored = dispatch_main(
+            &mut control,
+            "workspace.archive.restore",
+            json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+                "destinationParent": archive_path.parent().unwrap().join("restored-unknown").to_string_lossy(),
+                "manifestHash": preview["data"]["manifestHash"],
+            }),
+        );
+        assert_eq!(restored["ok"], true, "{restored}");
+        let reopened = dispatch_main(
+            &mut control,
+            "workspace.open",
+            json!({"path":restored["data"]["restoredPath"]}),
+        );
+        assert_eq!(reopened["ok"], true, "{reopened}");
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(after.attempt.attempt_id, attempt.attempt_id);
+        assert!(after.reservation.is_some());
+        assert_eq!(
+            after.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
         );
     }
 }

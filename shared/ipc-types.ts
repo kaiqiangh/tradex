@@ -841,6 +841,7 @@ export type DomainProjection =
   | GatewayState
   | ModelState
   | Workspace
+  | WorkspaceRetention
   | AccountConnection
   | RiskPolicyState
   | RiskDecision
@@ -1089,6 +1090,10 @@ export type ResultEnvelope = SuccessEnvelope | FailureEnvelope;
  */
 export type ReplyData =
   | Workspace
+  | WorkspaceRetention
+  | WorkspaceArchiveExportResult
+  | WorkspaceArchivePreview
+  | WorkspaceArchiveRestoreResult
   | Snapshot
   | RuntimeStatus
   | TimeStatus
@@ -1170,6 +1175,17 @@ export type ReplyData =
   | BacktestRun
   | BacktestLibrary
   | BacktestComparison;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveCredentialStatus".
+ */
+export type WorkspaceArchiveCredentialStatus = "NOT_CHECKED" | "PRESENT_UNVERIFIED" | "MISSING" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveDataCategoryId".
+ */
+export type WorkspaceArchiveDataCategoryId =
+  "ACCOUNTS" | "CONVERSATIONS" | "RESEARCH" | "STRATEGIES_AND_BACKTESTS" | "FINANCIAL_HISTORY";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ToolId".
@@ -1468,8 +1484,17 @@ export interface IpcSchema {
   watchlistDelete: WatchlistDelete;
   watchlistInstrumentMutation: WatchlistInstrumentMutation;
   watchlistRename: WatchlistRename;
+  workspaceArchiveExport: WorkspaceArchiveExport;
+  workspaceArchiveExportResult: WorkspaceArchiveExportResult;
+  workspaceArchivePreview: WorkspaceArchivePreview;
+  workspaceArchivePreviewRequest: WorkspaceArchivePreviewRequest;
+  workspaceArchiveRestoreRequest: WorkspaceArchiveRestoreRequest;
+  workspaceArchiveRestoreResult: WorkspaceArchiveRestoreResult;
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
+  workspaceRetention: WorkspaceRetention;
+  workspaceRetentionQuery: WorkspaceRetentionQuery;
+  workspaceRetentionUpdate: WorkspaceRetentionUpdate;
   [k: string]: unknown;
 }
 /**
@@ -5500,7 +5525,8 @@ export interface DomainEvent {
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
     | "binance-testnet-order-book"
-    | "bitget-demo-order-attempt";
+    | "bitget-demo-order-attempt"
+    | "workspace-retention";
   eventId: string;
   eventType:
     | "workspace.opened"
@@ -5532,7 +5558,9 @@ export interface DomainEvent {
     | "alpaca.paper.order.book.changed"
     | "binance.testnet.order.attempt.changed"
     | "binance.testnet.order.book.changed"
-    | "bitget.demo.order.attempt.changed";
+    | "bitget.demo.order.attempt.changed"
+    | "workspace.retention.changed"
+    | "workspace.retention.applied";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -5648,6 +5676,21 @@ export interface Workspace {
   name: string;
   path: string;
   storageSchemaVersion: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceRetention".
+ */
+export interface WorkspaceRetention {
+  artifactRetentionDays?: number | null;
+  cacheRetentionDays?: number | null;
+  lastAppliedAt?: string | null;
+  lastDeletedArtifacts: number;
+  lastDeletedCacheFiles: number;
+  lastDeletedMarketRows: number;
+  marketDataRetentionDays?: number | null;
+  stateVersion: string;
   workspaceId: string;
 }
 /**
@@ -7077,6 +7120,111 @@ export interface SuccessEnvelope {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveExportResult".
+ */
+export interface WorkspaceArchiveExportResult {
+  bytes: number;
+  contentHash: string;
+  path: string;
+  /**
+   * @maxItems 8
+   */
+  warnings:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchivePreview".
+ */
+export interface WorkspaceArchivePreview {
+  bytes: number;
+  capturedAt: string;
+  /**
+   * @maxItems 256
+   */
+  credentialChecks: WorkspaceArchiveCredentialCheck[];
+  /**
+   * @minItems 5
+   * @maxItems 5
+   */
+  dataCategories: [
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory
+  ];
+  formatVersion: number;
+  manifestHash: string;
+  memberCount: number;
+  storageSchemaVersion: number;
+  /**
+   * @maxItems 8
+   */
+  warnings:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  workspaceId: string;
+  workspaceName: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveCredentialCheck".
+ */
+export interface WorkspaceArchiveCredentialCheck {
+  connectionId: string;
+  environment: string;
+  label: string;
+  providerId: string;
+  status: WorkspaceArchiveCredentialStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveDataCategory".
+ */
+export interface WorkspaceArchiveDataCategory {
+  categoryId: WorkspaceArchiveDataCategoryId;
+  recordCount: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveRestoreResult".
+ */
+export interface WorkspaceArchiveRestoreResult {
+  backupPath: string;
+  restoredPath: string;
+  /**
+   * @maxItems 8
+   */
+  warnings:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Snapshot".
  */
 export interface Snapshot {
@@ -7103,7 +7251,8 @@ export interface Snapshot {
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
     | "binance-testnet-order-book"
-    | "bitget-demo-order-attempt";
+    | "bitget-demo-order-attempt"
+    | "workspace-retention";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -7176,7 +7325,8 @@ export interface SubscriptionAck {
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
     | "binance-testnet-order-book"
-    | "bitget-demo-order-attempt";
+    | "bitget-demo-order-attempt"
+    | "workspace-retention";
   lastSequence: number;
   replayedCount: number;
 }
@@ -8963,10 +9113,54 @@ export interface WatchlistRename {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveExport".
+ */
+export interface WorkspaceArchiveExport {
+  destinationPath: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchivePreviewRequest".
+ */
+export interface WorkspaceArchivePreviewRequest {
+  archivePath: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveRestoreRequest".
+ */
+export interface WorkspaceArchiveRestoreRequest {
+  archivePath: string;
+  destinationParent: string;
+  manifestHash: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OpenWorkspace".
  */
 export interface OpenWorkspace {
   baseCurrency?: string;
   name?: string;
   path?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceRetentionQuery".
+ */
+export interface WorkspaceRetentionQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceRetentionUpdate".
+ */
+export interface WorkspaceRetentionUpdate {
+  artifactRetentionDays?: number | null;
+  cacheRetentionDays?: number | null;
+  expectedStateVersion: string;
+  marketDataRetentionDays?: number | null;
+  workspaceId: string;
 }

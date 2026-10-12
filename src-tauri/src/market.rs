@@ -10,8 +10,9 @@ use duckdb::Connection;
 use std::path::Path;
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
+const MAX_MARKET_HISTORY_ROWS: usize = 100_000;
 #[cfg(test)]
-const MAX_HISTORY_ROWS: usize = 100_000;
+const MAX_HISTORY_ROWS: usize = MAX_MARKET_HISTORY_ROWS;
 
 #[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -61,6 +62,78 @@ pub(crate) fn ensure_history(path: &Path) -> Result<()> {
             );",
         )
         .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))
+}
+
+pub(crate) fn prune_history_before(path: &Path, retention_days: u16) -> Result<u64> {
+    let database = path.join("market.duckdb");
+    let metadata = match database.symlink_metadata() {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(_) => return Err(TradeXError::new("WORKSPACE_OPEN_FAILED")),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    if !(1..=3650).contains(&retention_days) {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    let mut connection =
+        Connection::open(&database).map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    let table_exists: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='main' AND table_name='ohlcv_1m'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if table_exists == 0 {
+        return Ok(0);
+    }
+    let row_count: i64 = connection
+        .query_row("SELECT COUNT(*) FROM ohlcv_1m", [], |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if row_count < 0 || row_count as usize > MAX_MARKET_HISTORY_ROWS {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let rows = {
+        let mut statement = connection
+            .prepare("SELECT instrument_id,interval_start,source FROM ohlcv_1m")
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?
+    };
+    let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(retention_days));
+    let expired = rows
+        .into_iter()
+        .filter(|(_, interval_start, _)| {
+            OffsetDateTime::parse(interval_start, &Rfc3339).is_ok_and(|interval| interval < cutoff)
+        })
+        .collect::<Vec<_>>();
+    if expired.is_empty() {
+        return Ok(0);
+    }
+    let tx = connection
+        .transaction()
+        .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    for (instrument_id, interval_start, source) in &expired {
+        tx.execute(
+            "DELETE FROM ohlcv_1m WHERE instrument_id=? AND interval_start=? AND source=?",
+            duckdb::params![instrument_id, interval_start, source],
+        )
+        .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    }
+    tx.commit()
+        .map_err(|_| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+    Ok(expired.len() as u64)
 }
 
 #[cfg(test)]

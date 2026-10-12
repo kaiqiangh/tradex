@@ -26,6 +26,7 @@ use tradex::binance_stream::{BinancePrivateStreamSupervisor, mark_connected_acco
 use tradex::order_gateway::OrderGatewayHost;
 use tradex::{
     BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor,
+    WorkspaceArchiveCredentialStatuses,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -390,8 +391,11 @@ async fn control(
             #[cfg(target_os = "macos")]
             mark_connected_accounts_degraded(&engine);
         }
-        let command = request.get("command").and_then(Value::as_str);
-        if command == Some("turn.start") || command == Some("turn.retry") {
+        let command = request
+            .get("command")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        if command.as_deref() == Some("turn.start") || command.as_deref() == Some("turn.retry") {
             let runtime_access = request
                 .get("payload")
                 .and_then(|payload| payload.get("workspaceId"))
@@ -402,25 +406,25 @@ async fn control(
                         .ok()
                         .and_then(|host| host.codex_runtime_access(workspace_id))
                 });
-            return if command == Some("turn.start") {
+            return if command.as_deref() == Some("turn.start") {
                 supervisor.start(engine, request, runtime_access)
             } else {
                 supervisor.retry(engine, request, runtime_access)
             };
         }
-        if command == Some("turn.cancel") {
+        if command.as_deref() == Some("turn.cancel") {
             return supervisor.cancel(engine, request);
         }
-        if command == Some("strategy.run") {
+        if command.as_deref() == Some("strategy.run") {
             return strategy_supervisor.start(engine, request);
         }
-        if command == Some("strategy.cancel") {
+        if command.as_deref() == Some("strategy.cancel") {
             return strategy_supervisor.cancel(engine, request);
         }
-        if command == Some("backtest.run") {
+        if command.as_deref() == Some("backtest.run") {
             return backtest_supervisor.start(engine, request);
         }
-        if command == Some("backtest.cancel") {
+        if command.as_deref() == Some("backtest.cancel") {
             return backtest_supervisor.cancel(engine, request);
         }
         let execution_engine = engine.clone();
@@ -445,11 +449,50 @@ async fn control(
                     let fixture_request = request.clone();
                     let is_live_execution_prepare = request.get("command").and_then(Value::as_str)
                         == Some("trade.execution.prepare");
-                    let reply = engine.dispatch_with_runtime(
+                    let archive_credential_statuses = match command.as_deref() {
+                        Some("workspace.archive.preview" | "workspace.archive.restore") => {
+                            let Some(payload) = request.get("payload") else {
+                                return failed(&request, "IPC_PAYLOAD_INVALID");
+                            };
+                            let Some(workspace_id) =
+                                payload.get("workspaceId").and_then(Value::as_str)
+                            else {
+                                return failed(&request, "IPC_PAYLOAD_INVALID");
+                            };
+                            let Some(archive_path) =
+                                payload.get("archivePath").and_then(Value::as_str)
+                            else {
+                                return failed(&request, "IPC_PAYLOAD_INVALID");
+                            };
+                            let (manifest_hash, references) = match engine
+                                .workspace_archive_credential_references(
+                                    workspace_id,
+                                    std::path::Path::new(archive_path),
+                                ) {
+                                Ok(result) => result,
+                                Err(error) => return failed(&request, &error.code),
+                            };
+                            Some(WorkspaceArchiveCredentialStatuses {
+                                manifest_hash,
+                                statuses: references
+                                    .into_iter()
+                                    .map(|(connection_id, credential_reference)| {
+                                        (
+                                            connection_id,
+                                            NativeVault.check_reference(&credential_reference),
+                                        )
+                                    })
+                                    .collect(),
+                            })
+                        }
+                        _ => None,
+                    };
+                    let reply = engine.dispatch_with_credential_statuses(
                         request,
                         &consumer,
                         Some(Arc::new(move |event| events.send(event).is_ok())),
                         None,
+                        archive_credential_statuses.as_ref(),
                     );
                     #[cfg(feature = "integration-test")]
                     let reply = if opening_workspace
