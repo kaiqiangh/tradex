@@ -15,6 +15,8 @@ Revision C clarification dated 2026-09-05. Product scope and existing requiremen
 The PRD wins on product/safety meaning. The UI Spec owns user-visible behavior, and the ARDs specify its implementation. A prototype observation or coverage status cannot override a requirement. Correct conflicting documents together rather than choosing a convenient interpretation.
 
 ## Current handoff status
+S32 Settings, Account Health, Privacy, and Error Recovery completed on `dev@0593ed7`; implementation #139 and specification #138 are closed. Paired native UI/IPC evidence and traceability are recorded at evidence commit `132ecd4`. The active next slice is S33: spec #140 and assigned implementation #141 for full-page keyboard, accessibility, and narrow-window regression using isolated synthetic state. Provider integrations remain skipped/open by user direction, and S27 physical sleep/wake remains skipped/open. S34 and S35 follow S33.
+
 
 S29.2 #123 exact ordinary Binance Spot rule-source/admission is closed; [paired acceptance evidence](implementation/s29-spot-rule-evidence.md) binds source `b726bb3`, independent reviews, local checks/build/UI and verified source/evidence delivery `21a6659`. Full S29 #121, S28/S17/physical S27 remain open. This does not establish quote/depth/data rights or real-provider financial acceptance; prototype code is unchanged.
 

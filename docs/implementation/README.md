@@ -1,6 +1,6 @@
 # TradeX RevC 需求清单与串行实现方案
 
-当前串行工作：S29.11 [完整 Spot 逐资产金融计划与真实必需 FX](s29-owning-financial-plan-spec_zh.md)，[已发布规范](https://github.com/kaiqiangh/tradex/issues/134)为 OPEN / ready-for-agent。覆盖全部20项交接、32故事及14待完成AC；金额/BNB模型和条件来源/路由契约已具体化。用户确认本人本地非商业使用、Alpaca原始行情不外发；认证访问、适用协议、具体选择及当前质量仍属真实激活证据，不升级为使用权。当前实现单票：[提供完整 Spot 金融计划、逐资产预留与所需估值](https://github.com/kaiqiangh/tradex/issues/135)，OPEN/ready-for-agent、已认领，native父134、已完成前置133/131；按公开接缝逐行为RED→GREEN串行实施，真实金融/原生/物理/release仍开放；7个金额算例及来源研究只属规划证据。当前10个开放issues；需求/屏幕状态不变。
+当前串行工作：规范 [[Spec] 完成全页面、键盘与窄屏回归（S33）](https://github.com/kaiqiangh/tradex/issues/140) OPEN / ready-for-agent；实现票 [[S33] 完成全页面、键盘与窄屏回归](https://github.com/kaiqiangh/tradex/issues/141) OPEN / ready-for-agent、已认领并挂入 Wayfinder map #1。验收目标为70个界面及 QA-01–QA-13、desktop/768/390、焦点/语义/VoiceOver/reduced motion；只用隔离工作区与本地合成观察，不访问真实 provider。S32 已在 `dev@0593ed7` 完成，配对证据/追溯提交为 `132ecd4`；S27物理睡眠唤醒按用户要求跳过并保持开放，Alpaca/Binance/Bitget/Trading 212集成票也按用户要求跳过并保持开放。S33完成后继续S34资源测量与签名包、S35总验收；未达全部门禁前不创建main PR。
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 
