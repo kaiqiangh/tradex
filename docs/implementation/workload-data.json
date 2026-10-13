@@ -1,25 +1,25 @@
 {
-  "generated": "2026-10-11 10:03 +0100",
-  "commit": "308747a",
+  "generated": "2026-10-13 19:17 +0100",
+  "commit": "5a5ae36",
   "branch": "dev",
-  "ahead": 0,
+  "ahead": 5,
   "req_total": 203,
   "req_status": {
-    "IMPLEMENTED_UNVERIFIED": 68,
-    "NOT_STARTED": 62,
-    "IN_PROGRESS": 47,
-    "VERIFIED": 23,
+    "IMPLEMENTED_UNVERIFIED": 72,
+    "NOT_STARTED": 55,
+    "IN_PROGRESS": 45,
+    "VERIFIED": 28,
     "DEFERRED": 3
   },
   "surf_total": 83,
   "surf_status": {
     "VERIFIED": 1,
-    "IN_PROGRESS": 14,
-    "IMPLEMENTED_UNVERIFIED": 39,
-    "NOT_STARTED": 29
+    "IN_PROGRESS": 18,
+    "IMPLEMENTED_UNVERIFIED": 43,
+    "NOT_STARTED": 21
   },
-  "issue_total": 134,
-  "issue_open": 10,
+  "issue_total": 140,
+  "issue_open": 13,
   "open_issues": [
     1,
     56,
@@ -30,10 +30,13 @@
     117,
     121,
     134,
-    135
+    135,
+    136,
+    140,
+    141
   ],
-  "slice_closed": 25,
-  "slice_inprog": 4,
+  "slice_closed": 26,
+  "slice_inprog": 6,
   "slices": [
     {
       "id": "S01",
@@ -47,12 +50,12 @@
       "issues_open": 0,
       "total": 7,
       "not_started": 0,
-      "in_progress": 4,
+      "in_progress": 2,
       "hold": 2,
-      "verified": 1,
+      "verified": 3,
       "deferred": 0,
-      "open": 4,
-      "done": 1,
+      "open": 2,
+      "done": 3,
       "phase": "P1"
     },
     {
@@ -710,44 +713,53 @@
     {
       "id": "S31",
       "title": "验证工作区备份、导入、迁移与保留",
-      "state": "NOT_STARTED",
-      "issues": [],
-      "issues_closed": 0,
-      "issues_open": 0,
+      "state": "IN_PROGRESS",
+      "issues": [
+        136,
+        137
+      ],
+      "issues_closed": 1,
+      "issues_open": 1,
       "total": 4,
-      "not_started": 4,
+      "not_started": 0,
       "in_progress": 0,
-      "hold": 0,
+      "hold": 4,
       "verified": 0,
       "deferred": 0,
-      "open": 4,
+      "open": 0,
       "done": 0,
       "phase": "P6"
     },
     {
       "id": "S32",
       "title": "完成设置、健康诊断与隐私控制",
-      "state": "NOT_STARTED",
-      "issues": [],
-      "issues_closed": 0,
+      "state": "CLOSED",
+      "issues": [
+        138,
+        139
+      ],
+      "issues_closed": 2,
       "issues_open": 0,
       "total": 8,
-      "not_started": 3,
-      "in_progress": 5,
+      "not_started": 0,
+      "in_progress": 3,
       "hold": 0,
-      "verified": 0,
+      "verified": 5,
       "deferred": 0,
-      "open": 8,
-      "done": 0,
+      "open": 3,
+      "done": 5,
       "phase": "P6"
     },
     {
       "id": "S33",
       "title": "完成全页面、键盘与窄屏回归",
-      "state": "NOT_STARTED",
-      "issues": [],
+      "state": "IN_PROGRESS",
+      "issues": [
+        140,
+        141
+      ],
       "issues_closed": 0,
-      "issues_open": 0,
+      "issues_open": 2,
       "total": 8,
       "not_started": 6,
       "in_progress": 1,
@@ -796,13 +808,13 @@
   "phases": [
     {
       "not_started": 0,
-      "in_progress": 15,
+      "in_progress": 13,
       "hold": 5,
-      "verified": 14,
+      "verified": 16,
       "deferred": 0,
       "total": 34,
-      "open": 15,
-      "done": 14,
+      "open": 13,
+      "done": 16,
       "code": "P1",
       "name": "基础与连接",
       "range": "S01–S03",
@@ -910,14 +922,14 @@
       "slice_inprog": 3
     },
     {
-      "not_started": 13,
+      "not_started": 6,
       "in_progress": 0,
-      "hold": 0,
-      "verified": 0,
+      "hold": 4,
+      "verified": 3,
       "deferred": 0,
       "total": 13,
-      "open": 13,
-      "done": 0,
+      "open": 6,
+      "done": 3,
       "code": "P6",
       "name": "平台化交付",
       "range": "S31–S35",
@@ -928,8 +940,8 @@
         "S34",
         "S35"
       ],
-      "slice_closed": 0,
-      "slice_inprog": 0
+      "slice_closed": 1,
+      "slice_inprog": 2
     },
     {
       "not_started": 0,
@@ -952,13 +964,13 @@
   "phases_first": [
     {
       "not_started": 0,
-      "in_progress": 15,
+      "in_progress": 13,
       "hold": 5,
-      "verified": 14,
+      "verified": 16,
       "deferred": 0,
       "total": 34,
-      "open": 15,
-      "done": 14,
+      "open": 13,
+      "done": 16,
       "code": "P1",
       "name": "基础与连接",
       "range": "S01–S03",
@@ -1066,14 +1078,14 @@
       "slice_inprog": 3
     },
     {
-      "not_started": 13,
+      "not_started": 6,
       "in_progress": 0,
-      "hold": 0,
-      "verified": 0,
+      "hold": 4,
+      "verified": 3,
       "deferred": 0,
       "total": 13,
-      "open": 13,
-      "done": 0,
+      "open": 6,
+      "done": 3,
       "code": "P6",
       "name": "平台化交付",
       "range": "S31–S35",
@@ -1084,8 +1096,8 @@
         "S34",
         "S35"
       ],
-      "slice_closed": 0,
-      "slice_inprog": 0
+      "slice_closed": 1,
+      "slice_inprog": 2
     },
     {
       "not_started": 0,
@@ -1222,14 +1234,14 @@
       "slice_inprog": 3
     },
     {
-      "not_started": 16,
-      "in_progress": 8,
-      "hold": 1,
-      "verified": 1,
+      "not_started": 9,
+      "in_progress": 6,
+      "hold": 5,
+      "verified": 6,
       "deferred": 0,
       "total": 26,
-      "open": 24,
-      "done": 1,
+      "open": 15,
+      "done": 6,
       "code": "P6",
       "name": "平台化交付",
       "range": "S31–S35",
@@ -1240,8 +1252,8 @@
         "S34",
         "S35"
       ],
-      "slice_closed": 0,
-      "slice_inprog": 0
+      "slice_closed": 1,
+      "slice_inprog": 2
     },
     {
       "not_started": 0,
@@ -1265,38 +1277,38 @@
     {
       "id": "FR",
       "name": "功能需求",
-      "not_started": 20,
-      "in_progress": 13,
-      "hold": 34,
-      "verified": 11,
+      "not_started": 17,
+      "in_progress": 11,
+      "hold": 37,
+      "verified": 13,
       "deferred": 3,
       "total": 81,
-      "open": 33,
-      "done": 14
+      "open": 28,
+      "done": 16
     },
     {
       "id": "AC",
       "name": "验收准则",
-      "not_started": 24,
+      "not_started": 22,
       "in_progress": 17,
-      "hold": 17,
-      "verified": 9,
+      "hold": 18,
+      "verified": 10,
       "deferred": 0,
       "total": 67,
-      "open": 41,
-      "done": 9
+      "open": 39,
+      "done": 10
     },
     {
       "id": "NFR",
       "name": "非功能需求",
-      "not_started": 9,
+      "not_started": 8,
       "in_progress": 7,
       "hold": 3,
-      "verified": 0,
+      "verified": 1,
       "deferred": 0,
       "total": 19,
-      "open": 16,
-      "done": 0
+      "open": 15,
+      "done": 1
     },
     {
       "id": "SEC",
@@ -1325,14 +1337,14 @@
     {
       "id": "OPS",
       "name": "运维",
-      "not_started": 3,
+      "not_started": 2,
       "in_progress": 3,
       "hold": 2,
-      "verified": 1,
+      "verified": 2,
       "deferred": 0,
       "total": 9,
-      "open": 6,
-      "done": 1
+      "open": 5,
+      "done": 2
     },
     {
       "id": "UX",
@@ -1350,14 +1362,14 @@
   "owners": [
     {
       "id": "kaiqiangh",
-      "total": 120,
-      "open": 9,
-      "closed": 111
+      "total": 125,
+      "open": 11,
+      "closed": 114
     },
     {
       "id": "unassigned",
-      "total": 14,
-      "open": 1,
+      "total": 15,
+      "open": 2,
       "closed": 13
     }
   ],
@@ -1478,13 +1490,13 @@
         "F11",
         "F12"
       ],
-      "not_started": 7,
+      "not_started": 5,
       "in_progress": 3,
-      "hold": 2,
+      "hold": 4,
       "verified": 0,
       "deferred": 0,
       "total": 12,
-      "open": 10,
+      "open": 8,
       "done": 0
     },
     {
@@ -1556,13 +1568,13 @@
         "J6",
         "J7"
       ],
-      "not_started": 4,
-      "in_progress": 2,
-      "hold": 1,
+      "not_started": 0,
+      "in_progress": 4,
+      "hold": 3,
       "verified": 0,
       "deferred": 0,
       "total": 7,
-      "open": 6,
+      "open": 4,
       "done": 0
     },
     {
@@ -1577,8 +1589,8 @@
         "K6",
         "K7"
       ],
-      "not_started": 3,
-      "in_progress": 2,
+      "not_started": 1,
+      "in_progress": 4,
       "hold": 2,
       "verified": 0,
       "deferred": 0,
@@ -2175,6 +2187,17 @@
       "req": "Agent cannot access the privileged Order Gateway directly."
     },
     {
+      "id": "AC-020",
+      "status": "IN_PROGRESS",
+      "slices": [
+        "S02",
+        "S05",
+        "S24",
+        "S32"
+      ],
+      "req": "Model never receives broker secrets."
+    },
+    {
       "id": "AC-021",
       "status": "NOT_STARTED",
       "slices": [
@@ -2223,6 +2246,17 @@
         "S10"
       ],
       "req": "External research content cannot authorize a trade."
+    },
+    {
+      "id": "AC-029",
+      "status": "IN_PROGRESS",
+      "slices": [
+        "S02",
+        "S05",
+        "S24",
+        "S32"
+      ],
+      "req": "Broker secrets never appear in logs, artifacts, thread history, SQLite, DuckDB, or Parquet."
     },
     {
       "id": "AC-030",
@@ -3082,13 +3116,13 @@
       "req": "Manual Resolution never presents an unsafe generic “release reservation and continue” action."
     }
   ],
-  "orphans_held": 81,
+  "orphans_held": 83,
   "matrix": {
     "S01": {
       "not_started": 0,
-      "in_progress": 4,
+      "in_progress": 2,
       "hold": 2,
-      "verified": 1,
+      "verified": 3,
       "deferred": 0,
       "total": 7
     },
@@ -3325,18 +3359,18 @@
       "total": 2
     },
     "S31": {
-      "not_started": 4,
+      "not_started": 0,
       "in_progress": 0,
-      "hold": 0,
+      "hold": 4,
       "verified": 0,
       "deferred": 0,
       "total": 4
     },
     "S32": {
-      "not_started": 3,
-      "in_progress": 5,
+      "not_started": 0,
+      "in_progress": 3,
       "hold": 0,
-      "verified": 0,
+      "verified": 5,
       "deferred": 0,
       "total": 8
     },
@@ -3367,5 +3401,5 @@
   },
   "phase_basis": "两套口径均为唯一归属：first = 最小切片号（引入阶段）；last = 最大切片号（收口阶段）",
   "slice_basis": "切片为映射计数口径（同一需求映射多切片时分别计入）；S06 为决策类切片，无直接映射的编号需求",
-  "snapshot_note": "S29 子票 #122–#133 已全部关闭（账户交易状态 #122、精确 Spot 规则与准入 #123、Hot 报价与连续深度 #124、Proposal 静态规则 #125、开放订单与容量输入 #126、精确账户时段订单额度 #127、Proposal 价格区间执行解释 #128、Spot Live PLACE 拥有方准入资格 #129、拥有方 Spot 费用陈述与真正所需执行 FX（S29.9 #130/#131）、精确标的佣金与条件扣费证据（S29.10 #132/#133））；父 Spec #121 保持 OPEN，状态仅到「源码已交付、父门禁未关」。S29.11 规格门控 #134 与其实现 #135 仍 OPEN（逐资产 Spot 金融计划与真实必需 FX）。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除。"
+  "snapshot_note": "S29 子票 #122–#133 已全部关闭（账户交易状态 #122、精确 Spot 规则与准入 #123、Hot 报价与连续深度 #124、Proposal 静态规则 #125、开放订单与容量输入 #126、精确账户时段订单额度 #127、Proposal 价格区间执行解释 #128、Spot Live PLACE 拥有方准入资格 #129、拥有方 Spot 费用陈述与真正所需执行 FX（S29.9 #130/#131）、精确标的佣金与条件扣费证据（S29.10 #132/#133））；父 Spec #121 保持 OPEN，状态仅到「源码已交付、父门禁未关」。S29.11 规格门控 #134 与其实现 #135 仍 OPEN（逐资产 Spot 金融计划与真实必需 FX）。P6 推进：S31 实现 #137 已关但规格门控 #136 仍 OPEN；S32 规格 #138 与实现 #139 均已关闭（切片可收口，其要求仍待 S33 全量回归与 OD-005/OD-006 授权）；S33 规格门控 #140 与实现 #141 均 OPEN（全局门禁）。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除；S33 全量交叉回归为需求 VERIFIED 的全局硬门禁。"
 }
