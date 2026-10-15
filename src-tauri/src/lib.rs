@@ -8870,10 +8870,14 @@ impl ControlPlane {
                 Some(statement) => risk::RiskCheckResult {
                     check_id: risk::RiskCheckId::SpotFeeFx,
                     outcome: statement.outcome,
-                    reason_code: if statement.outcome == risk::RiskCheckOutcome::Pass {
-                        risk::RiskDecisionReasonCode::WithinLimit
-                    } else {
-                        risk::RiskDecisionReasonCode::SpotFeeFxUnavailable
+                    reason_code: match (statement.outcome, statement.reason_code) {
+                        (risk::RiskCheckOutcome::Pass, _) => {
+                            risk::RiskDecisionReasonCode::WithinLimit
+                        }
+                        (_, crate::spot_fee_fx::SpotFeeFxReasonCode::ValuationCurrencyMismatch) => {
+                            risk::RiskDecisionReasonCode::ValuationCurrencyMismatch
+                        }
+                        _ => risk::RiskDecisionReasonCode::SpotFeeFxUnavailable,
                     },
                     reason: statement.reason.clone(),
                 },

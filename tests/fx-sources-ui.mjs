@@ -15,6 +15,7 @@ export async function checkFxSourcesUI(tab, browser) {
     return result.data;
   };
   const ui = tab.playwright;
+  const inputValue = locator => locator.evaluate(element => element.value);
   const viewport = await browser.capabilities.get('viewport');
   const observations = [];
   const workspace = await command('workspace.open', {});
@@ -50,8 +51,12 @@ export async function checkFxSourcesUI(tab, browser) {
       await ui.getByRole('button', { name: 'Connect account securely', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Permission review', exact: true }).waitFor({ state: 'visible' });
       await tab.getAXState({ emit: false });
-      await ui.getByRole('checkbox', { name: 'I understand that permission scope is unverified and have checked the key’s permissions at the provider.' }).check();
-      await ui.getByRole('button', { name: 'Confirm connection', exact: true }).press('Enter');
+      const acknowledgement = ui.getByRole('checkbox', { name: 'I understand that permission scope is unverified and have checked the key’s permissions at the provider.' });
+      await acknowledgement.setChecked(true);
+      const confirm = ui.getByRole('button', { name: 'Confirm connection', exact: true });
+      for (let attempt = 0; attempt < 20 && !(await confirm.isEnabled()); attempt++) await new Promise(resolve => setTimeout(resolve, 50));
+      assert.equal(await confirm.isEnabled(), true, 'Permission review requires the explicit acknowledgement');
+      await confirm.press('Enter');
       let reviewed;
       for (let attempt = 0; attempt < 20; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -70,11 +75,13 @@ export async function checkFxSourcesUI(tab, browser) {
     await ui.getByRole('button', { name: 'Synchronize time', exact: true }).press('Enter');
     await tab.getAXState({ emit: false });
     await settings();
-    assert.equal(await region().locator('input').count(), 0);
+    for (const label of ['Account jurisdiction', 'Provider agreement reviewed on', 'Country confirmed by Alpaca Support', 'Support confirmation date', 'Support case or message reference']) {
+      assert.equal(await inputValue(region().locator(`[aria-label="${label}"]`)), '', `No source-use fact is assumed for ${label}`);
+    }
     const select = region().getByRole('combobox', { name: 'Currency rates account', exact: true });
     const value = await select.locator('option').filter({ hasText: 'FX rates QA' }).getAttribute('value');
     const location = region().getByRole('combobox', { name: 'Crypto market-data location', exact: true });
-    assert.equal(await location.inputValue(), '', 'No location is silently selected by default');
+    assert.equal(await inputValue(location), '', 'No location is silently selected by default');
     await select.selectOption(value);
     await location.selectOption('eu-1');
     await region().getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
@@ -92,7 +99,15 @@ export async function checkFxSourcesUI(tab, browser) {
     assert.match(await region().innerText(), /balance workspace/i);
     assert.equal(first.status, 'AVAILABLE');
     assert.equal(first.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'UNVERIFIED');
+    const accountQuote = first.evidence.rates.find(rate => rate.providerPair === 'EURUSD');
+    assert.ok(accountQuote);
+    assert.equal(accountQuote.bid, '1.01234567890123456789012345678901234567890123456789012345678901');
+    assert.equal(accountQuote.ask, '1.11234567891123456789112345678911234567891123456789112345678901');
     assert.ok((await region().innerText()).includes('1.01234567890123456789012345678901234567890123456789012345678901 / 1.11234567891123456789112345678911234567891123456789112345678901'), 'Bounded64character prices must remain exact and readable');
+    const accountQuoteText = await region().innerText();
+    for (const value of [accountQuote.providerPair, accountQuote.bid, accountQuote.ask, accountQuote.providerTimestamp, first.evidence.observedAt]) {
+      assert.ok(accountQuoteText.includes(value), `Current API evidence omitted ${value}`);
+    }
     assert.match(await region().innerText(), /FX data use rights\s+unverified/i);
     assert.match(await region().innerText(), /Read-only FX rate; transaction-grade qualification unavailable/);
     assert.match(await region().innerText(), /broker conversion costs/i);
@@ -134,7 +149,14 @@ export async function checkFxSourcesUI(tab, browser) {
     const scoped = await command('data.fx.connection', { workspaceId: workspace.workspaceId });
     assert.equal(scoped.status, 'AVAILABLE');
     assert.ok(scoped.evidence.requirements.proposalId);
-    assert.ok(scoped.evidence.rates.some(rate => rate.providerPair === 'USDEUR'));
+    const capturedQuote = scoped.evidence.rates.find(rate => rate.providerPair === 'USDEUR');
+    assert.ok(capturedQuote);
+    assert.equal(capturedQuote.bid, '0.88');
+    assert.equal(capturedQuote.ask, '0.99');
+    const currentIntentQuoteText = await context.innerText();
+    for (const value of [capturedQuote.providerPair, capturedQuote.bid, capturedQuote.ask, capturedQuote.providerTimestamp, scoped.evidence.observedAt]) {
+      assert.ok(currentIntentQuoteText.includes(value), `Current Proposal API evidence omitted ${value}`);
+    }
     await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
     const dialog = ui.getByRole('dialog', { name: 'Confirm Live arming', exact: true });
     await dialog.waitFor({ state: 'visible' }); await tab.getAXState({ emit: false });
@@ -147,6 +169,9 @@ export async function checkFxSourcesUI(tab, browser) {
     assert.ok(text.includes(scoped.evidence.materialVersion));
     assert.match(text, /Captured status: available/);
     assert.match(text, /CurrencyConversion/);
+    for (const value of [capturedQuote.providerPair, capturedQuote.bid, capturedQuote.ask, capturedQuote.providerTimestamp, scoped.evidence.observedAt]) {
+      assert.ok(text.includes(value), `Captured pre-arm API evidence omitted ${value}`);
+    }
     assert.equal(await dialog.getByRole('button', { name: 'Arm this Live account', exact: true }).isEnabled(), false);
     const reviewLayouts = [];
     for (const width of [390, 768, 1280]) {
@@ -185,7 +210,7 @@ export async function checkFxSourcesUI(tab, browser) {
     assert.equal(reopened.status, 'UNVERIFIED');
     assert.equal(reopened.evidence, undefined);
     assert.equal(await region().getByRole('combobox', { name: 'Currency rates account', exact: true }).evaluate(element => element.value), value);
-    assert.equal(await region().getByRole('combobox', { name: 'Crypto market-data location', exact: true }).inputValue(), 'eu-1');
+    assert.equal(await inputValue(region().getByRole('combobox', { name: 'Crypto market-data location', exact: true })), 'eu-1');
     assert.equal(reopened.cryptoLocation, 'eu-1');
     assert.match(await region().innerText(), /FX rates QA/);
     await region().getByRole('button', { name: 'Disconnect alpaca currency rates', exact: true }).press('Enter');

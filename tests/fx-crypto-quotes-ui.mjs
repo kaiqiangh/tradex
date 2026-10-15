@@ -16,6 +16,8 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
     return result.data;
   };
   const ui = tab.playwright;
+  const inputValue = locator => locator.evaluate(element => element.value);
+  const assertJsonEqual = (actual, expected, message) => assert.deepEqual(JSON.parse(JSON.stringify(actual)), expected, message);
   const navigate = async name => {
     const target = ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('button', { name, exact: true });
     if (!(await target.isVisible())) await ui.getByText('More', { exact: true }).press('Enter');
@@ -82,9 +84,12 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
       exact: true,
     });
     if (await acknowledgement.count()) {
-      if (!(await acknowledgement.isChecked())) await acknowledgement.check();
+      await acknowledgement.setChecked(true);
     }
     const confirm = permissionReview.getByRole('button', { name: 'Confirm connection', exact: true });
+    for (let attempt = 0; attempt < 20 && !(await confirm.isEnabled()); attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
     assert.ok(await confirm.isEnabled(), 'A fresh synthetic account must allow the explicit permission review');
     await confirm.click();
     let confirmed;
@@ -132,12 +137,17 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const accountValue = await account.locator(`option[value="${ratesAccount.connectionId}"]`).getAttribute('value');
   assert.ok(accountValue);
   const location = settings.getByRole('combobox', { name: 'Crypto market-data location', exact: true });
-  assert.equal(await location.inputValue(), '', 'A crypto location is never selected implicitly');
+  assert.equal(await inputValue(location), '', 'A crypto location is never selected implicitly');
+  await account.selectOption('');
   await account.selectOption(accountValue);
   await location.selectOption('eu-1');
   await settings.getByRole('combobox', { name: 'Alpaca market-data plan', exact: true }).selectOption('BASIC');
   await settings.getByRole('textbox', { name: 'Account jurisdiction', exact: true }).fill('IE');
-  await settings.locator('input[aria-label="Provider agreement reviewed on"]').fill('2026-10-11');
+  const agreementReviewedAt = settings.locator('input[aria-label="Provider agreement reviewed on"]');
+  // Native date input fill in CUA sets the DOM value without firing React's
+  // change handler; enter the localized date through real keyboard events.
+  await agreementReviewedAt.pressSequentially('11102026');
+  await agreementReviewedAt.press('Tab');
   await settings.getByRole('combobox', { name: 'Declared use scope', exact: true }).selectOption('OWN_LOCAL_NONCOMMERCIAL');
   await settings.getByRole('combobox', { name: 'Raw market data destination', exact: true }).selectOption('LOCAL_ONLY');
   await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
@@ -146,17 +156,17 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.doesNotMatch(await settings.innerText(), /Save this selection before refreshing/, 'A saved source profile is not presented as an unsaved draft after the connection reloads');
   let configuredSource = await send('data.fx.connection', { workspaceId });
   assert.equal(configuredSource.cryptoLocation, 'eu-1');
-  assert.deepEqual(configuredSource.sourceUseContext, {
+  assertJsonEqual(configuredSource.sourceUseContext, {
     marketDataPlan: 'BASIC', accountJurisdiction: 'IE', agreementReviewedAt: '2026-10-11',
     useScope: 'OWN_LOCAL_NONCOMMERCIAL', rawDataDestination: 'LOCAL_ONLY',
   });
   await account.selectOption('');
   for (const label of ['Alpaca market-data plan', 'Account jurisdiction', 'Provider agreement reviewed on', 'Country confirmed by Alpaca Support', 'Support confirmation date', 'Support case or message reference', 'Declared use scope', 'Raw market data destination']) {
-    assert.equal(await settings.locator(`[aria-label="${label}"]`).inputValue(), '', `Changing accounts clears the unsaved ${label} draft`);
+    assert.equal(await inputValue(settings.locator(`[aria-label="${label}"]`)), '', `Changing accounts clears the unsaved ${label} draft`);
   }
   await account.selectOption(accountValue);
-  assert.equal(await settings.getByRole('combobox', { name: 'Alpaca market-data plan', exact: true }).inputValue(), 'BASIC');
-  assert.equal(await settings.getByRole('textbox', { name: 'Account jurisdiction', exact: true }).inputValue(), 'IE');
+  assert.equal(await inputValue(settings.getByRole('combobox', { name: 'Alpaca market-data plan', exact: true })), 'BASIC');
+  assert.equal(await inputValue(settings.getByRole('textbox', { name: 'Account jurisdiction', exact: true })), 'IE');
   assert.doesNotMatch(await settings.innerText(), /Save this selection before refreshing/, 'Reopening the saved account does not mark its restored facts as an unsaved draft');
   assert.equal(configuredSource.sourceUseAssessment.status, 'UNRESOLVED');
   assert.equal(configuredSource.sourceUseAssessment.provenance, 'USER_REPORTED_PROVIDER_UI');
@@ -198,7 +208,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.notEqual(configuredSource.stateVersion, outOfProfileStateVersion, 'The local declared scope is restored as new source material');
   assert.equal(configuredSource.sourceUseAssessment.status, 'UNRESOLVED');
   configuredSource = await send('data.fx.connection', { workspaceId });
-  assert.deepEqual(configuredSource.sourceUseContext, {
+  assertJsonEqual(configuredSource.sourceUseContext, {
     marketDataPlan: 'BASIC', accountJurisdiction: 'IE', agreementReviewedAt: '2026-10-11',
     useScope: 'OWN_LOCAL_NONCOMMERCIAL', rawDataDestination: 'LOCAL_ONLY',
   }, 'The saved use facts remain available after reopening the source connection');
@@ -220,12 +230,13 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   let beforeSupport = configuredSource.stateVersion;
   // Synthetic user-reported Support facts exercise the policy evaluator only; they are not provider evidence and must not count toward S29.11 acceptance.
   await supportCountry.fill('US');
-  await supportDate.fill('2026-10-11');
+  await supportDate.pressSequentially('11102026');
+  await supportDate.press('Tab');
   await supportReference.fill('SYNTHETIC-SUPPORT-CASE-123');
   let supportAssessment = await submitSupportFacts(beforeSupport);
   assert.equal(supportAssessment.sourceUseAssessment.status, 'UNRESOLVED', 'A country confirmation for another jurisdiction does not qualify policy valuation');
   assert.equal(supportAssessment.sourceUseAssessment.provenance, 'USER_REPORTED_PROVIDER_SUPPORT');
-  assert.deepEqual(supportAssessment.sourceUseAssessment.supportedPurposes, []);
+  assertJsonEqual(supportAssessment.sourceUseAssessment.supportedPurposes, []);
   assert.equal(supportAssessment.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'UNVERIFIED');
   assert.match(await settings.getByRole('region', { name: 'Source-use assessment', exact: true }).innerText(), /different jurisdiction/i);
 
@@ -234,7 +245,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   supportAssessment = await submitSupportFacts(beforeSupport);
   assert.equal(supportAssessment.sourceUseAssessment.status, 'SUPPORTED_FOR_DECLARED_SCOPE');
   assert.equal(supportAssessment.sourceUseAssessment.provenance, 'USER_REPORTED_PROVIDER_SUPPORT');
-  assert.deepEqual(supportAssessment.sourceUseAssessment.supportedPurposes, ['POLICY_VALUATION']);
+  assertJsonEqual(supportAssessment.sourceUseAssessment.supportedPurposes, ['POLICY_VALUATION']);
   assert.equal(supportAssessment.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'UNVERIFIED');
   const supported = settings.getByRole('region', { name: 'Source-use assessment', exact: true });
   await supported.getByText('Supported for declared scope', { exact: true }).waitFor({ state: 'visible' });
@@ -343,7 +354,9 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.equal(policyRoute?.providerQuality, 'UNQUALIFIED_FX_RATE', 'Provider rate quality stays distinct from purpose qualification');
   assert.equal(policyRoute?.conservativeCost ?? null, null, 'Price-only valuation does not invent execution costs');
   assert.equal(currentForReview.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS')?.status, 'UNVERIFIED', 'User-reported Support facts do not verify FX market-data rights');
-  assert.equal(review.riskDecision.checks.find(check => check.checkId === 'CURRENCY_CONVERSION')?.outcome, 'UNAVAILABLE', 'Price-only valuation does not qualify transaction FX');
+  assert.equal(review.riskDecision.checks.some(check => check.checkId === 'CURRENCY_CONVERSION'), false, 'A matching-USD raw quote does not create a transaction conversion leg');
+  assert.equal(review.spotFeeFx.baseCurrency, 'USD');
+  assert.ok(review.spotFeeFx.routes.every(route => route.fromCurrency !== 'EUR' && route.toCurrency !== 'EUR'), 'A matching-USD raw quote adds no EUR route or value');
   assert.equal((await send('account.get', { workspaceId, connectionId: spotAccount.connectionId })).health.arming, 'DISARMED');
   return {
     quote: finalQuote,

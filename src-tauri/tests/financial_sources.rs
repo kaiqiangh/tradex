@@ -3245,7 +3245,7 @@ fn required_fx_read_preserves_exact_bid_ask_mid_and_separate_qualification() {
         .unwrap();
     let http = FxReadHttp {
         account: provider_fixtures::Http::default(),
-        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01234567890123456789,"ap":1.11234567890123456789,"mp":1.07,"t":"{provider_time}"}}}}}}"#).into_bytes(),
+        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.0123456789012345678900000,"ap":1.1123456789012345678900000,"mp":1.0700,"t":"{provider_time}"}}}}}}"#).into_bytes(),
         paths: Default::default(),
     };
     let _live = connect_using(
@@ -3288,9 +3288,9 @@ fn required_fx_read_preserves_exact_bid_ask_mid_and_separate_qualification() {
     assert_eq!(evidence["kind"], "FX");
     assert_eq!(evidence["providerQuality"], "UNQUALIFIED_FX_RATE");
     assert_eq!(evidence["rates"][0]["providerPair"], "EURUSD");
-    assert_eq!(evidence["rates"][0]["bid"], "1.01234567890123456789");
-    assert_eq!(evidence["rates"][0]["ask"], "1.11234567890123456789");
-    assert_eq!(evidence["rates"][0]["mid"], "1.07");
+    assert_eq!(evidence["rates"][0]["bid"], "1.0123456789012345678900000");
+    assert_eq!(evidence["rates"][0]["ask"], "1.1123456789012345678900000");
+    assert_eq!(evidence["rates"][0]["mid"], "1.0700");
     assert_eq!(evidence["rates"][0]["providerTimestamp"], provider_time);
     assert_eq!(
         result["data"]["capabilityStatuses"][1]["status"],

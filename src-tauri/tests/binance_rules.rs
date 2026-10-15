@@ -4941,6 +4941,13 @@ impl tradex::provider_io::ProviderHttp for RuleHttp {
                 );
                 ["BTCUSDT","ETHUSDT"].into_iter().filter(|symbol| !query.starts_with("symbol=") || *symbol == "BTCUSDT").enumerate().map(|(index,symbol)|json!({"symbol":symbol,"orderId":9007199254740993u64+index as u64,"orderListId":-1,"clientOrderId":format!("private-capacity-client-{index}"),"price":"60000.00000000","origQty":"0.10000000","executedQty":"0.00000000","cummulativeQuoteQty":"0.00000000","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0.00000000","icebergQty":"0.00000000","time":1700000000000u64,"updateTime":1700000000000u64,"isWorking":true,"workingTime":1700000000000u64,"origQuoteOrderQty":"0.00000000","selfTradePreventionMode":"NONE"})).collect::<Vec<_>>().into()
             }
+            "/api/v3/allOrders" => {
+                assert!(
+                    query.starts_with("symbol=BTCUSDT&limit=1000&timestamp=")
+                        || query.starts_with("symbol=ETHUSDT&limit=1000&timestamp=")
+                );
+                json!([])
+            }
             "/api/v3/openOrderList" => {
                 assert!(query.starts_with("timestamp=") && !query.contains("symbol="));
                 json!([])
@@ -6475,6 +6482,9 @@ fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth()
                 {"asset":"USDT","free":"1000","locked":"0"},
                 {"asset":"BNB","free":"1","locked":"0"}
             ]);
+            body["canWithdraw"] = json!(false);
+            body["canDeposit"] = json!(true);
+            body["requireSelfTradePrevention"] = json!(false);
         }
         "/api/v3/account/commission" => {
             body["discount"]["enabledForAccount"] = json!(false);
@@ -6585,6 +6595,42 @@ fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth()
     );
     assert_eq!(refreshed["ok"], true, "{refreshed}");
     assert_eq!(refreshed["data"]["status"], "AVAILABLE", "{refreshed}");
+    let direct_quote = refreshed["data"]["evidence"]["rates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|rate| rate["providerPair"] == "USDTUSD")
+        .expect("The selected provider's exact USDT/USD result must be retained");
+    assert_eq!(direct_quote["fromCurrency"], "USDT");
+    assert_eq!(direct_quote["toCurrency"], "USD");
+    assert_eq!(direct_quote["bid"], "0.9999");
+    assert_eq!(direct_quote["ask"], "1.0001");
+    assert_eq!(direct_quote["mid"], Value::Null);
+    assert_eq!(
+        direct_quote["providerTimestamp"],
+        refreshed["data"]["evidence"]["cryptoQuotes"][0]["providerTimestamp"]
+    );
+    assert_eq!(
+        refreshed["data"]["evidence"]["cryptoQuotes"][0]["bidPrice"],
+        direct_quote["bid"]
+    );
+    assert_eq!(
+        refreshed["data"]["evidence"]["cryptoQuotes"][0]["askPrice"],
+        direct_quote["ask"]
+    );
+    assert!(
+        refreshed["data"]["evidence"]["cryptoQuotes"][0]["requestPath"]
+            .as_str()
+            .unwrap()
+            .contains("/v1beta3/crypto/eu-1/latest/quotes")
+    );
+    assert_eq!(
+        refreshed["data"]["evidence"]["cryptoQuotes"][0]["responseSha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
 
     let unresolved_decision = command(
         &mut rig.control.lock().unwrap(),
@@ -6904,7 +6950,59 @@ fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth()
             .is_empty(),
         "An unavailable unrelated guard must not leave an approval behind: {approvals}"
     );
+    // Prepare has no authority without an issued approval, even when the direct valuation and
+    // owning monetary checks pass. The disposable producer fixtures remain read-only.
     let positive_statement_digest = statement_input_digest(&allowed_decision);
+    let prepare_provider_calls = binance_http.calls.borrow().len();
+    let prepare_fx_calls = fx_http.calls.borrow().len();
+    let prepare = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.execution.prepare",
+        json!({
+            "workspaceId": rig.workspace,
+            "approvalId": positive_proposal["proposalId"],
+            "expectedApprovalStateVersion": "unissued-test-version",
+            "idempotencyKey": "raw-valuation-without-approval",
+            "confirmed": true,
+        }),
+    );
+    assert_eq!(prepare["ok"], false, "{prepare}");
+    assert_eq!(
+        prepare["error"]["code"], "IPC_AGGREGATE_NOT_FOUND",
+        "{prepare}"
+    );
+    let preparation = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.execution.preparation.get",
+        json!({"workspaceId":rig.workspace,"approvalId":positive_proposal["proposalId"]}),
+    );
+    assert_eq!(preparation["ok"], true, "{preparation}");
+    assert!(preparation["data"]["preparation"].is_null());
+    assert!(
+        preparation["data"]["rejections"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(binance_http.calls.borrow().len(), prepare_provider_calls);
+    assert_eq!(fx_http.calls.borrow().len(), prepare_fx_calls);
+    assert!(fx_http.trading212_posts.borrow().is_empty());
+    assert!(fx_http.alpaca_posts.borrow().is_empty());
+    let rights_after_prepare = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    assert_eq!(
+        rights_after_prepare["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "Synthetic Prepare fixtures must not grant provider rights"
+    );
 
     let provider_time = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
         .format(&time::format_description::well_known::Rfc3339)
@@ -6955,8 +7053,10 @@ fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth()
 }
 
 #[test]
-fn eur_workspace_intent_policy_names_both_required_fx_legs() {
-    if isolated_rule_scenario("eur_workspace_intent_policy_names_both_required_fx_legs") {
+fn eur_workspace_intent_policy_keeps_raw_usd_quote_and_blocks_cross_currency_use() {
+    if isolated_rule_scenario(
+        "eur_workspace_intent_policy_keeps_raw_usd_quote_and_blocks_cross_currency_use",
+    ) {
         return;
     }
     let rig = RuleRig::with_base_currency("EUR");
@@ -6969,19 +7069,19 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
         .collect::<Vec<_>>();
     assert_eq!(
         policy_routes.len(),
-        2,
-        "USDT valuation in an EUR workspace must retain both selected legs: {decision}"
+        1,
+        "A local quote must not synthesize a second USD-to-workspace leg: {decision}"
     );
     assert!(policy_routes.iter().any(|route| {
         route["fromCurrency"] == "USDT"
             && route["toCurrency"] == "USD"
             && route["providerPair"] == "USDTUSD"
     }));
-    assert!(policy_routes.iter().any(|route| {
-        route["fromCurrency"] == "USD"
-            && route["toCurrency"] == "EUR"
-            && route["providerPair"] == "USDEUR"
-    }));
+    assert!(
+        !policy_routes
+            .iter()
+            .any(|route| route["fromCurrency"] == "USD")
+    );
 
     let mut control = rig.control.lock().unwrap();
     let alpaca_http = fixtures::Http::default();
@@ -7087,33 +7187,19 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
         .iter()
         .filter(|requirement| requirement["purpose"] == "INTENT_POLICY")
         .collect::<Vec<_>>();
-    assert_eq!(fx_requirements.len(), 2, "{buy_refresh}");
+    assert_eq!(fx_requirements.len(), 1, "{buy_refresh}");
     assert!(fx_requirements.iter().any(|requirement| {
         requirement["fromCurrency"] == "USDT"
             && requirement["toCurrency"] == "USD"
             && requirement["providerPair"] == "USDTUSD"
             && requirement["providerDataset"] == "CRYPTO_LATEST_QUOTES"
     }));
-    assert!(fx_requirements.iter().any(|requirement| {
-        requirement["fromCurrency"] == "USD"
-            && requirement["toCurrency"] == "EUR"
-            && requirement["providerPair"] == "USDEUR"
-            && requirement["providerDataset"] == "FOREX_LATEST_RATES"
-    }));
-    assert_eq!(
-        buy_evidence["data"]["evidence"]["rates"]
+    assert!(
+        buy_evidence["data"]["evidence"]["cryptoQuotes"]
             .as_array()
             .unwrap()
             .iter()
-            .map(|rate| rate["providerPair"].as_str().unwrap())
-            .collect::<std::collections::BTreeSet<_>>(),
-        ["USDEUR", "USDTUSD"].into_iter().collect()
-    );
-    assert!(
-        fx_http
-            .calls
-            .borrow()
-            .contains(&"/v1beta1/forex/latest/rates?currency_pairs=USDEUR".into())
+            .any(|quote| quote["providerSymbol"] == "USDT/USD")
     );
     let buy_review = command(
         &mut rig.control.lock().unwrap(),
@@ -7127,8 +7213,17 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
     );
     assert_eq!(buy_review["data"]["spotFeeFx"]["feeCurrency"], "UNKNOWN");
     assert_eq!(
-        buy_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"], "59.40594",
-        "A BUY liability uses both asks: 60 USDT * 1.0001 USD/USDT * 0.99 EUR/USD"
+        buy_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+        Value::Null,
+        "A raw USD result cannot be treated as an EUR workspace amount"
+    );
+    assert_eq!(
+        buy_review["data"]["spotFeeFx"]["reasonCode"],
+        "VALUATION_CURRENCY_MISMATCH"
+    );
+    assert_eq!(
+        buy_review["data"]["spotFeeFx"]["bindingBlocker"],
+        "SPOT_VALUATION_CURRENCY_MISMATCH"
     );
     let statement_routes = buy_review["data"]["spotFeeFx"]["routes"]
         .as_array()
@@ -7137,15 +7232,79 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
         .iter()
         .filter(|route| route["purpose"] == "INTENT_POLICY")
         .collect::<Vec<_>>();
-    assert_eq!(ordered_policy_routes.len(), 2);
+    assert_eq!(ordered_policy_routes.len(), 1);
     assert_eq!(ordered_policy_routes[0]["providerPair"], "USDTUSD");
-    assert_eq!(ordered_policy_routes[1]["providerPair"], "USDEUR");
-    for route in statement_routes {
-        if route["purpose"] == "INTENT_POLICY" {
-            assert_eq!(route["state"], "QUALIFIED", "{route}");
-            assert_eq!(route["conservativeCost"], Value::Null, "{route}");
-        }
-    }
+    assert_eq!(ordered_policy_routes[0]["state"], "CURRENCY_MISMATCH");
+    assert_eq!(ordered_policy_routes[0]["conservativeCost"], Value::Null);
+    let policy_check = buy_review["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["checkId"] == "SPOT_FEE_FX")
+        .unwrap();
+    assert_eq!(policy_check["reasonCode"], "VALUATION_CURRENCY_MISMATCH");
+
+    let attempted = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.request_approval",
+        json!({"workspaceId":rig.workspace,"proposalId":buy_proposal_id}),
+    );
+    assert_eq!(attempted["ok"], true, "{attempted}");
+    assert_eq!(attempted["data"]["eligible"], false, "{attempted}");
+    let approvals = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.approval.list",
+        json!({"workspaceId":rig.workspace,"proposalId":buy_proposal_id}),
+    );
+    assert_eq!(approvals["data"]["approvals"].as_array().unwrap().len(), 0);
+    let rejected_prepare = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.execution.prepare",
+        json!({
+            "workspaceId":rig.workspace,
+            "approvalId":buy_proposal_id,
+            "expectedApprovalStateVersion":"unissued",
+            "idempotencyKey":"currency-mismatch-prepare-must-not-reserve",
+            "confirmed":true
+        }),
+    );
+    assert_eq!(rejected_prepare["ok"], false, "{rejected_prepare}");
+    assert_eq!(rejected_prepare["error"]["code"], "IPC_AGGREGATE_NOT_FOUND");
+    let read_only = rusqlite::Connection::open_with_flags(
+        rig._folder.path().join("workspace.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let workspace_id = rig.workspace.as_str().unwrap();
+    let attempts = read_only
+        .query_row(
+            "SELECT COUNT(*) FROM execution_attempts WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap();
+    let reservations = read_only
+        .query_row(
+            "SELECT COUNT(*) FROM execution_reservations WHERE workspace_id=?1",
+            [workspace_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap();
+    assert_eq!((attempts, reservations), (0, 0));
+    let financial_outbox = read_only
+        .query_row(
+            "SELECT COUNT(*) FROM outbox WHERE json_extract(envelope, '$.payload.workspaceId')=?1 AND aggregate_type IN ('financial-approval','execution-attempt','execution-reservation','execution-preparation','order-proposal-consumption')",
+            [workspace_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap();
+    assert_eq!(financial_outbox, 0);
+    let preparation = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.execution.preparation.get",
+        json!({"workspaceId":rig.workspace,"approvalId":buy_proposal_id}),
+    );
+    assert_eq!(preparation["data"]["preparation"], Value::Null);
 
     let sell_decision = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
     let sell_proposal_id = sell_decision["proposalId"].clone();
@@ -7162,8 +7321,9 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
     );
     assert_eq!(sell_review["ok"], true, "{sell_review}");
     assert_eq!(
-        sell_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"], "52.79472",
-        "A SELL receipt uses both bids: 60 USDT * 0.9999 USD/USDT * 0.88 EUR/USD"
+        sell_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+        Value::Null,
+        "A raw USD result cannot be treated as an EUR workspace amount"
     );
     println!(
         "AC9_TEST_EVIDENCE={}",
@@ -7182,14 +7342,15 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
             "selectedPolicyRequirements":fx_requirements,
             "buy":{
                 "notional":"60 USDT",
-                "workspaceBaseExpectedSpend":buy_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+            "workspaceBaseExpectedSpend":buy_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+            "currencyBlocker":buy_review["data"]["spotFeeFx"]["bindingBlocker"],
                 "routes":buy_review["data"]["spotFeeFx"]["routes"],
                 "statementOutcome":buy_review["data"]["spotFeeFx"]["outcome"],
                 "feeCurrency":buy_review["data"]["spotFeeFx"]["feeCurrency"]
             },
             "sell":{
                 "notional":"60 USDT",
-                "workspaceBaseExpectedSpend":sell_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+            "workspaceBaseExpectedSpend":sell_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
                 "routes":sell_review["data"]["spotFeeFx"]["routes"],
                 "statementOutcome":sell_review["data"]["spotFeeFx"]["outcome"],
                 "feeCurrency":sell_review["data"]["spotFeeFx"]["feeCurrency"]
@@ -7201,10 +7362,8 @@ fn eur_workspace_intent_policy_names_both_required_fx_legs() {
 }
 
 #[test]
-fn gbp_workspace_policy_requests_exact_directional_fx_without_reciprocal_or_bridge() {
-    if isolated_rule_scenario(
-        "gbp_workspace_policy_requests_exact_directional_fx_without_reciprocal_or_bridge",
-    ) {
+fn gbp_workspace_policy_keeps_the_raw_quote_without_a_conversion_leg() {
+    if isolated_rule_scenario("gbp_workspace_policy_keeps_the_raw_quote_without_a_conversion_leg") {
         return;
     }
     let rig = RuleRig::with_base_currency("GBP");
@@ -7227,31 +7386,40 @@ fn gbp_workspace_policy_requests_exact_directional_fx_without_reciprocal_or_brid
     );
     assert_eq!(requirements["ok"], true, "{requirements}");
     let requirements = requirements["data"]["requirements"].as_array().unwrap();
-    assert!(requirements.iter().any(|requirement| {
-        requirement["purpose"] == "INTENT_POLICY"
-            && requirement["fromCurrency"] == "USD"
-            && requirement["toCurrency"] == "GBP"
-            && requirement["providerPair"] == "USDGBP"
-            && requirement["providerDataset"] == "FOREX_LATEST_RATES"
-    }));
+    let policy_requirements = requirements
+        .iter()
+        .filter(|requirement| requirement["purpose"] == "INTENT_POLICY")
+        .collect::<Vec<_>>();
+    assert_eq!(policy_requirements.len(), 1, "{decision}");
+    assert_eq!(policy_requirements[0]["fromCurrency"], "USDT", "{decision}");
+    assert_eq!(policy_requirements[0]["toCurrency"], "USD", "{decision}");
+    assert_eq!(
+        policy_requirements[0]["providerPair"], "USDTUSD",
+        "{decision}"
+    );
+    assert_eq!(
+        policy_requirements[0]["providerDataset"],
+        "CRYPTO_LATEST_QUOTES"
+    );
     let policy_routes = statement["routes"]
         .as_array()
         .unwrap()
         .iter()
         .filter(|route| route["purpose"] == "INTENT_POLICY")
         .collect::<Vec<_>>();
-    assert_eq!(policy_routes.len(), 2, "{decision}");
-    assert!(policy_routes.iter().any(|route| {
-        route["fromCurrency"] == "USDT"
-            && route["toCurrency"] == "USD"
-            && route["providerPair"] == "USDTUSD"
-    }));
-    assert!(policy_routes.iter().any(|route| {
-        route["fromCurrency"] == "USD"
-            && route["toCurrency"] == "GBP"
-            && route["providerPair"] == "USDGBP"
-            && route["state"] == "EVIDENCE_UNAVAILABLE"
-    }));
+    assert_eq!(policy_routes.len(), 1, "{decision}");
+    assert_eq!(policy_routes[0]["fromCurrency"], "USDT", "{decision}");
+    assert_eq!(policy_routes[0]["toCurrency"], "USD", "{decision}");
+    assert_eq!(policy_routes[0]["providerPair"], "USDTUSD", "{decision}");
+    assert_eq!(
+        policy_routes[0]["state"], "EVIDENCE_UNAVAILABLE",
+        "{decision}"
+    );
+    assert!(
+        !policy_routes
+            .iter()
+            .any(|route| { route["fromCurrency"] == "USD" && route["toCurrency"] == "GBP" })
+    );
 }
 
 #[test]

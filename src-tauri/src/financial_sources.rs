@@ -229,22 +229,16 @@ pub(crate) fn fx_requirements(
             .iter()
             .find(|account| Some(&account.connection_id) == proposal.fields.account_id.as_ref());
         let currency = proposal.estimated_notional_currency.as_deref();
-        if currency == Some("USDT") && base != "USD" {
-            // The selected valuation path is explicit and bounded: value native USDT through
-            // the exact USDT/USD quote, then request one directional USD/base forex leg. An
-            // unsupported USD/base pair remains a named unsupported leg; no bridge or reciprocal
-            // is inferred.
+        if currency == Some("USDT") {
+            // The selected local valuation is the exact provider-returned USDT/USD quote. Its
+            // result denomination stays USD; the UI and monetary consumer never add a second
+            // USD/workspace leg. A non-USD workspace retains the raw observation and is blocked
+            // by the owning consumer's exact-currency check.
             rows.push(fx_route(
                 Purpose::IntentPolicy,
                 account,
                 Some("USDT"),
                 Some("USD"),
-            ));
-            rows.push(fx_route(
-                Purpose::IntentPolicy,
-                account,
-                Some("USD"),
-                Some(&base),
             ));
         } else {
             rows.push(fx_route(
@@ -1241,6 +1235,14 @@ fn decimal(value: &Value) -> Result<String> {
         normalized
     })
 }
+
+pub(crate) fn normalize_fx_numeric_text(raw: &str) -> Result<String> {
+    let value: Value = serde_json::from_str(raw).map_err(|_| invalid())?;
+    if !value.is_number() {
+        return Err(invalid());
+    }
+    decimal(&value)
+}
 struct EventSchema {
     group: &'static str,
     category: CompanyEventCategory,
@@ -1707,10 +1709,11 @@ fn exact_numeric_token(
     allow_zero: bool,
 ) -> Result<(String, String)> {
     let raw = token.get();
-    if !raw
-        .as_bytes()
-        .first()
-        .is_some_and(|byte| byte.is_ascii_digit() || *byte == b'-')
+    if raw.len() > 64
+        || !raw
+            .as_bytes()
+            .first()
+            .is_some_and(|byte| byte.is_ascii_digit() || *byte == b'-')
     {
         return Err(invalid());
     }
@@ -1851,6 +1854,8 @@ fn read_fx_rates(
             &path,
         )?;
         validate_fx_price_tokens(&response.body)?;
+        let token_response: FxResponseTokens =
+            serde_json::from_slice(&response.body).map_err(|_| invalid())?;
         let parsed: Value = strict_json(&response.body)?;
         if crate::provider_io::contains_secret(&parsed, &secrets) {
             return Err(invalid());
@@ -1879,35 +1884,30 @@ fn read_fx_rates(
             {
                 return Err(invalid());
             }
-            let price = |field: &str| -> Result<String> {
-                let value = row
-                    .get(field)
-                    .filter(|value| value.is_number())
-                    .ok_or_else(invalid)?;
-                let result = decimal(value)?;
-                if crate::provider_io::decimal_cmp(&result, "0")? != std::cmp::Ordering::Greater {
-                    return Err(invalid());
-                }
-                Ok(result)
-            };
-            let bid = price("bp")?;
-            let ask = price("ap")?;
-            let mid = price("mp")?;
+            let token_row = token_response.rates.get(pair).ok_or_else(invalid)?;
+            let (raw_bid, bid) = exact_numeric_token(&token_row.bp, false)?;
+            let (raw_ask, ask) = exact_numeric_token(&token_row.ap, false)?;
+            let (raw_mid, _) = exact_numeric_token(&token_row.mp, false)?;
             if crate::provider_io::decimal_cmp(&bid, &ask)? == std::cmp::Ordering::Greater {
                 return Err(invalid());
             }
             let provider_timestamp = required_text(row, "t", 64)?;
+            if token_row._timestamp != provider_timestamp {
+                return Err(invalid());
+            }
             let age = now - timestamp(&provider_timestamp)?;
             if !(Duration::ZERO..=Duration::seconds(30)).contains(&age) {
                 return Err(invalid());
             }
+            // The established rate fields carry the exact JSON numeric lexemes; the
+            // normalized values above are validation-only and are reconstructed for math.
             rates.push(FxObservedRate {
                 provider_pair: pair.clone(),
                 from_currency: pair[..3].into(),
                 to_currency: pair[3..].into(),
-                bid,
-                mid: Some(mid),
-                ask,
+                bid: raw_bid,
+                mid: Some(raw_mid),
+                ask: raw_ask,
                 provider_timestamp,
             });
         }
@@ -1953,16 +1953,17 @@ fn read_fx_rates(
         if !(Duration::ZERO..=Duration::seconds(30)).contains(&age) {
             return Err(invalid());
         }
+        use sha2::Digest;
+        let response_sha256 = format!("{:x}", sha2::Sha256::digest(&response.body));
         rates.push(FxObservedRate {
             provider_pair: "USDTUSD".into(),
             from_currency: "USDT".into(),
             to_currency: "USD".into(),
-            bid,
+            bid: bid_price.clone(),
             mid: None,
-            ask,
+            ask: ask_price.clone(),
             provider_timestamp: quote.provider_timestamp.clone(),
         });
-        use sha2::Digest;
         crypto_quotes.push(crate::protocol::FxCryptoQuote {
             provider_symbol: "USDT/USD".into(),
             bid_price,
@@ -1971,7 +1972,7 @@ fn read_fx_rates(
             ask_size,
             provider_timestamp: quote.provider_timestamp.clone(),
             request_path: path,
-            response_sha256: format!("{:x}", sha2::Sha256::digest(&response.body)),
+            response_sha256,
             received_at: crypto_received.wall_clock.clone(),
         });
         received = Some(crypto_received);

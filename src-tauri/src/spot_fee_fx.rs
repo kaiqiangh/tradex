@@ -59,6 +59,8 @@ pub enum SpotFeeFxReasonCode {
     SpotRequiredFxUnqualified,
     /// A required route has no supported provider pair.
     SpotRequiredFxUnsupportedRoute,
+    /// The provider result denomination differs from the workspace base currency.
+    ValuationCurrencyMismatch,
 }
 
 /// A maker/taker role label. Legacy `feeRateBasis` values on captured statements describe the
@@ -86,6 +88,7 @@ pub enum SpotRequiredRouteState {
     Unqualified,
     UnsupportedRoute,
     EvidenceUnavailable,
+    CurrencyMismatch,
 }
 
 /// One genuinely-required, purpose-scoped FX leg. A statement carries at most three: two explicit
@@ -417,6 +420,7 @@ fn qualify_route(
     requirement: &FxRouteRequirement,
     observation: Option<&FxRateEvidence>,
     policy_valuation_supported: bool,
+    workspace_base: &str,
 ) -> SpotRequiredRoute {
     let pair = requirement.provider_pair.clone();
     let observed = pair.as_ref().and_then(|pair| {
@@ -441,6 +445,16 @@ fn qualify_route(
         FxRequirementNeed::ExternalRate => match (pair.as_deref(), observed) {
             (Some(_), Some(_))
                 if purpose == SpotRequiredRoutePurpose::IntentPolicy
+                    && requirement.to_currency.as_deref() != Some(workspace_base) =>
+            {
+                (
+                    SpotRequiredRouteState::CurrencyMismatch,
+                    "The raw provider quote is visible, but its result currency differs from the workspace base; no converted amount or extra FX leg is used.",
+                    None,
+                )
+            }
+            (Some(_), Some(_))
+                if purpose == SpotRequiredRoutePurpose::IntentPolicy
                     && !policy_valuation_supported =>
             {
                 (
@@ -450,10 +464,15 @@ fn qualify_route(
                 )
             }
             (Some("USDTUSD"), Some(rate)) if purpose == SpotRequiredRoutePurpose::IntentPolicy => {
-                let in_reviewed_band = crate::provider_io::decimal_cmp(&rate.bid, "0.99")
-                    .is_ok_and(|ordering| ordering != std::cmp::Ordering::Less)
-                    && crate::provider_io::decimal_cmp(&rate.ask, "1.01")
-                        .is_ok_and(|ordering| ordering != std::cmp::Ordering::Greater);
+                let bid = crate::financial_sources::normalize_fx_numeric_text(&rate.bid).ok();
+                let ask = crate::financial_sources::normalize_fx_numeric_text(&rate.ask).ok();
+                let in_reviewed_band = bid.as_deref().is_some_and(|bid| {
+                    crate::provider_io::decimal_cmp(bid, "0.99")
+                        .is_ok_and(|ordering| ordering != std::cmp::Ordering::Less)
+                }) && ask.as_deref().is_some_and(|ask| {
+                    crate::provider_io::decimal_cmp(ask, "1.01")
+                        .is_ok_and(|ordering| ordering != std::cmp::Ordering::Greater)
+                });
                 if in_reviewed_band {
                     (
                         SpotRequiredRouteState::Qualified,
@@ -530,41 +549,27 @@ fn workspace_base_expected_spend(
     }
     let amount = proposal.estimated_notional.as_deref()?;
     let currency = proposal.estimated_notional_currency.as_deref()?;
-    // Preserve the only selected bridge explicitly: USDT/USD followed by USD/base. This is a
-    // bounded contract, not a general path-finding rule.
-    let selected_legs = if currency == base {
-        vec![(currency, base)]
-    } else if currency == "USDT" && base != "USD" {
-        vec![("USDT", "USD"), ("USD", base)]
-    } else {
-        vec![(currency, base)]
-    };
-    let selected_requirements = selected_legs
-        .iter()
-        .map(|(from, to)| {
-            requirements.requirements.iter().find(|requirement| {
-                requirement.purpose == FxRequirementPurpose::IntentPolicy
-                    && requirement.from_currency.as_deref() == Some(*from)
-                    && requirement.to_currency.as_deref() == Some(*to)
-            })
-        })
-        .collect::<Option<Vec<_>>>()?;
-    if selected_requirements.iter().any(|requirement| {
-        !routes.iter().any(|route| {
-            route.purpose == SpotRequiredRoutePurpose::IntentPolicy
-                && route.from_currency == requirement.from_currency.as_deref().unwrap_or("UNKNOWN")
-                && route.to_currency == requirement.to_currency.as_deref().unwrap_or("UNKNOWN")
-                && route.provider_pair == requirement.provider_pair
-                && route.state == SpotRequiredRouteState::Qualified
-        })
-    }) {
+    // A local valuation consumes only one provider-returned pair. Its result denomination must
+    // already be the workspace base; never append a bridge leg to manufacture that denomination.
+    let mut matches = requirements.requirements.iter().filter(|requirement| {
+        requirement.purpose == FxRequirementPurpose::IntentPolicy
+            && requirement.from_currency.as_deref() == Some(currency)
+    });
+    let requirement = matches.next()?;
+    if matches.next().is_some() || requirement.to_currency.as_deref() != Some(base) {
+        return None;
+    }
+    let route = routes.iter().find(|route| {
+        route.purpose == SpotRequiredRoutePurpose::IntentPolicy
+            && route.from_currency == currency
+            && route.to_currency == base
+            && route.provider_pair == requirement.provider_pair
+    })?;
+    if route.state != SpotRequiredRouteState::Qualified {
         return None;
     }
 
-    if selected_requirements.len() == 1
-        && selected_requirements[0].need == FxRequirementNeed::Identity
-    {
-        let requirement = selected_requirements[0];
+    if requirement.need == FxRequirementNeed::Identity {
         return (currency == base
             && requirement.provider_pair.is_none()
             && requirement.from_currency.as_deref() == Some(currency)
@@ -575,45 +580,45 @@ fn workspace_base_expected_spend(
     if observation.requirements != *requirements {
         return None;
     }
-    let mut converted = amount.to_owned();
-    for requirement in selected_requirements {
-        if requirement.need != FxRequirementNeed::ExternalRate {
+    if requirement.need != FxRequirementNeed::ExternalRate {
+        return None;
+    }
+    let pair = requirement.provider_pair.as_deref()?;
+    let from = requirement.from_currency.as_deref()?;
+    let to = requirement.to_currency.as_deref()?;
+    let rate = observation.rates.iter().find(|rate| {
+        rate.provider_pair == pair && rate.from_currency == from && rate.to_currency == to
+    })?;
+    // Crypto routes are supported only by the exact quote object from the same FX response.
+    // Compare both original numeric lexemes by decimal value; retain those lexemes for display.
+    if pair == "USDTUSD" {
+        let crypto_location = match observation.crypto_location? {
+            crate::protocol::AlpacaCryptoLocation::Us => "us",
+            crate::protocol::AlpacaCryptoLocation::Us1 => "us-1",
+            crate::protocol::AlpacaCryptoLocation::Eu1 => "eu-1",
+        };
+        let request_path =
+            format!("/v1beta3/crypto/{crypto_location}/latest/quotes?symbols=USDT%2FUSD");
+        let bid = crate::financial_sources::normalize_fx_numeric_text(&rate.bid).ok()?;
+        let ask = crate::financial_sources::normalize_fx_numeric_text(&rate.ask).ok()?;
+        if !observation.crypto_quotes.iter().any(|quote| {
+            quote.provider_symbol == "USDT/USD"
+                && quote.request_path == request_path
+                && quote.provider_timestamp == rate.provider_timestamp
+                && crate::financial_sources::normalize_fx_numeric_text(&quote.bid_price)
+                    .is_ok_and(|value| value == bid)
+                && crate::financial_sources::normalize_fx_numeric_text(&quote.ask_price)
+                    .is_ok_and(|value| value == ask)
+                && quote.response_sha256.len() == 64
+        }) {
             return None;
         }
-        let pair = requirement.provider_pair.as_deref()?;
-        let from = requirement.from_currency.as_deref()?;
-        let to = requirement.to_currency.as_deref()?;
-        let rate = observation.rates.iter().find(|rate| {
-            rate.provider_pair == pair && rate.from_currency == from && rate.to_currency == to
-        })?;
-        // Crypto routes are supported only by the exact quote object from the same FX response.
-        // The corresponding normalized rate must agree before a direction is selected.
-        if pair == "USDTUSD" {
-            let crypto_location = match observation.crypto_location? {
-                crate::protocol::AlpacaCryptoLocation::Us => "us",
-                crate::protocol::AlpacaCryptoLocation::Us1 => "us-1",
-                crate::protocol::AlpacaCryptoLocation::Eu1 => "eu-1",
-            };
-            let request_path =
-                format!("/v1beta3/crypto/{crypto_location}/latest/quotes?symbols=USDT%2FUSD");
-            if !observation.crypto_quotes.iter().any(|quote| {
-                quote.provider_symbol == "USDT/USD"
-                    && quote.request_path == request_path
-                    && quote.provider_timestamp == rate.provider_timestamp
-                    && quote.bid_price == rate.bid
-                    && quote.ask_price == rate.ask
-                    && quote.response_sha256.len() == 64
-            }) {
-                return None;
-            }
-        }
-        let direction = match side {
-            OrderSide::Buy => &rate.ask,
-            OrderSide::Sell => &rate.bid,
-        };
-        converted = crate::portfolio::decimal_mul(&converted, direction).ok()?;
     }
-    Some(converted)
+    let direction = match side {
+        OrderSide::Buy => crate::financial_sources::normalize_fx_numeric_text(&rate.ask).ok()?,
+        OrderSide::Sell => crate::financial_sources::normalize_fx_numeric_text(&rate.bid).ok()?,
+    };
+    crate::portfolio::decimal_mul(amount, &direction).ok()
 }
 
 /// The fee evidence situation, derived from the exact-symbol declaration and its backend-owned
@@ -639,6 +644,14 @@ enum FeeSituation {
 /// precedes any evidence gap, which precedes an unqualified observation).
 fn route_blocker(routes: &[SpotRequiredRoute]) -> Option<(SpotFeeFxReasonCode, &'static str)> {
     if routes
+        .iter()
+        .any(|route| route.state == SpotRequiredRouteState::CurrencyMismatch)
+    {
+        Some((
+            SpotFeeFxReasonCode::ValuationCurrencyMismatch,
+            "SPOT_VALUATION_CURRENCY_MISMATCH",
+        ))
+    } else if routes
         .iter()
         .any(|route| route.state == SpotRequiredRouteState::UnsupportedRoute)
     {
@@ -730,6 +743,7 @@ pub(crate) fn derive(
             requirement,
             fx_observation,
             policy_valuation_supported,
+            base,
         ));
     }
     routes.sort_by_key(|route| {
@@ -828,6 +842,11 @@ pub(crate) fn derive(
         .iter()
         .find(|route| route.state == SpotRequiredRouteState::UnsupportedRoute)
         .or_else(|| {
+            routes
+                .iter()
+                .find(|route| route.state == SpotRequiredRouteState::CurrencyMismatch)
+        })
+        .or_else(|| {
             routes.iter().find(|route| {
                 matches!(
                     route.state,
@@ -871,6 +890,8 @@ pub(crate) fn derive(
                 match (route.purpose, route.state) {
                     (_, SpotRequiredRouteState::UnsupportedRoute) =>
                         "unsupported by the selected bounded FX producer, so no rate can be used",
+                    (_, SpotRequiredRouteState::CurrencyMismatch) =>
+                        "a raw quote is visible but its result currency differs from the workspace base, so no monetary amount is derived",
                     (
                         SpotRequiredRoutePurpose::IntentPolicy,
                         SpotRequiredRouteState::EvidenceUnavailable,
@@ -1378,6 +1399,7 @@ mod tests {
             policy_requirement,
             Some(&observation),
             true,
+            "USD",
         );
         assert_eq!(route.state, SpotRequiredRouteState::Qualified);
         assert_eq!(
@@ -1423,6 +1445,7 @@ mod tests {
             requirement,
             None,
             false,
+            "USD",
         );
         assert_eq!(route.state, SpotRequiredRouteState::Qualified);
         assert_eq!(
@@ -1663,6 +1686,7 @@ mod tests {
             &requirements.requirements[0],
             Some(&evidence),
             true,
+            "USD",
         );
         assert_eq!(route.state, SpotRequiredRouteState::Qualified);
         assert_eq!(
@@ -1685,6 +1709,7 @@ mod tests {
             &requirements.requirements[0],
             Some(&evidence),
             false,
+            "USD",
         );
         assert_eq!(funding_route.state, SpotRequiredRouteState::Unqualified);
         assert!(
@@ -1703,6 +1728,45 @@ mod tests {
         );
         assert!(statement.reason.contains("fee currency remains UNKNOWN"));
         assert!(statement.reason.contains("fee currency remains UNKNOWN"));
+    }
+
+    #[test]
+    fn raw_provider_exponent_tokens_are_normalized_only_for_monetary_math() {
+        let mut proposal = proposal();
+        proposal.estimated_notional = Some("100".into());
+        proposal.estimated_notional_currency = Some("EUR".into());
+        let requirements = requirements();
+        let mut observation = evidence();
+        observation.rates[0].bid = "1.08e0".into();
+        observation.rates[0].ask = "1.0801e0".into();
+        let policy_requirement = requirements
+            .requirements
+            .iter()
+            .find(|requirement| requirement.purpose == FxRequirementPurpose::IntentPolicy)
+            .expect("policy requirement");
+        let route = qualify_route(
+            SpotRequiredRoutePurpose::IntentPolicy,
+            policy_requirement,
+            Some(&observation),
+            true,
+            "USD",
+        );
+        assert_eq!(route.state, SpotRequiredRouteState::Qualified);
+        assert_eq!(observation.rates[0].bid, "1.08e0");
+        assert_eq!(observation.rates[0].ask, "1.0801e0");
+        assert_eq!(
+            workspace_base_expected_spend(
+                &proposal,
+                "USD",
+                &requirements,
+                true,
+                std::slice::from_ref(&route),
+                Some(&observation),
+                OrderSide::Buy,
+            )
+            .as_deref(),
+            Some("108.01")
+        );
     }
 
     #[test]

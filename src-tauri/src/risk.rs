@@ -831,6 +831,7 @@ pub enum RiskDecisionReasonCode {
     OrderNotCancelable,
     CancellationUnsupported,
     CurrencyConversionUnavailable,
+    ValuationCurrencyMismatch,
     SpotFeeFxUnavailable,
 }
 

@@ -32662,6 +32662,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"ORDER_NOT_CANCELABLE",
 			"CANCELLATION_UNSUPPORTED",
 			"CURRENCY_CONVERSION_UNAVAILABLE",
+			"VALUATION_CURRENCY_MISMATCH",
 			"SPOT_FEE_FX_UNAVAILABLE"
 		]
 	};
@@ -32789,7 +32790,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								}
-								if (!(data3 === "WITHIN_LIMIT" || data3 === "POLICY_VERSION_STALE" || data3 === "LIMIT_NOT_CONFIGURED" || data3 === "LIMIT_EXCEEDED" || data3 === "POLICY_UNCONFIGURED" || data3 === "PROPOSAL_INVALIDATED" || data3 === "EVIDENCE_MISSING" || data3 === "EVIDENCE_STALE" || data3 === "EVIDENCE_UNTRUSTED" || data3 === "DATA_USE_RIGHTS_UNVERIFIED" || data3 === "ACCOUNT_UNAVAILABLE" || data3 === "ACCOUNT_MISMATCH" || data3 === "ACCOUNT_UNHEALTHY" || data3 === "ACCOUNT_NOT_ARMED" || data3 === "IDENTIFIER_NOT_ALLOWED" || data3 === "IDENTIFIER_BLOCKED" || data3 === "ENVIRONMENT_NOT_ALLOWED" || data3 === "MARKET_ORDER_DISABLED" || data3 === "EXECUTION_QUOTE_UNAVAILABLE" || data3 === "MARKET_CLOSED" || data3 === "MARKET_HALTED" || data3 === "INSTRUMENT_RULES_UNAVAILABLE" || data3 === "INSTRUMENT_RULES_REJECTED" || data3 === "CORPORATE_ACTION_COVERAGE_UNAVAILABLE" || data3 === "HISTORICAL_ADJUSTMENT_UNAVAILABLE" || data3 === "COUNTER_UNAVAILABLE" || data3 === "RESERVATION_UNAVAILABLE" || data3 === "RESERVED_CAPACITY" || data3 === "CALENDAR_UNAVAILABLE" || data3 === "CLOCK_UNCERTAIN" || data3 === "NOT_APPLICABLE" || data3 === "UNSUPPORTED_CONTEXT" || data3 === "INVALID_PROPOSAL_VALUE" || data3 === "ORDER_NOT_CANCELABLE" || data3 === "CANCELLATION_UNSUPPORTED" || data3 === "CURRENCY_CONVERSION_UNAVAILABLE" || data3 === "SPOT_FEE_FX_UNAVAILABLE")) {
+								if (!(data3 === "WITHIN_LIMIT" || data3 === "POLICY_VERSION_STALE" || data3 === "LIMIT_NOT_CONFIGURED" || data3 === "LIMIT_EXCEEDED" || data3 === "POLICY_UNCONFIGURED" || data3 === "PROPOSAL_INVALIDATED" || data3 === "EVIDENCE_MISSING" || data3 === "EVIDENCE_STALE" || data3 === "EVIDENCE_UNTRUSTED" || data3 === "DATA_USE_RIGHTS_UNVERIFIED" || data3 === "ACCOUNT_UNAVAILABLE" || data3 === "ACCOUNT_MISMATCH" || data3 === "ACCOUNT_UNHEALTHY" || data3 === "ACCOUNT_NOT_ARMED" || data3 === "IDENTIFIER_NOT_ALLOWED" || data3 === "IDENTIFIER_BLOCKED" || data3 === "ENVIRONMENT_NOT_ALLOWED" || data3 === "MARKET_ORDER_DISABLED" || data3 === "EXECUTION_QUOTE_UNAVAILABLE" || data3 === "MARKET_CLOSED" || data3 === "MARKET_HALTED" || data3 === "INSTRUMENT_RULES_UNAVAILABLE" || data3 === "INSTRUMENT_RULES_REJECTED" || data3 === "CORPORATE_ACTION_COVERAGE_UNAVAILABLE" || data3 === "HISTORICAL_ADJUSTMENT_UNAVAILABLE" || data3 === "COUNTER_UNAVAILABLE" || data3 === "RESERVATION_UNAVAILABLE" || data3 === "RESERVED_CAPACITY" || data3 === "CALENDAR_UNAVAILABLE" || data3 === "CLOCK_UNCERTAIN" || data3 === "NOT_APPLICABLE" || data3 === "UNSUPPORTED_CONTEXT" || data3 === "INVALID_PROPOSAL_VALUE" || data3 === "ORDER_NOT_CANCELABLE" || data3 === "CANCELLATION_UNSUPPORTED" || data3 === "CURRENCY_CONVERSION_UNAVAILABLE" || data3 === "VALUATION_CURRENCY_MISMATCH" || data3 === "SPOT_FEE_FX_UNAVAILABLE")) {
 									validate123.errors = [{
 										instancePath: instancePath + "/reasonCode",
 										schemaPath: "#/$defs/RiskDecisionReasonCode/enum",
@@ -42866,7 +42867,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			"QUALIFIED",
 			"UNQUALIFIED",
 			"UNSUPPORTED_ROUTE",
-			"EVIDENCE_UNAVAILABLE"
+			"EVIDENCE_UNAVAILABLE",
+			"CURRENCY_MISMATCH"
 		]
 	};
 	function validate157(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
@@ -43183,7 +43185,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													}
-													if (!(data8 === "QUALIFIED" || data8 === "UNQUALIFIED" || data8 === "UNSUPPORTED_ROUTE" || data8 === "EVIDENCE_UNAVAILABLE")) {
+													if (!(data8 === "QUALIFIED" || data8 === "UNQUALIFIED" || data8 === "UNSUPPORTED_ROUTE" || data8 === "EVIDENCE_UNAVAILABLE" || data8 === "CURRENCY_MISMATCH")) {
 														validate157.errors = [{
 															instancePath: instancePath + "/state",
 															schemaPath: "#/$defs/SpotRequiredRouteState/enum",
@@ -45574,9 +45576,44 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																					if (_valid2 && valid7) {
 																																						valid7 = false;
 																																						passing0 = [passing0, 7];
-																																					} else if (_valid2) {
-																																						valid7 = true;
-																																						passing0 = 7;
+																																					} else {
+																																						if (_valid2) {
+																																							valid7 = true;
+																																							passing0 = 7;
+																																						}
+																																						const _errs80 = errors;
+																																						if (typeof data25 !== "string") {
+																																							const err22 = {
+																																								instancePath: instancePath + "/reasonCode",
+																																								schemaPath: "#/$defs/SpotFeeFxReasonCode/oneOf/8/type",
+																																								keyword: "type",
+																																								params: { type: "string" },
+																																								message: "must be string"
+																																							};
+																																							if (vErrors === null) vErrors = [err22];
+																																							else vErrors.push(err22);
+																																							errors++;
+																																						}
+																																						if ("VALUATION_CURRENCY_MISMATCH" !== data25) {
+																																							const err23 = {
+																																								instancePath: instancePath + "/reasonCode",
+																																								schemaPath: "#/$defs/SpotFeeFxReasonCode/oneOf/8/const",
+																																								keyword: "const",
+																																								params: { allowedValue: "VALUATION_CURRENCY_MISMATCH" },
+																																								message: "must be equal to constant"
+																																							};
+																																							if (vErrors === null) vErrors = [err23];
+																																							else vErrors.push(err23);
+																																							errors++;
+																																						}
+																																						var _valid2 = _errs80 === errors;
+																																						if (_valid2 && valid7) {
+																																							valid7 = false;
+																																							passing0 = [passing0, 8];
+																																						} else if (_valid2) {
+																																							valid7 = true;
+																																							passing0 = 8;
+																																						}
 																																					}
 																																				}
 																																			}
@@ -45585,15 +45622,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																}
 																															}
 																															if (!valid7) {
-																																const err22 = {
+																																const err24 = {
 																																	instancePath: instancePath + "/reasonCode",
 																																	schemaPath: "#/$defs/SpotFeeFxReasonCode/oneOf",
 																																	keyword: "oneOf",
 																																	params: { passingSchemas: passing0 },
 																																	message: "must match exactly one schema in oneOf"
 																																};
-																																if (vErrors === null) vErrors = [err22];
-																																else vErrors.push(err22);
+																																if (vErrors === null) vErrors = [err24];
+																																else vErrors.push(err24);
 																																errors++;
 																																validate139.errors = vErrors;
 																																return false;
@@ -45609,8 +45646,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														if (valid0) {
 																															if (data.routeEvidenceVersion !== void 0) {
 																																let data26 = data.routeEvidenceVersion;
-																																const _errs80 = errors;
-																																if (errors === _errs80) {
+																																const _errs82 = errors;
+																																if (errors === _errs82) {
 																																	if (typeof data26 === "string") {
 																																		if (func1(data26) > 71) {
 																																			validate139.errors = [{
@@ -45642,13 +45679,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		return false;
 																																	}
 																																}
-																																var valid0 = _errs80 === errors;
+																																var valid0 = _errs82 === errors;
 																															} else var valid0 = true;
 																															if (valid0) {
 																																if (data.routes !== void 0) {
 																																	let data27 = data.routes;
-																																	const _errs82 = errors;
-																																	if (errors === _errs82) {
+																																	const _errs84 = errors;
+																																	if (errors === _errs84) {
 																																		if (Array.isArray(data27)) {
 																																			if (data27.length > 3) {
 																																				validate139.errors = [{
@@ -45662,7 +45699,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			} else {
 																																				const len1 = data27.length;
 																																				for (let i1 = 0; i1 < len1; i1++) {
-																																					const _errs84 = errors;
+																																					const _errs86 = errors;
 																																					if (!validate157(data27[i1], {
 																																						instancePath: instancePath + "/routes/" + i1,
 																																						parentData: data27,
@@ -45673,7 +45710,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																						vErrors = vErrors === null ? validate157.errors : vErrors.concat(validate157.errors);
 																																						errors = vErrors.length;
 																																					}
-																																					if (!(_errs84 === errors)) break;
+																																					if (!(_errs86 === errors)) break;
 																																				}
 																																			}
 																																		} else {
@@ -45687,12 +45724,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			return false;
 																																		}
 																																	}
-																																	var valid0 = _errs82 === errors;
+																																	var valid0 = _errs84 === errors;
 																																} else var valid0 = true;
 																																if (valid0) {
 																																	if (data.side !== void 0) {
 																																		let data29 = data.side;
-																																		const _errs85 = errors;
+																																		const _errs87 = errors;
 																																		if (typeof data29 !== "string") {
 																																			validate139.errors = [{
 																																				instancePath: instancePath + "/side",
@@ -45713,15 +45750,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			}];
 																																			return false;
 																																		}
-																																		var valid0 = _errs85 === errors;
+																																		var valid0 = _errs87 === errors;
 																																	} else var valid0 = true;
 																																	if (valid0) {
 																																		if (data.walletFundingEvidence !== void 0) {
 																																			let data30 = data.walletFundingEvidence;
-																																			const _errs88 = errors;
-																																			const _errs89 = errors;
-																																			let valid10 = false;
 																																			const _errs90 = errors;
+																																			const _errs91 = errors;
+																																			let valid10 = false;
+																																			const _errs92 = errors;
 																																			if (!validate159(data30, {
 																																				instancePath: instancePath + "/walletFundingEvidence",
 																																				parentData: data,
@@ -45732,49 +45769,49 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																				vErrors = vErrors === null ? validate159.errors : vErrors.concat(validate159.errors);
 																																				errors = vErrors.length;
 																																			}
-																																			var _valid3 = _errs90 === errors;
+																																			var _valid3 = _errs92 === errors;
 																																			valid10 = valid10 || _valid3;
-																																			const _errs91 = errors;
+																																			const _errs93 = errors;
 																																			if (data30 !== null) {
-																																				const err23 = {
+																																				const err25 = {
 																																					instancePath: instancePath + "/walletFundingEvidence",
 																																					schemaPath: "#/properties/walletFundingEvidence/anyOf/1/type",
 																																					keyword: "type",
 																																					params: { type: "null" },
 																																					message: "must be null"
 																																				};
-																																				if (vErrors === null) vErrors = [err23];
-																																				else vErrors.push(err23);
+																																				if (vErrors === null) vErrors = [err25];
+																																				else vErrors.push(err25);
 																																				errors++;
 																																			}
-																																			var _valid3 = _errs91 === errors;
+																																			var _valid3 = _errs93 === errors;
 																																			valid10 = valid10 || _valid3;
 																																			if (!valid10) {
-																																				const err24 = {
+																																				const err26 = {
 																																					instancePath: instancePath + "/walletFundingEvidence",
 																																					schemaPath: "#/properties/walletFundingEvidence/anyOf",
 																																					keyword: "anyOf",
 																																					params: {},
 																																					message: "must match a schema in anyOf"
 																																				};
-																																				if (vErrors === null) vErrors = [err24];
-																																				else vErrors.push(err24);
+																																				if (vErrors === null) vErrors = [err26];
+																																				else vErrors.push(err26);
 																																				errors++;
 																																				validate139.errors = vErrors;
 																																				return false;
 																																			} else {
-																																				errors = _errs89;
+																																				errors = _errs91;
 																																				if (vErrors !== null) {
-																																					if (_errs89) vErrors.length = _errs89;
+																																					if (_errs91) vErrors.length = _errs91;
 																																					else vErrors = null;
 																																				}
 																																			}
-																																			var valid0 = _errs88 === errors;
+																																			var valid0 = _errs90 === errors;
 																																		} else var valid0 = true;
 																																		if (valid0) {
 																																			if (data.workspaceBaseExpectedFee !== void 0) {
 																																				let data31 = data.workspaceBaseExpectedFee;
-																																				const _errs93 = errors;
+																																				const _errs95 = errors;
 																																				if (typeof data31 !== "string" && data31 !== null) {
 																																					validate139.errors = [{
 																																						instancePath: instancePath + "/workspaceBaseExpectedFee",
@@ -45785,7 +45822,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																					}];
 																																					return false;
 																																				}
-																																				if (errors === _errs93) {
+																																				if (errors === _errs95) {
 																																					if (typeof data31 === "string") {
 																																						if (func1(data31) > 64) {
 																																							validate139.errors = [{
@@ -45808,12 +45845,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																						}
 																																					}
 																																				}
-																																				var valid0 = _errs93 === errors;
+																																				var valid0 = _errs95 === errors;
 																																			} else var valid0 = true;
 																																			if (valid0) {
 																																				if (data.workspaceBaseExpectedSpend !== void 0) {
 																																					let data32 = data.workspaceBaseExpectedSpend;
-																																					const _errs95 = errors;
+																																					const _errs97 = errors;
 																																					if (typeof data32 !== "string" && data32 !== null) {
 																																						validate139.errors = [{
 																																							instancePath: instancePath + "/workspaceBaseExpectedSpend",
@@ -45824,7 +45861,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																						}];
 																																						return false;
 																																					}
-																																					if (errors === _errs95) {
+																																					if (errors === _errs97) {
 																																						if (typeof data32 === "string") {
 																																							if (func1(data32) > 64) {
 																																								validate139.errors = [{
@@ -45847,13 +45884,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																							}
 																																						}
 																																					}
-																																					var valid0 = _errs95 === errors;
+																																					var valid0 = _errs97 === errors;
 																																				} else var valid0 = true;
 																																				if (valid0) {
 																																					if (data.workspaceId !== void 0) {
 																																						let data33 = data.workspaceId;
-																																						const _errs97 = errors;
-																																						if (errors === _errs97) {
+																																						const _errs99 = errors;
+																																						if (errors === _errs99) {
 																																							if (typeof data33 === "string") {
 																																								if (func1(data33) > 128) {
 																																									validate139.errors = [{
@@ -45885,7 +45922,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																								return false;
 																																							}
 																																						}
-																																						var valid0 = _errs97 === errors;
+																																						var valid0 = _errs99 === errors;
 																																					} else var valid0 = true;
 																																				}
 																																			}
@@ -221005,7 +221042,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 									}];
 									return false;
 								}
-								if (!(data3 === "WITHIN_LIMIT" || data3 === "POLICY_VERSION_STALE" || data3 === "LIMIT_NOT_CONFIGURED" || data3 === "LIMIT_EXCEEDED" || data3 === "POLICY_UNCONFIGURED" || data3 === "PROPOSAL_INVALIDATED" || data3 === "EVIDENCE_MISSING" || data3 === "EVIDENCE_STALE" || data3 === "EVIDENCE_UNTRUSTED" || data3 === "DATA_USE_RIGHTS_UNVERIFIED" || data3 === "ACCOUNT_UNAVAILABLE" || data3 === "ACCOUNT_MISMATCH" || data3 === "ACCOUNT_UNHEALTHY" || data3 === "ACCOUNT_NOT_ARMED" || data3 === "IDENTIFIER_NOT_ALLOWED" || data3 === "IDENTIFIER_BLOCKED" || data3 === "ENVIRONMENT_NOT_ALLOWED" || data3 === "MARKET_ORDER_DISABLED" || data3 === "EXECUTION_QUOTE_UNAVAILABLE" || data3 === "MARKET_CLOSED" || data3 === "MARKET_HALTED" || data3 === "INSTRUMENT_RULES_UNAVAILABLE" || data3 === "INSTRUMENT_RULES_REJECTED" || data3 === "CORPORATE_ACTION_COVERAGE_UNAVAILABLE" || data3 === "HISTORICAL_ADJUSTMENT_UNAVAILABLE" || data3 === "COUNTER_UNAVAILABLE" || data3 === "RESERVATION_UNAVAILABLE" || data3 === "RESERVED_CAPACITY" || data3 === "CALENDAR_UNAVAILABLE" || data3 === "CLOCK_UNCERTAIN" || data3 === "NOT_APPLICABLE" || data3 === "UNSUPPORTED_CONTEXT" || data3 === "INVALID_PROPOSAL_VALUE" || data3 === "ORDER_NOT_CANCELABLE" || data3 === "CANCELLATION_UNSUPPORTED" || data3 === "CURRENCY_CONVERSION_UNAVAILABLE" || data3 === "SPOT_FEE_FX_UNAVAILABLE")) {
+								if (!(data3 === "WITHIN_LIMIT" || data3 === "POLICY_VERSION_STALE" || data3 === "LIMIT_NOT_CONFIGURED" || data3 === "LIMIT_EXCEEDED" || data3 === "POLICY_UNCONFIGURED" || data3 === "PROPOSAL_INVALIDATED" || data3 === "EVIDENCE_MISSING" || data3 === "EVIDENCE_STALE" || data3 === "EVIDENCE_UNTRUSTED" || data3 === "DATA_USE_RIGHTS_UNVERIFIED" || data3 === "ACCOUNT_UNAVAILABLE" || data3 === "ACCOUNT_MISMATCH" || data3 === "ACCOUNT_UNHEALTHY" || data3 === "ACCOUNT_NOT_ARMED" || data3 === "IDENTIFIER_NOT_ALLOWED" || data3 === "IDENTIFIER_BLOCKED" || data3 === "ENVIRONMENT_NOT_ALLOWED" || data3 === "MARKET_ORDER_DISABLED" || data3 === "EXECUTION_QUOTE_UNAVAILABLE" || data3 === "MARKET_CLOSED" || data3 === "MARKET_HALTED" || data3 === "INSTRUMENT_RULES_UNAVAILABLE" || data3 === "INSTRUMENT_RULES_REJECTED" || data3 === "CORPORATE_ACTION_COVERAGE_UNAVAILABLE" || data3 === "HISTORICAL_ADJUSTMENT_UNAVAILABLE" || data3 === "COUNTER_UNAVAILABLE" || data3 === "RESERVATION_UNAVAILABLE" || data3 === "RESERVED_CAPACITY" || data3 === "CALENDAR_UNAVAILABLE" || data3 === "CLOCK_UNCERTAIN" || data3 === "NOT_APPLICABLE" || data3 === "UNSUPPORTED_CONTEXT" || data3 === "INVALID_PROPOSAL_VALUE" || data3 === "ORDER_NOT_CANCELABLE" || data3 === "CANCELLATION_UNSUPPORTED" || data3 === "CURRENCY_CONVERSION_UNAVAILABLE" || data3 === "VALUATION_CURRENCY_MISMATCH" || data3 === "SPOT_FEE_FX_UNAVAILABLE")) {
 									validate1317.errors = [{
 										instancePath: instancePath + "/reasonCode",
 										schemaPath: "#/$defs/RiskDecisionReasonCode/enum",
@@ -222512,7 +222549,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		if (!(data === "WITHIN_LIMIT" || data === "POLICY_VERSION_STALE" || data === "LIMIT_NOT_CONFIGURED" || data === "LIMIT_EXCEEDED" || data === "POLICY_UNCONFIGURED" || data === "PROPOSAL_INVALIDATED" || data === "EVIDENCE_MISSING" || data === "EVIDENCE_STALE" || data === "EVIDENCE_UNTRUSTED" || data === "DATA_USE_RIGHTS_UNVERIFIED" || data === "ACCOUNT_UNAVAILABLE" || data === "ACCOUNT_MISMATCH" || data === "ACCOUNT_UNHEALTHY" || data === "ACCOUNT_NOT_ARMED" || data === "IDENTIFIER_NOT_ALLOWED" || data === "IDENTIFIER_BLOCKED" || data === "ENVIRONMENT_NOT_ALLOWED" || data === "MARKET_ORDER_DISABLED" || data === "EXECUTION_QUOTE_UNAVAILABLE" || data === "MARKET_CLOSED" || data === "MARKET_HALTED" || data === "INSTRUMENT_RULES_UNAVAILABLE" || data === "INSTRUMENT_RULES_REJECTED" || data === "CORPORATE_ACTION_COVERAGE_UNAVAILABLE" || data === "HISTORICAL_ADJUSTMENT_UNAVAILABLE" || data === "COUNTER_UNAVAILABLE" || data === "RESERVATION_UNAVAILABLE" || data === "RESERVED_CAPACITY" || data === "CALENDAR_UNAVAILABLE" || data === "CLOCK_UNCERTAIN" || data === "NOT_APPLICABLE" || data === "UNSUPPORTED_CONTEXT" || data === "INVALID_PROPOSAL_VALUE" || data === "ORDER_NOT_CANCELABLE" || data === "CANCELLATION_UNSUPPORTED" || data === "CURRENCY_CONVERSION_UNAVAILABLE" || data === "SPOT_FEE_FX_UNAVAILABLE")) {
+		if (!(data === "WITHIN_LIMIT" || data === "POLICY_VERSION_STALE" || data === "LIMIT_NOT_CONFIGURED" || data === "LIMIT_EXCEEDED" || data === "POLICY_UNCONFIGURED" || data === "PROPOSAL_INVALIDATED" || data === "EVIDENCE_MISSING" || data === "EVIDENCE_STALE" || data === "EVIDENCE_UNTRUSTED" || data === "DATA_USE_RIGHTS_UNVERIFIED" || data === "ACCOUNT_UNAVAILABLE" || data === "ACCOUNT_MISMATCH" || data === "ACCOUNT_UNHEALTHY" || data === "ACCOUNT_NOT_ARMED" || data === "IDENTIFIER_NOT_ALLOWED" || data === "IDENTIFIER_BLOCKED" || data === "ENVIRONMENT_NOT_ALLOWED" || data === "MARKET_ORDER_DISABLED" || data === "EXECUTION_QUOTE_UNAVAILABLE" || data === "MARKET_CLOSED" || data === "MARKET_HALTED" || data === "INSTRUMENT_RULES_UNAVAILABLE" || data === "INSTRUMENT_RULES_REJECTED" || data === "CORPORATE_ACTION_COVERAGE_UNAVAILABLE" || data === "HISTORICAL_ADJUSTMENT_UNAVAILABLE" || data === "COUNTER_UNAVAILABLE" || data === "RESERVATION_UNAVAILABLE" || data === "RESERVED_CAPACITY" || data === "CALENDAR_UNAVAILABLE" || data === "CLOCK_UNCERTAIN" || data === "NOT_APPLICABLE" || data === "UNSUPPORTED_CONTEXT" || data === "INVALID_PROPOSAL_VALUE" || data === "ORDER_NOT_CANCELABLE" || data === "CANCELLATION_UNSUPPORTED" || data === "CURRENCY_CONVERSION_UNAVAILABLE" || data === "VALUATION_CURRENCY_MISMATCH" || data === "SPOT_FEE_FX_UNAVAILABLE")) {
 			validate1333.errors = [{
 				instancePath,
 				schemaPath: "#/enum",
@@ -240049,9 +240086,44 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 								if (_valid0 && valid0) {
 									valid0 = false;
 									passing0 = [passing0, 7];
-								} else if (_valid0) {
-									valid0 = true;
-									passing0 = 7;
+								} else {
+									if (_valid0) {
+										valid0 = true;
+										passing0 = 7;
+									}
+									const _errs17 = errors;
+									if (typeof data !== "string") {
+										const err16 = {
+											instancePath,
+											schemaPath: "#/oneOf/8/type",
+											keyword: "type",
+											params: { type: "string" },
+											message: "must be string"
+										};
+										if (vErrors === null) vErrors = [err16];
+										else vErrors.push(err16);
+										errors++;
+									}
+									if ("VALUATION_CURRENCY_MISMATCH" !== data) {
+										const err17 = {
+											instancePath,
+											schemaPath: "#/oneOf/8/const",
+											keyword: "const",
+											params: { allowedValue: "VALUATION_CURRENCY_MISMATCH" },
+											message: "must be equal to constant"
+										};
+										if (vErrors === null) vErrors = [err17];
+										else vErrors.push(err17);
+										errors++;
+									}
+									var _valid0 = _errs17 === errors;
+									if (_valid0 && valid0) {
+										valid0 = false;
+										passing0 = [passing0, 8];
+									} else if (_valid0) {
+										valid0 = true;
+										passing0 = 8;
+									}
 								}
 							}
 						}
@@ -240060,15 +240132,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}
 		}
 		if (!valid0) {
-			const err16 = {
+			const err18 = {
 				instancePath,
 				schemaPath: "#/oneOf",
 				keyword: "oneOf",
 				params: { passingSchemas: passing0 },
 				message: "must match exactly one schema in oneOf"
 			};
-			if (vErrors === null) vErrors = [err16];
-			else vErrors.push(err16);
+			if (vErrors === null) vErrors = [err18];
+			else vErrors.push(err18);
 			errors++;
 			validate1426.errors = vErrors;
 			return false;
@@ -241376,9 +241448,44 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																					if (_valid2 && valid7) {
 																																						valid7 = false;
 																																						passing0 = [passing0, 7];
-																																					} else if (_valid2) {
-																																						valid7 = true;
-																																						passing0 = 7;
+																																					} else {
+																																						if (_valid2) {
+																																							valid7 = true;
+																																							passing0 = 7;
+																																						}
+																																						const _errs80 = errors;
+																																						if (typeof data25 !== "string") {
+																																							const err22 = {
+																																								instancePath: instancePath + "/reasonCode",
+																																								schemaPath: "#/$defs/SpotFeeFxReasonCode/oneOf/8/type",
+																																								keyword: "type",
+																																								params: { type: "string" },
+																																								message: "must be string"
+																																							};
+																																							if (vErrors === null) vErrors = [err22];
+																																							else vErrors.push(err22);
+																																							errors++;
+																																						}
+																																						if ("VALUATION_CURRENCY_MISMATCH" !== data25) {
+																																							const err23 = {
+																																								instancePath: instancePath + "/reasonCode",
+																																								schemaPath: "#/$defs/SpotFeeFxReasonCode/oneOf/8/const",
+																																								keyword: "const",
+																																								params: { allowedValue: "VALUATION_CURRENCY_MISMATCH" },
+																																								message: "must be equal to constant"
+																																							};
+																																							if (vErrors === null) vErrors = [err23];
+																																							else vErrors.push(err23);
+																																							errors++;
+																																						}
+																																						var _valid2 = _errs80 === errors;
+																																						if (_valid2 && valid7) {
+																																							valid7 = false;
+																																							passing0 = [passing0, 8];
+																																						} else if (_valid2) {
+																																							valid7 = true;
+																																							passing0 = 8;
+																																						}
 																																					}
 																																				}
 																																			}
@@ -241387,15 +241494,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																}
 																															}
 																															if (!valid7) {
-																																const err22 = {
+																																const err24 = {
 																																	instancePath: instancePath + "/reasonCode",
 																																	schemaPath: "#/$defs/SpotFeeFxReasonCode/oneOf",
 																																	keyword: "oneOf",
 																																	params: { passingSchemas: passing0 },
 																																	message: "must match exactly one schema in oneOf"
 																																};
-																																if (vErrors === null) vErrors = [err22];
-																																else vErrors.push(err22);
+																																if (vErrors === null) vErrors = [err24];
+																																else vErrors.push(err24);
 																																errors++;
 																																validate1427.errors = vErrors;
 																																return false;
@@ -241411,8 +241518,8 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																														if (valid0) {
 																															if (data.routeEvidenceVersion !== void 0) {
 																																let data26 = data.routeEvidenceVersion;
-																																const _errs80 = errors;
-																																if (errors === _errs80) {
+																																const _errs82 = errors;
+																																if (errors === _errs82) {
 																																	if (typeof data26 === "string") {
 																																		if (func1(data26) > 71) {
 																																			validate1427.errors = [{
@@ -241444,13 +241551,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																		return false;
 																																	}
 																																}
-																																var valid0 = _errs80 === errors;
+																																var valid0 = _errs82 === errors;
 																															} else var valid0 = true;
 																															if (valid0) {
 																																if (data.routes !== void 0) {
 																																	let data27 = data.routes;
-																																	const _errs82 = errors;
-																																	if (errors === _errs82) {
+																																	const _errs84 = errors;
+																																	if (errors === _errs84) {
 																																		if (Array.isArray(data27)) {
 																																			if (data27.length > 3) {
 																																				validate1427.errors = [{
@@ -241464,7 +241571,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			} else {
 																																				const len1 = data27.length;
 																																				for (let i1 = 0; i1 < len1; i1++) {
-																																					const _errs84 = errors;
+																																					const _errs86 = errors;
 																																					if (!validate157(data27[i1], {
 																																						instancePath: instancePath + "/routes/" + i1,
 																																						parentData: data27,
@@ -241475,7 +241582,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																						vErrors = vErrors === null ? validate157.errors : vErrors.concat(validate157.errors);
 																																						errors = vErrors.length;
 																																					}
-																																					if (!(_errs84 === errors)) break;
+																																					if (!(_errs86 === errors)) break;
 																																				}
 																																			}
 																																		} else {
@@ -241489,12 +241596,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			return false;
 																																		}
 																																	}
-																																	var valid0 = _errs82 === errors;
+																																	var valid0 = _errs84 === errors;
 																																} else var valid0 = true;
 																																if (valid0) {
 																																	if (data.side !== void 0) {
 																																		let data29 = data.side;
-																																		const _errs85 = errors;
+																																		const _errs87 = errors;
 																																		if (typeof data29 !== "string") {
 																																			validate1427.errors = [{
 																																				instancePath: instancePath + "/side",
@@ -241515,15 +241622,15 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																			}];
 																																			return false;
 																																		}
-																																		var valid0 = _errs85 === errors;
+																																		var valid0 = _errs87 === errors;
 																																	} else var valid0 = true;
 																																	if (valid0) {
 																																		if (data.walletFundingEvidence !== void 0) {
 																																			let data30 = data.walletFundingEvidence;
-																																			const _errs88 = errors;
-																																			const _errs89 = errors;
-																																			let valid10 = false;
 																																			const _errs90 = errors;
+																																			const _errs91 = errors;
+																																			let valid10 = false;
+																																			const _errs92 = errors;
 																																			if (!validate159(data30, {
 																																				instancePath: instancePath + "/walletFundingEvidence",
 																																				parentData: data,
@@ -241534,49 +241641,49 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																				vErrors = vErrors === null ? validate159.errors : vErrors.concat(validate159.errors);
 																																				errors = vErrors.length;
 																																			}
-																																			var _valid3 = _errs90 === errors;
+																																			var _valid3 = _errs92 === errors;
 																																			valid10 = valid10 || _valid3;
-																																			const _errs91 = errors;
+																																			const _errs93 = errors;
 																																			if (data30 !== null) {
-																																				const err23 = {
+																																				const err25 = {
 																																					instancePath: instancePath + "/walletFundingEvidence",
 																																					schemaPath: "#/properties/walletFundingEvidence/anyOf/1/type",
 																																					keyword: "type",
 																																					params: { type: "null" },
 																																					message: "must be null"
 																																				};
-																																				if (vErrors === null) vErrors = [err23];
-																																				else vErrors.push(err23);
+																																				if (vErrors === null) vErrors = [err25];
+																																				else vErrors.push(err25);
 																																				errors++;
 																																			}
-																																			var _valid3 = _errs91 === errors;
+																																			var _valid3 = _errs93 === errors;
 																																			valid10 = valid10 || _valid3;
 																																			if (!valid10) {
-																																				const err24 = {
+																																				const err26 = {
 																																					instancePath: instancePath + "/walletFundingEvidence",
 																																					schemaPath: "#/properties/walletFundingEvidence/anyOf",
 																																					keyword: "anyOf",
 																																					params: {},
 																																					message: "must match a schema in anyOf"
 																																				};
-																																				if (vErrors === null) vErrors = [err24];
-																																				else vErrors.push(err24);
+																																				if (vErrors === null) vErrors = [err26];
+																																				else vErrors.push(err26);
 																																				errors++;
 																																				validate1427.errors = vErrors;
 																																				return false;
 																																			} else {
-																																				errors = _errs89;
+																																				errors = _errs91;
 																																				if (vErrors !== null) {
-																																					if (_errs89) vErrors.length = _errs89;
+																																					if (_errs91) vErrors.length = _errs91;
 																																					else vErrors = null;
 																																				}
 																																			}
-																																			var valid0 = _errs88 === errors;
+																																			var valid0 = _errs90 === errors;
 																																		} else var valid0 = true;
 																																		if (valid0) {
 																																			if (data.workspaceBaseExpectedFee !== void 0) {
 																																				let data31 = data.workspaceBaseExpectedFee;
-																																				const _errs93 = errors;
+																																				const _errs95 = errors;
 																																				if (typeof data31 !== "string" && data31 !== null) {
 																																					validate1427.errors = [{
 																																						instancePath: instancePath + "/workspaceBaseExpectedFee",
@@ -241587,7 +241694,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																					}];
 																																					return false;
 																																				}
-																																				if (errors === _errs93) {
+																																				if (errors === _errs95) {
 																																					if (typeof data31 === "string") {
 																																						if (func1(data31) > 64) {
 																																							validate1427.errors = [{
@@ -241610,12 +241717,12 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																						}
 																																					}
 																																				}
-																																				var valid0 = _errs93 === errors;
+																																				var valid0 = _errs95 === errors;
 																																			} else var valid0 = true;
 																																			if (valid0) {
 																																				if (data.workspaceBaseExpectedSpend !== void 0) {
 																																					let data32 = data.workspaceBaseExpectedSpend;
-																																					const _errs95 = errors;
+																																					const _errs97 = errors;
 																																					if (typeof data32 !== "string" && data32 !== null) {
 																																						validate1427.errors = [{
 																																							instancePath: instancePath + "/workspaceBaseExpectedSpend",
@@ -241626,7 +241733,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																						}];
 																																						return false;
 																																					}
-																																					if (errors === _errs95) {
+																																					if (errors === _errs97) {
 																																						if (typeof data32 === "string") {
 																																							if (func1(data32) > 64) {
 																																								validate1427.errors = [{
@@ -241649,13 +241756,13 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																							}
 																																						}
 																																					}
-																																					var valid0 = _errs95 === errors;
+																																					var valid0 = _errs97 === errors;
 																																				} else var valid0 = true;
 																																				if (valid0) {
 																																					if (data.workspaceId !== void 0) {
 																																						let data33 = data.workspaceId;
-																																						const _errs97 = errors;
-																																						if (errors === _errs97) {
+																																						const _errs99 = errors;
+																																						if (errors === _errs99) {
 																																							if (typeof data33 === "string") {
 																																								if (func1(data33) > 128) {
 																																									validate1427.errors = [{
@@ -241687,7 +241794,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 																																								return false;
 																																							}
 																																						}
-																																						var valid0 = _errs97 === errors;
+																																						var valid0 = _errs99 === errors;
 																																					} else var valid0 = true;
 																																				}
 																																			}
@@ -250650,7 +250757,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 														}];
 														return false;
 													}
-													if (!(data8 === "QUALIFIED" || data8 === "UNQUALIFIED" || data8 === "UNSUPPORTED_ROUTE" || data8 === "EVIDENCE_UNAVAILABLE")) {
+													if (!(data8 === "QUALIFIED" || data8 === "UNQUALIFIED" || data8 === "UNSUPPORTED_ROUTE" || data8 === "EVIDENCE_UNAVAILABLE" || data8 === "CURRENCY_MISMATCH")) {
 														validate1456.errors = [{
 															instancePath: instancePath + "/state",
 															schemaPath: "#/$defs/SpotRequiredRouteState/enum",
@@ -250774,7 +250881,7 @@ var require_ipc_validators_input = /* @__PURE__ */ __commonJSMin(((exports) => {
 			}];
 			return false;
 		}
-		if (!(data === "QUALIFIED" || data === "UNQUALIFIED" || data === "UNSUPPORTED_ROUTE" || data === "EVIDENCE_UNAVAILABLE")) {
+		if (!(data === "QUALIFIED" || data === "UNQUALIFIED" || data === "UNSUPPORTED_ROUTE" || data === "EVIDENCE_UNAVAILABLE" || data === "CURRENCY_MISMATCH")) {
 			validate1458.errors = [{
 				instancePath,
 				schemaPath: "#/enum",

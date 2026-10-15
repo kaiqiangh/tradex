@@ -118,7 +118,14 @@ export function FinancialEvidencePanel({ source, instrumentId, capturedAt, showR
             <div><dt>Original response SHA-256</dt><dd className="identity">{quote.responseSha256}</dd></div>
           </dl>
         </section>)}
-        <ul>{evidence.rates.map(rate => <li key={rate.providerPair}><strong>{rate.fromCurrency} → {rate.toCurrency}</strong><dl className="data-source-details"><div><dt>Bid / ask</dt><dd>{rate.bid} / {rate.ask}</dd></div><div><dt>Provider mid</dt><dd>{rate.mid ?? 'Not supplied by this quote'}{rate.mid ? ' — supplied independently; not a funding conversion' : ''}</dd></div><div><dt>Provider rate time</dt><dd>{rate.providerTimestamp}</dd></div></dl></li>)}</ul>
+        <ul>{evidence.rates.filter(rate => !evidence.cryptoQuotes?.some(quote => quote.providerSymbol.replace('/', '') === rate.providerPair)).map(rate => <li key={rate.providerPair}>
+          <strong>{rate.providerPair} · {rate.fromCurrency} → {rate.toCurrency}</strong>
+          <dl className="data-source-details">
+            <div><dt>Original provider bid / ask</dt><dd>{rate.bid} / {rate.ask}</dd></div>
+            <div><dt>Original provider mid</dt><dd>{rate.mid ?? 'Not supplied by this quote'}</dd></div>
+            <div><dt>Provider time · local receipt</dt><dd>{rate.providerTimestamp} · {source.observedAt ?? 'Not recorded'}</dd></div>
+          </dl>
+        </li>)}</ul>
       </>}
     </>}
   </div>;

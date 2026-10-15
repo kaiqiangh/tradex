@@ -16073,6 +16073,7 @@
         "ORDER_NOT_CANCELABLE",
         "CANCELLATION_UNSUPPORTED",
         "CURRENCY_CONVERSION_UNAVAILABLE",
+        "VALUATION_CURRENCY_MISMATCH",
         "SPOT_FEE_FX_UNAVAILABLE"
       ]
     },
@@ -18509,6 +18510,11 @@
           "description": "A required route has no supported provider pair.",
           "type": "string",
           "const": "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+        },
+        {
+          "description": "The provider result denomination differs from the workspace base currency.",
+          "type": "string",
+          "const": "VALUATION_CURRENCY_MISMATCH"
         }
       ]
     },
@@ -19896,7 +19902,8 @@
         "QUALIFIED",
         "UNQUALIFIED",
         "UNSUPPORTED_ROUTE",
-        "EVIDENCE_UNAVAILABLE"
+        "EVIDENCE_UNAVAILABLE",
+        "CURRENCY_MISMATCH"
       ]
     },
     "SpotRuleConstraint": {

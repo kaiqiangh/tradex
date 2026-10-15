@@ -583,6 +583,7 @@ export type RiskDecisionReasonCode =
   | "ORDER_NOT_CANCELABLE"
   | "CANCELLATION_UNSUPPORTED"
   | "CURRENCY_CONVERSION_UNAVAILABLE"
+  | "VALUATION_CURRENCY_MISMATCH"
   | "SPOT_FEE_FX_UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -692,7 +693,8 @@ export type SpotFeeFxReasonCode =
   | "SPOT_FEE_RATE_UNSUPPORTED"
   | "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
   | "SPOT_REQUIRED_FX_UNQUALIFIED"
-  | "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE";
+  | "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+  | "VALUATION_CURRENCY_MISMATCH";
 /**
  * Why a required FX route exists for this intent.
  *
@@ -706,7 +708,8 @@ export type SpotRequiredRoutePurpose = "INTENT_POLICY" | "INTENT_FUNDING";
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotRequiredRouteState".
  */
-export type SpotRequiredRouteState = "QUALIFIED" | "UNQUALIFIED" | "UNSUPPORTED_ROUTE" | "EVIDENCE_UNAVAILABLE";
+export type SpotRequiredRouteState =
+  "QUALIFIED" | "UNQUALIFIED" | "UNSUPPORTED_ROUTE" | "EVIDENCE_UNAVAILABLE" | "CURRENCY_MISMATCH";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotWalletFundingStatus".
