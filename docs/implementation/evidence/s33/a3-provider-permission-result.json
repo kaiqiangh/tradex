@@ -1,7 +1,7 @@
 {
   "status": "PASS_LIMITED",
-  "testedAt": "2026-10-15T15:51:17.392Z",
-  "workspaceId": "a12a6224-0ef7-4403-860e-be7fbb4487ac",
+  "testedAt": "2026-10-15T16:09:39.884Z",
+  "workspaceId": "4291a608-af83-429f-9bd8-4acdc0419e10",
   "observations": [
     {
       "providerId": "alpaca",
@@ -109,18 +109,23 @@
       "confirmationDisabled": true
     }
   ],
+  "passiveOpen": {
+    "providerConnects": 0,
+    "accountRefreshes": 0
+  },
   "explicitFixtureConnections": 4,
   "forbiddenCommands": 0,
   "commandCounts": {
+    "account.activity": 1,
     "account.get": 4,
-    "account.list": 25,
+    "account.list": 27,
     "account.refresh": 1,
     "binance.live.permission.fixture": 2,
     "domain.snapshot": 18,
-    "domain.subscribe": 17,
-    "paper.get": 1,
+    "domain.subscribe": 19,
+    "paper.get": 2,
     "provider.connect": 8,
-    "provider.list_definitions": 2,
+    "provider.list_definitions": 3,
     "runtime.status": 2,
     "thread.list": 1,
     "trade.cancel_approval.list": 10,
@@ -146,13 +151,19 @@
     "One locator scroll awaited stability across a React replacement and detached; synchronous DOM scrolling now avoids retaining that transient element."
   ],
   "sourceAndArtifactSha256": {
-    "tests/s33-provider-permission-review-playwright.js": "84ceda1a559c67a6ac432cfdd81c0f22ddb8039e9a6d72d1ff2c334842c1ed6b",
+    "tests/s33-provider-permission-review-playwright.js": "c5d49d851117b72645531a52ac3ae640b4317cda2a1f3cbd63520b3965f5613b",
     "src-tauri/src/bin/ipc.rs": "fb74f442a1f4bca98e89137bb1042791782ed61cf95a08d35f558ebfcd8fb0ba",
     "src-tauri/tests/support/provider_fixtures.rs": "1d3dd34b9972ccc207a08ed563bb58687bf00123b143e19411c984cc52cdc6ed",
-    "docs/implementation/evidence/s33/a3-alpaca-permission-390.png": "a5995ff51d22b90fdb73df9d1cc999890b0045afc7827633a8490e0109d83c1f",
-    "docs/implementation/evidence/s33/a3-binance-permission-390.png": "8fd097636e3f68e780d1f2969c22669213db6d71dcbf85bc79816d4ce21f0a83",
-    "docs/implementation/evidence/s33/a3-bitget-permission-390.png": "55ceaeb759db54eae83340f888fc1081774c0b49870494837555f433c561b77b",
+    "docs/implementation/evidence/s33/a3-alpaca-permission-390.png": "aad0643d3117faae3796986628bbd967693df821cdce80e926ba998aeae83600",
+    "docs/implementation/evidence/s33/a3-binance-permission-390.png": "4a51ab115c9538e91cc7c68923bdf0571e6d1ad5c6fd97076c97e66204ae1537",
+    "docs/implementation/evidence/s33/a3-bitget-permission-390.png": "c7bde00a878585bb70012da33ee4fbc4b31fecb3de5197c872999b8c3023341b",
     "docs/implementation/evidence/s33/a3-forbidden-permission-390.png": "0b38bb65ba86035c3ddc509c3a837a59e659733aac9f95dce0aff7b9dcbcb0e0",
-    "docs/implementation/evidence/s33/a3-trading212-permission-390.png": "4a3bb0235d4cc67fd5427728e1c63819234574d20abe254a9d6d807d8b7d950e"
+    "docs/implementation/evidence/s33/a3-trading212-permission-390.png": "f2e6591e1e14fe4cb98cabd29786dbab6ceeb946f6f242600f94a46d6a6f5f94"
+  },
+  "priorCountedRun": {
+    "testedAt": "2026-10-15T15:51:17.392Z",
+    "workspaceId": "a12a6224-0ef7-4403-860e-be7fbb4487ac",
+    "status": "PASS_LIMITED",
+    "supersededReason": "Independent Spec review requested passive Accounts opening assertions; final rerun includes them."
   }
 }

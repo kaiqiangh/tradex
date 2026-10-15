@@ -44,9 +44,13 @@ async page => {
   await page.getByLabel('Local storage', { exact: true }).fill(path);
   await page.getByRole('button', { name: 'Open workspace', exact: true }).press('Enter');
   await page.getByRole('heading', { name: 'Ready', exact: true }).waitFor();
+  const cursor = (await log(0)).cursor;
   await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
   const form = page.locator('.provider-config');
-  const cursor = (await log(0)).cursor;
+  await form.waitFor({ state: 'visible' });
+  const passiveCommands = (await log(cursor)).commands.map(item => item.command);
+  check(!passiveCommands.some(name => name === 'provider.connect' || name === 'account.refresh'),
+    'Opening Accounts never connects or refreshes a provider');
   const catalog = await command('provider.list_definitions', {});
   const observations = [];
   const blockedLayouts = [];
@@ -156,6 +160,7 @@ async page => {
   check(externalRequests.length === 0 && applicationConsoleErrors.length === 0 && pageErrors.length === 0,
     JSON.stringify({ externalRequests, consoleErrors, pageErrors }));
   return { status: 'PASS_LIMITED', testedAt: new Date().toISOString(), workspaceId, observations, blockedLayouts,
+    passiveOpen: { providerConnects: 0, accountRefreshes: 0 },
     explicitFixtureConnections: 4, forbiddenCommands: forbidden.length,
     commandCounts: Object.fromEntries([...new Set(commands)].sort().map(name => [name, commands.filter(item => item === name).length])),
     externalRequests: externalRequests.length, consoleErrors, applicationConsoleErrors: applicationConsoleErrors.length, pageErrors: pageErrors.length,
