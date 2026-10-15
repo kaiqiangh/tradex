@@ -1,25 +1,25 @@
 {
-  "generated": "2026-10-13 19:17 +0100",
-  "commit": "5a5ae36",
+  "generated": "2026-10-15 21:57 +0100",
+  "commit": "df0d068",
   "branch": "dev",
-  "ahead": 5,
+  "ahead": 21,
   "req_total": 203,
   "req_status": {
-    "IMPLEMENTED_UNVERIFIED": 72,
-    "NOT_STARTED": 55,
-    "IN_PROGRESS": 45,
+    "IMPLEMENTED_UNVERIFIED": 74,
+    "NOT_STARTED": 43,
+    "IN_PROGRESS": 55,
     "VERIFIED": 28,
     "DEFERRED": 3
   },
   "surf_total": 83,
   "surf_status": {
     "VERIFIED": 1,
-    "IN_PROGRESS": 18,
-    "IMPLEMENTED_UNVERIFIED": 43,
-    "NOT_STARTED": 21
+    "IN_PROGRESS": 12,
+    "IMPLEMENTED_UNVERIFIED": 69,
+    "NOT_STARTED": 1
   },
-  "issue_total": 140,
-  "issue_open": 13,
+  "issue_total": 146,
+  "issue_open": 15,
   "open_issues": [
     1,
     56,
@@ -33,7 +33,9 @@
     135,
     136,
     140,
-    141
+    141,
+    147,
+    148
   ],
   "slice_closed": 26,
   "slice_inprog": 6,
@@ -118,8 +120,8 @@
       "issues_closed": 4,
       "issues_open": 0,
       "total": 18,
-      "not_started": 4,
-      "in_progress": 2,
+      "not_started": 3,
+      "in_progress": 3,
       "hold": 12,
       "verified": 0,
       "deferred": 0,
@@ -140,8 +142,8 @@
       "issues_closed": 4,
       "issues_open": 0,
       "total": 21,
-      "not_started": 5,
-      "in_progress": 8,
+      "not_started": 4,
+      "in_progress": 9,
       "hold": 7,
       "verified": 1,
       "deferred": 0,
@@ -306,8 +308,8 @@
       "issues_closed": 4,
       "issues_open": 0,
       "total": 9,
-      "not_started": 7,
-      "in_progress": 0,
+      "not_started": 4,
+      "in_progress": 3,
       "hold": 2,
       "verified": 0,
       "deferred": 0,
@@ -511,12 +513,12 @@
       "issues_closed": 5,
       "issues_open": 0,
       "total": 35,
-      "not_started": 23,
-      "in_progress": 9,
-      "hold": 3,
+      "not_started": 17,
+      "in_progress": 14,
+      "hold": 4,
       "verified": 0,
       "deferred": 0,
-      "open": 32,
+      "open": 31,
       "done": 0,
       "phase": "P5"
     },
@@ -579,12 +581,12 @@
       "issues_closed": 6,
       "issues_open": 0,
       "total": 19,
-      "not_started": 13,
-      "in_progress": 5,
-      "hold": 1,
+      "not_started": 9,
+      "in_progress": 8,
+      "hold": 2,
       "verified": 0,
       "deferred": 0,
-      "open": 18,
+      "open": 17,
       "done": 0,
       "phase": "P5"
     },
@@ -602,8 +604,8 @@
       "issues_closed": 5,
       "issues_open": 0,
       "total": 4,
-      "not_started": 4,
-      "in_progress": 0,
+      "not_started": 3,
+      "in_progress": 1,
       "hold": 0,
       "verified": 0,
       "deferred": 0,
@@ -679,9 +681,11 @@
         132,
         133,
         134,
-        135
+        135,
+        143,
+        144
       ],
-      "issues_closed": 12,
+      "issues_closed": 14,
       "issues_open": 3,
       "total": 3,
       "not_started": 1,
@@ -756,13 +760,15 @@
       "state": "IN_PROGRESS",
       "issues": [
         140,
-        141
+        141,
+        147,
+        148
       ],
       "issues_closed": 0,
-      "issues_open": 2,
+      "issues_open": 4,
       "total": 8,
-      "not_started": 6,
-      "in_progress": 1,
+      "not_started": 3,
+      "in_progress": 4,
       "hold": 0,
       "verified": 1,
       "deferred": 0,
@@ -827,8 +833,8 @@
       "slice_inprog": 0
     },
     {
-      "not_started": 14,
-      "in_progress": 6,
+      "not_started": 13,
+      "in_progress": 7,
       "hold": 46,
       "verified": 1,
       "deferred": 0,
@@ -853,8 +859,8 @@
       "slice_inprog": 0
     },
     {
-      "not_started": 11,
-      "in_progress": 0,
+      "not_started": 8,
+      "in_progress": 3,
       "hold": 5,
       "verified": 0,
       "deferred": 0,
@@ -895,13 +901,13 @@
       "slice_inprog": 1
     },
     {
-      "not_started": 24,
-      "in_progress": 21,
-      "hold": 7,
+      "not_started": 17,
+      "in_progress": 26,
+      "hold": 9,
       "verified": 5,
       "deferred": 0,
       "total": 57,
-      "open": 45,
+      "open": 43,
       "done": 5,
       "code": "P5",
       "name": "风控与实盘",
@@ -922,8 +928,8 @@
       "slice_inprog": 3
     },
     {
-      "not_started": 6,
-      "in_progress": 0,
+      "not_started": 5,
+      "in_progress": 1,
       "hold": 4,
       "verified": 3,
       "deferred": 0,
@@ -983,8 +989,8 @@
       "slice_inprog": 0
     },
     {
-      "not_started": 14,
-      "in_progress": 6,
+      "not_started": 13,
+      "in_progress": 7,
       "hold": 46,
       "verified": 1,
       "deferred": 0,
@@ -1009,8 +1015,8 @@
       "slice_inprog": 0
     },
     {
-      "not_started": 11,
-      "in_progress": 0,
+      "not_started": 8,
+      "in_progress": 3,
       "hold": 5,
       "verified": 0,
       "deferred": 0,
@@ -1051,13 +1057,13 @@
       "slice_inprog": 1
     },
     {
-      "not_started": 24,
-      "in_progress": 21,
-      "hold": 7,
+      "not_started": 17,
+      "in_progress": 26,
+      "hold": 9,
       "verified": 5,
       "deferred": 0,
       "total": 57,
-      "open": 45,
+      "open": 43,
       "done": 5,
       "code": "P5",
       "name": "风控与实盘",
@@ -1078,8 +1084,8 @@
       "slice_inprog": 3
     },
     {
-      "not_started": 6,
-      "in_progress": 0,
+      "not_started": 5,
+      "in_progress": 1,
       "hold": 4,
       "verified": 3,
       "deferred": 0,
@@ -1165,8 +1171,8 @@
       "slice_inprog": 0
     },
     {
-      "not_started": 6,
-      "in_progress": 1,
+      "not_started": 4,
+      "in_progress": 3,
       "hold": 5,
       "verified": 0,
       "deferred": 0,
@@ -1207,13 +1213,13 @@
       "slice_inprog": 1
     },
     {
-      "not_started": 35,
-      "in_progress": 29,
-      "hold": 15,
+      "not_started": 28,
+      "in_progress": 34,
+      "hold": 17,
       "verified": 6,
       "deferred": 0,
       "total": 85,
-      "open": 64,
+      "open": 62,
       "done": 6,
       "code": "P5",
       "name": "风控与实盘",
@@ -1234,8 +1240,8 @@
       "slice_inprog": 3
     },
     {
-      "not_started": 9,
-      "in_progress": 6,
+      "not_started": 6,
+      "in_progress": 9,
       "hold": 5,
       "verified": 6,
       "deferred": 0,
@@ -1277,8 +1283,8 @@
     {
       "id": "FR",
       "name": "功能需求",
-      "not_started": 17,
-      "in_progress": 11,
+      "not_started": 12,
+      "in_progress": 16,
       "hold": 37,
       "verified": 13,
       "deferred": 3,
@@ -1289,13 +1295,13 @@
     {
       "id": "AC",
       "name": "验收准则",
-      "not_started": 22,
-      "in_progress": 17,
-      "hold": 18,
+      "not_started": 15,
+      "in_progress": 22,
+      "hold": 20,
       "verified": 10,
       "deferred": 0,
       "total": 67,
-      "open": 39,
+      "open": 37,
       "done": 10
     },
     {
@@ -1362,15 +1368,15 @@
   "owners": [
     {
       "id": "kaiqiangh",
-      "total": 125,
-      "open": 11,
-      "closed": 114
+      "total": 128,
+      "open": 12,
+      "closed": 116
     },
     {
       "id": "unassigned",
-      "total": 15,
-      "open": 2,
-      "closed": 13
+      "total": 18,
+      "open": 3,
+      "closed": 15
     }
   ],
   "areas": [
@@ -1408,13 +1414,13 @@
         "B8",
         "B9"
       ],
-      "not_started": 2,
+      "not_started": 0,
       "in_progress": 0,
-      "hold": 7,
+      "hold": 9,
       "verified": 0,
       "deferred": 0,
       "total": 9,
-      "open": 2,
+      "open": 0,
       "done": 0
     },
     {
@@ -1464,13 +1470,13 @@
         "E3",
         "E4"
       ],
-      "not_started": 1,
+      "not_started": 0,
       "in_progress": 2,
-      "hold": 1,
+      "hold": 2,
       "verified": 0,
       "deferred": 0,
       "total": 4,
-      "open": 3,
+      "open": 2,
       "done": 0
     },
     {
@@ -1490,13 +1496,13 @@
         "F11",
         "F12"
       ],
-      "not_started": 5,
-      "in_progress": 3,
-      "hold": 4,
+      "not_started": 0,
+      "in_progress": 0,
+      "hold": 12,
       "verified": 0,
       "deferred": 0,
       "total": 12,
-      "open": 8,
+      "open": 0,
       "done": 0
     },
     {
@@ -1509,13 +1515,13 @@
         "G4",
         "G5"
       ],
-      "not_started": 3,
+      "not_started": 0,
       "in_progress": 0,
-      "hold": 2,
+      "hold": 5,
       "verified": 0,
       "deferred": 0,
       "total": 5,
-      "open": 3,
+      "open": 0,
       "done": 0
     },
     {
@@ -1529,13 +1535,13 @@
         "H5",
         "H6"
       ],
-      "not_started": 2,
+      "not_started": 0,
       "in_progress": 0,
-      "hold": 4,
+      "hold": 6,
       "verified": 0,
       "deferred": 0,
       "total": 6,
-      "open": 2,
+      "open": 0,
       "done": 0
     },
     {
@@ -1590,12 +1596,12 @@
         "K7"
       ],
       "not_started": 1,
-      "in_progress": 4,
-      "hold": 2,
+      "in_progress": 3,
+      "hold": 3,
       "verified": 0,
       "deferred": 0,
       "total": 7,
-      "open": 5,
+      "open": 4,
       "done": 0
     },
     {
@@ -1616,13 +1622,13 @@
         "QA-12",
         "QA-13"
       ],
-      "not_started": 7,
-      "in_progress": 2,
-      "hold": 4,
+      "not_started": 0,
+      "in_progress": 0,
+      "hold": 13,
       "verified": 0,
       "deferred": 0,
       "total": 13,
-      "open": 9,
+      "open": 0,
       "done": 0
     }
   ],
@@ -1741,7 +1747,7 @@
     },
     {
       "id": "FR-019",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S13"
       ],
@@ -1782,7 +1788,7 @@
     },
     {
       "id": "FR-027",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S22"
       ],
@@ -1957,7 +1963,7 @@
     },
     {
       "id": "FR-061",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S22",
         "S25"
@@ -2038,7 +2044,7 @@
     },
     {
       "id": "FR-076",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S25"
       ],
@@ -2062,7 +2068,7 @@
     },
     {
       "id": "FR-080",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S13"
       ],
@@ -2207,7 +2213,7 @@
     },
     {
       "id": "AC-022",
-      "status": "NOT_STARTED",
+      "status": "IMPLEMENTED_UNVERIFIED",
       "slices": [
         "S25"
       ],
@@ -2294,7 +2300,7 @@
     },
     {
       "id": "AC-034",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S22",
         "S25"
@@ -2330,7 +2336,7 @@
     },
     {
       "id": "AC-042",
-      "status": "NOT_STARTED",
+      "status": "IMPLEMENTED_UNVERIFIED",
       "slices": [
         "S22"
       ],
@@ -2437,7 +2443,7 @@
     },
     {
       "id": "AC-065",
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "slices": [
         "S13",
         "S22"
@@ -2745,14 +2751,6 @@
       "req": "Render structured financial timeline cards"
     },
     {
-      "id": "FR-019",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S13"
-      ],
-      "req": "Implement OrderProposal model"
-    },
-    {
       "id": "FR-021",
       "status": "NOT_STARTED",
       "slices": [
@@ -2776,14 +2774,6 @@
         "S22"
       ],
       "req": "Implement single-use live approval"
-    },
-    {
-      "id": "FR-027",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S22"
-      ],
-      "req": "Implement account-scoped live arming/disarming + global disable-all"
     },
     {
       "id": "FR-029",
@@ -2852,31 +2842,6 @@
       "req": "Implement complete live-approval market snapshot provenance"
     },
     {
-      "id": "FR-061",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S22",
-        "S25"
-      ],
-      "req": "Implement complete normalized order-state UI mapping including `RESERVED`"
-    },
-    {
-      "id": "FR-076",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S25"
-      ],
-      "req": "Implement evidence-based Manual Resolution for `UNKNOWN_RECONCILING`; no blind reservation release"
-    },
-    {
-      "id": "FR-080",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S13"
-      ],
-      "req": "Implement editable OrderDraft → immutable OrderProposal regeneration semantics"
-    },
-    {
       "id": "AC-003",
       "status": "NOT_STARTED",
       "slices": [
@@ -2937,14 +2902,6 @@
       "req": "Broker acknowledgement is never displayed as a fill unless broker state confirms fill."
     },
     {
-      "id": "AC-022",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S25"
-      ],
-      "req": "Ambiguous submission moves to `UNKNOWN_RECONCILING`."
-    },
-    {
       "id": "AC-023",
       "status": "NOT_STARTED",
       "slices": [
@@ -2995,23 +2952,6 @@
       "req": "An open live order can enter cancellation flow only after broker state refresh and transaction-specific user approval; UI represents `CANCEL_PENDING` and `CANCELLED`."
     },
     {
-      "id": "AC-034",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S22",
-        "S25"
-      ],
-      "req": "The UI represents deterministic `RISK_REJECTED`, broker `REJECTED`, approval `EXPIRED`, and `UNKNOWN_RECONCILING` states without implying successful execution."
-    },
-    {
-      "id": "AC-042",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S22"
-      ],
-      "req": "Live arming is account-scoped: arming Trading 212 does not arm Binance or Bitget; global Disable All disarms all live accounts."
-    },
-    {
       "id": "AC-043",
       "status": "NOT_STARTED",
       "slices": [
@@ -3019,15 +2959,6 @@
         "S22"
       ],
       "req": "Every live approval exposes complete market snapshot provenance defined by AC-008."
-    },
-    {
-      "id": "AC-065",
-      "status": "NOT_STARTED",
-      "slices": [
-        "S13",
-        "S22"
-      ],
-      "req": "Editing a generated order creates a new immutable `OrderProposal` identity and invalidates any approval tied to the prior proposal."
     },
     {
       "id": "NFR-009",
@@ -3116,7 +3047,7 @@
       "req": "Manual Resolution never presents an unsafe generic “release reservation and continue” action."
     }
   ],
-  "orphans_held": 83,
+  "orphans_held": 92,
   "matrix": {
     "S01": {
       "not_started": 0,
@@ -3143,16 +3074,16 @@
       "total": 13
     },
     "S04": {
-      "not_started": 4,
-      "in_progress": 2,
+      "not_started": 3,
+      "in_progress": 3,
       "hold": 12,
       "verified": 0,
       "deferred": 0,
       "total": 18
     },
     "S05": {
-      "not_started": 5,
-      "in_progress": 8,
+      "not_started": 4,
+      "in_progress": 9,
       "hold": 7,
       "verified": 1,
       "deferred": 0,
@@ -3215,8 +3146,8 @@
       "total": 5
     },
     "S13": {
-      "not_started": 7,
-      "in_progress": 0,
+      "not_started": 4,
+      "in_progress": 3,
       "hold": 2,
       "verified": 0,
       "deferred": 0,
@@ -3287,9 +3218,9 @@
       "total": 11
     },
     "S22": {
-      "not_started": 23,
-      "in_progress": 9,
-      "hold": 3,
+      "not_started": 17,
+      "in_progress": 14,
+      "hold": 4,
       "verified": 0,
       "deferred": 0,
       "total": 35
@@ -3311,16 +3242,16 @@
       "total": 18
     },
     "S25": {
-      "not_started": 13,
-      "in_progress": 5,
-      "hold": 1,
+      "not_started": 9,
+      "in_progress": 8,
+      "hold": 2,
       "verified": 0,
       "deferred": 0,
       "total": 19
     },
     "S26": {
-      "not_started": 4,
-      "in_progress": 0,
+      "not_started": 3,
+      "in_progress": 1,
       "hold": 0,
       "verified": 0,
       "deferred": 0,
@@ -3375,8 +3306,8 @@
       "total": 8
     },
     "S33": {
-      "not_started": 6,
-      "in_progress": 1,
+      "not_started": 3,
+      "in_progress": 4,
       "hold": 0,
       "verified": 1,
       "deferred": 0,
@@ -3401,5 +3332,5 @@
   },
   "phase_basis": "两套口径均为唯一归属：first = 最小切片号（引入阶段）；last = 最大切片号（收口阶段）",
   "slice_basis": "切片为映射计数口径（同一需求映射多切片时分别计入）；S06 为决策类切片，无直接映射的编号需求",
-  "snapshot_note": "S29 子票 #122–#133 已全部关闭（账户交易状态 #122、精确 Spot 规则与准入 #123、Hot 报价与连续深度 #124、Proposal 静态规则 #125、开放订单与容量输入 #126、精确账户时段订单额度 #127、Proposal 价格区间执行解释 #128、Spot Live PLACE 拥有方准入资格 #129、拥有方 Spot 费用陈述与真正所需执行 FX（S29.9 #130/#131）、精确标的佣金与条件扣费证据（S29.10 #132/#133））；父 Spec #121 保持 OPEN，状态仅到「源码已交付、父门禁未关」。S29.11 规格门控 #134 与其实现 #135 仍 OPEN（逐资产 Spot 金融计划与真实必需 FX）。P6 推进：S31 实现 #137 已关但规格门控 #136 仍 OPEN；S32 规格 #138 与实现 #139 均已关闭（切片可收口，其要求仍待 S33 全量回归与 OD-005/OD-006 授权）；S33 规格门控 #140 与实现 #141 均 OPEN（全局门禁）。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除；S33 全量交叉回归为需求 VERIFIED 的全局硬门禁。"
+  "snapshot_note": "S29 子票 #122–#133 已全部关闭（账户交易状态 #122、精确 Spot 规则与准入 #123、Hot 报价与连续深度 #124、Proposal 静态规则 #125、开放订单与容量输入 #126、精确账户时段订单额度 #127、Proposal 价格区间执行解释 #128、Spot Live PLACE 拥有方准入资格 #129、拥有方 Spot 费用陈述与真正所需执行 FX（S29.9 #130/#131）、精确标的佣金与条件扣费证据（S29.10 #132/#133））；S29.11 本地估值展示 #143/#144 已关闭。父 Spec #121 与 S29.11 门控 #134/#135 仍 OPEN（逐资产 Spot 金融计划与真实必需 FX）。P6 推进：S31 实现 #137 已关但规格门控 #136 仍 OPEN；S32 规格 #138 与实现 #139 均已关闭（切片可收口，其要求仍待 S33 全量回归与 OD-005/OD-006 授权）；S33 规格门控 #140/#141 与 B2 会话归档 #147/#148 均 OPEN（全局门禁范畴）。S28 子票 #118/#119/#120 已关闭，但 #116（Alpaca 报价与 Hot 订阅）与父 Spec #113/#115/#117 仍 OPEN。hosted Testnet #67/#72 系用户范围决定撤回，而非供应商验收。S17、物理 S27、S28、S29 门禁均未免除；S33 全量交叉回归为需求 VERIFIED 的全局硬门禁。"
 }
