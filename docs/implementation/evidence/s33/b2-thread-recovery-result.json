@@ -1,0 +1,204 @@
+{
+  "status": "PASS_LIMITED",
+  "verifiedAt": "2026-10-15T18:37:58.596Z",
+  "workspaceId": "bf4f787f-dd5a-454d-86ea-c8abf7c5a9f3",
+  "threadId": "603a5aa3-7114-4dc4-8555-1eb964785d44",
+  "observations": [
+    {
+      "scope": "history",
+      "phase": "loading",
+      "width": 1280,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "failed",
+      "width": 1280,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "retry",
+      "width": 1280,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "loading",
+      "width": 1280,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "failed",
+      "width": 1280,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "retry",
+      "width": 1280,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "loading",
+      "width": 768,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "failed",
+      "width": 768,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "retry",
+      "width": 768,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "loading",
+      "width": 768,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "failed",
+      "width": 768,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "retry",
+      "width": 768,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "loading",
+      "width": 390,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "failed",
+      "width": 390,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "history",
+      "phase": "retry",
+      "width": 390,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "loading",
+      "width": 390,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "failed",
+      "width": 390,
+      "reachable": true,
+      "documentOverflow": false
+    },
+    {
+      "scope": "resume",
+      "phase": "retry",
+      "width": 390,
+      "reachable": true,
+      "documentOverflow": false
+    }
+  ],
+  "intercepted": [
+    {
+      "target": "history",
+      "command": "thread.list"
+    },
+    {
+      "target": "resume",
+      "command": "domain.snapshot"
+    },
+    {
+      "target": "history",
+      "command": "thread.list"
+    },
+    {
+      "target": "resume",
+      "command": "domain.snapshot"
+    },
+    {
+      "target": "history",
+      "command": "thread.list"
+    },
+    {
+      "target": "resume",
+      "command": "domain.snapshot"
+    }
+  ],
+  "expectedTransportErrors": 6,
+  "savedThreadUnchanged": true,
+  "commandCounts": {
+    "workspace.open": 3,
+    "domain.snapshot": 12,
+    "domain.subscribe": 12,
+    "runtime.status": 6,
+    "thread.list": 3,
+    "thread.get": 1,
+    "time.status": 0,
+    "provider.list_definitions": 0,
+    "context.catalog": 9,
+    "account.list": 9,
+    "account.activity": 3,
+    "agent.capabilities": 9
+  },
+  "unexpectedConsoleErrors": [],
+  "pageErrors": [],
+  "externalRequests": [],
+  "limits": "Read transport delay/abort only; real Rust data after retry. No actual storage failure, populated ARCHIVED/Saved, native accessibility or complete S33 acceptance.",
+  "baseline": "f25c6fcf717eb841c415e3ad58c8963f40d9acfb",
+  "preparation": [
+    {
+      "attempt": "first",
+      "outcome": "Excluded: invalid test setup used unsupported RESEARCH_ONLY context. Replaced with UI creation and canonical Context Picker selection."
+    },
+    {
+      "attempt": "second",
+      "outcome": "Excluded: narrow read-only command allowlist omitted context.catalog, account.list, account.activity and agent.capabilities. Added only these existing public read commands; no application change."
+    }
+  ],
+  "checks": {
+    "nodeSyntax": "PASS",
+    "typecheck": "PASS",
+    "traceability": "203 requirements; 70 screens; 13 QA; 23 baseline files",
+    "diffCheck": "PASS",
+    "fullSuite": "Not rerun for this browser-test-only slice; earlier full suite remains pinned at 1ccb38f",
+    "productionChanges": "None"
+  },
+  "sha256": {
+    "tests/s33-thread-recovery-ui.mjs": "cdec960f5955dfb38f8f9cc02e2fe1b1b1140ff1b340b7cfad625c74fac50dc7",
+    "docs/implementation/evidence/s33/b2-history-transport-failed-390.png": "dfce738654a8005db8f66a7652111f03edaf1ec6e112aa916ea55f0d206e985e",
+    "docs/implementation/evidence/s33/b2-resume-transport-failed-390.png": "689f180b0624cfa75d3704b862f2262996cf1082b7253e2e7aa0cc0979156900"
+  }
+}

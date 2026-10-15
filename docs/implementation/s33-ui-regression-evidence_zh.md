@@ -354,3 +354,11 @@ G2 对 `c14ef06...1ccb38f`（含证据补充 `6cae59d`）完成独立串行审�
 受影响检查通过：integration 构建、脚本语法、受影响 Rust 格式、追踪、diff 检查、权限筛选 Rust 回归（6 项通过、1 项既有 ignored、零失败）及 `cargo clippy --workspace --all-targets`。保留 fixture dead code/type complexity 和 library 等警告，未笼统声称所有警告均未变化。此次仅测试 fixture 批次未重跑全套测试；此前结果仍独立绑定 `1ccb38f`。
 
 对 `3b00c6e...c768206` 的独立串行审查：本次声明的八场景切片 **Standards 零 finding；Spec 零可执行 finding**。审查核对仅集成测试可用的 HTTP producer 边界、字面权限 oracle、显式重测与保持 DISARMED、八个隔离工作区、24 项布局观察、源码/截图哈希、双语一致性及保留限制。审查只读，不构成另一次运行验证。A3 与 #141 继续开放。
+
+## B2 读取传输加载、失败与重试 — 2026-10-15
+
+固定基线 `f25c6fc`。在 `2026-10-15T18:37:58.596Z`，`tests/s33-thread-recovery-ui.mjs` 延迟后中断历史列表和准确所选 Thread 快照的读取传输，再通过键盘重试读取真实 Rust 数据。隔离新工作区内通过 UI 创建 Research Thread，Context Picker 选择规范 MSFT。1280/768/390 的十八项加载、失败、重试观察均确保状态及恢复操作可达、无文档级横向溢出。重试恢复准确标题、模式、规范上下文与空时间线；公开 Thread 完整前后记录一致。成功恢复后可返回 New Thread。命令白名单排除 provider 刷新/连接、模型操作、Turn 启动/重试及金融变更。六次主动中断产生六条预期浏览器网络诊断；非预期 console/page 错误、外部 HTTP 均为零。
+
+[机器收据、准备限制与哈希](evidence/s33/b2-thread-recovery-result.json)；[历史读取失败](evidence/s33/b2-history-transport-failed-390.png)；[恢复读取失败](evidence/s33/b2-resume-transport-failed-390.png)。这是传输层 UI 证据，不证明真实存储故障或原生辅助功能。没有修改应用实现，也不声明发现产品 RED。Node 语法、类型、追溯及 diff 检查通过；本批未重跑完整 Rust 套件或构建。
+
+B2 保持 IMPLEMENTED_UNVERIFIED。已填充 ARCHIVED/Saved 仍开放：wire 类型和展示分支存在，但当前公开命令目录没有归档操作。本次未注入可信 Thread 行或伪造已保存历史。完整 S33/native 与上游运行时恢复继续作为独立门禁开放。
