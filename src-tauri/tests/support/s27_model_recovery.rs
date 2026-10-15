@@ -140,6 +140,17 @@ fn s27_begin_model_turn(
 
 #[test]
 fn s27_model_failure_preserves_live_authority_and_reconciliation() {
+    // This state-heavy lifecycle scenario exceeds libtest's default 2 MiB worker stack.
+    std::thread::Builder::new()
+        .name("s27-model-recovery".into())
+        .stack_size(4 * 1024 * 1024)
+        .spawn(s27_model_failure_preserves_live_authority_and_reconciliation_inner)
+        .expect("spawn S27 recovery test with a bounded larger stack")
+        .join()
+        .expect("S27 recovery test thread must not panic");
+}
+
+fn s27_model_failure_preserves_live_authority_and_reconciliation_inner() {
     use gateway::GatewayStatus;
 
     for (status, code, category) in [
