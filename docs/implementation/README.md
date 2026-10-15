@@ -1,6 +1,6 @@
 # TradeX RevC 需求清单与串行实现方案
 
-当前串行工作：S29.11 [完整 Spot 逐资产金融计划与真实必需 FX](s29-owning-financial-plan-spec_zh.md)，配对规范 #134 与实现票 #135 均保持 OPEN。用户明确没有可提供的数据使用依据并要求跳过该资料收集；AC1 仍未完成，不推断许可或 entitlement。AC2、AC3、AC4、AC8 已核对；当前依序处理 AC5，其余 AC 保持待验收。仅使用符合票据约束的本地合成来源与公开接缝，不执行真实金融操作或 provider 集成；所有其他 map/release 门禁仍独立开放。
+当前串行工作：S29.11 [完整 Spot 逐资产金融计划与真实必需 FX](s29-owning-financial-plan-spec_zh.md)，配对规范 #134 与实现票 #135 均保持 OPEN。AC5按用户决定仅豁免排序、未验收；当前验收焦点为 AC6 的公开生产者到 Prepare 路径。已核验固定版本 Binance Spot API 佣金 FAQ：成交前模型可覆盖收到资产扣费与符合条件的 BNB 扣费分支，实际 `commissionAsset` 仍只能由成交记录确认；RevC 基线文档不变。用户要求跳过的数据使用依据仍使 AC1 未完成，不推断许可或 entitlement，也不伪造权利。不得执行真实金融操作或 provider 集成；所有其他 map/release 门禁仍独立开放。
 
 2026-10-14 S33 A1/A2/A4/A5/A6 onboarding 与 45 个主导航/Settings 组合在 1280/768/390 的隔离 Rust-backed 工作区通过，共 60 组视口观察；A5 安全默认值仅显式保存一次，A6 使用 integration-test-only 合成模型/gateway fixture 并通过 UI 完成。外部 HTTP 为零，page/console errors 为零；warnings 未监测。A2/A4 passive UI、A5/A6 synthetic evidence 不证明真实 Provider 或模型 readiness；A3、真实集成、完整 S33 与 VoiceOver 门禁仍开放；[双语证据](s33-ui-regression-evidence.md) · [机器结果](evidence/s33/primary-pages-result.json)。
 

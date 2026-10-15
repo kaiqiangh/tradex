@@ -55,3 +55,9 @@ Binance 官方 `account.commission` 响应包含当前 standard、tax、special 
 这些官方页面确定了一般条件性规则，也限定了普通情形的模型分支；但它们不能确定未来成交的唯一实际币种/金额，不能保证账户BNB设置或余额一直保持到执行时，也不是账户专属协议，更不能验证任何Alpaca/来源使用权。它们支持方案中的`UNKNOWN_UNTIL_FILL`结算结果和条件性当前估算；仅凭这些页面并未自动采纳当前owning plan拒绝门禁的变更。
 
 用户已于2026-10-15决定采用上述S29.11有界条件契约。验收勾选仍须等待实现证据通过。AC5第二次读取流程已豁免；AC6公开生产者到Prepare证据仍待完成，且不得伪造source-use权限。未修改RevC基线文档或source-use状态。
+
+## 已核验 Binance Spot API 收费资产证据 — 2026-10-15
+
+仓库引用的固定版本[Binance Spot 官方佣金 FAQ](https://github.com/binance/binance-spot-api-docs/blob/263ac1aa96556af0b4da824c82a1d8cd9a0edda9/faqs/commission_faq.md)明确给出收费资产分支：关闭BNB支付时，standard、tax、special三族费用合计后从收到的资产扣除；账户和标的均启用折扣且BNB余额充足时，这三族费用会换算为BNB，其中折扣只减少standard，不减少tax或special；BNB不足时，全部费用从收到的资产扣除。固定版本的[Spot REST 契约](https://github.com/binance/binance-spot-api-docs/blob/263ac1aa96556af0b4da824c82a1d8cd9a0edda9/rest-api.md#account-trade-list-user_data)说明，`GET /api/v3/myTrades`会为每笔已实现成交返回`commission`和`commissionAsset`。
+
+这份 Binance 一手 API 证据确认了成交前估算可覆盖的通用分支，支持已批准的条件费用估算；它不能提前确定未来某笔成交的唯一币种或金额。实际`commissionAsset`须以成交后交易记录为准。继续保留`UNKNOWN_UNTIL_FILL`、条件估算和偏差冻结，不修改任何 RevC 基线文档。用户已要求跳过的数据使用依据仍未解决；在所有独立门禁都有有效证据之前，公开正向 Prepare 与 AC6 仍未验收。
