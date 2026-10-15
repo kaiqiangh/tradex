@@ -1831,7 +1831,7 @@ TradeX 维护 `TimeService` 用于 quote age、approval TTL、reconciliation win
 
 TradeX 不应假定本地缓存市场数据即自动获得再分发权利。
 
-版本化的本地 source-use policy 可以基于用户报告的账户计划、法域、协议复核日期、用途范围和原始数据去向，评估有界的本地用途。该评估必须与 provider entitlement 分离：用户声明或本地政策支持的用途不得将市场数据权利设置为 `VERIFIED`，也不得授权再分发。在适用 provider entitlement 和允许的下游用途得到独立证明前，原始 provider 数据必须留在本地。
+版本化的本地 source-use policy 可以基于用户报告的账户计划、法域、协议复核日期、用途范围和原始数据去向，评估有界的本地用途。该评估必须与 provider entitlement 分离：用户报告的事实和本地政策支持的用途本身不能证明 provider 权利，也不能授权再分发。用户可通过单独、明确的 Control Plane 确认，将 `FX_DATA_USE_RIGHTS=VERIFIED` 记录为 `USER_ATTESTED_LOCAL_ONLY`，并绑定准确的 workspace、Alpaca Paper 账户、dataset/location、`POLICY_VALUATION` 用途及 `LOCAL_ONLY` 去向。界面必须标明“由你确认”，这不是 Alpaca 独立验证，也不授予共享、商业、model/tool 传输、导出、交易 FX、费用/资金、交易、审批、Arm、Prepare 或执行权限。任一绑定来源或上下文变化时，该确认失效。原始 provider 数据必须留在本地；任何更广或外部用途仍需独立证明适用的 provider entitlement 和允许的下游用途。
 
 当provider未发布支持法域清单并指引用户联系Support时，本地policy可以要求用户报告带日期和reference、且对应准确账户法域的确认。逐国确认仍与市场数据权利分离，也不构成provider entitlement。
 

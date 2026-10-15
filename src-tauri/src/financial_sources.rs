@@ -488,11 +488,94 @@ fn capability(
     status: DataSourceStatus,
     reason: &str,
 ) -> FinancialEvidenceCapabilityResult {
+    capability_with_status(capability, status.into(), reason)
+}
+
+fn capability_with_status(
+    capability: Capability,
+    status: crate::protocol::FinancialEvidenceCapabilityStatus,
+    reason: &str,
+) -> FinancialEvidenceCapabilityResult {
     FinancialEvidenceCapabilityResult {
         capability,
         status,
         reason: reason.into(),
     }
+}
+
+impl From<DataSourceStatus> for crate::protocol::FinancialEvidenceCapabilityStatus {
+    fn from(status: DataSourceStatus) -> Self {
+        use crate::protocol::FinancialEvidenceCapabilityStatus as CapabilityStatus;
+        match status {
+            DataSourceStatus::Available => CapabilityStatus::Available,
+            DataSourceStatus::Unavailable => CapabilityStatus::Unavailable,
+            DataSourceStatus::BlockedExternal => CapabilityStatus::BlockedExternal,
+            DataSourceStatus::Unverified => CapabilityStatus::Unverified,
+        }
+    }
+}
+
+const FX_LOCAL_USE_ATTESTATION_POLICY_VERSION: &str = "ALPACA_LOCAL_POLICY_VALUATION_V1";
+
+fn fx_local_use_binding_version(
+    workspace: &str,
+    connection_id: &str,
+    remote_account_id: &str,
+    crypto_location: Option<crate::protocol::AlpacaCryptoLocation>,
+    source_use_context: Option<&crate::protocol::FxSourceUseContext>,
+) -> Result<String> {
+    hash(&json!([
+        FX_LOCAL_USE_ATTESTATION_POLICY_VERSION,
+        workspace,
+        "OD-005",
+        "alpaca",
+        "PAPER",
+        connection_id,
+        remote_account_id,
+        crate::protocol::FxLocalUseDatasetProfile::AlpacaForexRatesAndConfiguredCryptoQuotes,
+        crypto_location,
+        source_use_context,
+        crate::protocol::FxLocalUseAttestationPurpose::PolicyValuation,
+        crate::protocol::FxRawDataDestination::LocalOnly
+    ]))
+}
+
+fn current_fx_local_use_attestation(
+    saved: &SavedFinancialSource,
+    workspace: &str,
+    account: Option<&AccountConnection>,
+) -> Option<crate::protocol::FxLocalUseAttestation> {
+    use crate::protocol::{
+        FinancialSourceKind, FxDeclaredUseScope, FxLocalUseAttestationPurpose, FxRawDataDestination,
+    };
+    let attestation = saved.local_use_attestation.as_ref()?;
+    let connection_id = saved.connection_id.as_deref()?;
+    let account = account?;
+    if !FinancialSourceKind::Fx.eligible(account)
+        || account.connection_id != connection_id
+        || saved.source_use_context.as_ref().is_some_and(|context| {
+            context.use_scope != FxDeclaredUseScope::OwnLocalNoncommercial
+                || context.raw_data_destination != FxRawDataDestination::LocalOnly
+        })
+    {
+        return None;
+    }
+    let remote_account_id = &account.data.as_ref()?.remote_account_id;
+    let expected_binding = fx_local_use_binding_version(
+        workspace,
+        connection_id,
+        remote_account_id,
+        saved.crypto_location,
+        saved.source_use_context.as_ref(),
+    )
+    .ok()?;
+    (attestation.connection_id == connection_id
+        && attestation.remote_account_id == *remote_account_id
+        && attestation.crypto_location == saved.crypto_location
+        && attestation.purpose == FxLocalUseAttestationPurpose::PolicyValuation
+        && attestation.raw_data_destination == FxRawDataDestination::LocalOnly
+        && attestation.binding_version == expected_binding)
+        .then(|| attestation.clone())
 }
 
 impl FinancialSourceKind {
@@ -539,6 +622,8 @@ pub(crate) struct SavedFinancialSource {
     pub crypto_location: Option<crate::protocol::AlpacaCryptoLocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_use_context: Option<crate::protocol::FxSourceUseContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_use_attestation: Option<crate::protocol::FxLocalUseAttestation>,
 }
 impl Default for SavedFinancialSource {
     fn default() -> Self {
@@ -548,6 +633,7 @@ impl Default for SavedFinancialSource {
             instrument_id: None,
             crypto_location: None,
             source_use_context: None,
+            local_use_attestation: None,
         }
     }
 }
@@ -574,12 +660,38 @@ impl SavedFinancialSource {
                 && (kind != FinancialSourceKind::Fx || self.connection_id.is_none()))
             || (self.source_use_context.is_some()
                 && (kind != FinancialSourceKind::Fx || self.connection_id.is_none()))
+            || (self.local_use_attestation.is_some()
+                && (kind != FinancialSourceKind::Fx || self.connection_id.is_none()))
         {
             return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
         }
         if let Some(context) = &self.source_use_context {
             validate_source_use_context(context)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        }
+        if let Some(attestation) = &self.local_use_attestation {
+            if attestation.source_id != "OD-005"
+                || attestation.provider_id != "alpaca"
+                || self.connection_id.as_deref() != Some(attestation.connection_id.as_str())
+                || self.crypto_location != attestation.crypto_location
+                || attestation.dataset_profile
+                    != crate::protocol::FxLocalUseDatasetProfile::AlpacaForexRatesAndConfiguredCryptoQuotes
+                || attestation.purpose
+                    != crate::protocol::FxLocalUseAttestationPurpose::PolicyValuation
+                || attestation.raw_data_destination
+                    != crate::protocol::FxRawDataDestination::LocalOnly
+                || self.source_use_context.as_ref().is_some_and(|context| {
+                    context.use_scope != crate::protocol::FxDeclaredUseScope::OwnLocalNoncommercial
+                        || context.raw_data_destination
+                            != crate::protocol::FxRawDataDestination::LocalOnly
+                })
+                || attestation.binding_version.len() != 64
+                || !attestation.binding_version.bytes().all(|byte| byte.is_ascii_hexdigit())
+                || timestamp(&attestation.confirmed_at).is_err()
+                || !crate::valid_bounded_text(&attestation.remote_account_id, 128)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
         }
         Ok(())
     }
@@ -721,6 +833,7 @@ fn assess_fx_source_use(
         context,
         documents,
         supported_purposes,
+        local_use_attestation: None,
         reason,
     }
 }
@@ -733,11 +846,26 @@ pub(crate) fn connection(
     control.require_workspace(workspace)?;
     let store = control.store.as_ref().unwrap();
     let saved = store.financial_source(kind)?;
-    let usable = saved.connection_id.as_ref().is_none_or(|id| {
-        store
-            .account(id)
-            .is_ok_and(|account| kind.eligible(&account))
-    });
+    let selected_account = saved
+        .connection_id
+        .as_ref()
+        .and_then(|id| store.account(id).ok());
+    let usable = saved.connection_id.is_none()
+        || selected_account
+            .as_ref()
+            .is_some_and(|account| kind.eligible(account));
+    let local_use_attestation = if kind == FinancialSourceKind::Fx {
+        current_fx_local_use_attestation(&saved, workspace, selected_account.as_ref())
+    } else {
+        None
+    };
+    let source_use_assessment = if kind == FinancialSourceKind::Fx {
+        let mut assessment = assess_fx_source_use(saved.source_use_context.clone());
+        assessment.local_use_attestation = local_use_attestation.clone();
+        Some(assessment)
+    } else {
+        None
+    };
     let now = control.time.status(workspace)?;
     let runtime = &control.financial_source_runtime;
     let observation = runtime.observations.get(&kind);
@@ -842,11 +970,7 @@ pub(crate) fn connection(
         } else {
             None
         },
-        source_use_assessment: if kind == FinancialSourceKind::Fx {
-            Some(assess_fx_source_use(saved.source_use_context.clone()))
-        } else {
-            None
-        },
+        source_use_assessment,
         environment: kind.environment().into(),
         status: status.clone(),
         availability_reason: reason.into(),
@@ -917,10 +1041,18 @@ pub(crate) fn connection(
                     DataSourceStatus::Unverified,
                     "Currency rates cannot establish complete account monetary inputs.",
                 ),
-                capability(
+                capability_with_status(
                     Capability::FxDataUseRights,
-                    DataSourceStatus::Unverified,
-                    "The source-use policy assessment uses user-reported provider UI facts and cannot verify market-data entitlement; this capability remains unverified.",
+                    if local_use_attestation.is_some() {
+                        crate::protocol::FinancialEvidenceCapabilityStatus::Verified
+                    } else {
+                        crate::protocol::FinancialEvidenceCapabilityStatus::Unverified
+                    },
+                    if local_use_attestation.is_some() {
+                        "The user confirmed this exact Alpaca source profile for local POLICY_VALUATION only. This is not independent provider verification or transaction-grade entitlement."
+                    } else {
+                        "No current user attestation is bound to this exact local source profile; provider entitlement and permitted external use remain unverified."
+                    },
                 ),
             ]
         } else if kind == FinancialSourceKind::BrokerInstruments {
@@ -1073,6 +1205,9 @@ pub(crate) fn metadata(
     if !provider_order_consumer_allowed(consumer) {
         return Err(TradeXError::new("IPC_ACCESS_DENIED"));
     }
+    if request.command == "data.fx.attest_local_use" {
+        return attest_local_fx_use(control, request);
+    }
     let kind = match request.command.split('.').nth(1) {
         Some("actions") => FinancialSourceKind::CorporateActions,
         Some("instrument") => FinancialSourceKind::BrokerInstruments,
@@ -1150,10 +1285,83 @@ pub(crate) fn metadata(
     saved.instrument_id = mutation.instrument_id;
     saved.crypto_location = mutation.crypto_location;
     saved.source_use_context = mutation.source_use_context;
+    // A saved source-profile change always retires the prior user attestation.
+    saved.local_use_attestation = None;
     store.save_financial_source(kind, saved)?;
     control.financial_source_runtime.observations.remove(&kind);
     control.financial_source_runtime.failures.remove(&kind);
     let source = connection(control, &mutation.workspace_id, kind)?;
+    Ok((json!(source), Some(source.state_version)))
+}
+
+fn attest_local_fx_use(
+    control: &mut ControlPlane,
+    request: CommandEnvelope,
+) -> Result<(Value, Option<String>)> {
+    use crate::protocol::{
+        FinancialSourceKind, FxDeclaredUseScope, FxLocalUseAttestation,
+        FxLocalUseAttestationProvenance, FxLocalUseAttestationPurpose, FxLocalUseDatasetProfile,
+        FxRawDataDestination,
+    };
+    let input: crate::protocol::FxLocalUseAttestationCommand = payload(request.payload)?;
+    if !input.confirm_local_policy_valuation_only {
+        return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+    }
+    control.require_workspace(&input.workspace_id)?;
+    let store = control.store.as_mut().ok_or_else(invalid)?;
+    let mut saved = store.financial_source(FinancialSourceKind::Fx)?;
+    if saved.version(FinancialSourceKind::Fx, &input.workspace_id) != input.expected_state_version {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let connection_id = saved
+        .connection_id
+        .clone()
+        .ok_or_else(|| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+    let account = store.account(&connection_id)?;
+    if !FinancialSourceKind::Fx.eligible(&account)
+        || saved.source_use_context.as_ref().is_some_and(|context| {
+            context.use_scope != FxDeclaredUseScope::OwnLocalNoncommercial
+                || context.raw_data_destination != FxRawDataDestination::LocalOnly
+        })
+    {
+        return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+    }
+    let remote_account_id = account
+        .data
+        .as_ref()
+        .map(|data| data.remote_account_id.clone())
+        .filter(|id| crate::valid_bounded_text(id, 128))
+        .ok_or_else(|| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+    let binding_version = fx_local_use_binding_version(
+        &input.workspace_id,
+        &connection_id,
+        &remote_account_id,
+        saved.crypto_location,
+        saved.source_use_context.as_ref(),
+    )?;
+    saved.local_use_attestation = Some(FxLocalUseAttestation {
+        provenance: FxLocalUseAttestationProvenance::UserAttestedLocalOnly,
+        source_id: "OD-005".into(),
+        provider_id: "alpaca".into(),
+        connection_id,
+        remote_account_id,
+        dataset_profile: FxLocalUseDatasetProfile::AlpacaForexRatesAndConfiguredCryptoQuotes,
+        crypto_location: saved.crypto_location,
+        purpose: FxLocalUseAttestationPurpose::PolicyValuation,
+        raw_data_destination: FxRawDataDestination::LocalOnly,
+        confirmed_at: crate::storage::timestamp()?,
+        binding_version,
+    });
+    store.save_financial_source(FinancialSourceKind::Fx, saved)?;
+    control
+        .financial_source_runtime
+        .observations
+        .remove(&FinancialSourceKind::Fx);
+    control
+        .financial_source_runtime
+        .failures
+        .remove(&FinancialSourceKind::Fx);
+    let source = connection(control, &input.workspace_id, FinancialSourceKind::Fx)?;
     Ok((json!(source), Some(source.state_version)))
 }
 

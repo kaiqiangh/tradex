@@ -799,6 +799,10 @@ dialog.picker-dialog:not([open]) { display: none; }
 .source-use-assessment ul { padding-left: 20px; }
 .source-use-assessment li { min-width: 0; overflow-wrap: anywhere; }
 .source-use-assessment code { display: block; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; word-break: break-all; }
+.local-use-attestation-confirmation { min-width: 0; margin-block: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.local-use-attestation-confirmation label { display: flex; align-items: flex-start; gap: 8px; }
+.local-use-attestation-confirmation input[type="checkbox"] { flex: 0 0 auto; margin-top: 3px; }
+.local-use-attestation-confirmation dd { overflow-wrap: anywhere; }
 
 .market-detail-container { min-width: 0; display: grid; gap: 1rem; }
 .hot-quote-status { overflow-wrap: anywhere; }

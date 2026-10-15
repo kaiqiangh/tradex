@@ -3487,10 +3487,20 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
         "data.fx.configure",
         json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"]}),
     );
+    let attested = command(
+        &mut control,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":saved["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(attested["ok"], true, "{attested}");
     let control = Arc::new(Mutex::new(control));
     let result = tradex::financial_sources::execute_refresh(
         &control,
-        &json!({"requestId":"intent-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"],"proposalId":proposal["data"]["proposalId"]}}),
+        &json!({"requestId":"intent-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":attested["data"]["stateVersion"],"proposalId":proposal["data"]["proposalId"]}}),
         "main",
         &vault,
         &http,
@@ -3535,6 +3545,20 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
     assert_eq!(
         review["data"]["currencyEvidence"]["source"]["evidence"], result["data"]["evidence"],
         "The immutable review must capture the original FX observation: {review}"
+    );
+    assert_eq!(
+        review["data"]["currencyEvidence"]["source"]["sourceUseAssessment"]["localUseAttestation"],
+        attested["data"]["sourceUseAssessment"]["localUseAttestation"],
+        "The immutable review must capture the original local-use attestation"
+    );
+    assert_eq!(
+        review["data"]["currencyEvidence"]["source"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "VERIFIED"
     );
     assert_eq!(review["data"]["eligible"], false);
     assert!(
@@ -4582,6 +4606,29 @@ fn usdt_usd_policy_valuation_accepts_inclusive_band_and_refuses_dislocation() {
         "UNVERIFIED",
         "Synthetic user-reported support can exercise policy only; it is not a rights grant"
     );
+    let attested = command(
+        &mut control.lock().unwrap(),
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":configured["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(attested["ok"], true, "{attested}");
+    let attestation_status = attested["data"]["capabilityStatuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+        .unwrap();
+    assert_eq!(attestation_status["status"], "VERIFIED", "{attested}");
+    assert!(
+        attestation_status["reason"]
+            .as_str()
+            .unwrap()
+            .contains("user")
+    );
 
     let cases = [
         ("0.99", "1.01", "QUALIFIED", None),
@@ -5138,5 +5185,191 @@ fn fx_source_use_policy_requires_matching_country_specific_support_evidence() {
             .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
             .unwrap()["status"],
         "UNVERIFIED"
+    );
+}
+
+#[test]
+fn fx_local_use_attestation_is_bound_persisted_and_limited_to_policy_valuation() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let initial = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let configured = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":initial["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"eu-1"
+        }),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    assert_eq!(
+        configured["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "Selecting an account and location must not attest use"
+    );
+
+    let unconfirmed = command(
+        &mut control,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":configured["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":false
+        }),
+    );
+    assert_eq!(
+        unconfirmed["ok"], false,
+        "An unchecked confirmation cannot be recorded"
+    );
+    assert_eq!(unconfirmed["error"]["code"], "IPC_PAYLOAD_INVALID");
+
+    let attested = command(
+        &mut control,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":configured["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(attested["ok"], true, "{attested}");
+    let capability = attested["data"]["capabilityStatuses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+        .unwrap();
+    assert_eq!(capability["status"], "VERIFIED", "{attested}");
+    assert!(capability["reason"].as_str().unwrap().contains("user"));
+    assert_eq!(
+        attested["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "TRANSACTION_FX_QUALIFICATION")
+            .unwrap()["status"],
+        "BLOCKED_EXTERNAL",
+        "Local attestation does not grant transaction FX"
+    );
+    let attestation = &attested["data"]["sourceUseAssessment"]["localUseAttestation"];
+    assert_eq!(attestation["provenance"], "USER_ATTESTED_LOCAL_ONLY");
+    assert_eq!(attestation["sourceId"], "OD-005");
+    assert_eq!(attestation["providerId"], "alpaca");
+    assert_eq!(attestation["connectionId"], account["connectionId"]);
+    assert_eq!(attestation["cryptoLocation"], "eu-1");
+    assert_eq!(attestation["purpose"], "POLICY_VALUATION");
+    assert_eq!(attestation["rawDataDestination"], "LOCAL_ONLY");
+    assert_eq!(
+        attestation["confirmedAt"].as_str().unwrap().len() >= 20,
+        true
+    );
+    assert_eq!(attestation["bindingVersion"].as_str().unwrap().len(), 64);
+
+    let stale = command(
+        &mut control,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":configured["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT");
+
+    drop(control);
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(
+        &mut reopened,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        restored["data"]["sourceUseAssessment"]["localUseAttestation"],
+        attestation.clone(),
+        "The current profile restores the exact user attestation"
+    );
+    assert_eq!(
+        restored["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "VERIFIED"
+    );
+
+    let changed = command(
+        &mut reopened,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":restored["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"us-1"
+        }),
+    );
+    assert_eq!(changed["ok"], true, "{changed}");
+    assert!(changed["data"]["sourceUseAssessment"]["localUseAttestation"].is_null());
+    assert_eq!(
+        changed["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "A changed dataset location retires the prior attestation"
+    );
+
+    let outside_scope = command(
+        &mut reopened,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":changed["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"us-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-11",
+                "useScope":"COMMERCIAL_OR_SHARED",
+                "rawDataDestination":"EXTERNAL"
+            }
+        }),
+    );
+    assert_eq!(outside_scope["ok"], true, "{outside_scope}");
+    let refused = command(
+        &mut reopened,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":outside_scope["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(
+        refused["ok"], false,
+        "An external profile cannot inherit local attestation: {refused}"
     );
 }

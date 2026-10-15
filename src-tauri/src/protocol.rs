@@ -520,6 +520,7 @@ pub struct IpcSchema {
     pub binance_rule_source_configure: BinanceRuleSourceConfigure,
     pub fx_requirements_query: FxRequirementsQuery,
     pub fx_source_refresh: FxSourceRefresh,
+    pub fx_local_use_attestation_command: FxLocalUseAttestationCommand,
     pub fx_requirements: FxRequirements,
     pub data_source_configure: DataSourceConfigure,
     pub data_source_mutation: DataSourceMutation,
@@ -2147,6 +2148,48 @@ pub enum FxSourceUseEvidenceProvenance {
     UserReportedProviderSupport,
 }
 
+/// Provenance for the deliberately narrow, user-confirmed local-use scope.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxLocalUseAttestationProvenance {
+    UserAttestedLocalOnly,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxLocalUseAttestationPurpose {
+    PolicyValuation,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxLocalUseDatasetProfile {
+    AlpacaForexRatesAndConfiguredCryptoQuotes,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxLocalUseAttestation {
+    pub provenance: FxLocalUseAttestationProvenance,
+    #[schemars(extend("const" = "OD-005"))]
+    pub source_id: String,
+    #[schemars(extend("const" = "alpaca"))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub remote_account_id: String,
+    pub dataset_profile: FxLocalUseDatasetProfile,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    pub purpose: FxLocalUseAttestationPurpose,
+    pub raw_data_destination: FxRawDataDestination,
+    #[schemars(length(min = 20, max = 64))]
+    pub confirmed_at: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub binding_version: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FxSourceUsePolicyDocument {
@@ -2172,6 +2215,8 @@ pub struct FxSourceUseAssessment {
     pub documents: Vec<FxSourceUsePolicyDocument>,
     #[schemars(length(max = 8))]
     pub supported_purposes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_use_attestation: Option<FxLocalUseAttestation>,
     #[schemars(length(min = 1, max = 512))]
     pub reason: String,
 }
@@ -2196,6 +2241,16 @@ pub struct FxSourceRefresh {
     #[serde(default)]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub proposal_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxLocalUseAttestationCommand {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub confirm_local_policy_valuation_only: bool,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2373,9 +2428,21 @@ pub enum FinancialEvidenceQuality {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FinancialEvidenceCapabilityResult {
     pub capability: FinancialEvidenceCapability,
-    pub status: DataSourceStatus,
+    pub status: FinancialEvidenceCapabilityStatus,
     #[schemars(length(min = 1, max = 512))]
     pub reason: String,
+}
+
+/// Capability status is separate from source connectivity so only a specific
+/// backend-derived capability can report a user-attested local verification.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialEvidenceCapabilityStatus {
+    Available,
+    Unavailable,
+    BlockedExternal,
+    Unverified,
+    Verified,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

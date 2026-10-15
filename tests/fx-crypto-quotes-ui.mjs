@@ -20,8 +20,8 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const assertJsonEqual = (actual, expected, message) => assert.deepEqual(JSON.parse(JSON.stringify(actual)), expected, message);
   const navigate = async name => {
     const target = ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('button', { name, exact: true });
-    if (!(await target.isVisible())) await ui.getByText('More', { exact: true }).press('Enter');
-    await target.press('Enter');
+    if (!(await target.isVisible())) await ui.getByText('More', { exact: true }).click();
+    await target.click();
     await tab.getAXState({ emit: false });
   };
   const bootstrap = await send('workspace.open', {});
@@ -37,10 +37,11 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   });
   const setupHeading = ui.getByRole('heading', { name: 'Create local workspace', exact: true });
   const workspaceHeading = ui.getByRole('heading', { name: 'Workspace', exact: true }).first();
-  await setupHeading.or(workspaceHeading).waitFor({ state: 'visible' });
+  if (!(await setupHeading.isVisible())) await ui.getByRole('button', { name: 'Workspace', exact: true }).click();
+  await setupHeading.waitFor({ state: 'visible' });
   if (await ui.getByRole('textbox', { name: 'Workspace name', exact: true }).isVisible()) {
     await ui.getByLabel('Local storage', { exact: true }).fill(workspace.path);
-    await ui.getByRole('button', { name: 'Open workspace', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: 'Open workspace', exact: true }).click();
   }
   await workspaceHeading.waitFor({ state: 'visible' });
   await tab.getAXState({ emit: false });
@@ -66,8 +67,8 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const reviewSyntheticAccount = async account => {
     if (account.connectionState !== 'REVIEW_REQUIRED') return account;
     await navigate('Accounts');
-    await ui.getByRole('button', { name: account.label, exact: false }).press('Enter');
-    await ui.getByRole('button', { name: 'Refresh account', exact: true }).press('Enter');
+    await ui.getByRole('button', { name: account.label, exact: false }).click();
+    await ui.getByRole('button', { name: 'Refresh account', exact: true }).click();
     let refreshed;
     for (let attempt = 0; attempt < 20; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -105,7 +106,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   ratesAccount = await reviewSyntheticAccount(ratesAccount);
   spotAccount = await reviewSyntheticAccount(spotAccount);
   await navigate('Order Drafts');
-  await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
+  await ui.getByRole('button', { name: 'New draft', exact: true }).click();
   await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('BINANCE_LIVE');
   await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(spotAccount.connectionId);
   await ui.getByRole('combobox', { name: 'Instrument', exact: true }).selectOption('crypto:BTC/USDT:spot');
@@ -115,9 +116,9 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   await ui.getByRole('textbox', { name: 'Quantity', exact: true }).fill('0.001');
   await ui.getByRole('textbox', { name: 'Limit price', exact: true }).fill('60000');
   await ui.getByRole('combobox', { name: 'Time in force', exact: true }).selectOption('GTC');
-  await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
+  await ui.getByRole('button', { name: 'Save draft', exact: true }).click();
   await ui.getByRole('status').filter({ hasText: 'Draft saved at version' }).waitFor({ state: 'visible' });
-  await ui.getByRole('button', { name: 'Generate proposal', exact: true }).press('Enter');
+  await ui.getByRole('button', { name: 'Generate proposal', exact: true }).click();
   await ui.getByRole('status').filter({ hasText: 'generated and requires approval' }).waitFor({ state: 'visible' });
   await tab.getAXState({ emit: false });
   const proposals = await send('trade.proposal.list', { workspaceId });
@@ -130,7 +131,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
     && route.providerPair === 'USDTUSD' && route.providerDataset === 'CRYPTO_LATEST_QUOTES'));
 
   await navigate('Settings');
-  await ui.getByRole('button', { name: 'Data & Storage', exact: true }).press('Enter');
+  await ui.getByRole('button', { name: 'Data & Storage', exact: true }).click();
   await ui.getByRole('heading', { name: 'Alpaca currency rates', exact: true }).waitFor({ state: 'visible' });
   const settings = ui.getByRole('region', { name: 'Alpaca currency rates', exact: true });
   const account = settings.getByRole('combobox', { name: 'Currency rates account', exact: true });
@@ -150,7 +151,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   await agreementReviewedAt.press('Tab');
   await settings.getByRole('combobox', { name: 'Declared use scope', exact: true }).selectOption('OWN_LOCAL_NONCOMMERCIAL');
   await settings.getByRole('combobox', { name: 'Raw market data destination', exact: true }).selectOption('LOCAL_ONLY');
-  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
+  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).click();
   await settings.getByText('Alpaca currency rates selection saved. Read access has not been verified.', { exact: true }).waitFor({ state: 'visible' });
   await tab.getAXState({ emit: false });
   assert.doesNotMatch(await settings.innerText(), /Save this selection before refreshing/, 'A saved source profile is not presented as an unsaved draft after the connection reloads');
@@ -174,7 +175,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const sourceUse = settings.getByRole('region', { name: 'Source-use assessment', exact: true });
   await sourceUse.getByText('Unresolved', { exact: true }).waitFor({ state: 'visible' });
   assert.match(await sourceUse.innerText(), /User-reported provider UI/);
-  assert.match(await sourceUse.innerText(), /rights remain unverified/i);
+  assert.match(await sourceUse.innerText(), /provider entitlement remains independently unverified/i);
   assert.match(await sourceUse.innerText(), /2dc774d4aeeafbe4c7f0565e7842d932bc8bc10488af805fce43b8734e7b9859/);
   assert.match(await sourceUse.innerText(), /d086d69f063bba1e9693fffbb3185c4469b24b47bda79f587053bd771580fcf6/);
   const jurisdiction = settings.getByRole('textbox', { name: 'Account jurisdiction', exact: true });
@@ -186,7 +187,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const unresolvedStateVersion = configuredSource.stateVersion;
   await useScope.selectOption('COMMERCIAL_OR_SHARED');
   assert.match(await settings.innerText(), /Save this selection before refreshing/);
-  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
+  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).click();
   let outOfProfile;
   for (let attempt = 0; attempt < 20; attempt++) {
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -196,10 +197,12 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.notEqual(outOfProfile.stateVersion, unresolvedStateVersion, 'The changed declared scope is saved as new source material');
   assert.equal(outOfProfile.sourceUseAssessment.status, 'OUT_OF_PROFILE');
   assert.equal(outOfProfile.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'UNVERIFIED');
+  assert.equal(await settings.getByRole('button', { name: 'Record my local-use confirmation', exact: true }).count(), 0,
+    'An explicitly shared/commercial scope cannot be locally attested');
   const outOfProfileStateVersion = outOfProfile.stateVersion;
   await useScope.selectOption('OWN_LOCAL_NONCOMMERCIAL');
   assert.match(await settings.innerText(), /Save this selection before refreshing/);
-  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
+  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).click();
   for (let attempt = 0; attempt < 20; attempt++) {
     await new Promise(resolve => setTimeout(resolve, 50));
     configuredSource = await send('data.fx.connection', { workspaceId });
@@ -217,7 +220,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const supportDate = settings.getByRole('textbox', { name: 'Support confirmation date', exact: true });
   const supportReference = settings.getByRole('textbox', { name: 'Support case or message reference', exact: true });
   const submitSupportFacts = async expectedPreviousVersion => {
-    await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
+  await settings.getByRole('button', { name: 'Save alpaca currency rates', exact: true }).click();
     let result;
     for (let attempt = 0; attempt < 20; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -250,17 +253,36 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const supported = settings.getByRole('region', { name: 'Source-use assessment', exact: true });
   await supported.getByText('Supported for declared scope', { exact: true }).waitFor({ state: 'visible' });
   assert.match(await supported.innerText(), /User-reported Alpaca Support confirmation/);
-  assert.match(await supported.innerText(), /rights remain unverified/i);
+  assert.match(await supported.innerText(), /provider entitlement remains independently unverified/i);
   assert.match(await supported.innerText(), /not provider-verified market-data entitlement/i);
   configuredSource = supportAssessment;
+  const localUseConfirmation = settings.getByRole('region', { name: 'Confirm local policy valuation use', exact: true });
+  const localUseCheckbox = localUseConfirmation.getByRole('checkbox', {
+    name: 'I confirm this exact saved source is for my local policy valuation only.', exact: true,
+  });
+  const recordLocalUse = localUseConfirmation.getByRole('button', { name: 'Record my local-use confirmation', exact: true });
+  assert.equal(await recordLocalUse.isEnabled(), false, 'The user must explicitly check the local-use confirmation');
+  await localUseCheckbox.setChecked(true);
+  assert.equal(await recordLocalUse.isEnabled(), true);
+  await recordLocalUse.click();
+  await settings.getByText('Your local-use confirmation was saved for this exact source profile. Alpaca has not independently verified this confirmation.', { exact: true }).waitFor({ state: 'visible' });
+  const userAttestedSource = await send('data.fx.connection', { workspaceId });
+  assert.equal(userAttestedSource.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'VERIFIED');
+  assert.equal(userAttestedSource.capabilityStatuses.find(item => item.capability === 'TRANSACTION_FX_QUALIFICATION').status, 'BLOCKED_EXTERNAL');
+  assert.equal(userAttestedSource.sourceUseAssessment.status, 'SUPPORTED_FOR_DECLARED_SCOPE', 'Source-use policy remains an independent assessment');
+  assert.equal(userAttestedSource.sourceUseAssessment.localUseAttestation.provenance, 'USER_ATTESTED_LOCAL_ONLY');
+  assert.equal(userAttestedSource.sourceUseAssessment.localUseAttestation.purpose, 'POLICY_VALUATION');
+  assert.equal(userAttestedSource.sourceUseAssessment.localUseAttestation.rawDataDestination, 'LOCAL_ONLY');
+  assert.match(await settings.innerText(), /Verified by you/);
+  assert.match(await settings.innerText(), /USER_ATTESTED_LOCAL_ONLY/);
   await send('time.revalidate', { workspaceId });
 
   await navigate('Order Drafts');
-  await proposalRow.press('Enter');
+  await proposalRow.click();
   await tab.getAXState({ emit: false });
   const context = ui.getByRole('region', { name: 'Currency evidence', exact: true });
   assert.match(await context.innerText(), /Selected immutable proposal/);
-  await context.getByRole('button', { name: 'Refresh rates for this proposal', exact: true }).press('Enter');
+  await context.getByRole('button', { name: 'Refresh rates for this proposal', exact: true }).click();
   const quotePanel = context.getByRole('region', { name: 'USDT/USD crypto quote evidence', exact: true });
   await quotePanel.waitFor({ state: 'visible' });
   await tab.getAXState({ emit: false });
@@ -276,13 +298,14 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.equal(quote.askSize, '23.456789012');
   assert.match(quote.requestPath, /^\/v1beta3\/crypto\/eu-1\/latest\/quotes\?symbols=USDT%2FUSD$/);
   assert.match(quote.responseSha256, /^[a-f0-9]{64}$/);
-  assert.equal(current.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'UNVERIFIED');
+  assert.equal(current.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'VERIFIED');
   const quoteText = await quotePanel.innerText();
   for (const text of [
     'USDT/USD · eu-1', '0.9999 · 12.345678901', '1.0001 · 23.456789012',
     quote.requestPath, quote.responseSha256, 'Price-only policy valuation input',
   ]) assert.ok(quoteText.includes(text), `Missing quote evidence text: ${text}`);
-  assert.match(await context.innerText(), /fx data use rights\s+unverified/i);
+  assert.match(await context.innerText(), /fx data use rights\s+verified/i);
+  assert.match(await context.innerText(), /Verified by you/);
 
   const viewport = await browser.capabilities.get('viewport');
   const layouts = [];
@@ -315,7 +338,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   const refreshedRules = await send('data.binance_rules.refresh', { workspaceId, expectedStateVersion: rules.stateVersion });
   assert.equal(refreshedRules.status, 'AVAILABLE');
   await navigate('Order Drafts');
-  await proposalRow.press('Enter');
+  await proposalRow.click();
   await tab.getAXState({ emit: false });
   const capacity = ui.getByRole('region', { name: 'Current Proposal Spot capacity inputs', exact: true });
   const intervals = ui.getByRole('region', { name: 'Current Proposal order interval inputs', exact: true });
@@ -327,13 +350,13 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
     [intervals, 'Refresh account interval inputs'],
   ]) {
     await panel.getByText('not observed · Read-only inputs · Execution qualification unavailable', { exact: true }).waitFor({ state: 'visible' });
-    await panel.getByRole('button', { name: button, exact: true }).press('Enter');
+    await panel.getByRole('button', { name: button, exact: true }).click();
     await panel.getByText('observed · Read-only inputs · Execution qualification unavailable', { exact: true }).waitFor({ state: 'visible' });
   }
 
   // Read FX last so the proposal-scoped quote is current when the approval snapshot is derived.
   const previousReceipt = quote.receivedAt;
-  await context.getByRole('button', { name: 'Refresh rates for this proposal', exact: true }).press('Enter');
+  await context.getByRole('button', { name: 'Refresh rates for this proposal', exact: true }).click();
   let currentForReview, finalQuote;
   for (let attempt = 0; attempt < 30; attempt++) {
     await new Promise(resolve => setTimeout(resolve, 50));
@@ -353,7 +376,8 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.equal(policyRoute?.state, 'QUALIFIED', 'A fresh quote in the policy band and matching current source-use assessment can qualify price-only valuation');
   assert.equal(policyRoute?.providerQuality, 'UNQUALIFIED_FX_RATE', 'Provider rate quality stays distinct from purpose qualification');
   assert.equal(policyRoute?.conservativeCost ?? null, null, 'Price-only valuation does not invent execution costs');
-  assert.equal(currentForReview.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS')?.status, 'UNVERIFIED', 'User-reported Support facts do not verify FX market-data rights');
+  assert.equal(currentForReview.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS')?.status, 'VERIFIED', 'The separate user attestation records only local policy valuation');
+  assert.equal(currentForReview.sourceUseAssessment.localUseAttestation.provenance, 'USER_ATTESTED_LOCAL_ONLY');
   assert.equal(review.riskDecision.checks.some(check => check.checkId === 'CURRENCY_CONVERSION'), false, 'A matching-USD raw quote does not create a transaction conversion leg');
   assert.equal(review.spotFeeFx.baseCurrency, 'USD');
   assert.ok(review.spotFeeFx.routes.every(route => route.fromCurrency !== 'EUR' && route.toCurrency !== 'EUR'), 'A matching-USD raw quote adds no EUR route or value');
@@ -361,11 +385,18 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
 
   // The public pre-Arm review must preserve the same proposal-scoped raw quote
   // in its immutable captured evidence, not only in the current source panel.
-  await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+  await ui.getByRole('button', { name: 'Review Live approval', exact: true }).click();
   const preArm = ui.getByRole('dialog', { name: 'Confirm Live arming', exact: true });
   await preArm.waitFor({ state: 'visible' });
   await tab.getAXState({ emit: false });
   const capturedEvidence = preArm.getByRole('region', { name: 'Captured currency evidence', exact: true });
+  const capturedAttestation = capturedEvidence.getByRole('region', { name: 'User-attested local data use', exact: true });
+  await capturedAttestation.waitFor({ state: 'visible' });
+  const capturedAttestationText = await capturedAttestation.innerText();
+  for (const value of [
+    'Verified by you', 'USER_ATTESTED_LOCAL_ONLY', userAttestedSource.sourceUseAssessment.localUseAttestation.remoteAccountId,
+    'POLICY_VALUATION', 'LOCAL_ONLY', userAttestedSource.sourceUseAssessment.localUseAttestation.confirmedAt,
+  ]) assert.ok(capturedAttestationText.includes(value), `Captured review omitted user-attestation provenance: ${value}`);
   const capturedQuotePanel = capturedEvidence.getByRole('region', { name: 'USDT/USD crypto quote evidence', exact: true });
   await capturedQuotePanel.waitFor({ state: 'visible' });
   const capturedQuoteText = await capturedQuotePanel.innerText();
@@ -389,7 +420,7 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
       capturedLayouts.push(size);
     }
   } finally { await viewport.reset(); }
-  await preArm.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+  await preArm.getByRole('button', { name: 'Keep reviewing', exact: true }).click();
   await preArm.waitFor({ state: 'hidden' });
   await tab.getAXState({ emit: false });
   return {
@@ -406,8 +437,9 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
       status: currentForReview.sourceUseAssessment.status,
       provenance: currentForReview.sourceUseAssessment.provenance,
       supportedPurposes: currentForReview.sourceUseAssessment.supportedPurposes,
+      userAttestation: currentForReview.sourceUseAssessment.localUseAttestation.provenance,
     },
-    rights: 'UNVERIFIED',
+    rights: currentForReview.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS')?.status,
     transactionFxQualification: review.riskDecision.checks.find(check => check.checkId === 'CURRENCY_CONVERSION')?.outcome,
     approvalEligible: review.eligible,
     arming: 'DISARMED',

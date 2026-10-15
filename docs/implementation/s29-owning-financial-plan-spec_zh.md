@@ -68,7 +68,7 @@ Prepare 在一个事务内消费审批并预留完整原币资产向量；Gatewa
 - 仅派生真正消费的本金政策估值、原生资金 identity、fallback 费用估值、条件扣费换算/估值；只有启用政策真实消费时才带入组合路由。保留配置的 fiat 本位币，必需缺失阻塞，无关资产不新增门禁。
 - Rust/schema/TypeScript 协同放宽资产/币对。选定直接路由或另行明确批准的逐腿路径保留原始单位、方向、bid/ask/size、provider/first receipt、代次、质量/脱锚、成本方法及每腿。不得平价、隐含倒数/桥接、拒绝后回退或未知成本填零。
 - 政策估值与真实资金换算不同。仅作原币估值的路由不是兑换交易或保证报价；identity 无需外部行情。仅实际会发生的兑换操作需要其真实成本，而本票不新增此类操作。
-- 来源 profile 必须明确已有 provider/dataset、获准用途与实际 entitlement/quality；草案不选择来源。Coinbase 的200不代替缺失书面许可；Alpaca 候选不等于已获使用权或新鲜度。用户选择或用途陈述仅是上下文，不是 VERIFIED 权限 setter。
+- 来源 profile 必须明确已有 provider/dataset、获准用途与实际 entitlement/quality；草案不选择来源。Coinbase 的200不代替缺失书面许可；Alpaca 候选不等于已获使用权或新鲜度。用户选择或用途陈述仅是上下文，不是 provider entitlement。用户通过单独、明确且来源绑定的 `USER_ATTESTED_LOCAL_ONLY` 确认后，可仅为本人本地 `POLICY_VALUATION` 暴露 `FX_DATA_USE_RIGHTS=VERIFIED`；这不是 provider 验证的许可，也不授予交易或其他金融权限。
 - 支持且合法来源的真实外部响应必须使拥有方金融资格真实正向可达，并喂给同一货币风控/Prepare。账户、行情、使用权、政策、Arm、审批/preflight 门禁独立，来源成功不授予这些权限。
 - 分开金融材料与采集来源。账户/意图/政策/来源及费率/金额/条件实质变化使不兼容审批失效；新复验有独立不可变回执，不改旧捕获。金融材料匹配仍须遵守原审批到期，缓存/history 不延寿。
 - Prepare 与立即 Gateway preflight 检查准确身份、代次/时间/质量、真正授权边界、资金及 claims；变化/缺失在 provider mutation 前原子拒绝。后续私有生命周期及真实金融验收仍必需。
@@ -94,7 +94,7 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 
 ## 来源与路由契约 — 开发决策，真实激活仍待验证
 
-[第一方来源研究](s29-fx-source-contract-research.md)补齐适配器与路由设计。2026-10-10用户确认：**仅本人本地非商业使用，Alpaca原始行情不分发、不发送给云端模型**。记录为人类提供的实际用途，不是提供方entitlement或VERIFIED许可；上下文问题已解决。适用账户协议、具体选定dataset访问及当前观察仍属真实激活/验收事实，不阻塞条件实现设计。
+[第一方来源研究](s29-fx-source-contract-research.md)补齐适配器与路由设计。2026-10-10用户确认：**仅本人本地非商业使用，Alpaca原始行情不分发、不发送给云端模型**。记录为人类提供的用途上下文。用户在Settings中单独明确确认后，可持久化来源绑定的`USER_ATTESTED_LOCAL_ONLY`记录，并仅为本地`POLICY_VALUATION`暴露范围受限的`FX_DATA_USE_RIGHTS=VERIFIED`；它不是provider entitlement或provider核实的许可，不满足独立provider权利证据，也不会关闭#135。本地用途上下文问题已解决；适用账户协议、具体选定dataset访问及当前观察仍属真实激活/验收事实，不阻塞条件实现设计。
 
 1. **显式选择及有限用途。** 普通保存来源配置扩展已有Alpaca凭据引用、显式crypto location（仅`us/us-1/eu-1`）、普通data host及准确用途专属API路由；初始未选择，本规范不替用户选定、不暗换地区/feed。个人本地profile的Alpaca观察仅供Rust `POLICY_VALUATION`；既有普通Binance Hot供标的价格，独立allowlist的内部`BNBUSDT`连续簿供`FEE_ESTIMATE`及BNB政策估值。发现来源不增加BNB可交易目录、不授权交易、不发金融mutation。不支持location/来源/路由形态类型化拒绝。
 2. **使用依据、访问及质量独立。** 版本化source-policy catalog保留第一方条款/文档URL、原始hash、使用约束及判断适用所需account/product/dataset事实。Control Plane依据这些文档与实际用途派生评估；配置只收证据/上下文，不能收`verified/allowed`金融权威flag。人类/提供方UI协议证据保留声明来源，不伪装API事实。未识别/矛盾协议或缺少必需适用事实为`SOURCE_USE_UNRESOLVED`，已知限制为`SOURCE_USE_DENIED`。适用普通个人条款不要求虚构专用金融估值许可；HTTP200、ACTIVE或Basic/IEX不证明全部数据权利。准确认证dataset成功单独建立技术访问；拒绝/凭据失效/profile、协议、policy或来源代次改变均退休观察。必须实现真实证据收取及policy求值，不用构造器正向或永久不可用适配器代替。适用证据未解决前真实激活仍不可用；条件测试不授予本用户使用权。

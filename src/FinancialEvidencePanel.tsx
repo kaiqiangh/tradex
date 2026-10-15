@@ -94,6 +94,17 @@ export function FinancialEvidencePanel({ source, instrumentId, capturedAt, showR
       <div><dt>First receipt</dt><dd>{source.observedAt ?? 'Not checked'}</dd></div>
       {source.capabilityStatuses.map(capability => <div key={capability.capability}><dt>{human(capability.capability)}</dt><dd>{capturedAt ? 'Captured status: ' : ''}{human(capability.status)} · {capability.reason}</dd></div>)}
     </dl>
+    {source.kind === 'FX' && source.sourceUseAssessment?.localUseAttestation && <section className="local-use-attestation" aria-label="User-attested local data use">
+      <h4>{capturedAt ? 'Captured user attestation' : 'User-attested local data use'}</h4>
+      <p><strong>Verified by you</strong> for this exact Alpaca source profile and local <code>POLICY_VALUATION</code> only. This is not independent Alpaca verification and grants no external-use or transaction permission.</p>
+      <dl className="data-source-details">
+        <div><dt>Provider / source</dt><dd>{source.sourceUseAssessment.localUseAttestation.providerId} · {source.sourceUseAssessment.localUseAttestation.sourceId}</dd></div>
+        <div><dt>Provider account</dt><dd>{source.sourceUseAssessment.localUseAttestation.remoteAccountId}</dd></div>
+        <div><dt>Dataset profile / crypto location</dt><dd>{human(source.sourceUseAssessment.localUseAttestation.datasetProfile)} · {source.sourceUseAssessment.localUseAttestation.cryptoLocation ?? 'No crypto location selected'}</dd></div>
+        <div><dt>Purpose / destination</dt><dd>{human(source.sourceUseAssessment.localUseAttestation.purpose)} · {human(source.sourceUseAssessment.localUseAttestation.rawDataDestination)}</dd></div>
+        <div><dt>Confirmation / provenance</dt><dd>{source.sourceUseAssessment.localUseAttestation.confirmedAt} · <code>{source.sourceUseAssessment.localUseAttestation.provenance}</code></dd></div>
+      </dl>
+    </section>}
     {showRequirements && source.fxRequirements && <FxRequirementsPanel requirements={source.fxRequirements} />}
     {evidence && <>
       {source.status !== 'AVAILABLE' && <p className="error-text">{capturedAt ? 'This observation was unavailable when the review was captured.' : 'Retained observation is unavailable for current decisions.'} Refresh the saved source to obtain new evidence.</p>}

@@ -5028,6 +5028,7 @@ impl ControlPlane {
             | "data.instrument.disconnect"
             | "data.fx.connection"
             | "data.fx.configure"
+            | "data.fx.attest_local_use"
             | "data.fx.disconnect"
             | "data.binance_rules.connection"
             | "data.binance_rules.configure"

@@ -76,10 +76,12 @@ export function FinancialSourceSettings({ workspaceId, kind, onSourceChange }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [confirmLocalUse, setConfirmLocalUse] = useState(false);
   useEffect(() => {
     setAccountId(source.data?.connectionId ?? '');
     setCryptoLocation(source.data?.cryptoLocation ?? '');
     setFxSourceUseDraft(sourceUseDraft(source.data?.sourceUseContext));
+    setConfirmLocalUse(false);
   }, [source.data?.stateVersion]);
   const nextSourceUseContext = kind === 'fx' ? sourceUseContext(fxSourceUseDraft) : null;
   const incompleteSourceUseContext = nextSourceUseContext === undefined;
@@ -88,23 +90,41 @@ export function FinancialSourceSettings({ workspaceId, kind, onSourceChange }: {
   const profileChanged = accountId !== (source.data?.connectionId ?? '')
     || (kind === 'fx' && cryptoLocation !== (source.data?.cryptoLocation ?? ''))
     || sourceUseContextChanged;
-  const act = async (operation: 'configure' | 'refresh' | 'disconnect') => {
-    if (!source.data || busy || (operation === 'configure' && incompleteSourceUseContext)) return;
+  const localUseAttestation = source.data?.sourceUseAssessment?.localUseAttestation;
+  const savedContextAllowsLocalUse = !source.data?.sourceUseContext
+    || (source.data.sourceUseContext.useScope === 'OWN_LOCAL_NONCOMMERCIAL'
+      && source.data.sourceUseContext.rawDataDestination === 'LOCAL_ONLY');
+  const selectedSavedAccountIsEligible = !!source.data?.connectionId
+    && accountId === source.data.connectionId
+    && source.data.eligibleAccounts.some(account => account.connectionId === accountId);
+  const canRecordLocalUse = kind === 'fx'
+    && !!source.data?.configured
+    && !profileChanged
+    && selectedSavedAccountIsEligible
+    && savedContextAllowsLocalUse
+    && !localUseAttestation;
+  const act = async (operation: 'configure' | 'refresh' | 'disconnect' | 'attest-local-use') => {
+    if (!source.data || busy || (operation === 'configure' && incompleteSourceUseContext)
+      || (operation === 'attest-local-use' && (!canRecordLocalUse || !confirmLocalUse))) return;
     setBusy(true); setError(undefined); setNotice(undefined);
     try {
       const payload = { workspaceId, expectedStateVersion: source.data.stateVersion };
       const result = operation === 'configure'
         ? await request(`data.${kind}.configure`, { ...payload, connectionId: accountId,
           ...(kind === 'fx' ? { cryptoLocation: cryptoLocation || null, sourceUseContext: nextSourceUseContext ?? null } : {}) })
+        : operation === 'attest-local-use'
+          ? await request('data.fx.attest_local_use', { ...payload, confirmLocalPolicyValuationOnly: true })
         : operation === 'refresh'
           ? await request(`data.${kind}.refresh`, payload)
           : await request(`data.${kind}.disconnect`, payload);
       queryClient.setQueryData(cacheKey, result);
+      setConfirmLocalUse(false);
       onSourceChange();
       await queryClient.invalidateQueries({ queryKey: ['data-source-catalog', workspaceId] });
       await queryClient.invalidateQueries({ queryKey: ['market-detail', workspaceId] });
       if (operation === 'refresh' && result.status !== 'AVAILABLE') setError(result.availabilityReason);
-      else setNotice(operation === 'configure' ? `${config.title} selection saved. Read access has not been verified.`
+      else setNotice(operation === 'attest-local-use' ? 'Your local-use confirmation was saved for this exact source profile. Alpaca has not independently verified this confirmation.'
+        : operation === 'configure' ? `${config.title} selection saved. Read access has not been verified.`
         : operation === 'disconnect' ? `${config.title} disconnected. Your account and saved key were kept.`
           : `${config.title} refreshed. Only the listed capabilities are current.`);
     } catch (cause) { setError(explainError(cause)); await source.refetch(); }
@@ -160,12 +180,29 @@ export function FinancialSourceSettings({ workspaceId, kind, onSourceChange }: {
         </dl>
         {accountId !== (source.data.connectionId ?? '') && <p role="status">This assessment belongs to the saved account. The selected account has no assessment until you save its own facts.</p>}
         <p>{source.data.sourceUseAssessment.reason}</p>
-        <p><strong>Rights remain unverified.</strong> “Supported for declared scope” is a local policy result, not provider entitlement evidence. Do not send raw market data outside this local TradeX process.</p>
+        <p><strong>Provider entitlement remains independently unverified.</strong> “Supported for declared scope” is a local policy result. A separate confirmation below records only your stated local-use scope; it is not Alpaca verification and does not permit external sharing or any transaction.</p>
         <h5>Pinned provider documents</h5>
         <ul>{source.data.sourceUseAssessment.documents.map(document => <li key={document.documentId}>
           <a href={document.url} target="_blank" rel="noreferrer">{document.title}</a>
           <code>SHA-256 {document.sha256}</code>
         </li>)}</ul>
+      </section>}
+      {canRecordLocalUse && <section className="local-use-attestation-confirmation" aria-label="Confirm local policy valuation use">
+        <h4>Local policy valuation only</h4>
+        <p>This confirmation applies to the saved Alpaca Paper account, its current dataset profile, and the selected crypto location shown above. It records your statement that you use this data only for your own local, non-commercial policy valuation in TradeX. It does not independently verify Alpaca terms or authorize sharing, commercial use, model/tool transfer, export, transaction FX, fees, funding, or trading.</p>
+        <label><input type="checkbox" checked={confirmLocalUse} disabled={busy} onChange={event => setConfirmLocalUse(event.target.checked)} /> I confirm this exact saved source is for my local policy valuation only.</label>
+        <button type="button" disabled={busy || !confirmLocalUse} onClick={() => void act('attest-local-use')}>{busy ? 'Saving confirmation…' : 'Record my local-use confirmation'}</button>
+      </section>}
+      {localUseAttestation && accountId === source.data.connectionId && <section className="local-use-attestation-confirmation" aria-label="Saved local-use confirmation">
+        <h4>Local-use confirmation saved</h4>
+        <p><strong>Verified by you</strong> for this exact source profile and local <code>POLICY_VALUATION</code> only. This is not independent Alpaca verification and grants no external-use or transaction permission.</p>
+        <dl className="health-grid">
+          <div><dt>Provider / source</dt><dd>{localUseAttestation.providerId} · {localUseAttestation.sourceId}</dd></div>
+          <div><dt>Provider account</dt><dd>{localUseAttestation.remoteAccountId}</dd></div>
+          <div><dt>Dataset profile / crypto location</dt><dd>{localUseAttestation.datasetProfile} · {localUseAttestation.cryptoLocation ?? 'No crypto location selected'}</dd></div>
+          <div><dt>Purpose / destination</dt><dd>{localUseAttestation.purpose} · {localUseAttestation.rawDataDestination}</dd></div>
+          <div><dt>Confirmation / provenance</dt><dd>{localUseAttestation.confirmedAt} · {localUseAttestation.provenance}</dd></div>
+        </dl>
       </section>}
     </>}
     {profileChanged && <p role="status">Save this selection before refreshing. The current evidence and policy assessment belong to the saved profile.</p>}

@@ -1,4 +1,4 @@
-import type { SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
+import type { SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxLocalUseAttestationCommand, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { subscribeBrowserEvents } from './browserEvents.ts';
 import { describeCanonicalRecovery } from './errorRecovery.ts';
@@ -96,6 +96,7 @@ interface Inputs {
   'research.run': ResearchToolRequest;
   'data.fx.connection': WorkspaceQuery;
   'data.fx.configure': FinancialSourceConfigure;
+  'data.fx.attest_local_use': FxLocalUseAttestationCommand;
   'data.fx.disconnect': DataSourceMutation;
   'data.fx.refresh': FxSourceRefresh;
   'data.fx.requirements': FxRequirementsQuery;
@@ -270,6 +271,7 @@ interface Outputs {
   'research.run': ResearchToolResult;
   'data.fx.connection': FinancialSourceConnection;
   'data.fx.configure': FinancialSourceConnection;
+  'data.fx.attest_local_use': FinancialSourceConnection;
   'data.fx.disconnect': FinancialSourceConnection;
   'data.fx.refresh': FinancialSourceConnection;
   'data.fx.requirements': FxRequirements;
@@ -444,6 +446,7 @@ const definitions = {
   'research.run': ['ResearchToolRequest', 'ResearchToolResult'],
   'data.fx.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
   'data.fx.configure': ['FinancialSourceConfigure', 'FinancialSourceConnection'],
+  'data.fx.attest_local_use': ['FxLocalUseAttestationCommand', 'FinancialSourceConnection'],
   'data.fx.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
   'data.fx.refresh': ['FxSourceRefresh', 'FinancialSourceConnection'],
   'data.fx.requirements': ['FxRequirementsQuery', 'FxRequirements'],

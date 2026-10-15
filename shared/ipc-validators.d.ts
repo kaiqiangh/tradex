@@ -214,6 +214,7 @@ declare const validators: {
   FinancialEvidenceBinding: (value: unknown) => boolean;
   FinancialEvidenceCapability: (value: unknown) => boolean;
   FinancialEvidenceCapabilityResult: (value: unknown) => boolean;
+  FinancialEvidenceCapabilityStatus: (value: unknown) => boolean;
   FinancialEvidenceQuality: (value: unknown) => boolean;
   FinancialOperation: (value: unknown) => boolean;
   FinancialSourceConfigure: (value: unknown) => boolean;
@@ -224,6 +225,11 @@ declare const validators: {
   FxCryptoQuote: (value: unknown) => boolean;
   FxDeclaredUseScope: (value: unknown) => boolean;
   FxFreshness: (value: unknown) => boolean;
+  FxLocalUseAttestation: (value: unknown) => boolean;
+  FxLocalUseAttestationCommand: (value: unknown) => boolean;
+  FxLocalUseAttestationProvenance: (value: unknown) => boolean;
+  FxLocalUseAttestationPurpose: (value: unknown) => boolean;
+  FxLocalUseDatasetProfile: (value: unknown) => boolean;
   FxObservedRate: (value: unknown) => boolean;
   FxProvenance: (value: unknown) => boolean;
   FxProviderDataset: (value: unknown) => boolean;

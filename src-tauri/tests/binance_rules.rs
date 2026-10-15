@@ -6725,6 +6725,31 @@ fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth()
         "data.fx.connection",
         json!({"workspaceId":rig.workspace}),
     );
+    let attested = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":rig.workspace,
+            "expectedStateVersion":saved["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(attested["ok"], true, "{attested}");
+    assert_eq!(
+        attested["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "VERIFIED",
+        "The public policy valuation route needs the separate user attestation"
+    );
+    let saved = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
     let refreshed = tradex::financial_sources::execute_refresh(
         &rig.control,
         &json!({"requestId":"intent-policy-fx-supported-use","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":saved["data"]["stateVersion"]}}),
@@ -7000,8 +7025,8 @@ fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth()
             .iter()
             .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
             .unwrap()["status"],
-        "UNVERIFIED",
-        "Synthetic Prepare fixtures must not grant provider rights"
+        "VERIFIED",
+        "The explicit local-use attestation persists without granting provider rights"
     );
 
     let provider_time = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))

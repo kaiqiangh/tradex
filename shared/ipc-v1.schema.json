@@ -304,6 +304,9 @@
     "financialSourceConnection": {
       "$ref": "#/$defs/FinancialSourceConnection"
     },
+    "fxLocalUseAttestationCommand": {
+      "$ref": "#/$defs/FxLocalUseAttestationCommand"
+    },
     "fxRequirements": {
       "$ref": "#/$defs/FxRequirements"
     },
@@ -692,6 +695,7 @@
     "binanceRuleSourceConfigure",
     "fxRequirementsQuery",
     "fxSourceRefresh",
+    "fxLocalUseAttestationCommand",
     "fxRequirements",
     "dataSourceConfigure",
     "dataSourceMutation",
@@ -9075,7 +9079,7 @@
           "minLength": 1
         },
         "status": {
-          "$ref": "#/$defs/DataSourceStatus"
+          "$ref": "#/$defs/FinancialEvidenceCapabilityStatus"
         }
       },
       "additionalProperties": false,
@@ -9083,6 +9087,17 @@
         "capability",
         "status",
         "reason"
+      ]
+    },
+    "FinancialEvidenceCapabilityStatus": {
+      "description": "Capability status is separate from source connectivity so only a specific\nbackend-derived capability can report a user-attested local verification.",
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "BLOCKED_EXTERNAL",
+        "UNVERIFIED",
+        "VERIFIED"
       ]
     },
     "FinancialEvidenceQuality": {
@@ -9777,6 +9792,117 @@
         "UNAVAILABLE"
       ]
     },
+    "FxLocalUseAttestation": {
+      "type": "object",
+      "properties": {
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "confirmedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 20
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cryptoLocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaCryptoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "datasetProfile": {
+          "$ref": "#/$defs/FxLocalUseDatasetProfile"
+        },
+        "provenance": {
+          "$ref": "#/$defs/FxLocalUseAttestationProvenance"
+        },
+        "providerId": {
+          "type": "string",
+          "const": "alpaca"
+        },
+        "purpose": {
+          "$ref": "#/$defs/FxLocalUseAttestationPurpose"
+        },
+        "rawDataDestination": {
+          "$ref": "#/$defs/FxRawDataDestination"
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "const": "OD-005"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "provenance",
+        "sourceId",
+        "providerId",
+        "connectionId",
+        "remoteAccountId",
+        "datasetProfile",
+        "purpose",
+        "rawDataDestination",
+        "confirmedAt",
+        "bindingVersion"
+      ]
+    },
+    "FxLocalUseAttestationCommand": {
+      "type": "object",
+      "properties": {
+        "confirmLocalPolicyValuationOnly": {
+          "type": "boolean"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "confirmLocalPolicyValuationOnly"
+      ]
+    },
+    "FxLocalUseAttestationProvenance": {
+      "description": "Provenance for the deliberately narrow, user-confirmed local-use scope.",
+      "type": "string",
+      "enum": [
+        "USER_ATTESTED_LOCAL_ONLY"
+      ]
+    },
+    "FxLocalUseAttestationPurpose": {
+      "type": "string",
+      "enum": [
+        "POLICY_VALUATION"
+      ]
+    },
+    "FxLocalUseDatasetProfile": {
+      "type": "string",
+      "enum": [
+        "ALPACA_FOREX_RATES_AND_CONFIGURED_CRYPTO_QUOTES"
+      ]
+    },
     "FxObservedRate": {
       "type": "object",
       "properties": {
@@ -10100,6 +10226,16 @@
             "$ref": "#/$defs/FxSourceUsePolicyDocument"
           },
           "maxItems": 8
+        },
+        "localUseAttestation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxLocalUseAttestation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "policyVersion": {
           "type": "string",

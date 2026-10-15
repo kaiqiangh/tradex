@@ -1243,17 +1243,17 @@ BUY LIMIT应将Control Plane准确的 BASE 数量 × 不可变限价作为原生
 
 ## 13.39 明确选择Alpaca加密来源（S29.11，验收待完成）
 
-在既有Alpaca FX来源设置中增加键盘可用的crypto-location选择：`us`、`us-1`和`eu-1`，初始为空。将合格的既有Paper account与所选location一起保存；Save不读来源。重开后显示已保存location，修改账户/location后直至Save都明确表现为未保存。缺失或被拒绝的location不能触发自动回退。仅外汇路线不需要加密location。说明location选择和成功认证都不建立适用的数据使用许可；Control Plane评估实际source-use证据前保持`UNVERIFIED`。Disconnect清除选定profile但保留借用的account/key。保留既有identity、refresh、error与captured-evidence行为，并验证键盘及390/768/1280布局。Backend§41.53/UI§14.37适用；producer、policy evaluator及完整拥有方验收仍待完成。
+在既有Alpaca FX来源设置中增加键盘可用的crypto-location选择：`us`、`us-1`和`eu-1`，初始为空。将合格的既有Paper account与所选location一起保存；Save不读来源。重开后显示已保存location，修改账户/location后直至Save都明确表现为未保存。缺失或被拒绝的location不能触发自动回退。仅外汇路线不需要加密location。说明location选择和成功认证本身不记录用户attestation；没有当前来源绑定的本地用途确认时，`FX_DATA_USE_RIGHTS`保持`UNVERIFIED`。source-use policy评估仍独立。Disconnect清除选定profile但保留借用的account/key。保留既有identity、refresh、error与captured-evidence行为，并验证键盘及390/768/1280布局。Backend§41.53/UI§14.37适用；producer、policy evaluator及完整拥有方验收仍待完成。
 
 ## 13.40 所选location的 USDT/USD 证据（S29.11，验收待完成）
 
-在每条必需货币路由显示`providerDataset`，让USDT→USD明确使用Alpaca crypto quote，USD/法币腿继续显示为独立forex要求。对当前或捕获的crypto quote，显示准确所选location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。该只读来源追溯展示使用设备内的`FinancialSourceConnection` IPC投影，不构成外部分发。React不得用原始字段推导算术、source-use rights、金融资格或权限，也不得将其转发至model/tool prompt、research或artifact export及其他外部consumer。标明它仅用于价格政策估值：size仅保留为来源记录，不是执行覆盖；不虚构mid或换算成本。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且USDT/USD的绑定quote bid和ask均处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可为价格估值资格化。将`FX_DATA_USE_RIGHTS`独立显示为`UNVERIFIED`，与认证观察可用性及交易资格分开。即使当前证据过期，immutable pre-arm review仍保留原值；不得刷新或重算捕获值。界面保持键盘可用并在390/768/1280px响应式可用。Backend§41.53–41.54/UI§14.38适用；完整S29.11验收仍待完成。
+在每条必需货币路由显示`providerDataset`，让USDT→USD明确使用Alpaca crypto quote，USD/法币腿继续显示为独立forex要求。对当前或捕获的crypto quote，显示准确所选location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。该只读来源追溯展示使用设备内的`FinancialSourceConnection` IPC投影，不构成外部分发。React不得用原始字段推导算术、source-use rights、金融资格或权限，也不得将其转发至model/tool prompt、research或artifact export及其他外部consumer。标明它仅用于价格政策估值：size仅保留为来源记录，不是执行覆盖；不虚构mid或换算成本。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且USDT/USD的绑定quote bid和ask均处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可为价格估值资格化。没有当前匹配的来源绑定用户确认时，即使认证观察可用，`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`；匹配确认仅标记为“由用户确认”。交易资格仍独立并保持阻塞。即使当前证据过期，immutable pre-arm review仍保留原值；不得刷新或重算捕获值。界面保持键盘可用并在390/768/1280px响应式可用。Backend§41.53–41.54/UI§14.38适用；完整S29.11验收仍待完成。
 
 ## 13.41 Alpaca source-use context与评估（S29.11，验收待完成）
 
 在FX source设置中展示生成契约定义的计划、账户法域、协议复核日期、可选的逐国Alpaca Support确认国家/日期/reference、声明用途范围和原始数据去向字段。未保存事实时保持空白；重开后恢复已保存值。切换到其他账户时清空draft，直到用户录入所选账户事实。部分填写时禁用Save；清空全部字段会移除可选context；同一账户仅更改crypto location时保留context。Save仅保存选定source profile，不访问provider。
 
-显示Control Plane评估状态、用户报告的provenance、policy版本、原因及固定的一手文档链接和SHA-256。Alpaca公开国家可用性指引未发布清单并要求向Support确认具体国家，因此本地`SUPPORTED_FOR_DECLARED_SCOPE`除用户报告的计划和用途事实外，还要求有日期和reference、且国家与账户法域匹配的Support确认；缺失或国家不一致时保持未解决。清晰说明本地结果不是provider entitlement，且`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`。React不得推导算术、行情使用权、交易资格或执行权限。字段和长文档digest保持键盘可用，并适配390/768/1280px；共享行为见Backend§41.55/UI§14.39。本输入流程不关闭完整S29.11验收。
+显示Control Plane评估状态、用户报告的provenance、policy版本、原因及固定的一手文档链接和SHA-256。Alpaca公开国家可用性指引未发布清单并要求向Support确认具体国家，因此本地`SUPPORTED_FOR_DECLARED_SCOPE`除用户报告的计划和用途事实外，还要求有日期和reference、且国家与账户法域匹配的Support确认；缺失或国家不一致时保持未解决。清晰说明本地结果不是provider entitlement，也不会单独改变`FX_DATA_USE_RIGHTS`；没有§13.46中的单独当前来源绑定确认时，rights保持`UNVERIFIED`。React不得推导算术、行情使用权、交易资格或执行权限。字段和长文档digest保持键盘可用，并适配390/768/1280px；共享行为见Backend§41.55/UI§14.39。本输入流程不关闭完整S29.11验收。
 
 ### 13.42 Proposal绑定的BASE/QUOTE/BNB钱包覆盖（S29.11 AC5，验收待完成）
 
@@ -1272,3 +1272,7 @@ BUY LIMIT应将Control Plane准确的 BASE 数量 × 不可变限价作为原生
 ### 13.45 Live open-order identity 与 reservation context（E4）
 
 Accounts surface 展示每个 Live open order 的 provider state、完整 provider order ID、原始与已成交数量，以及在 provider 观察可确定时提供的精确剩余数量；无法确定时仍显示 `Unavailable`。只读 `trade.execution.order_links` 查询按当前 workspace 和完整 TradeX account ID 限定，并且只匹配完整 broker order ID。精确匹配到已持久化 PLACE 时，展示 Proposal ID、execution attempt ID，以及存在时的 reservation 金额/单位/状态。无匹配时明确显示 “No exact TradeX PLACE match” 和 “Reservation: Not linked”；部分/相似 ID、CANCEL 及其他账户的记录都不会被关联。该查询不联系 provider，也不授权执行。符合条件的撤单仍使用独立的精确订单 `Review cancellation` 流程和权限复核。
+
+### 13.46 仅本地政策估值的来源绑定用户确认（#146）
+
+只有用户勾选明确的本地用途确认框并单独点击确认操作后，Settings 才可对未更改且已保存、符合条件的 Alpaca Paper source 调用 `data.fx.attest_local_use`。仅发送 `workspaceId`、当前 `expectedStateVersion` 和 `confirmLocalPolicyValuationOnly: true`；React 不发送 rights 状态、provenance、provider 账户 ID 或 binding hash。profile 未保存、所选账户不符合条件，或已保存范围为共享/商业/外部用途时禁用操作。Control Plane 返回的 `FX_DATA_USE_RIGHTS=VERIFIED` 必须显示为“由你确认”，并与 provider entitlement 和 source-use 评估清楚区分；准确 provider/source/account/dataset/location/purpose/destination/time/provenance 均从 Control Plane 投影渲染。Currency review 使用同一投影，捕获的 review 不可变地保留它。保存/更改 profile 会使先前确认失效。Renderer 不读取 provider、不推导估值算术，也不把原始数据转发到模型、工具、导出或外部 consumer。交易 FX 以及全部费用/资金/交易/审批/Arm/Prepare/Gateway 门禁仍独立。共享契约见Backend§41.60/UI§14.43；完整S29.11验收仍待完成。

@@ -414,7 +414,8 @@ fn quality_label(quality: &crate::protocol::FinancialEvidenceQuality) -> Option<
 }
 
 /// One genuinely-required route assessed for its declared purpose against the current
-/// proposal-scoped observation and, for policy valuation, the exact source-use assessment.
+/// proposal-scoped observation and, for policy valuation, the exact source-use assessment and
+/// matching user-attested local-use scope.
 fn qualify_route(
     purpose: SpotRequiredRoutePurpose,
     requirement: &FxRouteRequirement,
@@ -459,7 +460,7 @@ fn qualify_route(
             {
                 (
                     SpotRequiredRouteState::Unqualified,
-                    "The current source-use assessment does not support POLICY_VALUATION for this FX source; an observed quote cannot be relied on for the owning valuation.",
+                    "Either the current source-use assessment does not support POLICY_VALUATION or its exact USER_ATTESTED_LOCAL_ONLY confirmation is missing; an observed quote cannot be relied on for the owning valuation.",
                     None,
                 )
             }
@@ -728,6 +729,15 @@ pub(crate) fn derive(
                 .supported_purposes
                 .iter()
                 .any(|purpose| purpose == "POLICY_VALUATION")
+            && assessment
+                .local_use_attestation
+                .as_ref()
+                .is_some_and(|attestation| {
+                    attestation.purpose
+                        == crate::protocol::FxLocalUseAttestationPurpose::PolicyValuation
+                        && attestation.raw_data_destination
+                            == crate::protocol::FxRawDataDestination::LocalOnly
+                })
     });
     let mut routes = Vec::new();
     for requirement in &fx_requirements.requirements {
@@ -1128,6 +1138,20 @@ mod tests {
             } else {
                 Vec::new()
             },
+            local_use_attestation: supported.then(|| crate::protocol::FxLocalUseAttestation {
+                provenance: crate::protocol::FxLocalUseAttestationProvenance::UserAttestedLocalOnly,
+                source_id: "OD-005".into(),
+                provider_id: "alpaca".into(),
+                connection_id: "test-connection".into(),
+                remote_account_id: "test-remote-account".into(),
+                dataset_profile:
+                    crate::protocol::FxLocalUseDatasetProfile::AlpacaForexRatesAndConfiguredCryptoQuotes,
+                crypto_location: Some(crate::protocol::AlpacaCryptoLocation::Eu1),
+                purpose: crate::protocol::FxLocalUseAttestationPurpose::PolicyValuation,
+                raw_data_destination: crate::protocol::FxRawDataDestination::LocalOnly,
+                confirmed_at: "2026-10-11T00:00:00Z".into(),
+                binding_version: "a".repeat(64),
+            }),
             reason: "Synthetic source-use assessment for a contract test.".into(),
         }
     }
@@ -1800,7 +1824,7 @@ mod tests {
     }
 
     #[test]
-    fn policy_valuation_route_requires_a_current_supported_source_use_purpose() {
+    fn policy_valuation_route_requires_supported_source_use_and_user_attestation() {
         let capacity = capacity(None);
         let requirements = requirements();
         let evidence = evidence();
@@ -1839,6 +1863,34 @@ mod tests {
         assert_eq!(
             statement.binding_blocker.as_deref(),
             Some("SPOT_REQUIRED_FX_UNQUALIFIED")
+        );
+
+        let mut missing_attestation = source_use_assessment(true);
+        missing_attestation.local_use_attestation = None;
+        let statement = derive(
+            &capacity,
+            SpotFeeFxSources {
+                commission: Some(&symbol_commission("0.0010", "0.0015")),
+                source_use_assessment: Some(&missing_attestation),
+                current_fee_model: None,
+                wallet_funding_evidence: None,
+            },
+            &requirements,
+            Some(&evidence),
+            &proposal(),
+            OrderSide::Buy,
+            "USD",
+        )
+        .expect("derive never fails for a bound identity")
+        .expect("a bound identity always yields a visible statement");
+        assert_eq!(
+            statement.routes[0].state,
+            SpotRequiredRouteState::Unqualified
+        );
+        assert!(
+            statement.routes[0]
+                .reason
+                .contains("USER_ATTESTED_LOCAL_ONLY")
         );
 
         let supported = derive_supported(Some(symbol_commission("0.0010", "0.0015")));

@@ -64,4 +64,6 @@ S29.5 #126已CLOSED，源码`b4d137a`和已核对dev交付`96a9577`绑定当前�
 
 S29.10精确标的佣金声明来源的规范与实现均CLOSED；[配对验收](../implementation/s29-symbol-commission-evidence_zh.md)绑定源码a3127a5/已核对dev3d507c0、172输入、完整检查/build/pin/冻结当前及捕获与pre-arm UI、串行独立复审。完整金额费用/扣费及真正必需USDT/BNB执行FX仍必须后续拥有方补齐，父项/map/金融/native/物理/release门禁保持OPEN。原型/main与需求/屏幕状态未改。
 
-S29.11 #135保持OPEN。FX source profile记录用户报告的计划/法域/协议/用途/数据去向事实，并可保存带日期和reference、对应准确账户法域的Alpaca Support确认。Alpaca公开国家可用性指引没有发布支持国家清单，因此本地评估要求匹配的逐国确认，而不使用静态allowlist。缺少或不匹配确认时保持`UNRESOLVED`；匹配确认仅支持本地`POLICY_VALUATION`，不会验证`FX_DATA_USE_RIGHTS`。当前账户若没有用户提供的匹配证据仍为未解决；不声称已发出真实Alpaca请求或取得entitlement证据。AC7现有部分累计逐资产结算逻辑和只读初始/当前claim展示；多腿公开结算验收仍待完成。[实现进度](../implementation/s29-owning-financial-plan-progress.md)记录这项部分工作；完整金融验收仍待完成，原型未改。
+S29.11 #135保持OPEN。FX source profile记录用户报告的计划/法域/协议/用途/数据去向事实，并可保存带日期和reference、对应准确账户法域的Alpaca Support确认。Alpaca公开国家可用性指引没有发布支持国家清单，因此本地评估要求匹配的逐国确认，而不使用静态allowlist。缺少或不匹配确认时保持`UNRESOLVED`；匹配确认仅支持本地`POLICY_VALUATION`，本身不会验证`FX_DATA_USE_RIGHTS`。独立的#146用户确认可以将准确的本地政策估值范围标记为“由用户确认”，但不构成provider entitlement证据。没有匹配材料时，当前账户的provider支持依据仍未解决；不声称已发出真实Alpaca请求或取得entitlement证据。AC7现有部分累计逐资产结算逻辑和只读初始/当前claim展示；多腿公开结算验收仍待完成。[实现进度](../implementation/s29-owning-financial-plan-progress.md)记录这项部分工作；完整金融验收仍待完成，原型未改。
+
+#146本地用途确认已实现，并通过`RUST_TEST_THREADS=1 npm run check`及隔离浏览器流程，覆盖显式确认、当前/捕获provenance、响应式布局和交易/审批门禁保持不变。测试仅用本地合成fixture；未请求Alpaca，也未证明provider entitlement。#146仅验收本地用户确认行为；#135和整体S29.11仍保持OPEN。

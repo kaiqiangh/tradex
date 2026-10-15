@@ -2308,7 +2308,8 @@ pub(crate) fn evaluate(
                 && source.connection_id.as_deref() == Some(account.connection_id.as_str())
                 && source.capability_statuses.iter().any(|capability| {
                     capability.capability == crate::protocol::FinancialEvidenceCapability::AccountTradability
-                        && capability.status == crate::protocol::DataSourceStatus::Available
+                        && capability.status
+                            == crate::protocol::FinancialEvidenceCapabilityStatus::Available
                 })
                 && matches!(&source.evidence,
                     Some(crate::protocol::FinancialSourceEvidence::BrokerInstruments(evidence))

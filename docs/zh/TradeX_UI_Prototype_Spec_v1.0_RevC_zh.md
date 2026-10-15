@@ -1077,17 +1077,17 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 
 ## 14.37 明确的Alpaca加密location来源配置（S29.11，验收待完成）
 
-在Settings → Data & Storage保留既有Alpaca Paper account选择器，并增加默认空白的“Crypto market-data location”选择器，仅含`us`、`us-1`及`eu-1`。Save绑定账户与location，不联系Alpaca；重新打开时显示已保存选择。更改任一选择后必须Save才能Refresh。加密观察只能使用准确所选location，不得回退region、host、dataset或credential；仅外汇读取无需加密location。说明location和认证不构成使用许可，实际source-use证据通过评估前rights保持`UNVERIFIED`。Disconnect清除此来源profile但保留account/key。面板键盘可操作，并在390/768/1280px响应式可用。Backend§41.53及Frontend§13.39适用。本目标不证明source entitlement、producer验收或S29.11全部完成；原型源码未改。
+在Settings → Data & Storage保留既有Alpaca Paper account选择器，并增加默认空白的“Crypto market-data location”选择器，仅含`us`、`us-1`及`eu-1`。Save绑定账户与location，不联系Alpaca；重新打开时显示已保存选择。更改任一选择后必须Save才能Refresh。加密观察只能使用准确所选location，不得回退region、host、dataset或credential；仅外汇读取无需加密location。说明location和认证本身不会记录用户单独的本地用途确认；没有当前来源绑定用户确认时rights保持`UNVERIFIED`。source-use policy评估仍是独立状态。Disconnect清除此来源profile但保留account/key。面板键盘可操作，并在390/768/1280px响应式可用。Backend§41.53及Frontend§13.39适用。本目标不证明source entitlement、producer验收或S29.11全部完成；原型源码未改。
 
 ## 14.38 所选location的 USDT/USD 证据（S29.11，验收待完成）
 
-在当前与捕获的Currency Evidence中区分USDT→USD crypto quote路由和方向性forex路由。显示配置的Alpaca crypto location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。说明quote size仅保留来源记录，不能证明可执行深度或换算成本；不显示合成mid。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可仅为价格估值资格化；不能资格化资金执行。即使认证rate observation当前可用，仍清晰显示`FX_DATA_USE_RIGHTS`为`UNVERIFIED`，并保持transaction qualification阻塞。当前证据过期后，捕获的pre-arm review仍保留准确quote/location且不刷新。验证键盘可用性及390/768/1280px溢出。Backend§41.54与Frontend§13.40适用；完整S29.11验收仍待完成。原型源码未改。
+在当前与捕获的Currency Evidence中区分USDT→USD crypto quote路由和方向性forex路由。显示配置的Alpaca crypto location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。说明quote size仅保留来源记录，不能证明可执行深度或换算成本；不显示合成mid。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可仅为价格估值资格化；不能资格化资金执行。没有当前匹配的来源绑定用户确认时，即使认证观察可用，`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`；匹配确认仅标记为“由用户确认”。transaction qualification仍保持阻塞。当前证据过期后，捕获的pre-arm review仍保留准确quote/location且不刷新。验证键盘可用性及390/768/1280px溢出。Backend§41.54与Frontend§13.40适用；完整S29.11验收仍待完成。原型源码未改。
 
 ## 14.39 Alpaca source-use事实与本地policy结果（S29.11，验收待完成）
 
 在Settings → Data & Storage → Alpaca currency rates中增加键盘可操作的行情计划、账户法域、协议复核日期、可选的逐国Alpaca Support确认国家/日期/reference、声明用途范围和原始数据去向字段。没有已保存context时保持空白；重开恢复已保存值。切换账户会清空draft context；同一账户仅更改location时保留。context只填了一部分时禁用Save；允许清空全部字段。Save持久化账户、location和完整可选context，但不读取Alpaca。
 
-显示Control Plane结果、provenance、policy版本、原因以及固定的一手条款链接和SHA-256。Alpaca公开国家可用性指引没有发布清单并要求用户向Support确认具体国家，因此`SUPPORTED_FOR_DECLARED_SCOPE`除用户报告的计划和用途事实外，还要求带日期和reference、且国家与账户法域匹配的Support确认；缺失或国家不一致时保持未解决。这一本地policy结果不是provider entitlement。所有结果中的`FX_DATA_USE_RIGHTS`均保持`UNVERIFIED`，不得推导商业、再分发、交易或执行权限。说明Alpaca原始数据保留本地。验证重开后的值、字段键盘访问以及390/768/1280px无横向溢出。适用Backend§41.55及Frontend§13.41；完整S29.11验收仍未完成，原型代码未改。
+显示Control Plane结果、provenance、policy版本、原因以及固定的一手条款链接和SHA-256。Alpaca公开国家可用性指引没有发布清单并要求用户向Support确认具体国家，因此`SUPPORTED_FOR_DECLARED_SCOPE`除用户报告的计划和用途事实外，还要求带日期和reference、且国家与账户法域匹配的Support确认；缺失或国家不一致时保持未解决。这一本地policy结果不是provider entitlement，也不会单独改变`FX_DATA_USE_RIGHTS`；没有§14.43中的独立、当前来源绑定用户确认时，rights保持`UNVERIFIED`。不得推导商业、再分发、交易或执行权限。说明Alpaca原始数据保留本地。验证重开后的值、字段键盘访问以及390/768/1280px无横向溢出。适用Backend§41.55及Frontend§13.41；完整S29.11验收仍未完成，原型代码未改。
 
 ## 14.40 Proposal绑定的BASE/QUOTE/BNB钱包覆盖（S29.11 AC5，验收待完成）
 
@@ -1102,3 +1102,9 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 在当前及captured的PLACE执行历史中，分别显示不可变初始原生claims和当前剩余claims、提供方累计成交数量/金额及按资产记录的实际费用。保留准确十进制字符串，并将旧标量历史标为无法提供完整初始向量。成交/费用不完整或矛盾、订单状态未知、累计证据减少、`UNRESERVED_FEE_ASSET`或`SETTLEMENT_EXCEEDS_COMMITMENT`时，必须说明容量继续冻结待核对。仅在完整broker终态证据后显示未用claim释放；provider accepted不等于成交。界面只展示证据，不授予重试、资金操作、approval、Arm、consent或dispatch权限。验证键盘操作、保存历史不可变性及390/768/1280px无横向溢出。适用Backend§41.58与Frontend§13.44；多腿公开结算、响应式runtime及clickable prototype验收仍待完成，原型源码未改。
 
 对于`MAY_HAVE_SUBMITTED`、reservation仍活动且尚无结算结果的已消费PLACE，在保存的Live账户可读取时，当前Order Drafts可显示显式“Refresh exact order”操作。它把attempt保存的provider订单ID和当前账户版本发送给`trade.live_order.refresh`；后端根据保存的Proposal推导准确提供方身份，不信任renderer选择symbol/order pair。该动作仅执行只读provider刷新，不PLACE、不重试、不CANCEL、不创建approval、不Arm、不consent、不dispatch，也不自动轮询。通过可访问的状态语义报告成功/失败，并渲染保存后的settlement投影。此项只扩展实现行为；clickable prototype仍未修改且未验收。
+
+## 14.43 仅本地政策估值的来源绑定用户确认（#146）
+
+在 Settings → Data & Storage → Alpaca currency rates 中，仅对已保存、当前选中且仍符合条件的 Alpaca Paper 账户及未更改的 source profile 提供明确的本地用途确认。必须先由用户勾选默认未选中的确认框，再单独点击“记录我的本地用途确认”。说明这只记录用户本人针对准确 provider 账户、dataset/location 及 `LOCAL_ONLY` 去向进行本地、非商业 `POLICY_VALUATION` 的声明；不构成 Alpaca 条款的独立验证，也不允许共享、商业用途、model/tool 传输、导出、交易 FX、费用/资金、交易、审批、Arm、Prepare 或执行。profile 未保存、所选账户不符合条件，或已保存上下文声明共享/商业或外部用途时，禁用该操作。
+
+记录后显示“由你确认”、`USER_ATTESTED_LOCAL_ONLY` provenance、source/provider、远端账户、dataset profile、所选 crypto location、用途、去向和确认时间。当前 source 改变或过期后，捕获的 currency/risk review 仍须保留同一绑定事实和限制。保存已更改的 profile 会使旧确认失效；不得将其静默转移到其他账户或 location。source-use policy 评估和 provider entitlement 声明必须分开。不得新增 provider 读取、外部请求、model/tool 传输、导出或金融动作。键盘可用，并在390/768/1280px无溢出。行为契约见Backend§41.60和Frontend§13.46；原型代码保持不变，完整S29.11验收仍待完成。

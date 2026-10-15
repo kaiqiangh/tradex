@@ -3275,7 +3275,7 @@ REST本身不生成当前费用quote。真实`U/u` diff event与snapshot衔接�
 
 既有保存的 FX 来源可携带可选`cryptoLocation`枚举：`us`、`us-1`或`eu-1`。这些是明确的Alpaca加密数据location；默认不选择。Configure将合格的已保存Alpaca PAPER账户及可选location绑定到来源代次。Save不读取provider或vault。加密路由只能使用其准确配置的location；缺失/不支持的选择或访问拒绝时不得回退到其他location、host、dataset或credential。仅需要外汇路线时不需要加密location。
 
-所选location是来源身份，不是permission或entitlement事实。账户状态、成功认证、用户声明本人本地非商业使用或location选择均不得设置`dataUseRights=VERIFIED`。拥有方source-use evaluator必须保留所选dataset/purpose及实际适用的使用/entitlement证据，并在证据缺失或冲突时保持金融consumer unavailable。Alpaca原始观察值留在本地TradeX设备。用途绑定的归一化值仅供Rust policy-valuation consumer使用；typed `FinancialSourceConnection` IPC响应可向只读本地金融证据UI暴露原始quote字段，用于来源追溯和审计。该设备内展示不属于外部分发。React可以展示这些字段，但不能用其推导算术、source-use rights、金融资格或权限。原始quote/rate值及原始响应body不得进入model/tool prompt、research或artifact export，也不得发送给其他外部consumer。配置、source-use评估及provider观察是独立不可变输入；账户/location变化会使当前证据退休并改变拥有方material。本节定义来源配置边界；S29.11 producer/lifecycle及完整金融验收仍未完成。
+所选location是来源身份，不是permission或entitlement事实。账户状态、成功认证、用户声明本人本地非商业使用或location选择均不得设置`dataUseRights=VERIFIED`；只有§41.60中的独立、明确、来源绑定命令可以将所选本地`POLICY_VALUATION`范围标记为用户确认。拥有方source-use evaluator必须保留所选dataset/purpose及实际适用的使用/entitlement证据，并在证据缺失或冲突时保持金融consumer unavailable。Alpaca原始观察值留在本地TradeX设备。用途绑定的归一化值仅供Rust policy-valuation consumer使用；typed `FinancialSourceConnection` IPC响应可向只读本地金融证据UI暴露原始quote字段，用于来源追溯和审计。该设备内展示不属于外部分发。React可以展示这些字段，但不能用其推导算术、source-use rights、金融资格或权限。原始quote/rate值及原始响应body不得进入model/tool prompt、research或artifact export，也不得发送给其他外部consumer。配置、source-use评估及provider观察是独立不可变输入；账户/location变化会使当前证据退休并改变拥有方material。本节定义来源配置边界；S29.11 producer/lifecycle及完整金融验收仍未完成。
 
 既有`FinancialSourceConnection`可选`cryptoLocation`字段及configure契约共享生成的Rust/JSON Schema/TypeScript表面。不支持值以`IPC_PAYLOAD_INVALID`拒绝，且不覆盖已保存profile。Disconnect清除来源及location选择，同时保留借用的account/key。Reopen仅恢复`UNVERIFIED`选择元数据。
 
@@ -3285,7 +3285,7 @@ REST本身不生成当前费用quote。真实`U/u` diff event与snapshot衔接�
 
 仅接受准确的`quotes["USDT/USD"]`记录，其中包含数值型`bp`、`bs`、`ap`、`as`及RFC3339格式`t`。保留价格和数量原始JSON数字token、所选location、准确request path、原始响应字节SHA-256、provider时间与本地响应收取时间。遇到重复/未知字段、缺少或多余symbol、非数值/负数、非正或交叉价格、无效/未来/过期时间、secret回显、超大响应或已被更新的binding时，拒绝且不发布部分证据。Crypto quote没有provider mid；不得合成mid。共享route consumer仅保留准确方向bid/ask rate。
 
-该quote仅用于政策价格估值。保留的quote size不证明可执行深度、换算成本、资金或下游使用许可。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，其`INTENT_POLICY` route才可为该估值用途QUALIFIED；超出区间或未支持该用途则UNQUALIFIED。Provider quality仍为`UNQUALIFIED_FX_RATE`，任何结果都不构成执行资格。新鲜认证观察可以使`FX_RATE_OBSERVATION`可用，同时`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`，`TRANSACTION_FX_QUALIFICATION`仍为`BLOCKED_EXTERNAL`。location、成功认证与用户声明本地用途不能设置rights。实际source-use证据收集/评估及完整拥有方金融验收仍开放。
+该quote仅用于政策价格估值。保留的quote size不证明可执行深度、换算成本、资金或下游使用许可。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，其`INTENT_POLICY` route才可为该估值用途QUALIFIED；超出区间或未支持该用途则UNQUALIFIED。Provider quality仍为`UNQUALIFIED_FX_RATE`，任何结果都不构成执行资格。新鲜认证观察在没有§41.60中的单独匹配确认时可使`FX_RATE_OBSERVATION`可用，而`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`；存在匹配确认时也仅作为用户确认的本地用途显示为`VERIFIED`。`TRANSACTION_FX_QUALIFICATION`仍为`BLOCKED_EXTERNAL`。location、成功认证及source-use评估本身不能设置rights。实际source-use证据收集/评估及完整拥有方金融验收仍开放。
 
 ### 41.55 Alpaca source-use事实与有界本地评估（S29.11，验收待完成）
 
@@ -3293,7 +3293,7 @@ REST本身不生成当前费用quote。真实`U/u` diff event与snapshot衔接�
 
 本地assessor版本为`ALPACA_PERSONAL_LOCAL_V1`，按官方URL及SHA-256固定Alpaca Terms and Conditions（`2dc774d4aeeafbe4c7f0565e7842d932bc8bc10488af805fce43b8734e7b9859`）、Account Application and Customer Agreement（`d086d69f063bba1e9693fffbb3185c4469b24b47bda79f587053bd771580fcf6`）和官方国家可用性指引（`15949958e176c22888db353989b6598a6d926bf642075e8400197b872680c1e9`）。该指引没有发布当前受支持国家清单，并要求用户向Alpaca Support确认具体国家，因此没有静态已审阅法域allowlist。仅声明法域仍为`UNRESOLVED`；source-use上下文必须记录与账户法域相符的逐国Support确认。缺少确认或确认国家不同均保持`UNRESOLVED`。只有确认法域匹配，且用户报告BASIC计划、本人本地非商业用途、原始数据只留本地、协议复核日期有效时，才可报告`SUPPORTED_FOR_DECLARED_SCOPE`及purpose `POLICY_VALUATION`。商业/共享用途或外部目的地报告`OUT_OF_PROFILE`；缺失、未知、不支持的计划或过期事实保持`UNRESOLVED`。
 
-provider plan、协议及用途事实的provenance为`USER_REPORTED_PROVIDER_UI`；匹配的国家确认provenance为`USER_REPORTED_PROVIDER_SUPPORT`。两者都不是provider观测到的entitlement证据。匹配确认只能支持本地`POLICY_VALUATION`评估；不得将`FX_DATA_USE_RIGHTS`设置为`VERIFIED`，不得据此建立再分发/外部服务权利、交易FX资格或满足费用/资金/审批/Arm/Prepare/Gateway gate。普通source能力和rights能力分别保留。`FinancialSourceConnection`返回准确source-use context与policy决定，重开后仍可读取；Save不执行provider读取。这是本地有界policy输入，不是法律或provider entitlement核验；完整S29.11验收仍开放。
+provider plan、协议及用途事实的provenance为`USER_REPORTED_PROVIDER_UI`；匹配的国家确认provenance为`USER_REPORTED_PROVIDER_SUPPORT`。两者都不是provider观测到的entitlement证据。匹配确认只能支持本地`POLICY_VALUATION`评估，不会单独设置`FX_DATA_USE_RIGHTS`；只有§41.60中的独立`USER_ATTESTED_LOCAL_ONLY`确认才能让该能力为准确本地用途标记`VERIFIED`。两种状态都不建立再分发/外部服务权利、交易FX资格，也不满足费用/资金/审批/Arm/Prepare/Gateway gate。普通source能力和rights能力分别保留。`FinancialSourceConnection`返回准确source-use context与policy决定，重开后仍可读取；Save不执行provider读取。这是本地有界policy输入，不是法律或provider entitlement核验；完整S29.11验收仍开放。
 
 ### 41.56 Proposal绑定的精确钱包覆盖（S29.11 AC5，实现验收待完成）
 
@@ -3633,3 +3633,13 @@ Schema 38 增加 `workspace_retention`，这是 workspace-scoped 且具有单调
 恢复会重新验证 preview 中的 manifest hash，在权限受限的目录暂存快照，迁移支持的 schema 并检查 SQLite integrity/foreign keys，然后为当前打开的 workspace 创建恢复归档并发布一个新的恢复工作区。发布前失败时，当前 workspace 保持完整。保留历史 proposal、风险/执行证据、未决 PLACE/CANCEL attempt、预留、结算及审计溯源。使既有 approval 和当前撤单 authority 失效，停止 model Gateway 并重置会话；所有 Live 账户保持 DISARMED，恢复账户保持 stale/blocked，直到重新认证并完成对账。恢复过程不发出 provider 请求。
 
 应用保留策略仅删除：没有相关订单 ID 的过期 artifact 记录、workspace cache 目录下直接存放的普通非符号链接文件，以及现有行情数据库中过期的历史行。嵌套路径、外部路径与符号链接均排除。金融执行、对账、预留、结算、风险、approval 与审计记录不在清理范围内。返回的 `WorkspaceRetention` 计数表示最近一次明确应用删除的行/文件数。
+
+### 41.60 仅本地政策估值的来源绑定用户确认（#146）
+
+新增 `data.fx.attest_local_use { workspaceId, expectedStateVersion, confirmLocalPolicyValuationOnly } → FinancialSourceConnection`。payload 只接受明确的 boolean 确认；renderer 不得提交 rights 状态、provenance、远端账户 ID、dataset、location、purpose、destination、确认时间或 binding hash。必须确认值为 `true`，并校验当前选中的合格 Alpaca Paper FX source、受限格式的远端账户身份和准确的当前 state version。若已保存的 source-use context 声明 `COMMERCIAL_OR_SHARED` 或 `EXTERNAL`，则拒绝。
+
+Control Plane 固定 provenance 为 `USER_ATTESTED_LOCAL_ONLY`、source 为 `OD-005`、provider 为 `alpaca`、purpose 为 `POLICY_VALUATION`、destination 为 `LOCAL_ONLY`。将确认连同兼容字段 `serde(default)` 持久化在现有 SQLite `SavedFinancialSource` 投影中。binding digest 包含 policy 版本、workspace、source/provider/environment、所选 connection、远端账户、dataset profile、当前 crypto location、已保存 source-use context、purpose 和 destination。该确认记录用户声明的本地用途；它不是 provider entitlement、provider API 事实或其他用途的授权。
+
+使用独立的 financial-capability status 类型：只有准确 attestation binding 仍匹配所选账户和已保存 source profile 时，`FX_DATA_USE_RIGHTS` 才能为 `VERIFIED`。该能力状态不改变通用 source connection status。`TransactionFxQualification` 始终为 `BLOCKED_EXTERNAL`；确认不能满足任何账户、行情新鲜度/币种、货币输入完整性、费用/资金、权限、风险、审批、Arm、Prepare、Gateway 或执行门禁。缺失、陈旧、不支持或不匹配时均 fail closed。来源配置/断开操作会使确认失效；远端账户身份或 source-use context 改变时，旧 binding 不再有效。
+
+当前 connection 与不可变 `FxReviewEvidence.source.sourceUseAssessment.localUseAttestation` 暴露相同 provenance 和绑定字段，包括确认时间。捕获历史不会刷新或重绑它。最高公开 React → typed IPC → 隔离 SQLite 集成边界验证明确成功、缺少确认、陈旧 state version、profile/account/location 变化、context 拒绝、重开持久化、当前/捕获展示、外部及金融门禁保持不变，以及无 provider/model/export/金融副作用。Provider、vault 和 time fixture 不证明 provider entitlement。

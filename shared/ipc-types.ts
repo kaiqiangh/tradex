@@ -99,10 +99,14 @@ export type FinancialEvidenceCapability =
   | "SPOT_EXECUTION_QUALIFICATION"
   | "SPOT_DATA_USE_RIGHTS";
 /**
+ * Capability status is separate from source connectivity so only a specific
+ * backend-derived capability can report a user-attested local verification.
+ *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceStatus".
+ * via the `definition` "FinancialEvidenceCapabilityStatus".
  */
-export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+export type FinancialEvidenceCapabilityStatus =
+  "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED" | "VERIFIED";
 /**
  * Explicit Alpaca crypto data location. A failed or unsupported location never falls back.
  *
@@ -286,6 +290,11 @@ export type FinancialEvidenceQuality =
   "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA" | "UNQUALIFIED_FX_RATE" | "READ_ONLY_SPOT_RULES";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BrokerScheduleEventType".
  */
 export type BrokerScheduleEventType =
@@ -357,6 +366,23 @@ export type FxRawDataDestination = "LOCAL_ONLY" | "EXTERNAL";
  * via the `definition` "FxDeclaredUseScope".
  */
 export type FxDeclaredUseScope = "OWN_LOCAL_NONCOMMERCIAL" | "COMMERCIAL_OR_SHARED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseDatasetProfile".
+ */
+export type FxLocalUseDatasetProfile = "ALPACA_FOREX_RATES_AND_CONFIGURED_CRYPTO_QUOTES";
+/**
+ * Provenance for the deliberately narrow, user-confirmed local-use scope.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestationProvenance".
+ */
+export type FxLocalUseAttestationProvenance = "USER_ATTESTED_LOCAL_ONLY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestationPurpose".
+ */
+export type FxLocalUseAttestationPurpose = "POLICY_VALUATION";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FxSourceUseEvidenceProvenance".
@@ -1501,6 +1527,7 @@ export interface IpcSchema {
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
   financialSourceConfigure: FinancialSourceConfigure;
   financialSourceConnection: FinancialSourceConnection;
+  fxLocalUseAttestationCommand: FxLocalUseAttestationCommand;
   fxRequirements: FxRequirements;
   fxRequirementsQuery: FxRequirementsQuery;
   fxSourceRefresh: FxSourceRefresh;
@@ -2187,7 +2214,7 @@ export interface FinancialSourceConnection {
 export interface FinancialEvidenceCapabilityResult {
   capability: FinancialEvidenceCapability;
   reason: string;
-  status: DataSourceStatus;
+  status: FinancialEvidenceCapabilityStatus;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2864,6 +2891,7 @@ export interface FxSourceUseAssessment {
         FxSourceUsePolicyDocument,
         FxSourceUsePolicyDocument
       ];
+  localUseAttestation?: FxLocalUseAttestation | null;
   policyVersion: string;
   provenance: FxSourceUseEvidenceProvenance;
   reason: string;
@@ -2915,6 +2943,23 @@ export interface FxSourceUsePolicyDocument {
   sha256: string;
   title: string;
   url: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestation".
+ */
+export interface FxLocalUseAttestation {
+  bindingVersion: string;
+  confirmedAt: string;
+  connectionId: string;
+  cryptoLocation?: AlpacaCryptoLocation | null;
+  datasetProfile: FxLocalUseDatasetProfile;
+  provenance: FxLocalUseAttestationProvenance;
+  providerId: "alpaca";
+  purpose: FxLocalUseAttestationPurpose;
+  rawDataDestination: FxRawDataDestination;
+  remoteAccountId: string;
+  sourceId: "OD-005";
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -7630,6 +7675,15 @@ export interface FinancialSourceConfigure {
   cryptoLocation?: AlpacaCryptoLocation | null;
   expectedStateVersion: string;
   sourceUseContext?: FxSourceUseContext | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestationCommand".
+ */
+export interface FxLocalUseAttestationCommand {
+  confirmLocalPolicyValuationOnly: boolean;
+  expectedStateVersion: string;
   workspaceId: string;
 }
 /**
