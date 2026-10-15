@@ -362,3 +362,5 @@ G2 对 `c14ef06...1ccb38f`（含证据补充 `6cae59d`）完成独立串行审�
 [机器收据、准备限制与哈希](evidence/s33/b2-thread-recovery-result.json)；[历史读取失败](evidence/s33/b2-history-transport-failed-390.png)；[恢复读取失败](evidence/s33/b2-resume-transport-failed-390.png)。这是传输层 UI 证据，不证明真实存储故障或原生辅助功能。没有修改应用实现，也不声明发现产品 RED。Node 语法、类型、追溯及 diff 检查通过；本批未重跑完整 Rust 套件或构建。
 
 B2 保持 IMPLEMENTED_UNVERIFIED。已填充 ARCHIVED/Saved 仍开放：wire 类型和展示分支存在，但当前公开命令目录没有归档操作。本次未注入可信 Thread 行或伪造已保存历史。完整 S33/native 与上游运行时恢复继续作为独立门禁开放。
+
+对 `f25c6fc...cc16bd1` 的独立串行审查：本次传输恢复切片 **Standards 零 finding；Spec 零可执行 finding**。审查核对明确的 UI 结果、公开 Thread 不变、只读命令边界、十八项观察、六条预期传输诊断、源码/截图哈希、双语声明及保留的 B2/完整 S33 限制。审查只读，未重跑测试。

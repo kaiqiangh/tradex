@@ -103,6 +103,7 @@ Final-SHA state/interaction coverage, native VoiceOver, the complete dialog/Live
 
 ## Next serial work
 
-1. Cover the remaining local A3 forbidden/unsupported permission responses first; retain native/real-provider gaps.
-2. Reconcile remaining applicable states/interactions in screen order; finish validation, serial review and evidence for each current item before advancing.
-3. Then perform final-SHA integrated replay, native accessibility and delivery verification; local evidence cannot close the real/physical acceptance skipped by user scope.
+1. Follow-up after the historical snapshot: eight known single-flag Binance permission responses passed at `c768206` (reviews `f25c6fc`); B2 read transport loading/failure/retry passed at `cc16bd1`. See the paired S33 report and their machine receipts. This does not refresh the other 70-screen snapshot rows.
+2. Resolve the B2 populated Saved gap through its public lifecycle contract: ARCHIVED has a wire/display branch but no public archive operation. Retain actual storage-failure, native and real-provider gaps.
+3. Reconcile remaining applicable states/interactions in screen order; finish validation, serial review and evidence for each current item before advancing.
+4. Then perform final-SHA integrated replay, native accessibility and delivery verification; local evidence cannot close the real/physical acceptance skipped by user scope.
