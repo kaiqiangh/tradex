@@ -1,0 +1,15 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.25s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-c1e8f29d5c5a26b9)
+
+running 1 test
+
+running 1 test
+test owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 118 filtered out; finished in 0.23s
+
+test owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 118 filtered out; finished in 0.47s
+

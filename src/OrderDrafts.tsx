@@ -51,7 +51,9 @@ import { liveExecutionStatus } from './liveExecution.ts';
 import { fromAccountSnapshot } from './projection.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
 import { TradeHotQuote } from './TradeHotQuote.tsx';
+import { SpotFeeMarket } from './SpotFeeMarket.tsx';
 import { SpotQuoteEvidencePanel } from './SpotQuoteEvidencePanel.tsx';
+import { approvalReviewMoneyCopy } from './approval-review-copy.ts';
 
 const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'LOCAL_PAPER', label: 'Local Paper' },
@@ -350,6 +352,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [executionPrepareBusy, setExecutionPrepareBusy] = useState(false);
   const [manualResolutionBusy, setManualResolutionBusy] = useState(false);
+  const [liveSettlementRefreshBusy, setLiveSettlementRefreshBusy] = useState(false);
+  const [liveSettlementRefreshError, setLiveSettlementRefreshError] = useState('');
+  const [liveSettlementRefreshNotice, setLiveSettlementRefreshNotice] = useState('');
   const [ordersBusy, setOrdersBusy] = useState(false);
   const [trading212OrdersBusy, setTrading212OrdersBusy] = useState(false);
   const [binanceTestnetOrdersBusy, setBinanceTestnetOrdersBusy] = useState(false);
@@ -391,6 +396,44 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
     refetchInterval: query => ['RESERVED', 'SUBMITTING'].includes(query.state.data?.preparation?.attempt.state ?? '') ? 1_000 : false,
   });
   const visibleExecutionPreparation = savedExecutionPreparation.data?.preparation;
+  const livePlaceAccount = visibleExecutionPreparation
+    ? accounts.data?.accounts.find(account => account.connectionId === visibleExecutionPreparation.attempt.accountId)
+    : undefined;
+  const livePlaceAccountReadable = livePlaceAccount?.connectionState === 'CONNECTED'
+    || (livePlaceAccount?.connectionState === 'REVIEW_REQUIRED'
+      && livePlaceAccount.health.connection === 'ONLINE'
+      && livePlaceAccount.health.authentication === 'VALID');
+  const refreshLivePlaceSettlement = async () => {
+    const preparation = visibleExecutionPreparation;
+    const attempt = preparation?.attempt;
+    const account = livePlaceAccount;
+    if (!preparation || !attempt || !account || !attempt.brokerOrderId || liveSettlementRefreshBusy) return;
+    setLiveSettlementRefreshBusy(true);
+    setLiveSettlementRefreshError('');
+    setLiveSettlementRefreshNotice('');
+    try {
+      const updated = await request('trade.live_order.refresh', {
+        workspaceId,
+        accountId: account.connectionId,
+        approvalId: attempt.approvalId,
+        brokerOrderId: attempt.brokerOrderId,
+        expectedStateVersion: account.stateVersion,
+      });
+      if (updated.connectionId !== account.connectionId
+        || updated.providerId !== account.providerId
+        || updated.environment !== 'LIVE') throw new Error('IPC_IDENTITY_CONFLICT');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId] }),
+        queryClient.invalidateQueries({ queryKey: ['accounts', workspaceId, 'order-draft'] }),
+      ]);
+      await savedExecutionPreparation.refetch();
+      setLiveSettlementRefreshNotice('Exact provider order refreshed with a read-only request. This did not place, cancel, or retry an order.');
+    } catch (failure) {
+      setLiveSettlementRefreshError(explainError(failure));
+    } finally {
+      setLiveSettlementRefreshBusy(false);
+    }
+  };
   const unknownLiveAttempt = visibleExecutionPreparation?.attempt;
   const resolutionEvidence = useQuery({
     queryKey: ['resolution-evidence', workspaceId, unknownLiveAttempt?.attemptId, unknownLiveAttempt?.stateVersion],
@@ -1464,6 +1507,9 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       && approval.proposalId === selectedProposalId && approval.status === 'ISSUED' && Date.parse(approval.expiresAt) > Date.now());
 
   const approvalQuoteEvidence = approvalReview?.market.snapshot?.provenance.alpaca;
+  const approvalMoneyCopy = approvalReview
+    ? approvalReviewMoneyCopy(approvalReview.proposal.fields.side, approvalReview.proposal.fields.orderType)
+    : undefined;
   const preArmQuote = liveArmReview?.quoteReview?.market.snapshot;
   const preArmQuoteEvidence = preArmQuote?.provenance.alpaca;
   if (library.isPending) return <p role="status">Loading order drafts…</p>;
@@ -1516,6 +1562,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
             <FxSourceContext workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotRules key={proposalDetail.data.proposalId} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotCommission key={`commission:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
+            {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <SpotFeeMarket key={`fee-source:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} />}
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotCapacity key={`capacity:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             {proposalDetail.data.fields.environment === 'BINANCE_LIVE' && <CurrentSpotOrderIntervals key={`intervals:${proposalDetail.data.proposalId}`} workspaceId={workspaceId} proposalId={proposalDetail.data.proposalId} />}
             <RiskDecisionPanel history={riskDecisions.data} loading={riskDecisions.isPending} error={riskDecisions.error} busy={riskBusy} onEvaluate={evaluateRisk} />
@@ -1557,6 +1604,35 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                   <LiveCapacitySummary capacity={visibleExecutionPreparation.reservation.capacityProjection} label="Capacity after TradeX reservation" />
                 </>}
                 {visibleExecutionPreparation.reservation?.status === 'RELEASED' && <span>Reservation released: {visibleExecutionPreparation.reservation.amount} {visibleExecutionPreparation.reservation.unit}. This capacity is no longer held by TradeX.</span>}
+                {visibleExecutionPreparation.attempt.operation === 'PLACE_ORDER'
+                  && ['TRADING212_LIVE', 'BINANCE_LIVE', 'BITGET_LIVE'].includes(visibleExecutionPreparation.attempt.environment)
+                  && consumedApproval?.approvalId === visibleExecutionPreparation.attempt.approvalId
+                  && Boolean(visibleExecutionPreparation.attempt.brokerOrderId)
+                  && visibleExecutionPreparation.attempt.dispatchDisposition === 'MAY_HAVE_SUBMITTED'
+                  && visibleExecutionPreparation.reservation?.status === 'ACTIVE'
+                  && visibleExecutionPreparation.liveOrderSettlement?.status !== 'SETTLED'
+                  && <section className="notice" aria-label="Read-only live fill and fee refresh">
+                    <div className="section-heading">
+                      <div><h4>Refresh exact provider fill and fees</h4><p className="muted">Reads this consumed PLACE attempt’s exact order and available trade facts. It cannot place, cancel, or retry an order.</p></div>
+                      <button type="button" onClick={() => void refreshLivePlaceSettlement()} disabled={liveSettlementRefreshBusy || !livePlaceAccountReadable || !livePlaceAccount || ['MISSING', 'DELETE_PENDING'].includes(livePlaceAccount.health.credential)}>
+                        {liveSettlementRefreshBusy ? 'Reading provider order…' : 'Refresh exact order'}
+                      </button>
+                    </div>
+                    {!livePlaceAccountReadable && <span role="status">The saved account must be connected, or online with valid authentication under review, before refreshing.</span>}
+                    {liveSettlementRefreshError && <span className="error-text" role="alert">Unable to refresh exact provider evidence: {liveSettlementRefreshError}</span>}
+                    {liveSettlementRefreshNotice && <span role="status" aria-live="polite">{liveSettlementRefreshNotice}</span>}
+                  </section>}
+                {!!visibleExecutionPreparation.reservation?.assetClaims?.length && <section className="notice native-reservation-claims" aria-label="Native asset reservation claims">
+                  <h4>Saved native-asset claims</h4>
+                  {visibleExecutionPreparation.reservation.assetClaims.map((claim, index) => <span key={`${claim.asset}-${claim.purpose}-${index}`}>
+                    {claim.purpose} · {claim.amount} {claim.asset}
+                  </span>)}
+                  {visibleExecutionPreparation.reservation.assetCapacities?.length
+                    ? visibleExecutionPreparation.reservation.assetCapacities.map(capacity => <span key={capacity.asset}>
+                      {capacity.asset} capacity · requested {capacity.requestedAmount} · broker free {capacity.brokerAvailable} · existing local claims {capacity.existingReservations} · available before this attempt {capacity.effectiveAvailable} · remaining after it {capacity.remainingAfterReservation}
+                    </span>)
+                    : <span role="status">Per-asset capacity evidence was not saved for this reservation.</span>}
+                </section>}
                 {visibleExecutionPreparation.liveOrderSettlement && <section className="notice" aria-label="Live order fill and fee evidence">
                   <div className="section-heading"><div><h4>{visibleExecutionPreparation.liveOrderSettlement.status} · provider fill and fee evidence</h4><p className="muted">Saved by read-only account refresh; provider acknowledgement alone is not fill evidence.</p></div><button type="button" onClick={() => void savedExecutionPreparation.refetch()} disabled={savedExecutionPreparation.isFetching}>Reload evidence</button></div>
                   <span>Order {visibleExecutionPreparation.liveOrderSettlement.providerOrderId} · raw status {visibleExecutionPreparation.liveOrderSettlement.providerStatus ?? 'Unavailable'} · {visibleExecutionPreparation.liveOrderSettlement.disposition}</span>
@@ -1566,6 +1642,12 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
                       ? visibleExecutionPreparation.liveOrderSettlement.fees.map(fee => `${fee.amount} ${fee.asset}`).join(', ')
                       : '0 (provider confirmed none)')
                     : 'Incomplete; no zero fee assumed'}</span>
+                  <span>Initial native claims {visibleExecutionPreparation.liveOrderSettlement.initialAssetClaims?.length
+                    ? visibleExecutionPreparation.liveOrderSettlement.initialAssetClaims.map(claim => `${claim.purpose} ${claim.amount} ${claim.asset}`).join(', ')
+                    : 'Unavailable for this legacy settlement'}</span>
+                  <span>Remaining native claims {visibleExecutionPreparation.reservation?.assetClaims?.length
+                    ? visibleExecutionPreparation.reservation.assetClaims.map(claim => `${claim.purpose} ${claim.amount} ${claim.asset}`).join(', ')
+                    : 'Unavailable for this legacy reservation'}</span>
                   <span>Provider observed {visibleExecutionPreparation.liveOrderSettlement.providerObservedAt ? new Date(visibleExecutionPreparation.liveOrderSettlement.providerObservedAt).toLocaleString() : 'Unavailable'} · TradeX recorded {new Date(visibleExecutionPreparation.liveOrderSettlement.observedAt).toLocaleString()} · source {visibleExecutionPreparation.liveOrderSettlement.source}</span>
                   <span>Remaining commitment {visibleExecutionPreparation.liveOrderSettlement.remainingCommitment} of {visibleExecutionPreparation.liveOrderSettlement.initialCommitment}</span>
                   {visibleExecutionPreparation.liveOrderSettlement.unresolvedReason && <span role="status">Unresolved: {visibleExecutionPreparation.liveOrderSettlement.unresolvedReason}. Capacity remains held.</span>}
@@ -1849,12 +1931,13 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
         <div><dt>Side / quantity</dt><dd>{approvalReview.proposal.fields.side} · {approvalReview.proposal.fields.quantity.value} {approvalReview.proposal.fields.quantity.type}</dd></div>
         <div><dt>Order / limit / time in force</dt><dd>{approvalReview.proposal.fields.orderType} · {approvalReview.proposal.fields.limitPrice ?? 'No limit'} · {approvalReview.proposal.fields.timeInForce}</dd></div>
         <div><dt>Policy / RiskDecision</dt><dd>v{approvalReview.riskDecision.policyVersion ?? 'Unavailable'} · {approvalReview.riskDecision.status} · {approvalReview.riskDecision.decisionId}</dd></div>
-        <div><dt>{approvalReview.proposal.fields.side === 'SELL' ? 'Expected proceeds' : 'Expected spend'}</dt><dd>{approvalReview.expectedSpend ?? 'Unavailable'} {approvalReview.proposal.estimatedNotionalCurrency ?? ''}</dd></div>
-        <div><dt>{approvalReview.proposal.fields.side === 'SELL' ? 'Maximum authorized proceeds' : 'Maximum authorized spend'}</dt><dd>{approvalReview.maximumAuthorizedSpend ?? 'Unavailable'} {approvalReview.proposal.estimatedNotionalCurrency ?? ''}</dd></div>
+        <div><dt>{approvalMoneyCopy?.expectedLabel}</dt><dd>{approvalReview.expectedSpend ?? 'Unavailable'} {approvalReview.proposal.estimatedNotionalCurrency ?? ''}</dd></div>
+        {approvalMoneyCopy?.maximumLabel && <div><dt>{approvalMoneyCopy.maximumLabel}</dt><dd>{approvalReview.maximumAuthorizedSpend ?? 'Unavailable'} {approvalReview.proposal.estimatedNotionalCurrency ?? ''}</dd></div>}
         <div><dt>Client label</dt><dd>{approvalReview.proposal.fields.clientLabel ?? '—'}</dd></div>
         <div><dt>Review expires</dt><dd>30 seconds after approval; reviewed {new Date(approvalReview.reviewedAt).toLocaleString()}</dd></div>
       </dl>
-      {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
+      {approvalMoneyCopy?.disclosure && <p className="muted">{approvalMoneyCopy.disclosure}</p>}
+      {approvalReview.account?.providerId === 'trading212' && approvalReview.proposal.fields.side === 'BUY' && approvalReview.proposal.fields.orderType === 'MARKET' && <p>This maximum bounds TradeX approval and reserved capacity. Trading 212 does not enforce it as a market execution price or value limit.</p>}
       <LiveCapacitySummary capacity={approvalReview.capacityProjection} label="Backend capacity preview" />
       {approvalReview.riskDecision.spotRules && <SpotRulesExplanation rules={approvalReview.riskDecision.spotRules} captured />}
         {approvalReview.riskDecision.spotCommission && <SpotCommissionExplanation inputs={approvalReview.riskDecision.spotCommission} captured />}

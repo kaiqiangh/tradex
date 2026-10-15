@@ -1,0 +1,12 @@
+S29.11 ordinary desktop build and Gateway pin — 2026-10-12
+
+Recorded: 2026-10-12T09:53:27Z
+Branch/head: dev / 015f4ba19b0dcba138d2a48fafb42b6323821e83
+Command: `npm run desktop:build`
+Result: exit 0; release desktop executable exists at `target/release/tradex`.
+
+The build script first compiled `tradex-order-gateway`, derived its SHA-256, passed that pin into `tauri build --features desktop --no-bundle`, and restored the exact pre-build Gateway bytes after Tauri's multi-binary compilation. Post-build verification calculated Gateway SHA-256 `af0c0057c0437b19ebc83d66cc1c04733dbb1fd5b7d85f0380a4921719815f71` and found the same ASCII pin embedded in `target/release/tradex`.
+
+Packaging boundary: `src-tauri/tauri.conf.json` has `bundle.active=false`, and the script uses `--no-bundle`; this command creates the desktop executable, not a macOS `.app` bundle or installer. The executable was not launched. Vite emitted its existing >500 kB chunk warning. No real account/provider was accessed and no financial action occurred.
+
+This is an ordinary build/pin check only. It does not satisfy positive owning-plan/Prepare, source rights, actual desktop runtime, or final AC14 handoff. GitHub #135/#134 remain OPEN at 4/14 checked; no issue or checkbox changed.

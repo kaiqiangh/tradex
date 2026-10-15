@@ -303,19 +303,31 @@ fn main() -> io::Result<()> {
             #[cfg(feature = "integration-test")]
             if command == Some("binance.live.commission.fixture") {
                 // Only the external HTTP producer changes; this never sets Control Plane evidence.
-                let mode=match request["payload"]["scenario"].as_str() {
-                    Some("NORMAL")=>Some(fixtures::BinanceCommissionFixture::Normal),
-                    Some("CHANGED")=>Some(fixtures::BinanceCommissionFixture::Changed),
-                    Some("INCOMPLETE")=>Some(fixtures::BinanceCommissionFixture::Incomplete),
-                    Some("EXTENSIONS")=>Some(fixtures::BinanceCommissionFixture::Extensions),
-                    _=>None,
+                let mode = match request["payload"]["scenario"].as_str() {
+                    Some("NORMAL") => Some(fixtures::BinanceCommissionFixture::Normal),
+                    Some("CHANGED") => Some(fixtures::BinanceCommissionFixture::Changed),
+                    Some("INCOMPLETE") => Some(fixtures::BinanceCommissionFixture::Incomplete),
+                    Some("EXTENSIONS") => Some(fixtures::BinanceCommissionFixture::Extensions),
+                    Some("ZERO_BNB") => Some(fixtures::BinanceCommissionFixture::ZeroBnb),
+                    Some("TINY_BNB") => Some(fixtures::BinanceCommissionFixture::TinyBnb),
+                    Some("BNB_SUFFICIENT") => {
+                        Some(fixtures::BinanceCommissionFixture::BnbSufficient)
+                    }
+                    Some("ZERO_EXPRESSION") => {
+                        Some(fixtures::BinanceCommissionFixture::ZeroExpression)
+                    }
+                    _ => None,
                 };
-                let reply=if let Some(mode)=mode.filter(|_|http.binance_rules_ui) {
+                let reply = if let Some(mode) = mode.filter(|_| http.binance_rules_ui) {
                     http.binance_commission_ui.set(mode);
                     json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
-                } else {json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})};
-                write_frame(&output,&json!({"kind":"result","result":reply}))?;
-                frame.clear();oversized=false;continue;
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
             }
             #[cfg(feature = "integration-test")]
             if command == Some("binance.live.capacity.fixture") {
@@ -326,8 +338,12 @@ fn main() -> io::Result<()> {
                     Some("BASE_LISTS") => Some(fixtures::BinanceCapacityFixture::BaseLists),
                     Some("MALFORMED") => Some(fixtures::BinanceCapacityFixture::Malformed),
                     Some("DELAYED") => Some(fixtures::BinanceCapacityFixture::Delayed),
-                    Some("COMPLETE_COVERAGE") => Some(fixtures::BinanceCapacityFixture::CompleteCoverage),
-                    Some("ORDER_RATE_EXHAUSTED") => Some(fixtures::BinanceCapacityFixture::OrderRateExhausted),
+                    Some("COMPLETE_COVERAGE") => {
+                        Some(fixtures::BinanceCapacityFixture::CompleteCoverage)
+                    }
+                    Some("ORDER_RATE_EXHAUSTED") => {
+                        Some(fixtures::BinanceCapacityFixture::OrderRateExhausted)
+                    }
                     Some("FEE_DECLARED") => Some(fixtures::BinanceCapacityFixture::FeeDeclared),
                     Some("FEE_CHANGED") => Some(fixtures::BinanceCapacityFixture::FeeChanged),
                     _ => None,
@@ -349,8 +365,14 @@ fn main() -> io::Result<()> {
                 let result = match (p["scenario"].as_str(), p["symbol"].as_str()) {
                     (
                         Some(
-                            "NORMAL" | "HALT" | "BREAK" | "MALFORMED" | "PERCENT_REFERENCE"
-                            | "PRICE_REJECT" | "PRICE_RANGE_PARTIAL" | "PRICE_RANGE_NULL",
+                            "NORMAL"
+                            | "HALT"
+                            | "BREAK"
+                            | "MALFORMED"
+                            | "PERCENT_REFERENCE"
+                            | "PRICE_REJECT"
+                            | "PRICE_RANGE_PARTIAL"
+                            | "PRICE_RANGE_NULL",
                         ),
                         Some(symbol @ ("BTCUSDT" | "ETHUSDT")),
                     ) if http.binance_rules_ui => {
@@ -813,6 +835,20 @@ fn main() -> io::Result<()> {
                     &json!({
                         "kind":"result",
                         "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"filled":true}}
+                    }),
+                )?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("trading212.live.place.fixture.seed_partial") {
+                http.seed_trading212_live_place_partial_order();
+                write_frame(
+                    &output,
+                    &json!({
+                        "kind":"result",
+                        "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"seeded":true}}
                     }),
                 )?;
                 frame.clear();
@@ -1372,9 +1408,25 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
-            if matches!(command, Some("market.hot.acquire" | "market.hot.release")) {
-                let instrument = request["payload"]["instrumentId"].as_str();
-                let binance = instrument.is_some_and(|id| id.starts_with("crypto:"));
+            if matches!(
+                command,
+                Some(
+                    "market.hot.acquire"
+                        | "market.hot.release"
+                        | "trade.spot_fee_market.acquire"
+                        | "trade.spot_fee_market.release"
+                )
+            ) {
+                let fee_only = matches!(
+                    command,
+                    Some("trade.spot_fee_market.acquire" | "trade.spot_fee_market.release")
+                );
+                let instrument = if fee_only {
+                    Some("internal:BNB/USDT:fee")
+                } else {
+                    request["payload"]["instrumentId"].as_str()
+                };
+                let binance = fee_only || instrument.is_some_and(|id| id.starts_with("crypto:"));
                 let result = if binance && binance_market_fixture.is_some() {
                     let fixture = binance_market_fixture.as_ref().unwrap();
                     match fixture.connector(instrument.unwrap()) {

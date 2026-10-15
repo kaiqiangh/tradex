@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.80s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-1740cd553d5aeb1f)
+
+running 1 test
+test owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate ... 
+running 1 test
+test owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate ... FAILED
+
+failures:
+
+failures:
+    owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.14s
+
+
+thread 'owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate' (14446655) panicked at src-tauri/tests/binance_rules.rs:7087:5:
+assertion `left == right` failed
+  left: Null
+ right: "ZERO_DISCOUNTED_FEE_EXPRESSION"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate' (14446651) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

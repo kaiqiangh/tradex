@@ -39,7 +39,7 @@ async function selectDraft(ui, workspaceId, draftId, expectedQuantity) {
   assert.equal(await quantity(), expectedQuantity, 'Selecting the draft loads its saved quantity');
 }
 
-export async function checkLiveApprovalUI(tab, browser) {
+export async function checkLiveApprovalUI(tab, browser, { stopAfterNativeClaims = false } = {}) {
   const ui = tab.playwright;
   commandEndpoint = new URL('/__integration/command', await tab.url()).toString();
   const viewport = await browser.capabilities.get('viewport');
@@ -364,6 +364,10 @@ export async function checkLiveApprovalUI(tab, browser) {
     const acceptedCard = ui.getByLabel('TradeX execution preparation', { exact: true });
     await acceptedCard.getByRole('status').filter({ hasText: 'The provider accepted the order. This is not a fill.' }).waitFor({ state: 'visible' });
     await acceptedCard.getByText('Provider order ID 901', { exact: true }).waitFor({ state: 'visible' });
+    const nativeClaims = acceptedCard.getByRole('region', { name: 'Native asset reservation claims', exact: true });
+    await nativeClaims.getByText('PRINCIPAL · 400 USD', { exact: true }).waitFor({ state: 'visible' });
+    await nativeClaims.getByRole('status').filter({ hasText: 'Per-asset capacity evidence was not saved for this reservation.' }).waitFor({ state: 'visible' });
+    await nativeClaims.getByRole('status').filter({ hasText: 'legacy reservation' }).waitFor({ state: 'hidden' });
     const liveReviewButton = ui.getByRole('button', { name: 'Review Live approval', exact: true });
     for (let attempt = 0; attempt < 40 && await liveReviewButton.isEnabled(); attempt += 1) await ui.waitForTimeout(50);
     assert.equal(await liveReviewButton.isEnabled(), false, 'A consumed proposal cannot open a second live review');
@@ -378,6 +382,29 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(durablePreparation.preparation.attempt.brokerOrderId, '901');
     assert.equal(durablePreparation.preparation.attempt.providerStatus, 'NEW');
     assert.equal(durablePreparation.preparation.reservation.status, 'ACTIVE', 'Provider acceptance does not release capacity before provider evidence does.');
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: width === 390 ? 844 : 900 });
+      const principalBounds = await nativeClaims.getByText('PRINCIPAL · 400 USD', { exact: true }).evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom };
+      });
+      const evidenceBounds = await nativeClaims.getByRole('status').evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom };
+      });
+      assert.ok(principalBounds.bottom <= evidenceBounds.top,
+        `Native claim and capacity evidence occupy separate lines at ${width}px: ${JSON.stringify({ principalBounds, evidenceBounds })}`);
+      const bounds = await nativeClaims.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+      });
+      assert.ok(bounds.left >= 0 && bounds.right <= bounds.width && bounds.scroll <= bounds.width,
+        `Native reservation claims fit without horizontal overflow at ${width}px: ${JSON.stringify(bounds)}`);
+    }
+    await viewport.set({ width: 1280, height: 900 });
+    observed.push('Saved native principal and unavailable per-asset capacity evidence remain distinct and readable at1280/768/390px; no legacy label is inferred for a new single-asset reservation.');
+    if (stopAfterNativeClaims) return observed;
+
     const gatewayRequests = (await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests;
     const placeRequests = gatewayRequests.filter(request => request.method === 'POST');
     assert.equal(placeRequests.length, 1, 'The approved attempt causes exactly one provider mutation.');
@@ -445,7 +472,7 @@ export async function checkLiveApprovalUI(tab, browser) {
     await conflictDialog.waitFor({ state: 'hidden' });
     await ui.getByRole('button', { name: 'Prepare and send approved PLACE', exact: true }).press('Enter');
     await ui.getByRole('alert').filter({ hasText: 'RISK_REJECTED · RESERVED_CAPACITY' }).waitFor({ state: 'visible' });
-    await ui.getByText(/Next step: Reduce the request or wait for earlier reservations/).waitFor({ state: 'visible' });
+    await ui.getByRole('region', { name: 'Live approval history', exact: true }).getByText(/Next step: Reduce the request or wait for earlier reservations/).waitFor({ state: 'visible' });
     const refusalSummary = ui.getByLabel('Capacity evidence at refusal', { exact: true });
     await refusalSummary.waitFor({ state: 'visible' });
     for (const width of [1280, 768, 390]) {
@@ -530,6 +557,57 @@ export async function checkLiveApprovalUI(tab, browser) {
     assert.equal(((await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST')).length, 1);
     assert.match(await preparationCard.innerText(), /ACCEPTED · TradeX execution attempt/);
     observed.push('A risk-policy update after provider acceptance preserves the persisted ACCEPTED attempt and its active capacity reservation.');
+
+    // The ordinary read below changes this fixture's permission evidence, so run it after this account's approval scenarios.
+    const exactOrderRefresh = acceptedCard.getByLabel('Read-only live fill and fee refresh', { exact: true });
+    const exactOrderRefreshButton = exactOrderRefresh.getByRole('button', { name: 'Refresh exact order', exact: true });
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: width === 390 ? 844 : 900 });
+      const size = await exactOrderRefresh.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, width: window.innerWidth, scroll: document.documentElement.scrollWidth };
+      });
+      assert.ok(size.left >= 0 && size.right <= size.width, `Exact-order refresh fits at ${width}px: ${JSON.stringify(size)}`);
+      assert.ok(size.scroll <= size.width, `Exact-order refresh has no horizontal overflow at ${width}px: ${JSON.stringify(size)}`);
+    }
+    await viewport.set({ width: 1280, height: 900 });
+    assert.equal(await exactOrderRefreshButton.isEnabled(), true, 'The consumed, active exact PLACE can be explicitly refreshed while its saved account is readable.');
+    // Startup and exact-order reads share the production five-second account-summary cooldown.
+    await ui.waitForTimeout(5100);
+    await exactOrderRefreshButton.press('Enter');
+    const unresolvedOrderAlert = acceptedCard.getByRole('alert');
+    await unresolvedOrderAlert.filter({ hasText: 'STATE_STALE · State is stale. Next step: Reload state' }).waitFor({ state: 'visible' });
+    assert.equal((await unresolvedOrderAlert.innerText()).includes('Alpaca'), false, 'Provider-neutral refresh errors do not name an unrelated broker.');
+    const missingOrderPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: preparedHistory.approvals[0].approvalId,
+    });
+    assert.equal(missingOrderPreparation.preparation.attempt.providerStatus, 'NEW', 'A missing read response does not overwrite the last known provider status.');
+    assert.equal(missingOrderPreparation.preparation.reservation.status, 'ACTIVE', 'A missing read response does not release the reservation.');
+    const postMissingReadRequests = (await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST');
+    assert.equal(postMissingReadRequests.length, 1, 'An inconclusive exact-order read cannot dispatch another order.');
+    await sendIntegrationCommand('trading212.live.place.fixture.seed_partial', {});
+    await ui.waitForTimeout(5100);
+    await exactOrderRefreshButton.press('Enter');
+    await acceptedCard.getByLabel('Live order fill and fee evidence', { exact: true }).waitFor({ state: 'visible' });
+    await acceptedCard.getByRole('status').filter({ hasText: 'Exact provider order refreshed with a read-only request.' }).waitFor({ state: 'visible' });
+    const refreshedPreparation = await sendIntegrationCommand('trade.execution.preparation.get', {
+      workspaceId, approvalId: preparedHistory.approvals[0].approvalId,
+    });
+    assert.equal(refreshedPreparation.preparation.attempt.providerStatus, 'PARTIALLY_FILLED');
+    assert.equal(refreshedPreparation.preparation.liveOrderSettlement.status, 'INCOMPLETE', 'Missing provider fee/timestamp facts keep the reservation frozen.');
+    assert.equal(refreshedPreparation.preparation.liveOrderSettlement.feesComplete, false, 'An unavailable fee is not displayed as zero.');
+    assert.equal(refreshedPreparation.preparation.reservation.status, 'ACTIVE', 'An incomplete partial-fill read cannot release reserved capacity.');
+    assert.equal(refreshedPreparation.preparation.liveOrderSettlement.filledQuantity, '0.004');
+    assert.equal(refreshedPreparation.preparation.liveOrderSettlement.filledValue, '200');
+    const postRefreshRequests = (await sendIntegrationCommand('live.gateway.fixture.inspect', {})).requests.filter(request => request.method === 'POST');
+    assert.equal(postRefreshRequests.length, 1, 'Exact-order refresh performs no additional provider mutation.');
+    observed.push('The consumed PLACE exposes an explicit read-only exact-order refresh at 1280/768/390px; an unknown-order response preserves status and reservation with broker-neutral guidance, then a synthetic partial fill is retained, missing fee evidence stays incomplete, and no second provider POST occurs.');
+    const accountAfterRead = await sendIntegrationCommand('account.get', {
+      workspaceId, connectionId: executionAccount.connectionId,
+    });
+    assert.equal(accountAfterRead.connectionState, 'REVIEW_REQUIRED', 'A changed permission observation requires a new account review');
+    assert.equal(accountAfterRead.health.arming, 'DISARMED', 'Read-only refresh cannot retain prior trading authority after permission evidence changes');
+
 
     const mountedAccount = await sendIntegrationCommand('account.arming.fixture.seed', {
       workspaceId, providerId: 'trading212', label: `Mounted refresh fixture ${Date.now()}`,

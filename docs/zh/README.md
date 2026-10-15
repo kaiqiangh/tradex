@@ -61,3 +61,5 @@ S25.4 #100 已在收窄范围内于已审查的 `dev@f67463d` 关闭：新鲜且
 S29.5 #126已CLOSED，源码`b4d137a`和已核对dev交付`96a9577`绑定当前检查/构建/pin/UI、161源码哈希及串行Standards/Spec PASS。[配对证据](../implementation/s29-spot-capacity-inputs-evidence_zh.md)记录最终7项AC关闭回读。动态资格及父项/全图/原生/金融/物理门禁独立保留；原型/main未改。
 
 S29.10精确标的佣金声明来源的规范与实现均CLOSED；[配对验收](../implementation/s29-symbol-commission-evidence_zh.md)绑定源码a3127a5/已核对dev3d507c0、172输入、完整检查/build/pin/冻结当前及捕获与pre-arm UI、串行独立复审。完整金额费用/扣费及真正必需USDT/BNB执行FX仍必须后续拥有方补齐，父项/map/金融/native/物理/release门禁保持OPEN。原型/main与需求/屏幕状态未改。
+
+S29.11 #135保持OPEN。FX source profile记录用户报告的计划/法域/协议/用途/数据去向事实，并可保存带日期和reference、对应准确账户法域的Alpaca Support确认。Alpaca公开国家可用性指引没有发布支持国家清单，因此本地评估要求匹配的逐国确认，而不使用静态allowlist。缺少或不匹配确认时保持`UNRESOLVED`；匹配确认仅支持本地`POLICY_VALUATION`，不会验证`FX_DATA_USE_RIGHTS`。当前账户若没有用户提供的匹配证据仍为未解决；不声称已发出真实Alpaca请求或取得entitlement证据。AC7现有部分累计逐资产结算逻辑和只读初始/当前claim展示；多腿公开结算验收仍待完成。[实现进度](../implementation/s29-owning-financial-plan-progress.md)记录这项部分工作；完整金融验收仍待完成，原型未改。

@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "text": "Captured Proposal Spot fee and required execution FX\n\nspot required fx unsupported route: The genuinely-required execution conversion USDT -> USD is unsupported by the selected bounded FX producer, so no qualified rate can bound this intent; No current declared commission observation is available; fee currency remains UNKNOWN and no fee amount is fabricated.\n\nSaved assessment. Reading this history never renews the statement, re-reads a venue or restores consent. Arm, consent, dispatch, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nCurrent received-asset fee scenario\n\nThis current model has no future fee guarantee. It models a full fill using the recorded intent and complete symbol commission terms; it does not establish funding, BNB payment or required FX. A SELL limit models proceeds at its minimum price, not the largest possible proceeds or fee.\n\nModel method · class\nSPOT_THREE_FAMILY_RATIONAL_CEIL18_V1 · CURRENT_ORDER_SCENARIO\nModeled gross receipt\n60 USDT\nComplete fallback role\nTAKER. Selected by the full rounded three-family total, not independent family maxima.\nModeled standard fee\n0.000036 USDT\nModeled tax fee\n0.000138 USDT\nModeled special fee\n3.6 USDT\nModeled received-asset fee total\n3.600174 USDT\nModeled net receipt\n56.399826 USDT\nCurrent charging condition\nDISCOUNT_DISABLED_CURRENT_FALLBACK. This is a current condition, not a promised future charging asset.\nModel limitations\nVENUE_PER_FILL_ROUNDING_UNPROVEN\nCurrent market scenario reference\n\nThe MARKET scenario uses the recorded BID side and TAKER families. It is a current modeled receipt, not an actual fill prediction or a future proceeds or fee bound. Reading this capture does not renew the original observation.\n\nPrice side · data-use rights\nBID · UNVERIFIED\nSource · snapshot\nBINANCE_SPOT_PUBLIC · 6dde5e67-123c-4a76-9189-1904c79db2de\nOriginal provider time · first receipt\n2026-10-11T00:26:56.46Z · 2026-10-11T00:26:56.46Z\nSource version · connection generation\nbinance-market:c3e5a4e1-b7ec-4c22-941e-eac7ba73c370:5 · 396f7fb2-80cf-4239-b20c-742c94587bce\nBook update · material hash\n9007199265740993 · 55f2c03b261e2e301fdba56c1b0fdd14552a8baf5a6f632f183ce5a5bd1b9271\nReason code\nSPOT_REQUIRED_FX_UNSUPPORTED_ROUTE\nBinding blocker\nSPOT_REQUIRED_FX_UNSUPPORTED_ROUTE\nFee currency · declared origin\nUNKNOWN · UNKNOWN. This is an independent fact, reported even when the binding blocker above is the required execution route.\nFee rate basis · declared origin ACCOUNT_DECLARED_COMMISSION_RATES\nNot declared. The larger declared maker/taker comparison basis, not a complete fee estimate. The account rates do not establish the complete symbol/side commission or fee-charging asset.\nDeclared maker / taker rate · origin ACCOUNT_DECLARED_COMMISSION_RATES\nNot declared / Not declared. Reported verbatim, never promoted into a hidden gate.\nDeclared buyer / seller rate · origin ACCOUNT_DECLARED_COMMISSION_RATES\nNot declared / Not declared\nExpected fee · declared origin UNKNOWN\nNot declared. Never fabricated from an unknown fee currency.\nIntent notional · declared origin INTENT_PROPOSAL\n61 USDT · maximum authorized 61 USDT\nWorkspace base currency · declared origin WORKSPACE_BASE_CURRENCY\nUSD. The workspace base is a three-letter ISO code, so USDT is never read as USD: USDT ≠ USD.\nWorkspace-base expected spend / fee · declared origin REQUIRED_EXECUTION_FX\nNot declared / Not declared. Present only when the required conversion is genuinely qualified; no conversion cost is fabricated.\nExact account · instrument\nd2af2fd5-bcb5-4a73-bba5-f9ca833ebbd3 · crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT\nProposal · hash\nproposal:ff00792f-bdf2-4196-b0cb-f63e1caccc8a · sha256:eeed618ba777e297f5a5c897304200d6d7b9447353588d372b15d2b8872c395a\nGenuinely-required execution FX routes\nintent policy · USDT -> USD · unsupported route · provider pair no supported pair · rate quality Not declared · provider time Not declared · first receipt Not declared · declared cost no declared cost · This required conversion is unsupported by the selected bounded FX producer; currency parity is never assumed.\nStanding limitations carried from the consumed read-only inputs\nNo standing limitation reported with the underlying observations.\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot. Nothing here is a fill promise, a fee promise or an approval.\n\nBound evidence versions\nsha256:872971aa4b58673a4b26e5e927096e9445ed030293c0308aaa009a2abc526577 · sha256:ea14dd4622d86c746976208c104e7176742715a5f57b0b9d27601c68740737b0",
+  "widths": [
+    {
+      "body": 1265,
+      "client": 375,
+      "panel": 375,
+      "viewport": 1280
+    },
+    {
+      "body": 753,
+      "client": 407,
+      "panel": 407,
+      "viewport": 768
+    },
+    {
+      "body": 375,
+      "client": 253,
+      "panel": 253,
+      "viewport": 390
+    }
+  ],
+  "completeFinancialAcceptance": false,
+  "armingPerformed": false,
+  "consentPerformed": false
+}

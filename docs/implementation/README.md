@@ -1,6 +1,6 @@
 # TradeX RevC 需求清单与串行实现方案
 
-当前串行工作：规范 [[Spec] 完成全页面、键盘与窄屏回归（S33）](https://github.com/kaiqiangh/tradex/issues/140) OPEN / ready-for-agent；实现票 [[S33] 完成全页面、键盘与窄屏回归](https://github.com/kaiqiangh/tradex/issues/141) OPEN / ready-for-agent、已认领并挂入 Wayfinder map #1。验收目标为70个界面及 QA-01–QA-13、desktop/768/390、焦点/语义/VoiceOver/reduced motion；只用隔离工作区与本地合成观察，不访问真实 provider。S32 已在 `dev@0593ed7` 完成，配对证据/追溯提交为 `132ecd4`；S27物理睡眠唤醒按用户要求跳过并保持开放，Alpaca/Binance/Bitget/Trading 212集成票也按用户要求跳过并保持开放。S33完成后继续S34资源测量与签名包、S35总验收；未达全部门禁前不创建main PR。
+当前串行工作：S29.11 [完整 Spot 逐资产金融计划与真实必需 FX](s29-owning-financial-plan-spec_zh.md)，配对规范 #134 与实现票 #135 均保持 OPEN。用户明确没有可提供的数据使用依据并要求跳过该资料收集；AC1 仍未完成，不推断许可或 entitlement。AC2、AC3、AC4、AC8 已核对；当前依序处理 AC5，其余 AC 保持待验收。仅使用符合票据约束的本地合成来源与公开接缝，不执行真实金融操作或 provider 集成；所有其他 map/release 门禁仍独立开放。
 
 日期：2026-09-06。基线：`9255feae39b646245acaf6db7db29fea0cb710c7`。开发分支：`dev`。
 

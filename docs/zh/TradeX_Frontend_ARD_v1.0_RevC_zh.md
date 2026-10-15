@@ -1206,7 +1206,7 @@ Settings 渲染生成的 credentialKind 与 cleanupPending 字段。专用安全
 
 ### 13.34 捕获的拥有方费用与所需执行 FX 解释（S29.9 #131，IN_PROGRESS）
 
-渲染既有保存RiskDecision/approval/pre-arm的spotFeeFx：精确账户/Proposal/hash/instrument/BASE/QUOTE、原始声明rate/比较基准、实际意图notional/明确声明的maximum、fee currency/origin、所需direction、provider pair/quality/time/首次收据/cost、两个evidence version、carried limitations、一项绑定reason及共存fee事实。缺失佣金不称已声明，缺失费用/换汇仍不可用。无refresh/polling或历史续期；USDT≠USD及keyboard1280/768/390无溢出。陈述成功不代表费用/FX资格，当前Spot输入仍阻断。Backend §41.49/UI §14.33为权威；完整父项/原生/金融/物理/原型/main门禁独立。
+渲染既有保存RiskDecision/approval/pre-arm的spotFeeFx：精确账户/Proposal/hash/instrument/BASE/QUOTE、原始声明rate/比较基准、实际意图notional/明确声明的maximum、fee currency/origin、所需direction、provider pair/quality/time/首次收据/cost、用途特定route状态、两个evidence version、carried limitations、一项绑定reason及共存fee事实。`INTENT_POLICY`须区分价格估值资格与原始`UNQUALIFIED_FX_RATE` provider quality，并显示执行深度/成本对此用途不适用；`INTENT_FUNDING`仍需要执行证据。缺失佣金不称已声明，缺失费用/换汇仍不可用。无refresh/polling或历史续期；USDT≠USD及keyboard1280/768/390无溢出。route用途资格不授予source-use rights或执行权限；当前Spot输入仍阻断。Backend §41.49/UI §14.33为权威；完整父项/原生/金融/物理/原型/main门禁独立。
 
 ### 13.35 当前及捕获的标的佣金声明（S29.10 #133，限定来源PASS）
 
@@ -1216,4 +1216,55 @@ Settings 渲染生成的 credentialKind 与 cleanupPending 字段。专用安全
 
 Settings → Data & Storage 显示保留限制，以及相互独立的 Backup Now、Export Workspace 与 Import / Restore 操作。三个归档操作依赖原生桌面文件/对话框边界；browser 模式禁用它们并解释原因。保存保留设置时使用返回的 `stateVersion`，且绝不删除数据。Apply retention now 需要单独确认，并报告删除的普通 artifact、行情行和缓存文件数。未设置限制即不清理。
 
-导入使用键盘可操作的明确 dialog：选择归档后，显示校验/schema 兼容性、manifest 身份/时间/大小、包含的数据类别记录数、warnings 与 Keychain 引用状态；选择目标目录后，用户再明确确认恢复或取消。展示进行中、失败和成功状态；快照完成暂存与校验后，在新 workspace 打开，并报告已保存的恢复前备份。`PRESENT_UNVERIFIED` 必须解释为仅 Keychain 条目存在，绝不能表述为认证或权限已成功。secret/reference 不进入 renderer state。在 1280/768/390 px 下，dialog 内容和长路径均清晰可读且无横向溢出。Backend §41.51 与 UI §14.3–14.4 定义权威存储契约与导入顺序；原型代码保持未修改。
+导入使用键盘可操作的明确 dialog：选择归档后，显示校验/schema 兼容性、manifest 身份/时间/大小、包含的数据类别记录数、warnings 与 Keychain 引用状态；选择目标目录后，用户再明确确认恢复或取消。展示进行中、失败和成功状态；快照完成暂存与校验后，在新 workspace 打开，并报告已保存的恢复前备份。`PRESENT_UNVERIFIED` 必须解释为仅 Keychain 条目存在，绝不能表述为认证或权限已成功。secret/reference 不进入 renderer state。在 1280/768/390 px 下，dialog 内容和长路径均清晰可读且无横向溢出。Backend §41.59 与 UI §14.3–14.4 定义权威存储契约与导入顺序；原型代码保持未修改。
+### 13.37 捕获拥有方审阅的当前费用情景（S29.11，验收待完成）
+
+既有拥有方解释渲染生成的可选`currentFeeModel/currentFeeModelFailure`，准确原币字符串展示method/class、三族费用、完整角色总额/净收入、charging condition及局限。React不重算费用、不缺输入选BNB支付、不隐藏独立拒绝、不续期捕获；兼容缺新字段旧记录。所选拥有方Binance Live Spot门禁的当前及捕获risk视图须展示`SPOT_FEE_FX`检查及准确owning statement outcome/reason；检查通过不授予Arm/Prepare权限。Backend§41.51/UI§14.35为权威；完整拥有方及实际响应式验收待完成，原型代码未改。
+
+渲染owning statement准确提供的可选`workspaceBaseExpectedSpend`。现有货币risk checks仅消费合格的Proposal绑定policy route（BUY ask / SELL bid）所产值；route或source-use qualification不可用时，拥有方Live Spot risk必须显示Proposal金额不可用，不得代入portfolio历史FX。当前与捕获视图继续分别保留statement blocker及独立risk outcome。
+
+BUY QUOTE MARKET审批应将后端准确的原生`quoteOrderQty`容量与不可变`maximumSpend`总成本上限分别呈现。React不得由其中一个推导或替代另一个。
+
+BUY LIMIT应将Control Plane准确的 BASE 数量 × 不可变限价作为原生 QUOTE 本金呈现。若独立`maximumSpend`较低，仍显示完整容量并保持审批拒绝；React不得按较低上限缩小本金。
+
+拥有方视图只使用准确绑定的标的声明；账户级比较费率属于历史capacity证据，不得作为当前费用基准。旧捕获的比较字段应保留并明确标记为历史。新佣金collection在捕获的来源面板保留原收据及collection identity；条款不变的收据刷新保持拥有方金融material及review digest稳定，精确symbol条款变化则更新material。渲染历史不会刷新来源或改写收据。
+
+渲染可选BNB资金来源及表达式准确零事实，不重算金额、不缺失填零；回退情景与表达式零的含义分开，独立金融拒绝保持可见。
+
+同一拥有方情景渲染生成的可选marketReference metadata，不重建/保存原深度/价格、不算替代quote、不续期receipt或升级dataUseRights。
+
+显示取整不生成新的算术输入：模型gross/net收入显示floor18，各族最终原生费用ceil18，费用计算输入仍为完整有理收到资产情景。BUY QUOTE MARKET使用原生QUOTE金额/当前ask作全量成交情景，不预测实际BASE成交。原生QUOTE覆盖检查使用准确ask×显示BASE ask-size；不支持订单形式及独立规则/金融门禁仍拒绝。
+
+## 13.38 固定 BNB 费用来源输入（S29.11，验收待完成）
+
+固定费用来源生命周期使用生成SpotFeeMarketAcquire/SpotFeeMarketProjection及既有HotQuoteQuery/HotQuoteRelease。SpotFeeMarket仅拥有费用租约，对hidden/unmounted/changed-source及late completion取消/释放，保留交易Hot owner。渲染真实typed Rust projection与原始receipt；不在frontend计算价格/费用、fallback、续期时间戳或交易权限。共享ResultEnvelope显式含新typed projection。UI§14.36/Backend§41.52拥有契约；完整金融验收待完成。
+
+渲染生成的可选折扣BNB情景及完整角色候选、原币资金比较、准确消费的换算引用及source-use状态；React不自行算术或轮询来源。选定BNB角色独立于收到资产fallback角色。缺失/不足的准确深度保持不可用，同时显示收到资产估算及独立金融拒绝。保留内部平均换算等价性限制。仅渲染原身份/时间与准确覆盖分数，不渲染原始价格/size/depth；兼容没有这些可选字段的历史捕获。
+
+## 13.39 明确选择Alpaca加密来源（S29.11，验收待完成）
+
+在既有Alpaca FX来源设置中增加键盘可用的crypto-location选择：`us`、`us-1`和`eu-1`，初始为空。将合格的既有Paper account与所选location一起保存；Save不读来源。重开后显示已保存location，修改账户/location后直至Save都明确表现为未保存。缺失或被拒绝的location不能触发自动回退。仅外汇路线不需要加密location。说明location选择和成功认证都不建立适用的数据使用许可；Control Plane评估实际source-use证据前保持`UNVERIFIED`。Disconnect清除选定profile但保留借用的account/key。保留既有identity、refresh、error与captured-evidence行为，并验证键盘及390/768/1280布局。Backend§41.53/UI§14.37适用；producer、policy evaluator及完整拥有方验收仍待完成。
+
+## 13.40 所选location的 USDT/USD 证据（S29.11，验收待完成）
+
+在每条必需货币路由显示`providerDataset`，让USDT→USD明确使用Alpaca crypto quote，USD/法币腿继续显示为独立forex要求。对当前或捕获的crypto quote，显示准确所选location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。该只读来源追溯展示使用设备内的`FinancialSourceConnection` IPC投影，不构成外部分发。React不得用原始字段推导算术、source-use rights、金融资格或权限，也不得将其转发至model/tool prompt、research或artifact export及其他外部consumer。标明它仅用于价格政策估值：size仅保留为来源记录，不是执行覆盖；不虚构mid或换算成本。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且USDT/USD的绑定quote bid和ask均处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可为价格估值资格化。将`FX_DATA_USE_RIGHTS`独立显示为`UNVERIFIED`，与认证观察可用性及交易资格分开。即使当前证据过期，immutable pre-arm review仍保留原值；不得刷新或重算捕获值。界面保持键盘可用并在390/768/1280px响应式可用。Backend§41.53–41.54/UI§14.38适用；完整S29.11验收仍待完成。
+
+## 13.41 Alpaca source-use context与评估（S29.11，验收待完成）
+
+在FX source设置中展示生成契约定义的计划、账户法域、协议复核日期、可选的逐国Alpaca Support确认国家/日期/reference、声明用途范围和原始数据去向字段。未保存事实时保持空白；重开后恢复已保存值。切换到其他账户时清空draft，直到用户录入所选账户事实。部分填写时禁用Save；清空全部字段会移除可选context；同一账户仅更改crypto location时保留context。Save仅保存选定source profile，不访问provider。
+
+显示Control Plane评估状态、用户报告的provenance、policy版本、原因及固定的一手文档链接和SHA-256。Alpaca公开国家可用性指引未发布清单并要求向Support确认具体国家，因此本地`SUPPORTED_FOR_DECLARED_SCOPE`除用户报告的计划和用途事实外，还要求有日期和reference、且国家与账户法域匹配的Support确认；缺失或国家不一致时保持未解决。清晰说明本地结果不是provider entitlement，且`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`。React不得推导算术、行情使用权、交易资格或执行权限。字段和长文档digest保持键盘可用，并适配390/768/1280px；共享行为见Backend§41.55/UI§14.39。本输入流程不关闭完整S29.11验收。
+
+### 13.42 Proposal绑定的BASE/QUOTE/BNB钱包覆盖（S29.11 AC5，验收待完成）
+
+将已保存statement中的可选`walletFundingEvidence`作为只读证据渲染，不新增读取或刷新控件。显示覆盖状态、required与missing资产、准确account/Proposal/hash/source/rule/capacity绑定、collection、account读取开始时间、首次receipt及原始digest。对每项已观察到的必需资产，显示原始`free`和`locked`、准确活动本地claims及`effectiveFree`；说明broker `free`已排除锁定资金，且只扣除本地claims。保留原始decimal字符串，不使用浮点格式化。缺失行不可用而非零值。不完整、不可用、退役、重复、陈旧或不匹配输入不得复用旧行或receipt。不可变RiskDecision历史保留完整provenance；material digest只忽略receipt/collection身份，钱包金额、claims、binding或状态改变仍属material。费用模型复用同一BNB证据，不重复扣减。该区域键盘可读并适配390/768/1280px；适用Backend§41.56/UI§14.40。它不授予金融权限；完整S29.11验收仍待完成。
+
+### 13.43 PLACE逐资产预留证据（S29.11 AC6，验收待完成）
+
+从已保存Control Plane projection只读渲染预留可选的`assetClaims`和`assetCapacities`。显示每项原生资产及独立的`PRINCIPAL`或`FEE` claim，再显示汇总请求金额、broker free、已有本地claims、本次attempt前的有效容量及预留后的余额。保留原始decimal字符串；React不计算或编辑金额。不得重复扣减broker锁定资金。保留旧标量本金视图及缺新字段的历史捕获。容量行缺失时为不可用而非零；Prepare拒绝时显示类型化的逐资产原因且审批保持未消费。这只是证据，不增加资金操作或执行权限。适用Backend§41.57/UI§14.41；完整金融、结算、响应式与原型验收仍待完成。
+
+### 13.44 初始与剩余结算claims（S29.11 AC7，验收待完成）
+
+并列渲染不可变`initialAssetClaims`与已保存reservation当前`assetClaims`、累计成交数量/金额、各原生资产提供方费用、证据完整性及结算状态。保留准确的提供方十进制字符串，区分缺失的旧向量与空/零费用向量。显示未预留费用资产和超出commitment等类型化未解决原因；证据不完整、未知、矛盾或回退时明确容量继续冻结。只有完整broker事实下的终态结算才显示释放的未用claims。React只渲染Control Plane投影，不自行扣减累计数值。历史/当前证据只读，并区分提供方accepted与实际成交。适用Backend§41.58/UI§14.42；完整公开producer、重放、故障、并发、响应式及原型验收仍待完成。
+
+对于具有`MAY_HAVE_SUBMITTED`处置、活动reservation且尚未结算的已消费PLACE审批，仅当保存的Live账户已连接，或处于在线且认证有效、凭据可用的review状态时，显示显式“Refresh exact order”操作。把attempt保存的provider订单ID及当前account state version发送给`trade.live_order.refresh`；Control Plane根据已消费approval、不可变Proposal、account和reservation推导并验证提供方准确读取身份。请求只读且限于精确订单，不会PLACE、重试、撤单、审批、Arm或dispatch。结算只从已保存的Control Plane投影显示；证据不完整时保留冻结容量，不自动轮询。该PLACE恢复操作与现有撤单竞态刷新契约分开。

@@ -1,0 +1,30 @@
+USDT/USD one-percent policy-valuation band — synthetic public path
+Date: 2026-10-11
+
+Scenario: public Rust Control Plane commands with disposable SQLite and fake external
+HTTP/vault producers only. The scenario collects exact-symbol Binance Spot rules,
+capacity, and order-interval inputs, explicitly refreshes synthetic Alpaca USDT/USD,
+then reads the owning route through trade.request_approval. It does not read a real
+account or provider and does not Arm, consent, Prepare, dispatch, or submit an order.
+
+Observed policy route:
+- bid 0.99 / ask 1.01 -> QUALIFIED at the inclusive policy-valuation boundaries.
+- bid 0.989999999 / ask 0.99 -> UNQUALIFIED below the band.
+- bid 1.01 / ask 1.010000001 -> UNQUALIFIED above the band.
+- All three reviews remain ineligible; the synthetic Binance account remains DISARMED.
+- The fixture's jurisdiction-matched Support reference is synthetic test input only;
+  FX_DATA_USE_RIGHTS remains UNVERIFIED.
+
+Checks on the current worktree:
+- Focused regression: 1 passed.
+- financial_sources integration suite: 41 passed, 3 pre-existing ignored.
+- npm run check: passed, including schema agreement, production build, 18 frontend
+  unit tests, 263 Rust library tests, all executed integration suites, and traceability
+  (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files).
+- cargo fmt --all -- --check and git diff --check: passed.
+- Existing Vite large-chunk and fixture dead-code warnings remain.
+
+This is synthetic regression evidence for the existing policy threshold. It does not
+verify source-use rights, execution FX, positive real-source qualification, or any
+S29.11 acceptance criterion. Alpaca Support has not replied; real source-use remains
+UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED. Issues #135 and #134 remain OPEN.

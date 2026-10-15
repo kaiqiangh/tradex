@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.82s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-01462f343f6b72a8)
+
+running 1 test
+test owning_market_sell_fee_uses_the_real_current_bid_and_taker_families ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.49s
+

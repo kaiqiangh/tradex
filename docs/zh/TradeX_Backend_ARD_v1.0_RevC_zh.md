@@ -1892,7 +1892,7 @@ interface TradeXError {
 | 批准撤单 | trade.cancel_approve | workspace_id、cancellation_intent_id、intent_hash、reviewed_risk_decision_id、review_digest、expected_state_version；重新核验当前账户/订单/策略/Arm/新鲜度，并签发带 `CANCEL` operation 标签的 FinancialApproval，绑定精确券商订单 ID、剩余数量、snapshot_version/evidence、策略版本和 30 秒 TTL。本命令不会调用提供方 DELETE。 |
 | 拒绝撤单审阅 | trade.cancel_reject | 与当前审阅完全相同的意图/hash、RiskDecision ID、review digest 和 expected snapshot version；记录耐久的 `USER_REJECTED` 审计并使该意图失效。 |
 | 读取撤单授权历史 | trade.cancel_approval.list | workspace_id、account_id、可选 broker_order_id；返回账户或准确券商订单范围内有界且脱敏的意图失效、审批签发/过期/失效及拒绝历史。 |
-| 刷新 Trading 212 或 Binance Live 准确撤单证据 | trade.live_order.refresh | workspace_id、account_id、approval_id、broker_order_id、expected_state_version；对支持的已消费 Live CANCEL 审批执行只读准确订单刷新，并持久化订单观测及其准确关联的 PLACE 结算 |
+| 刷新准确 Live 订单及结算证据 | trade.live_order.refresh | workspace_id、account_id、approval_id、broker_order_id、expected_state_version；对已消费的 Live CANCEL 或符合条件的 PLACE attempt执行只读准确订单刷新，并持久化订单观测及其准确关联的 PLACE 结算 |
 | 查看处置证据 | trade.resolution_evidence | execution_attempt_id、account_id；返回后端持有的证据与允许的决策 |
 | 刷新 Live 对账证据 | trade.resolution_evidence.refresh | workspace_id、execution_attempt_id、account_id、expected_attempt_state_version；对已保存的 Trading 212、Binance Spot 或 Bitget Spot Live 未知 PLACE attempt 执行一次有界只读 provider 查询 |
 | 处置未知提交 | trade.manual_resolution | §27.4 payload；提交处置时再次核验 decision/evidence |
@@ -3147,9 +3147,9 @@ Pending/失败/过期 refresh、绑定/来源/账户/规则材料/市场/策略/
 
 `SpotFeeFxStatement`绑定workspaceId/proposalId/proposalHash/accountId/instrumentId/baseAsset/quoteAsset/side/baseCurrency。hash及feeEvidenceVersion/routeEvidenceVersion为精确71字符sha256: digest；IDs128、asset/currency16、原始rate/amount64、reason512单行、blocker128、carriedLimitations最多5项128。费用字段：feeCurrency/feeCurrencyOrigin、可选feeRateBasis MAKER/TAKER、declaredMakerRate/declaredTakerRate/declaredBuyerRate/declaredSellerRate、expectedFee/expectedSpendQuote/maximumAuthorizedSpendQuote/workspaceBaseExpectedSpend/workspaceBaseExpectedFee。routes最多2项：purpose INTENT_POLICY/INTENT_FUNDING、fromCurrency/toCurrency、可选精确6字符providerPair、state QUALIFIED/UNQUALIFIED/UNSUPPORTED_ROUTE/EVIDENCE_UNAVAILABLE、可选providerQuality/providerTimestamp/firstReceipt/conservativeCost(max64)、reason256。状态沿用RiskCheckOutcome；typed reasonCode为SPOT_FEE_FX_QUALIFIED/SPOT_FEE_FX_EVIDENCE_MISMATCH/SPOT_FEE_EVIDENCE_UNAVAILABLE/SPOT_FEE_CURRENCY_UNKNOWN/SPOT_FEE_RATE_UNSUPPORTED/SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE/SPOT_REQUIRED_FX_UNQUALIFIED/SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE。
 
-仅导出INTENT_POLICY及BUY的INTENT_FUNDING，不包含portfolio/account/balance/position/open-order目的。仅精确恒等无需汇率可QUALIFIED；存在的已交付只读方向汇率在缺少执行质量/成本时仍UNQUALIFIED，绝非执行资格。支持pair仍EURUSD/USDEUR；USDT不同于USD，不制造parity、反向pair或bridge。Scope mismatch优先于route缺失，再是fee事实；复用拥有方activation predicate，在独立容量blocker之后追加一项绑定blocker。缺失佣金明确为缺失，不称已声明。风险输入SPOT_FEE_FX及review digest绑定陈述；声明佣金变化会改变费用/review digest。当前证据不可用时review/approval/Prepare拒绝，无审批签发/预留/写入/重放。既有已签发审批的currency失败与settlement/CANCEL/reconciliation测试不改；不新增正向金融快照setter。
+仅导出INTENT_POLICY及BUY的INTENT_FUNDING，不包含portfolio/account/balance/position/open-order目的。精确恒等无需汇率可QUALIFIED。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且满足价格估值quote契约时，新鲜绑定的方向性`INTENT_POLICY` rate才可QUALIFIED；`USDTUSD`的bid和ask都必须处于含边界的`0.99–1.01 USD/USDT`政策区间内。Provider quality仍为`UNQUALIFIED_FX_RATE`，执行深度和换汇交易成本对此用途不适用；这不核验数据使用权或执行资格。方向性`INTENT_FUNDING` rate若缺少执行质量和保守成本仍为UNQUALIFIED。USDT不同于USD，不制造parity、反向pair或bridge。Scope mismatch优先于route缺失，再是fee事实；复用拥有方activation predicate，在独立容量blocker之后追加一项绑定blocker。缺失佣金明确为缺失，不称已声明。风险输入SPOT_FEE_FX及review digest绑定陈述；声明佣金变化会改变费用/review digest。当前证据不可用时review/approval/Prepare拒绝，无审批签发/预留/写入/重放。既有已签发审批的currency失败与settlement/CANCEL/reconciliation测试不改；不新增正向金融快照setter。
 
-当前输入下feeCurrency/origin为UNKNOWN、费用及workspace-base等价金额缺失，USDT到三字母workspace base无支持的执行路径；产品接缝不可达PASS/SPOT_FEE_FX_QUALIFIED。纯导出契约测试不证明产品资格/金融验收。重开只恢复捕获陈述/配置，无当前观察或provider读取；get/refresh不续收据或重写历史。后续拥有方须同时建立真正费用/计入币种证据及所需执行FX，再完成完整规则/rights/quote/permissions/funding/preflight/lifecycle与授权金融验收。本切片只交付有界拒绝/解释，不代表完整费额估计能力或S29验收；原型代码未改。
+在 S29.9 仅来源契约下，`feeCurrency`/origin 保持 `UNKNOWN`，实际资产字段`expectedFee`及workspace-base费用等价值保持缺省。S29.11 仅在同一 intent 的精确 symbol 条款可得出受支持的当前分支、完整 BASE/QUOTE/BNB 钱包行已绑定、且所有消费中的 source-use/route 条件都通过时，才可资格化当前估算。这不声明未来成交的`commissionAsset`、不验证`FX_DATA_USE_RIGHTS`，也不授权资金换汇。S29.9 的永久拒绝说明属于历史状态；纯推导测试不构成金融验收。重开只恢复捕获陈述/配置，无当前观察或provider读取；get/refresh不续收据或重写历史。S29.11 仍须证明公开生产者→owning statement→risk/Prepare路径，并完成完整规则/rights/quote/permissions/funding/preflight/lifecycle及获授权金融验收。原型代码未改。
 
 
 ### 41.50 精确标的佣金声明来源（S29.10 #133，限定来源PASS）
@@ -3163,6 +3163,96 @@ Pending/失败/过期 refresh、绑定/来源/账户/规则材料/市场/策略/
 收到资产扣费分支为 BUY BASE / SELL QUOTE。两项折扣开关均生效时，声明的折扣资产仍取决于足够余额及真实换算证据，同时展示收到资产回退。不建立未来扣费资产、数值费用、折扣换算或金额上界。termsComplete 仅表示已知声明类别齐全，不表示金融完整；两次数据库读取非原子，佣金响应没有观察时间。这些限制持续可见。
 
 `RiskDecisionInputKind::SPOT_COMMISSION` 与可选 `RiskDecision.spotCommission` 将来源变化及原始收讫/digest 绑定当前复核与不可变 risk/history/pre-arm 捕获。已有拥有方费用/FX 及其他 approval/Prepare 保护不变，来源成功不增加权威或预留。没有该可选字段的历史仍可读。来源证据不是完整 S29/原生/金融/物理/release 验收。适用 Frontend§13.35/UI§14.34，原型代码未改。
+
+### 41.51 拥有方当前 Spot 费用模型（S29.11，实现验收待完成）
+
+既有`SpotFeeFxStatement`新增可选`currentFeeModel`及`currentFeeModelFailure`（1–128字符）；旧保存记录省略两项、保留当时来源含义。它们是Control Plane输出，不接受renderer费率/金额或金融权威setter。模型消费准确账户/symbol/Proposal当前完整声明，不消费历史账户比较费率；原来源仍独立捕获于`RiskDecision.spotCommission`。
+
+拥有方费用证据仅在`SpotCommissionInputs`与同一workspace、Proposal/hash、account、instrument、BASE/QUOTE、side、source/rule material及binding代际一致，且当前观测声明具有准确规范symbol、收到资产、只读标的佣金质量、完整条款、无未解决扩展时才绑定。历史账户比较仍保留在`SpotCapacityObservation.declaredCommission`；新`SpotFeeFxStatement.feeRateBasis`及`declared*Rate`字段保持缺省。仅改变账户比较费率不改变拥有方费用material。`feeEvidenceVersion`及`SPOT_COMMISSION`复核digest包含精确声明条款及绑定，但只排除佣金`stateVersion`、`observation.collectionId`和`observation.reads`；捕获的`RiskDecision.spotCommission`仍完整保留新的collection identity及原始读取收据。因此，仅刷新收据会记录新来源但不改变金融material；精确symbol条款改变则更新拥有方费用版本与复核digest。旧账户比较字段仍可作为历史数据读取。fee currency仍为`UNKNOWN`，此绑定不证明扣费资产、数据权利、审批或执行资格。
+
+`SpotCurrentFeeModel`含method `SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1`、class `CURRENT_ORDER_SCENARIO`、receivedAsset（1–16）、grossReceived（decimal string1–64）、fallback、chargingCondition及limitations（最多2项、每项1–128）。`FeeFamilyScenario`含role `MAKER|TAKER`及standard/tax/special/total/netReceived（准确decimal string1–64）。当前chargingCondition包括`DISCOUNT_DISABLED_CURRENT_FALLBACK`、`CONDITIONAL_BNB_INPUTS_REQUIRED`、`ZERO_BNB_CURRENT_FALLBACK`、`ZERO_DISCOUNTED_FEE_EXPRESSION`、`DISCOUNTED_BNB_CURRENT_ESTIMATE`及`INSUFFICIENT_BNB_CURRENT_FALLBACK`。仅当前分支一致且完整 BASE/QUOTE/BNB 钱包证据齐备时，才能支持当前估算。未来成交的实际资产仍在`feeCurrency`中保持`UNKNOWN`；当前模型金额保留在`currentFeeModel`。条件输入状态不选择BNB支付，也不证明持仓/换算。完整BNB/资金/FX/预留/结算仍归本拥有方，不以再一个source-only结案替代。
+
+固定BASE LIMIT的当前全量成交情景：BUY gross receipt为BASE数量，SELL为数量×不可变limit的QUOTE收入；SELL限价为最低价模型，不是未来费用/收入cap。每允许角色分别在standard/tax/special族内加角色及方向费率，乘准确模型收入，每完整族向上舍入18位再求和；选完整舍入总额最大角色，平局显示TAKER，不拼独立族最大值。净收入由准确gross减完整已舍入费用再floor18。整数有理数分子/分母保留到最终输出，不用浮点/负值/零分母/缺失填零；输入/输出最多64字符、中间分子分母最多4096bits，越界或fallback费用超模型gross则不可用，不截断费用或造负收入。
+
+新情景保留可选 `FeeFamilyScenario.preRounding`（standard/tax/special/total准确 `FeeExactExpression`）与 `SpotCurrentFeeModel.fallbackCandidates`（最多2个完整角色情景；MARKET仅TAKER）。每个准确表达式为约分后规范非负numerator/正denominator十进制整数字符串，各最多1234位，受4096-bit中间算术上限约束；零为0/1。它们是派生原生费用审计表达式，不是原始报价/depth或renderer算术输入；最终货币字符串仍受64字符/18位小数边界约束。独立保留LIMIT两个候选，不以未取整赢家替代完整取整总额赢家。旧捕获缺失这些字段仍可读取，不补造审计数据。
+
+始终披露`VENUE_PER_FILL_ROUNDING_UNPROVEN`；当前模型不模拟交易所舍入、不保证未来费用。金额情景本身不资格化缺失路由/持仓/使用权/permission/risk/审批/Arm/Prepare/Gateway。来源失败/过期/矛盾撤下当前模型，历史不可变；不支持情景/算术保留有界failure code，不替用旧数据。真实生产者→拥有方货币风控/原子Prepare及完整金融验收须独立证明。适用UI§14.35/Frontend§13.37，原型代码未改。
+
+选择拥有方 Binance Live Spot 门禁时，`RiskDecision.checks`会加入来自此准确statement的`SPOT_FEE_FX`；它复制statement的outcome与reason，无法推导statement时结果为`UNAVAILABLE`。该检查进入risk history，但不授予任何权限。其他review上下文仍保留通用`CURRENCY_CONVERSION`拒绝；价格估值用途的只读policy route不会被误标为执行换汇。现有portfolio/reserved-capital检查，以及所有独立的数据权利、permission、资金、审批、Arm与preflight门禁继续有效。
+
+`workspaceBaseExpectedSpend`只从同一Proposal绑定的`INTENT_POLICY` requirement及`QUALIFIED` route推导：恒等route保留原金额；外部换算使用准确当前方向（BUY用ask、SELL用bid），`USDTUSD`还要求响应绑定的`USDT/USD`原quote与规范化汇率一致。选择拥有方Live Spot上下文时，该值供`ORDER_NOTIONAL`、`POSITION_SIZE`、`SINGLE_INSTRUMENT_EXPOSURE`、`ASSET_CLASS_EXPOSURE`以及已配置`RESERVED_CAPITAL`投影所消费的当前Proposal金额使用。所需route不可用或source-use未解决时，这些Proposal金额输入保持不可用，绝不回退至portfolio历史比较FX；其他上下文保留现有portfolio换算。历史每日成交总额仍使用portfolio历史。该价格估值不增加fee、执行成本、permission或权限；即使独立拥有方/数据权利检查仍不可用，已配置货币上限仍可拒绝Proposal。
+
+
+S29.11为`SpotCapacityObservation`增加可选`walletBalances`：最多3条既有认证account读取的原始BASE/QUOTE/BNB `SpotCapacityBalance`；空/缺行不可用而非零，旧BASE-position字段含义不变。所有返回钱包行仍先检查重复、decimal及未知活动字段，再投影所选资产。拥有方模型增加可选`bnbFundingEvidence`、`discountedFeeIsExactlyZero`及条件`ZERO_BNB_CURRENT_FALLBACK`/`ZERO_DISCOUNTED_FEE_EXPRESSION`。`FeeFundingEvidence`含asset(1–16)、原始free/locked及准确localClaims/effectiveFree字符串(1–64)、collectionId/capacityBindingVersion(1–128)、startedAt/firstReceipt(1–64)、originalDigest(准确64)。绑定当前account/Proposal/source/rule及唯一真实account读回执；来源/账户/余额不确定性不能变资金证明。
+
+钱包free与本地claims保持有限小数的精确加减，**不得按费用模型18位显示尺度把正余额floor成零**。free已扣提供方locks，不再扣locked；未知本地/提供方重叠保守保留hold，负下界是容量不确定性，不制造零或精确提供方缺口。折扣活跃、完整折扣表达式严格为正且准确可用BNB为零，当前选收到资产回退，不查BNB价、不造不活跃BNB费用。两允许角色完整折扣表达式均准确为零时记录代数事实，不消费钱包/汇率、不造支付资产；未折扣fallback仍单独标为条件情景。两条件都不保证未来真实收费；正BNB仍须真实完整费用/换算/足额模型，完整金融/向量/Prepare验收待完成。
+
+
+BASE MARKET DAY当前情景复用可信当前普通Binance quote、准确canonical绑定、可信时间新鲜度（来源30秒与policy门槛最小值）、选定方向显示BASE覆盖及配置的market-slippage检查。缺失/不合格quote、禁用/缺配置市场政策或超滑点产生有界模型failure，不替用旧价。MARKET仅消费TAKER，不因maker某族更高而替换；BUY模型收到BASE数量，SELL为数量×当前bid的QUOTE收入。均为当前全量情景，不保证未来收入/数量/费用；BUY-only QUOTE MARKET DAY将收到BASE建模为准确原生quoteOrderQty/当前ask，逐族向上取整及最终净收入向下取整之前保留完整有理表达式。显示gross仅floor18，不复用于费用算术。覆盖直接比较原生QUOTE与准确ask×显示BASE ask-size，低于BASE输出尺度的未覆盖余量也拒绝。QUOTE SELL、QUOTE LIMIT与非DAY MARKET仍不支持当前费用模型；原生订单形式/元数据准入为独立必需守卫。
+
+可选`marketReference`承载`FeeMarketReference`：priceSide `BID|ASK`、marketSnapshotId(1–128)、source(1–32)、materialHash(准确64)、sourceVersion(1–256)、connectionGeneration(1–128)、bookUpdateId(1–20)、providerTimestamp/firstReceipt(1–64)、dataUseRights。保存原保护身份/回执及派生金额，不把原始quote价格/size/深度复制进risk历史。技术采集不升级UNVERIFIED使用依据或独立risk/审批/Prepare门禁，实际审批quote仍走已有保护的临时review路径。
+
+### 41.52 固定费用专用 BNB 市场输入（S29.11，验收待完成）
+
+`trade.spot_fee_market.acquire`接受`SpotFeeMarketAcquire`（workspaceId1–128、expectedSourceVersion1–256），使用明确保存的普通Binance公共来源且仅固定`BNBUSDT`；不接受instrument、URL、凭据或authority flag。`get`/`release`接受既有`HotQuoteQuery`，release返回`HotQuoteRelease`。Acquire/get返回`SpotFeeMarketProjection`：workspaceId/sourceId、leaseId/generation/connectionGeneration、sourceVersion、sequence≤MAX_SEQUENCE、reconnectAttempt0–3、status/reason、可空metadata及可空临时snapshot。公共来源读取仅允许可信main/stdio consumer。
+
+独立有界worker和租约slot复用普通diff-depth生命周期，与交易Hot owner同时运行。BNB不进入canonical市场lookup、catalogue、草稿或金融mutation路由。HTTP allowlist仅增加普通未签名GET exchangeInfo(BNBUSDT，weight20)及depth(BNBUSDT，limit1000，weight50)。Bootstrap先核验唯一准确BNB/USDT/TRADING metadata再读depth；server time仅检查时钟，不作metadata venue观察时间。`FeeMarketMetadata`记录providerSymbol/baseAsset/quoteAsset/marketStatus、本地响应完成receivedAt及原始body SHA256 digest，不制造provider timestamp或交易权限。
+
+REST本身不生成当前费用quote。真实`U/u` diff event与snapshot衔接，保留原始`E`/首次已接受frame receipt、known bands/BASE数量及source/session/clock/connection identity，删除零level并按既有预算gap重建。Getter freshness要求可信时间、原始quote与metadata年龄均在来源30秒/配置policy门槛最小值内、monotonic age及owner不变；getter不续期receipt或启动I/O。选择/workspace/clock/session变化、release、stop或continuity失败使当前资格退休；retry须真实重建。释放费用租约不释放交易租约。金融data-use在真正拥有方source-use评估证明实际purpose可用前保持UNVERIFIED；技术STREAMING不资格化资金、FX、费用、审批、Arm或dispatch。原始费用book仅留内存，不进入risk history/research/export输入。
+
+当折扣启用、完整表达式为正且已认证BNB余额证明有效可用额为正时，当前费用模型消费此projection。收到BASE的费用按准确匹配标的ASK、再按BNBUSDT BID合成；收到USDT仅消费BNBUSDT BID。逐个允许角色分别计算standard（应用返回乘数）、tax和special，各自最终BNB金额ceil18；根据完整取整总额独立选择折扣分支角色，再与收到资产fallback独立选择，并将BNB完整总额与effective free比较。要求完整收到资产转换金额与BNB金额均有准确最佳档数量覆盖；缺失、过期、错配或不足的输入使BNB分支不可用。持久化仅含用途、方向、准确覆盖金额、原始source/snapshot/material/generation/book/时间回执及data-use状态，不保存原始价格/数量。任何消费该估算的BNB金额均保留`BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN`。已证明零BNB与代数零分支不读取未使用来源。该模型只是当前情景，不保证未来费用或执行资格。所选Alpaca/FX估值、完整资金向量、货币审批/Prepare与结算仍属同一票待完成工作。
+
+### 41.53 明确的本地 Alpaca 估值来源配置（S29.11，实现待完成）
+
+既有保存的 FX 来源可携带可选`cryptoLocation`枚举：`us`、`us-1`或`eu-1`。这些是明确的Alpaca加密数据location；默认不选择。Configure将合格的已保存Alpaca PAPER账户及可选location绑定到来源代次。Save不读取provider或vault。加密路由只能使用其准确配置的location；缺失/不支持的选择或访问拒绝时不得回退到其他location、host、dataset或credential。仅需要外汇路线时不需要加密location。
+
+所选location是来源身份，不是permission或entitlement事实。账户状态、成功认证、用户声明本人本地非商业使用或location选择均不得设置`dataUseRights=VERIFIED`。拥有方source-use evaluator必须保留所选dataset/purpose及实际适用的使用/entitlement证据，并在证据缺失或冲突时保持金融consumer unavailable。Alpaca原始观察值留在本地TradeX设备。用途绑定的归一化值仅供Rust policy-valuation consumer使用；typed `FinancialSourceConnection` IPC响应可向只读本地金融证据UI暴露原始quote字段，用于来源追溯和审计。该设备内展示不属于外部分发。React可以展示这些字段，但不能用其推导算术、source-use rights、金融资格或权限。原始quote/rate值及原始响应body不得进入model/tool prompt、research或artifact export，也不得发送给其他外部consumer。配置、source-use评估及provider观察是独立不可变输入；账户/location变化会使当前证据退休并改变拥有方material。本节定义来源配置边界；S29.11 producer/lifecycle及完整金融验收仍未完成。
+
+既有`FinancialSourceConnection`可选`cryptoLocation`字段及configure契约共享生成的Rust/JSON Schema/TypeScript表面。不支持值以`IPC_PAYLOAD_INVALID`拒绝，且不覆盖已保存profile。Disconnect清除来源及location选择，同时保留借用的account/key。Reopen仅恢复`UNVERIFIED`选择元数据。
+
+### 41.54 按所选location读取 USDT/USD 报价（S29.11，验收待完成）
+
+`FxRouteRequirement.providerDataset`区分`FOREX_LATEST_RATES`与`CRYPTO_LATEST_QUOTES`。只有准确的USDT→USD政策估值路线选择`USDTUSD` / `CRYPTO_LATEST_QUOTES`；原生USDT资金仍是identity路线。保存显式`us`、`us-1`或`eu-1` profile后，Rust来源仅使用保存的Alpaca key/secret header请求`/v1beta3/crypto/{loc}/latest/quotes?symbols=USDT%2FUSD`。无location、不支持的pair、拒绝响应或迟到绑定都不能切换location、feed、host或credential。缺少location会在访问vault或HTTP之前拒绝。Forex腿继续使用独立的方向性latest-rates endpoint。
+
+仅接受准确的`quotes["USDT/USD"]`记录，其中包含数值型`bp`、`bs`、`ap`、`as`及RFC3339格式`t`。保留价格和数量原始JSON数字token、所选location、准确request path、原始响应字节SHA-256、provider时间与本地响应收取时间。遇到重复/未知字段、缺少或多余symbol、非数值/负数、非正或交叉价格、无效/未来/过期时间、secret回显、超大响应或已被更新的binding时，拒绝且不发布部分证据。Crypto quote没有provider mid；不得合成mid。共享route consumer仅保留准确方向bid/ask rate。
+
+该quote仅用于政策价格估值。保留的quote size不证明可执行深度、换算成本、资金或下游使用许可。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，其`INTENT_POLICY` route才可为该估值用途QUALIFIED；超出区间或未支持该用途则UNQUALIFIED。Provider quality仍为`UNQUALIFIED_FX_RATE`，任何结果都不构成执行资格。新鲜认证观察可以使`FX_RATE_OBSERVATION`可用，同时`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`，`TRANSACTION_FX_QUALIFICATION`仍为`BLOCKED_EXTERNAL`。location、成功认证与用户声明本地用途不能设置rights。实际source-use证据收集/评估及完整拥有方金融验收仍开放。
+
+### 41.55 Alpaca source-use事实与有界本地评估（S29.11，验收待完成）
+
+`FinancialSourceConfigure.sourceUseContext`为可选、可空字段，且仅FX source接受。它记录`marketDataPlan`（`BASIC`、`ALGO_TRADER_PLUS`、`UNKNOWN`）、两字母`accountJurisdiction`、ISO格式`agreementReviewedAt`、`useScope`（`OWN_LOCAL_NONCOMMERCIAL`、`COMMERCIAL_OR_SHARED`）以及`rawDataDestination`（`LOCAL_ONLY`、`EXTERNAL`）。还可记录`countrySupportConfirmation`，含`confirmedJurisdiction`、ISO格式`confirmedAt`及有界的人类可读`reference`。校验国家代码和日期；协议复核与Support确认日期不得晚于今天，也不得早于固定policy复核日2026-10-11。将完整上下文持久化在source profile中，并纳入source binding/material，使配置变化退休当前observation。
+
+本地assessor版本为`ALPACA_PERSONAL_LOCAL_V1`，按官方URL及SHA-256固定Alpaca Terms and Conditions（`2dc774d4aeeafbe4c7f0565e7842d932bc8bc10488af805fce43b8734e7b9859`）、Account Application and Customer Agreement（`d086d69f063bba1e9693fffbb3185c4469b24b47bda79f587053bd771580fcf6`）和官方国家可用性指引（`15949958e176c22888db353989b6598a6d926bf642075e8400197b872680c1e9`）。该指引没有发布当前受支持国家清单，并要求用户向Alpaca Support确认具体国家，因此没有静态已审阅法域allowlist。仅声明法域仍为`UNRESOLVED`；source-use上下文必须记录与账户法域相符的逐国Support确认。缺少确认或确认国家不同均保持`UNRESOLVED`。只有确认法域匹配，且用户报告BASIC计划、本人本地非商业用途、原始数据只留本地、协议复核日期有效时，才可报告`SUPPORTED_FOR_DECLARED_SCOPE`及purpose `POLICY_VALUATION`。商业/共享用途或外部目的地报告`OUT_OF_PROFILE`；缺失、未知、不支持的计划或过期事实保持`UNRESOLVED`。
+
+provider plan、协议及用途事实的provenance为`USER_REPORTED_PROVIDER_UI`；匹配的国家确认provenance为`USER_REPORTED_PROVIDER_SUPPORT`。两者都不是provider观测到的entitlement证据。匹配确认只能支持本地`POLICY_VALUATION`评估；不得将`FX_DATA_USE_RIGHTS`设置为`VERIFIED`，不得据此建立再分发/外部服务权利、交易FX资格或满足费用/资金/审批/Arm/Prepare/Gateway gate。普通source能力和rights能力分别保留。`FinancialSourceConnection`返回准确source-use context与policy决定，重开后仍可读取；Save不执行provider读取。这是本地有界policy输入，不是法律或provider entitlement核验；完整S29.11验收仍开放。
+
+### 41.56 Proposal绑定的精确钱包覆盖（S29.11 AC5，实现验收待完成）
+
+现有`SpotCapacityObservation.walletBalances`只投影一次到可选的`SpotFeeFxStatement.walletFundingEvidence`；它不是新余额来源，也不是renderer输入。投影绑定准确的workspace、不可变Proposal/hash、account、instrument、source generation、可选rule-material version及capacity-binding version。必需资产按BASE、QUOTE、BNB顺序去重。保留每行原始free/locked decimal字符串，并附带唯一准确的account读取receipt：collection ID、account读取开始时间、首次响应收讫时间及原始响应digest。
+
+只有匹配的`OBSERVED` capacity collection中唯一一次当前经认证`ACCOUNT`读取可以提供行。`NOT_OBSERVED`、`INCOMPLETE`、`UNAVAILABLE`和`RETIRED`状态各自明确；缺少的资产列为missing，绝不补成零。重复资产、金额格式错误、未解决的活动字段、account receipt重复/缺失或身份不匹配均fail closed。失败、陈旧、被取代或不匹配的collection不得保留旧钱包行或首次receipt。该读取与其他capacity读取非原子，且没有provider快照时间。
+
+Provider `free`已经排除了broker locks。对准确account和原生资产只汇总活动本地reservation，并使用有界精确decimal，每项只计一次。保留原始`free`和`locked`；仅在claims不超过free时计算`effectiveFree = free - localClaims`。不得再次扣减`locked`，也不得把正余额规范化为零。向量以外资产的claim会使覆盖保持不完整，直至完整逐资产ledger存在。BNB费用情景复用同一BNB行，不得再次扣其claims。不可变RiskDecision保留完整receipt；审批绑定金融material digest只排除钱包collection/读取receipt身份。free、locked、localClaims、binding或状态改变仍属material变化。这些证据仅作描述，不能单独授予approval、Prepare、Arm、consent或dispatch。适用Frontend§13.42与UI§14.40；完整S29.11验收仍开放。
+
+### 41.57 PLACE预留的增量claim向量（S29.11 AC6，部分实现）
+
+`ExecutionReservation.assetClaims`是可选的有界数组，最多16项，每项为原生单位claim `{asset, amount, purpose}`。旧捕获可以没有该字段，仍按原有标量`amount`和`unit`解释。对于当前owning Spot计划，Prepare从审批绑定的`RiskDecision.spotFeeFx.currentFeeModel.fundingPlanPreview`推导本金，以及仅在实际建模为支出的费用claim。收到资产fallback仍是收入资产扣费；表达式费用为零时不创建claim。renderer不能提供或修改claim金额。旧标量字段继续作为主claim兼容视图。
+
+storage在同一个immediate SQLite事务中，将完整claim向量与绑定的完整钱包证据复核，按资产汇总同一账户的全部活动原生claims，并用每个资产观察到的broker `free`分别校验。可选持久化`assetCapacities`为每种被claim资产记录汇总请求、broker free、已有claims、本次attempt前容量及预留后的余额。不得再次扣减broker `locked`。任何资产不足都会记录类型化容量拒绝，但不会提交approval消费、attempt、reservation或execution outbox事件。通过的claim向量与逐资产容量快照会与approval消费、attempt及proposal消费一同提交。主标量字段和`capacityProjection`继续作为兼容视图；旧标量记录仍可读取。
+
+逐资产Prepare只是AC6的一项行为。准确真实来源资格、provider preflight复验、实际费用/扣款上限、逐资产结算/重放/unknown生命周期及全票正向、故障和并发验收仍未完成；不表示S29.11已完成或授予真实金融权限。
+
+### 41.58 累计原生资产结算（S29.11 AC7，部分实现）
+
+`LiveOrderSettlement.initialAssetClaims`可选保留PLACE最初的有界向量；缺少该字段的旧结算仍可读取。对完整的提供方累计成交、费用及trade事实，使用精确十进制字符串从原始向量重算每项剩余claim：BUY本金按累计成交quote value消耗，SELL本金按累计成交base数量消耗，每笔费用只减少其实际收费原生资产的预留容量；若存在匹配的`FEE` claim则使用该项，否则同一资产的主claim剩余额度作为兼容上限。收到资产上的费用记录为从收益扣除的实际借记，不消耗无关的支出本金额度。标量`remainingCommitment`继续作为主本金兼容值。
+
+提供方trade行、累计总额与费用必须一致；重复观察具幂等性，不能重复扣除相同累计成交或费用。不完整、矛盾、未知或成交数量/金额/费用累计值减少时，保留上一次可信reservation向量并记录类型化未解决原因；provider时间戳更早的观察会被忽略，不替换已保存状态。累计扣款超过原始claim时记录`SETTLEMENT_EXCEEDS_COMMITMENT`；支出资产费用没有对应预留额度时记录`UNRESERVED_FEE_ASSET`。两者均冻结所有剩余容量供后续核对。只有完整的broker终态证据才能释放未用claim；accepted、取消请求、费用缺失或超时都不能释放。未识别或发生变化的claim身份必须fail closed。初始向量是不可变审阅证据；当前claims是单调递减的剩余量。旧标量结算沿用仅本金行为并明确标注。适用Frontend§13.44与UI§14.42。本部分storage/UI实现不代表AC7全票验收；多腿公开producer到结算、重放、并发、故障及current/captured/pre-arm证据仍未完成。
+
+`trade.live_order.refresh`也只对已消费PLACE审批开放，但前提是其耐久attempt具有`MAY_HAVE_SUBMITTED`处置、活动reservation且尚未结算。请求中的`brokerOrderId`必须等于该attempt保存的provider订单ID。Control Plane从已保存Proposal和account推导提供方精确读取ID：Trading 212保留准确ID；Binance校验保存的是数字ID或匹配的规范`symbol:orderId`；Bitget校验保存的数字或`normal:` ID，且仅在已保存account订单簿将其绑定到Proposal symbol时才使用。读取仍绑定账户版本、要求认证、仅发送GET并fail closed；不创建审批、重试、撤单、Arm、consent或dispatch authority。准确观察按上述相同事务及结算规则处理。成交/费用缺失或不完整时继续冻结capacity。Frontend§13.44与UI§14.42描述显式用户操作；不增加自动轮询。
+
+对于 QUOTE 数量的 BUY MARKET Proposal，可信原生本金容量与 `PRINCIPAL` claim 使用准确的 `quoteOrderQty`。不可变 `maximumSpend` 仍是独立的本地总成本上限，不得扩大本金 claim。审核中须分别保留这两个数值。实际从其他资产扣取的费用会使用该资产的独立原生claim并执行原子容量检查。
+
+对于 BASE 数量的 BUY LIMIT Proposal，原生 QUOTE 本金容量与 `PRINCIPAL` claim 为准确数量乘以不可变限价。已提供的 `maximumSpend` 仍是独立本地上限；若低于所需本金，Review必须拒绝，且不得低报本金。实际支出的费用额度使用独立claims，并在其原生资产中原子检查。
 
 ## 42. Backend-to-Frontend Event Surface
 
@@ -3463,7 +3553,7 @@ Tauri desktop 与 bundled/managed sidecar 进入可重复的 signed release pipe
 
 控制消息格式遵循[官方股票流契约](https://docs.alpaca.markets/us/docs/streaming-market-data)：success/error/subscription 消息使用单元素数组。控制消息与报价或其他控制消息混合时，在应用任何确认或观察前拒绝整条消息。有限的多报价数据数组仍然允许。提供方元数据读取也在 Control Plane 锁外执行；等待读取期间切换数据源或 feed 会使旧结果及 socket 失效。
 
-### 41.51 工作区归档、恢复与保留（S31 #137）
+### 41.59 工作区归档、恢复与保留（S31 #137）
 
 Schema 38 增加 `workspace_retention`，这是 workspace-scoped 且具有单调递增 `stateVersion` 的 projection。`workspace.retention.get {workspaceId}` 返回三个可选天数限制、上次应用时间和删除计数。`workspace.retention.set {workspaceId, expectedStateVersion, artifactRetentionDays?, cacheRetentionDays?, marketDataRetentionDays?}` 接受 1–3650 天的各项限制；版本过期时拒绝且不变更，并发送 `workspace.retention.changed`。`workspace.retention.apply {workspaceId}` 是单独的明确破坏性操作，并发送 `workspace.retention.applied`；未设置限制时不清理。两个事件遵循常规 snapshot/subscribe/replay 与 outbox 契约。
 

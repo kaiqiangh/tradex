@@ -73,12 +73,28 @@ impl BinanceCapacityFixture {
         matches!(self, Self::BaseLists | Self::Malformed | Self::Delayed)
     }
     fn covered_inventory(self) -> bool {
-        matches!(self, Self::CompleteCoverage | Self::OrderRateExhausted | Self::FeeDeclared | Self::FeeChanged)
+        matches!(
+            self,
+            Self::CompleteCoverage
+                | Self::OrderRateExhausted
+                | Self::FeeDeclared
+                | Self::FeeChanged
+        )
     }
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
-pub enum BinanceCommissionFixture { #[default] Normal, Changed, Incomplete, Extensions }
+pub enum BinanceCommissionFixture {
+    #[default]
+    Normal,
+    Changed,
+    Incomplete,
+    Extensions,
+    ZeroBnb,
+    TinyBnb,
+    BnbSufficient,
+    ZeroExpression,
+}
 
 pub struct Http {
     // External response mode used only by disposable FX browser QA.
@@ -252,6 +268,29 @@ impl Http {
 
     #[cfg(feature = "integration-test")]
     #[allow(dead_code)]
+    pub fn seed_trading212_live_place_partial_order(&self) {
+        self.trading212_order_details.borrow_mut().insert(
+            "901".into(),
+            json!({
+                "id":901,
+                "ticker":"AAPL_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"GOOD_TILL_CANCEL",
+                "status":"PARTIALLY_FILLED",
+                "currency":"USD",
+                "quantity":0.008,
+                "filledQuantity":0.004,
+                "filledValue":200,
+                "limitPrice":50000,
+                "createdAt":"2026-10-11T10:00:00Z"
+            }),
+        );
+    }
+
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
     pub fn fill_trading212_live_cancel_race(&self) {
         self.trading212_order_details.borrow_mut().insert(
             "9007199254740996".into(),
@@ -365,6 +404,28 @@ impl ProviderHttp for Http {
         if endpoint == ProviderEndpoint::AlpacaMarketData {
             if method != ProviderHttpMethod::Get || body.is_some() {
                 return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            if self.fx_ui && path.starts_with("/v1beta3/crypto/") {
+                if !matches!(
+                    path,
+                    "/v1beta3/crypto/us/latest/quotes?symbols=USDT%2FUSD"
+                        | "/v1beta3/crypto/us-1/latest/quotes?symbols=USDT%2FUSD"
+                        | "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD"
+                ) {
+                    return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+                }
+                assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+                assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+                assert!(!headers.contains_key("authorization"));
+                self.calls.borrow_mut().push(path.into());
+                let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap();
+                let body = self.alpaca_quote_body.borrow().clone().unwrap_or_else(|| {
+                    format!(r#"{{"quotes":{{"USDT/USD":{{"bp":0.9999,"bs":12.345678901,"ap":1.0001,"as":23.456789012,"t":"{t}"}}}}}}"#).into_bytes()
+                });
+                return Ok(ProviderHttpResponse { status: 200, body });
             }
             if self.fx_ui && path.starts_with("/v1beta1/forex/latest/rates?") {
                 let pairs = match path {
@@ -1101,6 +1162,15 @@ impl ProviderHttp for Http {
                         if self.binance_capacity_ui.get()==BinanceCapacityFixture::Delayed { std::thread::sleep(std::time::Duration::from_millis(1500)); }
                         value["balances"].as_array_mut().unwrap().extend([json!({"asset":"BTC","free":"0.10000000","locked":"0.02000000"}),json!({"asset":"ETH","free":"1.00000000","locked":"0.00000000"})]);
                     }
+                    if self.binance_rules_ui && matches!(self.binance_commission_ui.get(), BinanceCommissionFixture::ZeroBnb | BinanceCommissionFixture::TinyBnb | BinanceCommissionFixture::BnbSufficient) {
+                        let (free,locked) = match self.binance_commission_ui.get() {
+                            BinanceCommissionFixture::ZeroBnb => ("0.00000000","2.00000000"),
+                            BinanceCommissionFixture::TinyBnb => ("0.000000000000000000001","0"),
+                            BinanceCommissionFixture::BnbSufficient => ("1.00000000","0.00000000"),
+                            _ => unreachable!(),
+                        };
+                        value["balances"].as_array_mut().unwrap().push(json!({"asset":"BNB","free":free,"locked":locked}));
+                    }
                     value
                 },
                 "/api/v3/account/commission" if self.binance_rules_ui => {
@@ -1114,6 +1184,12 @@ impl ProviderHttp for Http {
                         BinanceCommissionFixture::Changed=>{value["standardCommission"]["maker"]=json!("0.00000025");value["discount"]["enabledForSymbol"]=json!(false);},
                         BinanceCommissionFixture::Incomplete=>{value["taxCommission"].as_object_mut().unwrap().remove("seller");},
                         BinanceCommissionFixture::Extensions=>{value["specialCommission"]["futureActiveFee"]=json!("0.1");},
+                        BinanceCommissionFixture::ZeroBnb | BinanceCommissionFixture::TinyBnb | BinanceCommissionFixture::BnbSufficient => (),
+                        BinanceCommissionFixture::ZeroExpression=>{
+                            value["taxCommission"]=json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                            value["specialCommission"]=json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                            value["discount"]["discount"]=json!("0");
+                        },
                     }
                     value
                 },

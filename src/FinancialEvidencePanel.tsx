@@ -90,6 +90,7 @@ export function FinancialEvidencePanel({ source, instrumentId, capturedAt, showR
     <dl className="data-source-details">
       <div><dt>Saved account</dt><dd>{source.connectionId ?? 'None selected'}</dd></div>
       {source.instrumentId && <div><dt>Selected rule instrument</dt><dd>{source.instrumentId}</dd></div>}
+      {source.kind === 'FX' && <div><dt>Saved crypto market-data location</dt><dd>{source.cryptoLocation ?? 'Not selected. Crypto routes remain unavailable; no location fallback is used.'}</dd></div>}
       <div><dt>First receipt</dt><dd>{source.observedAt ?? 'Not checked'}</dd></div>
       {source.capabilityStatuses.map(capability => <div key={capability.capability}><dt>{human(capability.capability)}</dt><dd>{capturedAt ? 'Captured status: ' : ''}{human(capability.status)} · {capability.reason}</dd></div>)}
     </dl>
@@ -104,7 +105,21 @@ export function FinancialEvidencePanel({ source, instrumentId, capturedAt, showR
       {evidence.kind === 'BINANCE_SPOT_RULES' ? <SpotRules evidence={evidence} /> : evidence.kind === 'CORPORATE_ACTIONS' ? <>
         <p>Requested process dates: {evidence.coverageStart} – {evidence.coverageEnd}. Query {evidence.queryComplete ? 'exhausted all returned pages' : 'incomplete'}; complete action coverage and historical adjustment remain unavailable.</p>
         <CompanyEvents key={`${evidence.materialVersion}:${instrumentId ?? 'all'}`} actions={evidence.actions} instrumentId={instrumentId} />
-      </> : evidence.kind === 'BROKER_INSTRUMENTS' ? <><p>Account currency: {evidence.accountCurrency}. Current account tradability and exchange halts remain unavailable.</p>{evidence.instruments.filter(instrument => !instrumentId || instrument.instrumentId === instrumentId).map(instrument => <BrokerInstrument key={`${evidence.materialVersion}:${instrument.instrumentId}`} instrument={instrument} />)}</> : <><p>Observed routes belong to {evidence.requirements.proposalId ? 'the captured immutable proposal and portfolio context' : 'the captured portfolio context'}. Changing the intent or refreshing in Settings requires a new read for that context.</p><ul>{evidence.rates.map(rate => <li key={rate.providerPair}><strong>{rate.fromCurrency} → {rate.toCurrency}</strong><dl className="data-source-details"><div><dt>Bid / ask</dt><dd>{rate.bid} / {rate.ask}</dd></div><div><dt>Provider mid</dt><dd>{rate.mid} — supplied independently; not a funding conversion</dd></div><div><dt>Provider rate time</dt><dd>{rate.providerTimestamp}</dd></div></dl></li>)}</ul></>}
+      </> : evidence.kind === 'BROKER_INSTRUMENTS' ? <><p>Account currency: {evidence.accountCurrency}. Current account tradability and exchange halts remain unavailable.</p>{evidence.instruments.filter(instrument => !instrumentId || instrument.instrumentId === instrumentId).map(instrument => <BrokerInstrument key={`${evidence.materialVersion}:${instrument.instrumentId}`} instrument={instrument} />)}</> : <>
+        <p>Observed routes belong to {evidence.requirements.proposalId ? 'the captured immutable proposal and portfolio context' : 'the captured portfolio context'}. Changing the intent or refreshing in Settings requires a new read for that context.</p>
+        {evidence.cryptoQuotes?.map(quote => <section key={`${quote.providerSymbol}:${quote.responseSha256}`} aria-label={`${quote.providerSymbol} crypto quote evidence`}>
+          <h4>{quote.providerSymbol} · {evidence.cryptoLocation ?? 'No selected crypto location'}</h4>
+          <p>Price-only policy valuation input. Quote sizes are preserved for provenance; this quote does not establish execution depth, conversion cost or data-use rights.</p>
+          <dl className="data-source-details">
+            <div><dt>Bid price · bid size</dt><dd>{quote.bidPrice} · {quote.bidSize}</dd></div>
+            <div><dt>Ask price · ask size</dt><dd>{quote.askPrice} · {quote.askSize}</dd></div>
+            <div><dt>Provider time · local receipt</dt><dd>{quote.providerTimestamp} · {quote.receivedAt}</dd></div>
+            <div><dt>Exact request path</dt><dd>{quote.requestPath}</dd></div>
+            <div><dt>Original response SHA-256</dt><dd className="identity">{quote.responseSha256}</dd></div>
+          </dl>
+        </section>)}
+        <ul>{evidence.rates.map(rate => <li key={rate.providerPair}><strong>{rate.fromCurrency} → {rate.toCurrency}</strong><dl className="data-source-details"><div><dt>Bid / ask</dt><dd>{rate.bid} / {rate.ask}</dd></div><div><dt>Provider mid</dt><dd>{rate.mid ?? 'Not supplied by this quote'}{rate.mid ? ' — supplied independently; not a funding conversion' : ''}</dd></div><div><dt>Provider rate time</dt><dd>{rate.providerTimestamp}</dd></div></dl></li>)}</ul>
+      </>}
     </>}
   </div>;
 }
@@ -123,6 +138,7 @@ export function FxRequirementsPanel({ requirements }: { requirements: FxRequirem
     <p>{requirements.proposalId ? 'Selected immutable proposal and portfolio context. ' : 'Current portfolio context. '}Workspace base currency: {requirements.baseCurrency}. Currency requirements do not establish complete monetary inputs or conversion eligibility.</p>
     {requirements.requirements.length ? <ul>{requirements.requirements.map((route, index) => <li key={index}>
       <strong>{route.fromCurrency ?? 'Unknown currency'} → {route.toCurrency ?? 'Unknown currency'}</strong> · {human(route.purpose)} · {human(route.need)}
+      {route.providerDataset && <p>Selected data contract: {human(route.providerDataset)} · {route.providerPair}</p>}
       <p>{route.reason}</p>
     </li>)}</ul> : <p>No monetary currency routes are currently known.</p>}
   </section>;

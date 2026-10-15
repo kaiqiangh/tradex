@@ -22,7 +22,12 @@ impl BinanceStreamConnector {
             || parsed.password().is_some()
             || parsed.query().is_some()
             || parsed.fragment().is_some()
-            || !["/ws/btcusdt@depth@100ms", "/ws/ethusdt@depth@100ms"].contains(&parsed.path())
+            || ![
+                "/ws/btcusdt@depth@100ms",
+                "/ws/ethusdt@depth@100ms",
+                "/ws/bnbusdt@depth@100ms",
+            ]
+            .contains(&parsed.path())
         {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
@@ -54,7 +59,7 @@ impl BinanceStreamConnector {
         symbol: &str,
         current: &(impl Fn() -> bool + Sync),
     ) -> Result<crate::quote_source::transport::Socket> {
-        if !matches!(symbol, "BTCUSDT" | "ETHUSDT") {
+        if !matches!(symbol, "BTCUSDT" | "ETHUSDT" | "BNBUSDT") {
             return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
         }
         let path = format!("/ws/{}@depth@100ms", symbol.to_ascii_lowercase());
@@ -74,7 +79,7 @@ impl BinanceStreamConnector {
 use crate::provider_io::ProviderHttp;
 use crate::{
     ControlPlane,
-    protocol::{HotQuoteAcquire, HotQuoteProjection, HotQuoteStatus, Instrument, MAX_SEQUENCE},
+    protocol::{HotQuoteAcquire, HotQuoteProjection, HotQuoteStatus, MAX_SEQUENCE},
 };
 use std::{
     sync::{
@@ -83,6 +88,18 @@ use std::{
     },
     time::{Duration, Instant},
 };
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LeasePurpose {
+    Primary,
+    FeeMarket,
+}
+
+impl LeasePurpose {
+    fn is_fee_market(self) -> bool {
+        self == Self::FeeMarket
+    }
+}
 
 fn provider_time(event_time: i64, receipt: &str) -> Result<String> {
     let observed =
@@ -102,6 +119,9 @@ fn provider_time(event_time: i64, receipt: &str) -> Result<String> {
 #[derive(Clone)]
 pub(crate) struct Lease {
     session: String,
+    purpose: LeasePurpose,
+    pub(crate) metadata: Option<crate::spot_fee_market::FeeMarketMetadata>,
+    metadata_received: Option<Instant>,
     clock_generation: String,
     manager_stop: Arc<AtomicBool>,
     pub(crate) projection: HotQuoteProjection,
@@ -124,14 +144,38 @@ impl Lease {
                             == self.projection.source_version
                 })
             })
-            && control.hot_quote.as_ref().is_some_and(|owner| {
-                let p = owner.projection();
-                p.source_id == super::SOURCE_ID
-                    && p.lease_id == self.projection.lease_id
-                    && p.generation == self.projection.generation
-                    && p.connection_generation == self.projection.connection_generation
-                    && !matches!(p.status, HotQuoteStatus::Closed | HotQuoteStatus::Failed)
-            })
+            && lease_slot(control, self.purpose)
+                .as_ref()
+                .is_some_and(|owner| {
+                    let p = owner.projection();
+                    p.source_id == super::SOURCE_ID
+                        && p.lease_id == self.projection.lease_id
+                        && p.generation == self.projection.generation
+                        && p.connection_generation == self.projection.connection_generation
+                        && !matches!(
+                            p.status,
+                            HotQuoteStatus::Closed | HotQuoteStatus::Failed | HotQuoteStatus::Stale
+                        )
+                })
+    }
+}
+
+pub(crate) fn lease_slot(
+    control: &ControlPlane,
+    purpose: LeasePurpose,
+) -> &Option<crate::quote_source::hot::HotLeaseState> {
+    match purpose {
+        LeasePurpose::Primary => &control.hot_quote,
+        LeasePurpose::FeeMarket => &control.fee_quote,
+    }
+}
+pub(crate) fn lease_slot_mut(
+    control: &mut ControlPlane,
+    purpose: LeasePurpose,
+) -> &mut Option<crate::quote_source::hot::HotLeaseState> {
+    match purpose {
+        LeasePurpose::Primary => &mut control.hot_quote,
+        LeasePurpose::FeeMarket => &mut control.fee_quote,
     }
 }
 
@@ -148,14 +192,15 @@ impl Job {
         control: &mut ControlPlane,
         shared: Arc<Mutex<ControlPlane>>,
         input: &HotQuoteAcquire,
-        instrument: Instrument,
         http: Arc<dyn ProviderHttp + Send + Sync>,
         connector: BinanceStreamConnector,
         manager_stop: Arc<AtomicBool>,
+        purpose: LeasePurpose,
     ) -> Result<Self> {
-        let symbol = match instrument.instrument_id.as_str() {
-            "crypto:BTC/USDT:spot" => "BTCUSDT",
-            "crypto:ETH/USDT:spot" => "ETHUSDT",
+        let symbol = match input.instrument_id.as_str() {
+            "crypto:BTC/USDT:spot" if purpose == LeasePurpose::Primary => "BTCUSDT",
+            "crypto:ETH/USDT:spot" if purpose == LeasePurpose::Primary => "ETHUSDT",
+            crate::spot_fee_market::INTERNAL_ID if purpose == LeasePurpose::FeeMarket => "BNBUSDT",
             _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
         };
         control.require_workspace(&input.workspace_id)?;
@@ -167,12 +212,12 @@ impl Job {
             return Err(TradeXError::new("DATA_SOURCE_UNKNOWN"));
         }
         let generation = uuid::Uuid::new_v4().to_string();
-        let lease = Lease { session: control.session.clone(), clock_generation: control.time.generation().into(), manager_stop: manager_stop.clone(), stream_snapshot_id: None,
-            projection: HotQuoteProjection { workspace_id:input.workspace_id.clone(), source_id:super::SOURCE_ID.into(), instrument_id:instrument.instrument_id,
+        let lease = Lease { session: control.session.clone(), purpose, metadata: None, metadata_received: None, clock_generation: control.time.generation().into(), manager_stop: manager_stop.clone(), stream_snapshot_id: None,
+            projection: HotQuoteProjection { workspace_id:input.workspace_id.clone(), source_id:super::SOURCE_ID.into(), instrument_id:input.instrument_id.clone(),
                 lease_id:uuid::Uuid::new_v4().to_string(), generation:generation.clone(), connection_generation:generation,
                 reconnect_attempt:0,source_version:source.state_version(&input.workspace_id),sequence:0,status:HotQuoteStatus::Connecting,authenticated:false,subscribed:false,
                 reason:"Connecting to the selected ordinary public Spot stream. A continuous book is still required.".into(),detail:None } };
-        control.hot_quote = Some(crate::quote_source::hot::HotLeaseState::Binance(
+        *lease_slot_mut(control, purpose) = Some(crate::quote_source::hot::HotLeaseState::Binance(
             lease.clone(),
         ));
         Ok(Self {
@@ -198,7 +243,7 @@ impl Job {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let Some(crate::quote_source::hot::HotLeaseState::Binance(lease)) =
-            control.hot_quote.as_mut()
+            lease_slot_mut(&mut control, self.lease.purpose).as_mut()
         else {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         };
@@ -257,7 +302,7 @@ impl Job {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let Some(crate::quote_source::hot::HotLeaseState::Binance(lease)) =
-            control.hot_quote.as_mut()
+            lease_slot_mut(&mut control, self.lease.purpose).as_mut()
         else {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         };
@@ -273,6 +318,8 @@ impl Job {
         lease.projection.authenticated = false;
         lease.projection.subscribed = false;
         lease.stream_snapshot_id = None;
+        lease.metadata = None;
+        lease.metadata_received = None;
         lease.projection.reason = format!(
             "Retry {attempt} of 3 after {reason}; the new connection requires its own snapshot and continuity proof. Retained liquidity is unavailable."
         );
@@ -343,6 +390,44 @@ impl Job {
                 {
                     return Err(TradeXError::new("CLOCK_SKEW"));
                 }
+                if lease.purpose.is_fee_market() {
+                    let bytes = read("/api/v3/exchangeInfo?symbol=BNBUSDT", 20)?;
+                    let value: serde_json::Value = crate::provider_json::strict_json(&bytes)?;
+                    let symbols = value["symbols"]
+                        .as_array()
+                        .filter(|s| s.len() == 1)
+                        .ok_or_else(|| TradeXError::new("PROVIDER_RESPONSE_INVALID"))?;
+                    let row = &symbols[0];
+                    if row["symbol"] != "BNBUSDT"
+                        || row["baseAsset"] != "BNB"
+                        || row["quoteAsset"] != "USDT"
+                        || row["status"] != "TRADING"
+                    {
+                        return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+                    }
+                    use sha2::{Digest, Sha256};
+                    let mut cp = control
+                        .lock()
+                        .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
+                    if !lease.current(&cp) {
+                        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                    }
+                    let received = cp.time.status(&lease.projection.workspace_id)?.wall_clock;
+                    let Some(crate::quote_source::hot::HotLeaseState::Binance(owner)) =
+                        lease_slot_mut(&mut cp, LeasePurpose::FeeMarket).as_mut()
+                    else {
+                        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                    };
+                    owner.metadata = Some(crate::spot_fee_market::FeeMarketMetadata {
+                        provider_symbol: "BNBUSDT".into(),
+                        base_asset: "BNB".into(),
+                        quote_asset: "USDT".into(),
+                        market_status: "TRADING".into(),
+                        received_at: received,
+                        original_digest: format!("{:x}", Sha256::digest(&bytes)),
+                    });
+                    owner.metadata_received = Some(Instant::now());
+                }
                 read(&format!("/api/v3/depth?symbol={symbol}&limit=1000"), 50)
             })();
             let _ = sender.send(result);
@@ -376,10 +461,11 @@ impl Job {
             material_hash,
             provider_event_time_ms: event_time.to_string(),
             provider_symbol: self.symbol.into(),
-            base_asset: if self.symbol == "BTCUSDT" {
-                "BTC"
-            } else {
-                "ETH"
+            base_asset: match self.symbol {
+                "BTCUSDT" => "BTC",
+                "ETHUSDT" => "ETH",
+                "BNBUSDT" => "BNB",
+                _ => unreachable!(),
             }
             .into(),
             quote_asset: "USDT".into(),
@@ -420,7 +506,7 @@ impl Job {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let Some(crate::quote_source::hot::HotLeaseState::Binance(lease)) =
-            control.hot_quote.as_mut()
+            lease_slot_mut(&mut control, self.lease.purpose).as_mut()
         else {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         };
@@ -454,7 +540,7 @@ impl Job {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let Some(crate::quote_source::hot::HotLeaseState::Binance(lease)) =
-            control.hot_quote.as_mut()
+            lease_slot_mut(&mut control, self.lease.purpose).as_mut()
         else {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         };
@@ -640,10 +726,7 @@ impl Job {
                     if matches!(
                         error.kind(),
                         std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                    ) =>
-                {
-                    ()
-                }
+                    ) => {}
                 Err(_) => return Err(TradeXError::new("PROVIDER_UNAVAILABLE")),
             }
         }
@@ -794,4 +877,89 @@ pub(crate) fn project(
     };
     detail.availability_reason=if detail.status==MarketDataStatus::Available{"Current continuous public Spot book within known price bands. Data-use rights, rules and all financial authority remain separate."}else{"Retained Spot book is unavailable for current decisions. Reacquire the selected source; cached reads do not renew its first receipt."}.into();
     detail.snapshot = Some(snapshot);
+}
+
+pub(crate) fn fee_projection(
+    control: &mut ControlPlane,
+    input: crate::protocol::HotQuoteQuery,
+) -> Result<crate::spot_fee_market::SpotFeeMarketProjection> {
+    use crate::protocol::{MarketFreshness, TimeConfidence};
+    control.require_workspace(&input.workspace_id)?;
+    let Some(crate::quote_source::hot::HotLeaseState::Binance(owner)) =
+        control.fee_quote.as_ref().cloned()
+    else {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    };
+    let p = &owner.projection;
+    if owner.purpose != LeasePurpose::FeeMarket
+        || p.workspace_id != input.workspace_id
+        || p.lease_id != input.lease_id
+        || p.generation != input.generation
+    {
+        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+    }
+    let now = control.time.status(&input.workspace_id)?;
+    let age = control
+        .store
+        .as_ref()
+        .unwrap()
+        .risk()?
+        .policy
+        .stale_quote_threshold_seconds
+        .min(30);
+    let valid_time = |text: &str| {
+        let parse = |s: &str| {
+            time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).ok()
+        };
+        parse(&now.wall_clock)
+            .zip(parse(text))
+            .is_some_and(|(now, observed)| {
+                (time::Duration::ZERO..=time::Duration::seconds(age as i64))
+                    .contains(&(now - observed))
+            })
+    };
+    let observation = control
+        .binance_market_observations
+        .get(crate::spot_fee_market::INTERNAL_ID)
+        .filter(|v| {
+            v.lease.projection.lease_id == p.lease_id
+                && v.lease.projection.generation == p.generation
+                && v.lease.projection.connection_generation == p.connection_generation
+        });
+    let mut status = p.status.clone();
+    let mut reason = p.reason.clone();
+    let snapshot = observation.map(|v| {
+        let fresh = now.confidence == TimeConfidence::Trusted && owner.current(control) && p.status == HotQuoteStatus::Streaming
+            && owner.stream_snapshot_id.as_ref() == Some(&v.snapshot.provenance.market_snapshot_id)
+            && v.received.elapsed() <= Duration::from_secs(age)
+            && valid_time(&v.snapshot.provenance.provider_timestamp) && valid_time(&v.snapshot.provenance.received_timestamp)
+            && owner.metadata.as_ref().is_some_and(|m|valid_time(&m.received_at))
+            && owner.metadata_received.is_some_and(|t|t.elapsed()<=Duration::from_secs(age));
+        let mut snapshot=v.snapshot.clone();
+        snapshot.provenance.freshness=if now.confidence!=TimeConfidence::Trusted {MarketFreshness::ClockUncertain} else if fresh {MarketFreshness::Healthy} else {MarketFreshness::Stale};
+        if !fresh && !matches!(status,HotQuoteStatus::Closed|HotQuoteStatus::Failed) {
+            status=HotQuoteStatus::Stale;
+            reason="Retained fee book or metadata is unavailable. Reacquire the selected source; getters do not renew original receipts.".into();
+        }
+        snapshot
+    });
+    if !owner.current(control) && !matches!(status, HotQuoteStatus::Closed | HotQuoteStatus::Failed)
+    {
+        status = HotQuoteStatus::Stale;
+        reason="Fee source, workspace or trusted-clock generation changed; reacquire the fixed source.".into();
+    }
+    Ok(crate::spot_fee_market::SpotFeeMarketProjection {
+        workspace_id: p.workspace_id.clone(),
+        source_id: p.source_id.clone(),
+        lease_id: p.lease_id.clone(),
+        generation: p.generation.clone(),
+        connection_generation: p.connection_generation.clone(),
+        source_version: p.source_version.clone(),
+        sequence: p.sequence,
+        reconnect_attempt: p.reconnect_attempt,
+        status,
+        reason,
+        metadata: owner.metadata.clone(),
+        snapshot,
+    })
 }

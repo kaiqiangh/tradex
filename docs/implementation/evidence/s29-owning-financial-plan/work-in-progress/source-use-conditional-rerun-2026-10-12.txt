@@ -1,0 +1,13 @@
+S29.11 conditional source-use path recheck — 2026-10-12
+
+Recorded: 2026-10-12T09:17:49Z
+Branch/head: dev / 015f4ba19b0dcba138d2a48fafb42b6323821e83
+
+Serial focused commands on the current worktree:
+
+- cargo test --manifest-path src-tauri/Cargo.toml --test financial_sources fx_source_use_policy_requires_matching_country_specific_support_evidence -- --exact
+  Result: 1 passed, 0 failed, 43 filtered out.
+- cargo test --manifest-path src-tauri/Cargo.toml --test binance_rules intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth -- --exact
+  Result: 1 passed, 0 failed, 121 filtered out.
+
+The tests exercise only the conditional synthetic path documented in [source-use-conditional-public-green.txt](source-use-conditional-public-green.txt): without matching country-specific Support evidence, policy remains UNRESOLVED; a matching synthetic IE report can support POLICY_VALUATION through the public command and owning policy consumer. FX_DATA_USE_RIGHTS remains UNVERIFIED, and this does not qualify fee FX, Prepare, or the real user's source. The user reports that no actual Support confirmation was received, so the real account remains UNRESOLVED. No real account/provider was accessed and no financial action occurred.

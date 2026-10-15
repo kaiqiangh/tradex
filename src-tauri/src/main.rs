@@ -295,7 +295,12 @@ async fn control(
         }
         if matches!(
             request.get("command").and_then(Value::as_str),
-            Some("market.hot.acquire" | "market.hot.release")
+            Some(
+                "market.hot.acquire"
+                    | "market.hot.release"
+                    | "trade.spot_fee_market.acquire"
+                    | "trade.spot_fee_market.release"
+            )
         ) {
             return hot.dispatch_with(
                 &engine,

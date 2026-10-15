@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-export async function checkFxSourcesUI(tab, browser, baseUrl = 'http://127.0.0.1:1430') {
+export async function checkFxSourcesUI(tab, browser) {
+  const commandEndpoint = new URL('/__integration/command', await tab.url()).toString();
   const command = async (command, payload) => {
-    const response = await fetch(`${baseUrl}/__integration/command`, {
+    const response = await fetch(commandEndpoint, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId: randomUUID(), schemaVersion: 1, command, payload }),
     });
@@ -49,9 +50,17 @@ export async function checkFxSourcesUI(tab, browser, baseUrl = 'http://127.0.0.1
       await ui.getByRole('button', { name: 'Connect account securely', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Permission review', exact: true }).waitFor({ state: 'visible' });
       await tab.getAXState({ emit: false });
-      await ui.getByRole('checkbox', { name: 'I understand that permission scope is unverified and have checked the key’s permissions at the provider.' }).press('Space');
+      await ui.getByRole('checkbox', { name: 'I understand that permission scope is unverified and have checked the key’s permissions at the provider.' }).check();
       await ui.getByRole('button', { name: 'Confirm connection', exact: true }).press('Enter');
-      await ui.getByText('Unverified scope was explicitly acknowledged for this permission review.', { exact: true }).waitFor({ state: 'visible' });
+      let reviewed;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const current = await command('account.list', { workspaceId: workspace.workspaceId });
+        reviewed = current.accounts.find(account => account.label === label && account.providerId === provider.split('/')[0]);
+        if (reviewed?.connectionState === 'CONNECTED') break;
+      }
+      assert.equal(reviewed?.connectionState, 'CONNECTED', 'The explicit UI review should connect the synthetic account');
+      assert.equal(reviewed.permissions.acknowledged, true);
       await tab.getAXState({ emit: false });
       assert.match(await ui.getByRole('region', { name: label, exact: true }).innerText(), /CONNECTED/);
     }
@@ -64,10 +73,14 @@ export async function checkFxSourcesUI(tab, browser, baseUrl = 'http://127.0.0.1
     assert.equal(await region().locator('input').count(), 0);
     const select = region().getByRole('combobox', { name: 'Currency rates account', exact: true });
     const value = await select.locator('option').filter({ hasText: 'FX rates QA' }).getAttribute('value');
+    const location = region().getByRole('combobox', { name: 'Crypto market-data location', exact: true });
+    assert.equal(await location.inputValue(), '', 'No location is silently selected by default');
     await select.selectOption(value);
+    await location.selectOption('eu-1');
     await region().getByRole('button', { name: 'Save alpaca currency rates', exact: true }).press('Enter');
     await region().getByText('Alpaca currency rates selection saved. Read access has not been verified.', { exact: true }).waitFor({ state: 'visible' });
     await tab.getAXState({ emit: false });
+    assert.equal((await command('data.fx.connection', { workspaceId: workspace.workspaceId })).cryptoLocation, 'eu-1');
     await select.selectOption('');
     assert.equal(await region().getByRole('button', { name: 'Refresh alpaca currency rates', exact: true }).isEnabled(), false);
     await select.selectOption(value);
@@ -78,10 +91,12 @@ export async function checkFxSourcesUI(tab, browser, baseUrl = 'http://127.0.0.1
     assert.ok(first.fxRequirements.requirements.some(route => route.purpose === 'BALANCE_WORKSPACE' && route.fromCurrency === 'EUR' && route.providerPair === 'EURUSD'));
     assert.match(await region().innerText(), /balance workspace/i);
     assert.equal(first.status, 'AVAILABLE');
+    assert.equal(first.capabilityStatuses.find(item => item.capability === 'FX_DATA_USE_RIGHTS').status, 'UNVERIFIED');
     assert.ok((await region().innerText()).includes('1.01234567890123456789012345678901234567890123456789012345678901 / 1.11234567891123456789112345678911234567891123456789112345678901'), 'Bounded64character prices must remain exact and readable');
+    assert.match(await region().innerText(), /FX data use rights\s+unverified/i);
     assert.match(await region().innerText(), /Read-only FX rate; transaction-grade qualification unavailable/);
     assert.match(await region().innerText(), /broker conversion costs/i);
-    observations.push('Saved-key selection, unsaved refresh lock, independent provider mid and exact bid/ask decimals are displayed with conversion/cost blockers.');
+    observations.push('Saved-key selection, unsaved refresh lock, and exact fiat bid/ask/mid decimals are displayed with conversion/cost blockers.');
     const layouts = [];
     for (const width of [390, 768, 1280]) {
       await viewport.set({ width, height: 900 }); await tab.getAXState({ emit: false });
@@ -170,6 +185,8 @@ export async function checkFxSourcesUI(tab, browser, baseUrl = 'http://127.0.0.1
     assert.equal(reopened.status, 'UNVERIFIED');
     assert.equal(reopened.evidence, undefined);
     assert.equal(await region().getByRole('combobox', { name: 'Currency rates account', exact: true }).evaluate(element => element.value), value);
+    assert.equal(await region().getByRole('combobox', { name: 'Crypto market-data location', exact: true }).inputValue(), 'eu-1');
+    assert.equal(reopened.cryptoLocation, 'eu-1');
     assert.match(await region().innerText(), /FX rates QA/);
     await region().getByRole('button', { name: 'Disconnect alpaca currency rates', exact: true }).press('Enter');
     await region().getByText('Alpaca currency rates disconnected. Your account and saved key were kept.', { exact: true }).waitFor({ state: 'visible' }); await tab.getAXState({ emit: false });

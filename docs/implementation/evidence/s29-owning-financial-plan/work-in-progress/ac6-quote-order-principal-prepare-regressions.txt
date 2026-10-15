@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 6 tests
+test live_approval_tests::live_place_preparation_rejects_missing_cross_currency_fx_without_partial_state ... ok
+test live_approval_tests::live_place_preparation_accepts_exact_available_capacity ... ok
+test live_approval_tests::live_place_preparation_capacity_failure_leaves_approval_and_ledger_unchanged ... ok
+test live_approval_tests::live_place_preparation_consumes_approval_once_and_replays_idempotently ... ok
+test live_approval_tests::live_place_preparation_subtracts_existing_account_reservations ... ok
+test live_approval_tests::interrupted_live_place_preparation_rolls_back_and_retries_idempotently ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 248 filtered out; finished in 0.64s
+

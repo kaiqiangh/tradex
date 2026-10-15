@@ -1,0 +1,1065 @@
+{
+  "directory": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-VfCSBq",
+  "caseName": "bnb",
+  "target": "owning Spot funding preview/capture (not reservation)",
+  "fullPolicyBranch": true,
+  "browserPlugin": "Browser plugin not available",
+  "browserVersion": "153.0.8010.12",
+  "url": "http://127.0.0.1:1420/",
+  "logs": [
+    {
+      "level": "debug",
+      "message": "[vite] connecting...",
+      "url": "http://127.0.0.1:1420/@vite/client"
+    },
+    {
+      "level": "debug",
+      "message": "[vite] connected.",
+      "url": "http://127.0.0.1:1420/@vite/client"
+    },
+    {
+      "level": "info",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "url": "http://127.0.0.1:1420/node_modules/.vite/deps/react-dom_client.js?v=73f40b02"
+    },
+    {
+      "level": "error",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:1420/favicon.ico"
+    }
+  ],
+  "commands": [
+    {
+      "command": "runtime.status",
+      "ok": true
+    },
+    {
+      "command": "workspace.open",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "thread.list",
+      "ok": true
+    },
+    {
+      "command": "account.list",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "account.activity",
+      "ok": true
+    },
+    {
+      "command": "provider.list_definitions",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "account.list",
+      "ok": true
+    },
+    {
+      "command": "paper.get",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "runtime.status",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "runtime.status",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "trade.cancel_approval.list",
+      "ok": true
+    },
+    {
+      "command": "workspace.retention.get",
+      "ok": true
+    },
+    {
+      "command": "data.source.catalog",
+      "ok": true
+    },
+    {
+      "command": "data.source.connection",
+      "ok": true
+    },
+    {
+      "command": "data.calendar.connection",
+      "ok": true
+    },
+    {
+      "command": "data.actions.connection",
+      "ok": true
+    },
+    {
+      "command": "data.instrument.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.configure",
+      "ok": true
+    },
+    {
+      "command": "data.source.catalog",
+      "ok": true
+    },
+    {
+      "command": "market.catalog",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.acquire",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "market.hot.release",
+      "ok": true
+    },
+    {
+      "command": "trade.draft.list",
+      "ok": true
+    },
+    {
+      "command": "trade.proposal.list",
+      "ok": true
+    },
+    {
+      "command": "account.list",
+      "ok": true
+    },
+    {
+      "command": "market.catalog",
+      "ok": true
+    },
+    {
+      "command": "trade.save_draft",
+      "ok": true
+    },
+    {
+      "command": "trade.draft.list",
+      "ok": true
+    },
+    {
+      "command": "trade.draft.get",
+      "ok": true
+    },
+    {
+      "command": "trade.draft.list",
+      "ok": true
+    },
+    {
+      "command": "trade.proposal.list",
+      "ok": true
+    },
+    {
+      "command": "trade.generate_proposal",
+      "ok": true
+    },
+    {
+      "command": "trade.proposal.list",
+      "ok": true
+    },
+    {
+      "command": "trade.proposal.get",
+      "ok": true
+    },
+    {
+      "command": "risk.decision.list",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.acquire",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.requirements",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_rules.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.get",
+      "ok": true
+    },
+    {
+      "command": "trade.approval.list",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.refresh",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.refresh",
+      "ok": true
+    },
+    {
+      "command": "risk.evaluate_proposal",
+      "ok": true
+    },
+    {
+      "command": "risk.decision.list",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.requirements",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_rules.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.release",
+      "ok": true
+    },
+    {
+      "command": "market.hot.acquire",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.refresh",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.refresh",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.acquire",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.requirements",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_rules.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "risk.evaluate_proposal",
+      "ok": true
+    },
+    {
+      "command": "risk.decision.list",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.release",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.requirements",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_rules.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.refresh",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.refresh",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.acquire",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.release",
+      "ok": true
+    },
+    {
+      "command": "market.hot.acquire",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.requirements",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_rules.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.get",
+      "ok": true
+    },
+    {
+      "command": "data.fx.refresh",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.get",
+      "ok": true
+    },
+    {
+      "command": "risk.evaluate_proposal",
+      "ok": true
+    },
+    {
+      "command": "risk.decision.list",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "trade.proposal.get",
+      "ok": true
+    },
+    {
+      "command": "account.list",
+      "ok": true
+    },
+    {
+      "command": "trade.request_approval",
+      "ok": true
+    },
+    {
+      "command": "alpaca.paper.orders.get",
+      "ok": true
+    },
+    {
+      "command": "domain.snapshot",
+      "ok": true
+    },
+    {
+      "command": "domain.subscribe",
+      "ok": true
+    },
+    {
+      "command": "alpaca.paper.orders.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_rules.connection",
+      "ok": true
+    },
+    {
+      "command": "data.fx.requirements",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_rules.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_order_intervals.get",
+      "ok": true
+    },
+    {
+      "command": "data.fx.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_capacity.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_commission.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "trade.spot_fee_market.get",
+      "ok": true
+    },
+    {
+      "command": "data.binance_market.connection",
+      "ok": true
+    },
+    {
+      "command": "market.hot.get",
+      "ok": true
+    }
+  ],
+  "sourceHashes": {
+    "src/SpotFeeFxExplanation.tsx": "a9fcad50764c07e4127db708f33016a8da8a02ef9a15e7bc5f5e1c8eeb51bac0",
+    "tests/spot-bnb-fee-estimate-ui.mjs": "1f782681c9b40cf70388c8dc4177f818099f208f9e2d22685e25a1c63ee715a7",
+    "tests/spot-owning-admission-ui.mjs": "1b2f666c529a11b2b27018e206f4f46ad85c1cdfcfdab29360c2ab317e486927",
+    "tests/spot-financial-plan-ui.mjs": "c384e55bb58100564fe6537654e02ad5f3d9129dc10a93d9abe4346c66dff2cc"
+  },
+  "oracle": {
+    "method": "Independent Python Fraction reference from fictional HTTP literals and documented final-family ceil18 policy",
+    "quantityBTC": "0.001",
+    "immutableLimitUSDTPerBTC": "60000",
+    "instrumentAskUSDTPerBTC": "60001",
+    "bnbBidUSDTPerBNB": "500",
+    "standardDiscountMultiplier": "0.75",
+    "bnbScenarios": {
+      "MAKER": {
+        "standard": "0.0000000360006",
+        "tax": "0.0000002760046",
+        "special": "0.00480008",
+        "total": "0.0048003920052"
+      },
+      "TAKER": {
+        "standard": "0.00000004500075",
+        "tax": "0.00000027840464",
+        "special": "0.0060001",
+        "total": "0.00600042340539"
+      }
+    },
+    "principalUSDT": "60",
+    "fallbackFeeBTC": "0.00005000282",
+    "fallbackNetReceiptBTC": "0.00094999718"
+  },
+  "identity": {
+    "url": "http://127.0.0.1:1420/",
+    "title": "TradeX — Local Workspace"
+  },
+  "result": {
+    "model": {
+      "bnbConversionReferences": [
+        {
+          "bookUpdateId": "9007199257740993",
+          "connectionGeneration": "3feb84d5-a852-4057-ad0a-24d85f48d3bb",
+          "coverage": {
+            "denominator": "200000000000",
+            "numerator": "10000539"
+          },
+          "coverageAsset": "BTC",
+          "dataUseRights": "UNVERIFIED",
+          "firstReceipt": "2026-10-15T09:26:12.379Z",
+          "fromAsset": "BTC",
+          "marketSnapshotId": "1bfb8053-1fd0-4765-9da5-039a877cee98",
+          "materialHash": "55f2c03b261e2e301fdba56c1b0fdd14552a8baf5a6f632f183ce5a5bd1b9271",
+          "pair": "BTCUSDT",
+          "priceSide": "ASK",
+          "providerTimestamp": "2026-10-15T09:26:12.379Z",
+          "source": "BINANCE_SPOT_PUBLIC",
+          "sourceVersion": "binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1",
+          "toAsset": "USDT"
+        },
+        {
+          "bookUpdateId": "9007199258740993",
+          "connectionGeneration": "5c1141c0-bd52-471b-b888-5bdc30263a14",
+          "coverage": {
+            "denominator": "100000000000000",
+            "numerator": "600042340539"
+          },
+          "coverageAsset": "BNB",
+          "dataUseRights": "UNVERIFIED",
+          "firstReceipt": "2026-10-15T09:26:13.115Z",
+          "fromAsset": "USDT",
+          "marketSnapshotId": "79773e7c-2efc-43a6-b3f9-7499c40565fa",
+          "materialHash": "7f496a36158e1cf557bf64e39249470591fa649c284038019b6e28aec84bc25f",
+          "pair": "BNBUSDT",
+          "priceSide": "BID",
+          "providerTimestamp": "2026-10-15T09:26:13.114Z",
+          "source": "BINANCE_SPOT_PUBLIC",
+          "sourceVersion": "binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1",
+          "toAsset": "BNB"
+        }
+      ],
+      "bnbFee": {
+        "preRounding": {
+          "special": {
+            "denominator": "10000000",
+            "numerator": "60001"
+          },
+          "standard": {
+            "denominator": "4000000000000",
+            "numerator": "180003"
+          },
+          "tax": {
+            "denominator": "6250000000000",
+            "numerator": "1740029"
+          },
+          "total": {
+            "denominator": "100000000000000",
+            "numerator": "600042340539"
+          }
+        },
+        "role": "TAKER",
+        "special": "0.0060001",
+        "standard": "0.00000004500075",
+        "tax": "0.00000027840464",
+        "total": "0.00600042340539"
+      },
+      "bnbFeeCandidates": [
+        {
+          "preRounding": {
+            "special": {
+              "denominator": "12500000",
+              "numerator": "60001"
+            },
+            "standard": {
+              "denominator": "5000000000000",
+              "numerator": "180003"
+            },
+            "tax": {
+              "denominator": "5000000000000",
+              "numerator": "1380023"
+            },
+            "total": {
+              "denominator": "2500000000000",
+              "numerator": "12000980013"
+            }
+          },
+          "role": "MAKER",
+          "special": "0.00480008",
+          "standard": "0.0000000360006",
+          "tax": "0.0000002760046",
+          "total": "0.0048003920052"
+        },
+        {
+          "preRounding": {
+            "special": {
+              "denominator": "10000000",
+              "numerator": "60001"
+            },
+            "standard": {
+              "denominator": "4000000000000",
+              "numerator": "180003"
+            },
+            "tax": {
+              "denominator": "6250000000000",
+              "numerator": "1740029"
+            },
+            "total": {
+              "denominator": "100000000000000",
+              "numerator": "600042340539"
+            }
+          },
+          "role": "TAKER",
+          "special": "0.0060001",
+          "standard": "0.00000004500075",
+          "tax": "0.00000027840464",
+          "total": "0.00600042340539"
+        }
+      ],
+      "bnbFundingEvidence": {
+        "asset": "BNB",
+        "capacityBindingVersion": "sha256:0d8c8847ecf96cef00db5f17bbcc4956e1e3ba1fed5b16c04a8db052ca9e3e76",
+        "collectionId": "36154c0d-6ee7-42b7-a512-768626a57f5b",
+        "effectiveFree": "1.00000000",
+        "firstReceipt": "2026-10-15T09:26:13.003Z",
+        "free": "1.00000000",
+        "localClaims": "0",
+        "locked": "0.00000000",
+        "originalDigest": "bd80e033beccb45b852f52e3102b4d756e1902e6aa667e27c8e534a8f1b7d6e5",
+        "startedAt": "2026-10-15T09:26:12.996Z"
+      },
+      "chargingCondition": "DISCOUNTED_BNB_CURRENT_ESTIMATE",
+      "class": "CURRENT_ORDER_SCENARIO",
+      "discountedFeeIsExactlyZero": false,
+      "fallback": {
+        "netReceived": "0.00094999718",
+        "preRounding": {
+          "special": {
+            "denominator": "20000",
+            "numerator": "1"
+          },
+          "standard": {
+            "denominator": "2000000000",
+            "numerator": "1"
+          },
+          "tax": {
+            "denominator": "12500000000",
+            "numerator": "29"
+          },
+          "total": {
+            "denominator": "50000000000",
+            "numerator": "2500141"
+          }
+        },
+        "role": "TAKER",
+        "special": "0.00005",
+        "standard": "0.0000000005",
+        "tax": "0.00000000232",
+        "total": "0.00005000282"
+      },
+      "fallbackCandidates": [
+        {
+          "netReceived": "0.0009599973",
+          "preRounding": {
+            "special": {
+              "denominator": "25000",
+              "numerator": "1"
+            },
+            "standard": {
+              "denominator": "2500000000",
+              "numerator": "1"
+            },
+            "tax": {
+              "denominator": "10000000000",
+              "numerator": "23"
+            },
+            "total": {
+              "denominator": "10000000000",
+              "numerator": "400027"
+            }
+          },
+          "role": "MAKER",
+          "special": "0.00004",
+          "standard": "0.0000000004",
+          "tax": "0.0000000023",
+          "total": "0.0000400027"
+        },
+        {
+          "netReceived": "0.00094999718",
+          "preRounding": {
+            "special": {
+              "denominator": "20000",
+              "numerator": "1"
+            },
+            "standard": {
+              "denominator": "2000000000",
+              "numerator": "1"
+            },
+            "tax": {
+              "denominator": "12500000000",
+              "numerator": "29"
+            },
+            "total": {
+              "denominator": "50000000000",
+              "numerator": "2500141"
+            }
+          },
+          "role": "TAKER",
+          "special": "0.00005",
+          "standard": "0.0000000005",
+          "tax": "0.00000000232",
+          "total": "0.00005000282"
+        }
+      ],
+      "fundingPlanPreview": {
+        "currentFeeClaim": {
+          "amount": "0.00600042340539",
+          "asset": "BNB"
+        },
+        "fallbackFeeAmount": "0.00005000282",
+        "fallbackFeeAsset": "BTC",
+        "fallbackNetReceipt": "0.00094999718",
+        "feeDisposition": "BNB_CURRENT_ESTIMATE",
+        "principalClaim": {
+          "amount": "60",
+          "asset": "USDT"
+        }
+      },
+      "grossReceived": "0.001",
+      "limitations": [
+        "VENUE_PER_FILL_ROUNDING_UNPROVEN",
+        "BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN"
+      ],
+      "method": "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1",
+      "receivedAsset": "BTC"
+    },
+    "text": "Captured Proposal Spot fee and required FX\n\nspot required fx evidence unavailable: The genuinely-required price-only policy-valuation FX route USDT -> USD is unavailable because no current proposal-scoped quote is bound; The complete account-bound current fee estimate is eligible for review subject to independent gates; the actual fee asset and amount remain pending and are not guaranteed.\n\nSaved assessment. Reading this history never renews the statement, re-reads a venue or restores consent. Arm, consent, dispatch, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nBASE / QUOTE / BNB wallet coverage\n\nCoverage complete. This is bound read-only evidence, not approval or execution authority.\n\nRequired assets · missing assets\nBTC · USDT · BNB · none\nWallet account · Proposal\n44427b5f-d4b7-4d62-8faa-41177e663f05 · proposal:ad61788d-85cc-4d2d-a0a6-83be755ec52c · sha256:350f788e5270fc02d8c80c76aee85a86922a504698782653d8bbd2e7795b34e3\nSource · rules · capacity binding\nBINANCE_SPOT_RULES:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · a0ff9e75015c25c6293099b8434805921486780e78a27e23136caff926770060 · sha256:0d8c8847ecf96cef00db5f17bbcc4956e1e3ba1fed5b16c04a8db052ca9e3e76\nCollection · account-read start / first receipt\n36154c0d-6ee7-42b7-a512-768626a57f5b · 2026-10-15T09:26:12.996Z / 2026-10-15T09:26:13.003Z\nOriginal account-read digest\nbd80e033beccb45b852f52e3102b4d756e1902e6aa667e27c8e534a8f1b7d6e5\nBTC free / locked\n0.10000000 / 0.02000000 BTC. Free already excludes broker locks; local claims 0; effective free 0.10000000 BTC.\nUSDT free / locked\n99999999999999999999.9999999999999999999 / 0.0000000000000000002 USDT. Free already excludes broker locks; local claims 0; effective free 99999999999999999999.9999999999999999999 USDT.\nBNB free / locked\n1.00000000 / 0.00000000 BNB. Free already excludes broker locks; local claims 0; effective free 1.00000000 BNB.\nCurrent received-asset fee scenario\n\nACTUAL_FEE_ASSET_PENDING. This current model estimates a full fill from the recorded intent and complete symbol commission terms; it does not guarantee the future fee asset or amount. A complete, account-bound estimate may qualify review and Prepare only when every independent source, wallet, market, risk and permission guard passes. Settlement uses the broker-reported fee asset and debit; deviations freeze for reconciliation. A SELL limit models proceeds at its minimum price, not the largest possible proceeds or fee.\n\nFee calculations use the full modeled receipt before display rounding. The displayed gross and net receipt are rounded down to18 decimal places; each final fee family is rounded up separately.\n\nModel method · class\nSPOT_THREE_FAMILY_RATIONAL_CEIL18_V1 · CURRENT_ORDER_SCENARIO\nModeled gross receipt\n0.001 BTC\nComplete fallback role\nTAKER. Selected by the full rounded three-family total, not independent family maxima.\nModeled standard fee\n0.0000000005 BTC\nModeled tax fee\n0.00000000232 BTC\nModeled special fee\n0.00005 BTC\nModeled received-asset fee total\n0.00005000282 BTC\nModeled net receipt\n0.00094999718 BTC\nCurrent charging condition\nDISCOUNTED_BNB_CURRENT_ESTIMATE. This is a current condition, not a promised future charging asset.\nModel limitations\nVENUE_PER_FILL_ROUNDING_UNPROVEN · BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN\nCurrent funding plan preview\n\nThis backend-derived preview is captured with the reviewed financial material. It is not approval or a future fee guarantee; native claims are created only by atomic Prepare after explicit approval.\n\nNative principal claim\n60 USDT\nCurrent fee disposition\nbnb current estimate · 0.00600042340539 BNB outgoing fee claim\nReceived-asset fallback fee and net receipt\n0.00005000282 BTC · 0.00094999718 BTC\nConditional discounted BNB current estimate\n\nThis is a current estimate under the displayed complete role and exact price legs. It does not prove Binance’s internal average conversion rate or guarantee the future charging asset. Current branch: discounted bnb current estimate.\n\nSelected discounted role\nTAKER\nDiscounted standard fee\n0.00000004500075 BNB\nUndiscounted tax fee\n0.00000027840464 BNB\nUndiscounted special fee\n0.0060001 BNB\nComplete modeled BNB fee\n0.00600042340539 BNB\nComplete discounted role candidates\nMAKER 0.0048003920052 BNB · TAKER 0.00600042340539 BNB\nConsumed BNB conversion legs\nBTCUSDT · BTC -> USDT at ASK · exact BTC coverage 10000539/200000000000 · BINANCE_SPOT_PUBLIC snapshot 1bfb8053-1fd0-4765-9da5-039a877cee98 · binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 3feb84d5-a852-4057-ad0a-24d85f48d3bb · update 9007199257740993 · provider 2026-10-15T09:26:12.379Z · first receipt 2026-10-15T09:26:12.379Z · use UNVERIFIED · material 55f2c03b261e2e301fdba56c1b0fdd14552a8baf5a6f632f183ce5a5bd1b9271\nBNBUSDT · USDT -> BNB at BID · exact BNB coverage 600042340539/100000000000000 · BINANCE_SPOT_PUBLIC snapshot 79773e7c-2efc-43a6-b3f9-7499c40565fa · binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 5c1141c0-bd52-471b-b888-5bdc30263a14 · update 9007199258740993 · provider 2026-10-15T09:26:13.114Z · first receipt 2026-10-15T09:26:13.115Z · use UNVERIFIED · material 7f496a36158e1cf557bf64e39249470591fa649c284038019b6e28aec84bc25f\nReason code\nSPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE\nBinding blocker\nSPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE\nFee currency · declared origin\nUNKNOWN · UNKNOWN. This is an independent fact, reported even when the binding blocker above is the required execution route.\nExpected fee · declared origin UNKNOWN\nNot declared. Never fabricated from an unknown fee currency.\nIntent notional · declared origin INTENT_PROPOSAL\n60 USDT · maximum authorized Not declared USDT\nWorkspace base currency · declared origin WORKSPACE_BASE_CURRENCY\nUSD. The workspace base is a three-letter ISO code, so USDT is never read as USD: USDT ≠ USD.\nWorkspace-base expected spend / fee · declared origin REQUIRED_FX\nNot declared / Not declared. The exact qualified policy valuation supplies the Proposal amount used by owning monetary risk checks; when unavailable, owning Live Spot risk never substitutes historical portfolio FX. This price-only estimate adds no execution cost.\nExact account · instrument\n44427b5f-d4b7-4d62-8faa-41177e663f05 · crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT\nProposal · hash\nproposal:ad61788d-85cc-4d2d-a0a6-83be755ec52c · sha256:350f788e5270fc02d8c80c76aee85a86922a504698782653d8bbd2e7795b34e3\nGenuinely-required FX routes\nintent policy FX route · USDT -> USD · evidence unavailable · provider pair USDTUSD · provider rate quality Not declared · provider time Not declared · first receipt Not declared · execution depth/cost not applicable to price-only policy valuation · This required conversion has a supported producer pair but no current qualified rate is bound to this unchanged intent.\nintent funding FX route · USDT -> USDT · qualified · provider pair no supported pair · provider rate quality Not declared · provider time Not declared · first receipt Not declared · declared execution cost not established · The monetary input and target share one currency, so no external rate is required.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot. Nothing here is a fill promise, a fee promise or an approval.\n\nExact-symbol fee material · required FX material\nsha256:265fb5aa03ed1dea685f9e2f5e19f21ad0772655af120b630596fa3ec289b62d · sha256:18cf1a21da9b4d32f7f4dc85f198f9e3155c2282e8c5dd1ccd7774cb1d579c4f",
+    "widths": [
+      {
+        "viewport": 1280,
+        "body": 1280,
+        "panel": 390,
+        "client": 390
+      },
+      {
+        "viewport": 768,
+        "body": 768,
+        "panel": 422,
+        "client": 422
+      },
+      {
+        "viewport": 390,
+        "body": 390,
+        "panel": 268,
+        "client": 268
+      }
+    ],
+    "positiveText": "Captured Proposal Spot fee and required FX\n\nThe owning fee statement and every genuinely-required FX route are current and complete for their declared purposes; this carries no execution authority by itself.\n\nSaved assessment. Reading this history never renews the statement, re-reads a venue or restores consent. Arm, consent, dispatch, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nBASE / QUOTE / BNB wallet coverage\n\nCoverage complete. This is bound read-only evidence, not approval or execution authority.\n\nRequired assets · missing assets\nBTC · USDT · BNB · none\nWallet account · Proposal\n44427b5f-d4b7-4d62-8faa-41177e663f05 · proposal:ad61788d-85cc-4d2d-a0a6-83be755ec52c · sha256:350f788e5270fc02d8c80c76aee85a86922a504698782653d8bbd2e7795b34e3\nSource · rules · capacity binding\nBINANCE_SPOT_RULES:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 5d0a07567f963cd9d5365411c5a01f2c0c87bd1e09bb7130abf52d7cb6084cff · sha256:b15c2ab209b20caed0a39a4201d6ef9c8ee6b43a98d9c4f1f6a93e4064e08eba\nCollection · account-read start / first receipt\n55e2e49c-46ad-47e3-9028-c866ea695806 · 2026-10-15T09:26:14.376Z / 2026-10-15T09:26:14.381Z\nOriginal account-read digest\nbd80e033beccb45b852f52e3102b4d756e1902e6aa667e27c8e534a8f1b7d6e5\nBTC free / locked\n0.10000000 / 0.02000000 BTC. Free already excludes broker locks; local claims 0; effective free 0.10000000 BTC.\nUSDT free / locked\n99999999999999999999.9999999999999999999 / 0.0000000000000000002 USDT. Free already excludes broker locks; local claims 0; effective free 99999999999999999999.9999999999999999999 USDT.\nBNB free / locked\n1.00000000 / 0.00000000 BNB. Free already excludes broker locks; local claims 0; effective free 1.00000000 BNB.\nCurrent received-asset fee scenario\n\nACTUAL_FEE_ASSET_PENDING. This current model estimates a full fill from the recorded intent and complete symbol commission terms; it does not guarantee the future fee asset or amount. A complete, account-bound estimate may qualify review and Prepare only when every independent source, wallet, market, risk and permission guard passes. Settlement uses the broker-reported fee asset and debit; deviations freeze for reconciliation. A SELL limit models proceeds at its minimum price, not the largest possible proceeds or fee.\n\nFee calculations use the full modeled receipt before display rounding. The displayed gross and net receipt are rounded down to18 decimal places; each final fee family is rounded up separately.\n\nModel method · class\nSPOT_THREE_FAMILY_RATIONAL_CEIL18_V1 · CURRENT_ORDER_SCENARIO\nModeled gross receipt\n0.001 BTC\nComplete fallback role\nTAKER. Selected by the full rounded three-family total, not independent family maxima.\nModeled standard fee\n0.0000000005 BTC\nModeled tax fee\n0.00000000232 BTC\nModeled special fee\n0.00005 BTC\nModeled received-asset fee total\n0.00005000282 BTC\nModeled net receipt\n0.00094999718 BTC\nCurrent charging condition\nDISCOUNTED_BNB_CURRENT_ESTIMATE. This is a current condition, not a promised future charging asset.\nModel limitations\nVENUE_PER_FILL_ROUNDING_UNPROVEN · BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN\nCurrent funding plan preview\n\nThis backend-derived preview is captured with the reviewed financial material. It is not approval or a future fee guarantee; native claims are created only by atomic Prepare after explicit approval.\n\nNative principal claim\n60 USDT\nCurrent fee disposition\nbnb current estimate · 0.00600042340539 BNB outgoing fee claim\nReceived-asset fallback fee and net receipt\n0.00005000282 BTC · 0.00094999718 BTC\nConditional discounted BNB current estimate\n\nThis is a current estimate under the displayed complete role and exact price legs. It does not prove Binance’s internal average conversion rate or guarantee the future charging asset. Current branch: discounted bnb current estimate.\n\nSelected discounted role\nTAKER\nDiscounted standard fee\n0.00000004500075 BNB\nUndiscounted tax fee\n0.00000027840464 BNB\nUndiscounted special fee\n0.0060001 BNB\nComplete modeled BNB fee\n0.00600042340539 BNB\nComplete discounted role candidates\nMAKER 0.0048003920052 BNB · TAKER 0.00600042340539 BNB\nConsumed BNB conversion legs\nBTCUSDT · BTC -> USDT at ASK · exact BTC coverage 10000539/200000000000 · BINANCE_SPOT_PUBLIC snapshot 408de5cc-e527-4d24-b3d8-4e160bc0cbc9 · binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 7822a8ec-a0bb-4e57-bbc9-7871e042be7a · update 9007199260740993 · provider 2026-10-15T09:26:14.813Z · first receipt 2026-10-15T09:26:14.814Z · use UNVERIFIED · material 55f2c03b261e2e301fdba56c1b0fdd14552a8baf5a6f632f183ce5a5bd1b9271\nBNBUSDT · USDT -> BNB at BID · exact BNB coverage 600042340539/100000000000000 · BINANCE_SPOT_PUBLIC snapshot 32eab9ec-f763-4a2f-be89-a14f01385b7b · binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 572ae5ec-0ed4-4797-a991-3c4a3ede00e4 · update 9007199259740993 · provider 2026-10-15T09:26:14.502Z · first receipt 2026-10-15T09:26:14.502Z · use UNVERIFIED · material 7f496a36158e1cf557bf64e39249470591fa649c284038019b6e28aec84bc25f\nReason code\nSPOT_FEE_FX_QUALIFIED\nBinding blocker\nNone\nFee currency · declared origin\nUNKNOWN · UNKNOWN. This is an independent fact, reported even when the binding blocker above is the required execution route.\nExpected fee · declared origin UNKNOWN\nNot declared. Never fabricated from an unknown fee currency.\nIntent notional · declared origin INTENT_PROPOSAL\n60 USDT · maximum authorized Not declared USDT\nWorkspace base currency · declared origin WORKSPACE_BASE_CURRENCY\nUSD. The workspace base is a three-letter ISO code, so USDT is never read as USD: USDT ≠ USD.\nWorkspace-base expected spend / fee · declared origin REQUIRED_FX\n60.006 / Not declared. The exact qualified policy valuation supplies the Proposal amount used by owning monetary risk checks; when unavailable, owning Live Spot risk never substitutes historical portfolio FX. This price-only estimate adds no execution cost.\nExact account · instrument\n44427b5f-d4b7-4d62-8faa-41177e663f05 · crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT\nProposal · hash\nproposal:ad61788d-85cc-4d2d-a0a6-83be755ec52c · sha256:350f788e5270fc02d8c80c76aee85a86922a504698782653d8bbd2e7795b34e3\nGenuinely-required FX routes\nintent policy FX route · USDT -> USD · qualified for price-only policy valuation · provider pair USDTUSD · provider rate quality UNQUALIFIED_FX_RATE · provider time 2026-10-15T09:26:14.376087Z · first receipt 2026-10-15T09:26:15.376Z · execution depth/cost not applicable to price-only policy valuation · The current USDT/USD quote is within the reviewed one-percent policy-valuation band. Execution depth and conversion-transaction cost do not apply to this price-only valuation; source-use rights and execution qualification remain separate.\nintent funding FX route · USDT -> USDT · qualified · provider pair no supported pair · provider rate quality UNQUALIFIED_FX_RATE · provider time Not declared · first receipt 2026-10-15T09:26:15.376Z · declared execution cost not established · The monetary input and target share one currency, so no external rate is required.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot. Nothing here is a fill promise, a fee promise or an approval.\n\nExact-symbol fee material · required FX material\nsha256:5d7bd27bd2c06c9f5608260d94735989423fe96365373aeaf9f3949397027e06 · sha256:ef8afa1aef6fa7e9d0be2c3473bcd8a1567d261303b1c940bdbd7607cbf7fff8",
+    "positiveWidths": [
+      {
+        "viewport": 1280,
+        "body": 1280,
+        "panel": 390,
+        "client": 390
+      },
+      {
+        "viewport": 768,
+        "body": 768,
+        "panel": 422,
+        "client": 422
+      },
+      {
+        "viewport": 390,
+        "body": 390,
+        "panel": 268,
+        "client": 268
+      }
+    ],
+    "prearmText": "Captured Proposal Spot fee and required FX\n\nThe owning fee statement and every genuinely-required FX route are current and complete for their declared purposes; this carries no execution authority by itself.\n\nSaved assessment. Reading this history never renews the statement, re-reads a venue or restores consent. Arm, consent, dispatch, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nBASE / QUOTE / BNB wallet coverage\n\nCoverage complete. This is bound read-only evidence, not approval or execution authority.\n\nRequired assets · missing assets\nBTC · USDT · BNB · none\nWallet account · Proposal\n44427b5f-d4b7-4d62-8faa-41177e663f05 · proposal:ad61788d-85cc-4d2d-a0a6-83be755ec52c · sha256:350f788e5270fc02d8c80c76aee85a86922a504698782653d8bbd2e7795b34e3\nSource · rules · capacity binding\nBINANCE_SPOT_RULES:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 5d0a07567f963cd9d5365411c5a01f2c0c87bd1e09bb7130abf52d7cb6084cff · sha256:b15c2ab209b20caed0a39a4201d6ef9c8ee6b43a98d9c4f1f6a93e4064e08eba\nCollection · account-read start / first receipt\n55e2e49c-46ad-47e3-9028-c866ea695806 · 2026-10-15T09:26:14.376Z / 2026-10-15T09:26:14.381Z\nOriginal account-read digest\nbd80e033beccb45b852f52e3102b4d756e1902e6aa667e27c8e534a8f1b7d6e5\nBTC free / locked\n0.10000000 / 0.02000000 BTC. Free already excludes broker locks; local claims 0; effective free 0.10000000 BTC.\nUSDT free / locked\n99999999999999999999.9999999999999999999 / 0.0000000000000000002 USDT. Free already excludes broker locks; local claims 0; effective free 99999999999999999999.9999999999999999999 USDT.\nBNB free / locked\n1.00000000 / 0.00000000 BNB. Free already excludes broker locks; local claims 0; effective free 1.00000000 BNB.\nCurrent received-asset fee scenario\n\nACTUAL_FEE_ASSET_PENDING. This current model estimates a full fill from the recorded intent and complete symbol commission terms; it does not guarantee the future fee asset or amount. A complete, account-bound estimate may qualify review and Prepare only when every independent source, wallet, market, risk and permission guard passes. Settlement uses the broker-reported fee asset and debit; deviations freeze for reconciliation. A SELL limit models proceeds at its minimum price, not the largest possible proceeds or fee.\n\nFee calculations use the full modeled receipt before display rounding. The displayed gross and net receipt are rounded down to18 decimal places; each final fee family is rounded up separately.\n\nModel method · class\nSPOT_THREE_FAMILY_RATIONAL_CEIL18_V1 · CURRENT_ORDER_SCENARIO\nModeled gross receipt\n0.001 BTC\nComplete fallback role\nTAKER. Selected by the full rounded three-family total, not independent family maxima.\nModeled standard fee\n0.0000000005 BTC\nModeled tax fee\n0.00000000232 BTC\nModeled special fee\n0.00005 BTC\nModeled received-asset fee total\n0.00005000282 BTC\nModeled net receipt\n0.00094999718 BTC\nCurrent charging condition\nDISCOUNTED_BNB_CURRENT_ESTIMATE. This is a current condition, not a promised future charging asset.\nModel limitations\nVENUE_PER_FILL_ROUNDING_UNPROVEN · BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN\nCurrent funding plan preview\n\nThis backend-derived preview is captured with the reviewed financial material. It is not approval or a future fee guarantee; native claims are created only by atomic Prepare after explicit approval.\n\nNative principal claim\n60 USDT\nCurrent fee disposition\nbnb current estimate · 0.00600042340539 BNB outgoing fee claim\nReceived-asset fallback fee and net receipt\n0.00005000282 BTC · 0.00094999718 BTC\nConditional discounted BNB current estimate\n\nThis is a current estimate under the displayed complete role and exact price legs. It does not prove Binance’s internal average conversion rate or guarantee the future charging asset. Current branch: discounted bnb current estimate.\n\nSelected discounted role\nTAKER\nDiscounted standard fee\n0.00000004500075 BNB\nUndiscounted tax fee\n0.00000027840464 BNB\nUndiscounted special fee\n0.0060001 BNB\nComplete modeled BNB fee\n0.00600042340539 BNB\nComplete discounted role candidates\nMAKER 0.0048003920052 BNB · TAKER 0.00600042340539 BNB\nConsumed BNB conversion legs\nBTCUSDT · BTC -> USDT at ASK · exact BTC coverage 10000539/200000000000 · BINANCE_SPOT_PUBLIC snapshot 408de5cc-e527-4d24-b3d8-4e160bc0cbc9 · binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 7822a8ec-a0bb-4e57-bbc9-7871e042be7a · update 9007199260740993 · provider 2026-10-15T09:26:14.813Z · first receipt 2026-10-15T09:26:14.814Z · use UNVERIFIED · material 55f2c03b261e2e301fdba56c1b0fdd14552a8baf5a6f632f183ce5a5bd1b9271\nBNBUSDT · USDT -> BNB at BID · exact BNB coverage 600042340539/100000000000000 · BINANCE_SPOT_PUBLIC snapshot 32eab9ec-f763-4a2f-be89-a14f01385b7b · binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1 · 572ae5ec-0ed4-4797-a991-3c4a3ede00e4 · update 9007199259740993 · provider 2026-10-15T09:26:14.502Z · first receipt 2026-10-15T09:26:14.502Z · use UNVERIFIED · material 7f496a36158e1cf557bf64e39249470591fa649c284038019b6e28aec84bc25f\nReason code\nSPOT_FEE_FX_QUALIFIED\nBinding blocker\nNone\nFee currency · declared origin\nUNKNOWN · UNKNOWN. This is an independent fact, reported even when the binding blocker above is the required execution route.\nExpected fee · declared origin UNKNOWN\nNot declared. Never fabricated from an unknown fee currency.\nIntent notional · declared origin INTENT_PROPOSAL\n60 USDT · maximum authorized Not declared USDT\nWorkspace base currency · declared origin WORKSPACE_BASE_CURRENCY\nUSD. The workspace base is a three-letter ISO code, so USDT is never read as USD: USDT ≠ USD.\nWorkspace-base expected spend / fee · declared origin REQUIRED_FX\n60.006 / Not declared. The exact qualified policy valuation supplies the Proposal amount used by owning monetary risk checks; when unavailable, owning Live Spot risk never substitutes historical portfolio FX. This price-only estimate adds no execution cost.\nExact account · instrument\n44427b5f-d4b7-4d62-8faa-41177e663f05 · crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT\nProposal · hash\nproposal:ad61788d-85cc-4d2d-a0a6-83be755ec52c · sha256:350f788e5270fc02d8c80c76aee85a86922a504698782653d8bbd2e7795b34e3\nGenuinely-required FX routes\nintent policy FX route · USDT -> USD · qualified for price-only policy valuation · provider pair USDTUSD · provider rate quality UNQUALIFIED_FX_RATE · provider time 2026-10-15T09:26:14.376087Z · first receipt 2026-10-15T09:26:15.376Z · execution depth/cost not applicable to price-only policy valuation · The current USDT/USD quote is within the reviewed one-percent policy-valuation band. Execution depth and conversion-transaction cost do not apply to this price-only valuation; source-use rights and execution qualification remain separate.\nintent funding FX route · USDT -> USDT · qualified · provider pair no supported pair · provider rate quality UNQUALIFIED_FX_RATE · provider time Not declared · first receipt 2026-10-15T09:26:15.376Z · declared execution cost not established · The monetary input and target share one currency, so no external rate is required.\nStanding limitations carried from the consumed read-only inputs\nnon atomic provider snapshot\ndynamic inputs not execution qualified\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot. Nothing here is a fill promise, a fee promise or an approval.\n\nExact-symbol fee material · required FX material\nsha256:5d7bd27bd2c06c9f5608260d94735989423fe96365373aeaf9f3949397027e06 · sha256:ef8afa1aef6fa7e9d0be2c3473bcd8a1567d261303b1c940bdbd7607cbf7fff8",
+    "prearmWidths": [
+      {
+        "viewport": 1280,
+        "body": 1280,
+        "panel": 608,
+        "client": 608
+      },
+      {
+        "viewport": 768,
+        "body": 768,
+        "panel": 608,
+        "client": 608
+      },
+      {
+        "viewport": 390,
+        "body": 390,
+        "panel": 326,
+        "client": 326
+      }
+    ],
+    "marketSourceVersion": "binance-market:befc9ac0-f0b5-4f51-9c0b-fc123b5b078b:1",
+    "fxSourceUse": {
+      "context": {
+        "accountJurisdiction": "IE",
+        "agreementReviewedAt": "2026-10-12",
+        "countrySupportConfirmation": {
+          "confirmedAt": "2026-10-12",
+          "confirmedJurisdiction": "IE",
+          "reference": "SYNTHETIC-SUPPORT-63722713-a6bd-4baf-9e50-237fb0c6d5b2"
+        },
+        "marketDataPlan": "BASIC",
+        "rawDataDestination": "LOCAL_ONLY",
+        "useScope": "OWN_LOCAL_NONCOMMERCIAL"
+      },
+      "documents": [
+        {
+          "documentId": "ALPACA_TERMS_AND_CONDITIONS",
+          "sha256": "2dc774d4aeeafbe4c7f0565e7842d932bc8bc10488af805fce43b8734e7b9859",
+          "title": "Alpaca Terms and Conditions",
+          "url": "https://files.alpaca.markets/disclosures/library/TermsAndConditions.pdf"
+        },
+        {
+          "documentId": "ALPACA_ACCOUNT_AGREEMENT",
+          "sha256": "d086d69f063bba1e9693fffbb3185c4469b24b47bda79f587053bd771580fcf6",
+          "title": "Alpaca Account Application and Customer Agreement",
+          "url": "https://files.alpaca.markets/disclosures/library/AcctAppMarginAndCustAgmt.pdf"
+        },
+        {
+          "documentId": "ALPACA_COUNTRY_AVAILABILITY",
+          "sha256": "15949958e176c22888db353989b6598a6d926bf642075e8400197b872680c1e9",
+          "title": "Countries Alpaca is available",
+          "url": "https://alpaca.markets/support/countries-alpaca-is-available"
+        }
+      ],
+      "policyVersion": "ALPACA_PERSONAL_LOCAL_V1",
+      "provenance": "USER_REPORTED_PROVIDER_SUPPORT",
+      "reason": "The pinned personal-use policy supports local POLICY_VALUATION for these user-reported provider UI and matching Support-confirmation facts. This is not provider-verified market-data entitlement; rights remain unverified and no raw data may leave the local TradeX process.",
+      "status": "SUPPORTED_FOR_DECLARED_SCOPE",
+      "supportedPurposes": [
+        "POLICY_VALUATION"
+      ]
+    },
+    "sourceAndCapacityWereExplicitlyRead": true,
+    "approvalEligible": false,
+    "armEnabled": false,
+    "completeFinancialAcceptance": false,
+    "armingPerformed": false,
+    "consentPerformed": false
+  },
+  "screenshots": [
+    {
+      "width": 1280,
+      "path": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-VfCSBq/funding-preview-1280.png"
+    },
+    {
+      "width": 768,
+      "path": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-VfCSBq/funding-preview-768.png"
+    },
+    {
+      "width": 390,
+      "path": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-VfCSBq/funding-preview-390.png"
+    }
+  ],
+  "knownResourceIssues": [
+    {
+      "level": "error",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:1420/favicon.ico"
+    }
+  ],
+  "applicationIssues": [],
+  "pass": true
+}

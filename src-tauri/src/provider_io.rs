@@ -358,6 +358,7 @@ impl ProviderEndpoint {
                 crate::quote_source::allowed_latest_path(path)
                     || crate::financial_sources::allowed_actions_path(path)
                     || crate::financial_sources::allowed_fx_path(path)
+                    || crate::financial_sources::allowed_fx_crypto_path(path)
             }
             Self::BitgetDemo => bitget::allows(path),
             Self::BitgetLive => {
@@ -1893,7 +1894,8 @@ impl ProviderHttp for BrokerHttp {
             }
             (ProviderEndpoint::AlpacaMarketData, path)
                 if crate::financial_sources::allowed_actions_path(path)
-                    || crate::financial_sources::allowed_fx_path(path) =>
+                    || crate::financial_sources::allowed_fx_path(path)
+                    || crate::financial_sources::allowed_fx_crypto_path(path) =>
             {
                 512 * 1024
             }

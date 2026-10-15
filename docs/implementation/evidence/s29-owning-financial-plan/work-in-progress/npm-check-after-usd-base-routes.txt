@@ -1,0 +1,17 @@
+S29.11 current-worktree full check summary
+Date: 2026-10-12
+Branch / source before this documentation-only update: dev @ 015f4ba19b0dcba138d2a48fafb42b6323821e83
+Command: npm run check
+Result: PASS (the npm script completed through the final requirement traceability step)
+
+Completed stages:
+- IPC/schema consistency check passed.
+- Production TypeScript check and Vite build passed.
+- Frontend unit tests: 21 passed, 0 failed.
+- Rust library tests: 270 passed, 0 failed.
+- `cargo test --workspace`: all executed unit, integration and doc-test suites passed; existing ignored tests remained ignored. Notable S29 suites: `binance_rules` 122 passed; `financial_sources` 41 passed, 3 existing ignored.
+- Requirement traceability passed: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.
+
+The previously timing-sensitive `owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to_hold` case passed in this full run. A single successful run is evidence for this source state, not a claim that timing flakes are impossible. Existing Vite large-chunk and test-fixture dead-code warnings remain.
+
+This is synthetic/local test evidence only. It does not verify actual Alpaca source-use rights or provider availability, and it does not qualify the unknown future Binance fee asset. AC2, AC3, AC4 and AC8 remain the only checked S29.11 criteria (4/14); #135 and #134 remain OPEN. No real account/provider read or financial action occurred.

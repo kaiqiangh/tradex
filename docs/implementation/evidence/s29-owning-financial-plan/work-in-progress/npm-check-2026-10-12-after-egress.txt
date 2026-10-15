@@ -1,0 +1,18 @@
+S29.11 current-worktree check after model-egress boundary evidence — 2026-10-12
+
+Recorded: 2026-10-12T09:45:31Z
+Branch/head: dev / 015f4ba19b0dcba138d2a48fafb42b6323821e83
+Command: `npm run check`
+Exit: 0
+
+Passed:
+- IPC Rust / JSON Schema / TypeScript agreement.
+- Frontend typecheck and production Vite build.
+- Frontend unit tests: 21 passed.
+- Rust library tests: 270 passed.
+- All executed Rust workspace integration and binary test targets, including `binance_rules` 123 passed / 0 failed / 0 ignored and `financial_sources` 41 passed / 0 failed / 3 existing ignored.
+- Requirement traceability: 203 requirements, 70 screens, 13 QA scenarios and 23 baseline files.
+
+Existing warnings: Vite reports a production chunk above 500 kB; Rust integration fixtures include dead-code warnings. The check does not run desktop packaging, does not perform real-provider reads, and does not establish source entitlement or positive owning-plan Prepare. Synthetic focused model-egress and artifact-boundary tests are separately recorded in `alpaca-raw-market-model-egress-current.txt`.
+
+No real account/provider was accessed and no financial action was performed. GitHub #135/#134 remain OPEN with 4/14 criteria checked; no issue or checkbox changed.

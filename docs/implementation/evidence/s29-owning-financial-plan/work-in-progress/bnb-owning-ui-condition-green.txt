@@ -1,0 +1,35 @@
+S29.11 / #135 AC13 — synthetic conditional positive responsive UI slice
+Date: 2026-10-12
+Branch: dev
+Fixed review base: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+Current dev HEAD: 015f4ba19b0dcba138d2a48fafb42b6323821e83
+Worktree: uncommitted changes present; no staged changes
+
+Scenario:
+The focused `tests/spot-bnb-fee-estimate-ui.mjs` check ran against the actual React UI, typed Rust integration dispatcher and disposable SQLite workspace. External provider, public-market, vault and streaming responses were test fixtures. No user credential was read or transmitted. The test sets a 30-second quote threshold only in the disposable workspace and before creating the immutable Proposal.
+
+Result: PASS
+The blocked baseline without a fresh Proposal-bound USDT/USD quote remains visible. A test-only synthetic Alpaca Support context reports `SUPPORTED_FOR_DECLARED_SCOPE` / `USER_REPORTED_PROVIDER_SUPPORT` for `POLICY_VALUATION` only. It is explicitly synthetic and is not the user’s Support response. The user confirmed no real Support reply, so actual source-use stays `UNRESOLVED` and `FX_DATA_USE_RIGHTS=UNVERIFIED`.
+
+With the synthetic fixture only, the owning current statement records workspace-base expected spend `60.006`, a complete discounted BNB current estimate of `0.00600042340539 BNB`, and the limitation `BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN`. The test asserts `SPOT_FEE_FX`, `ORDER_NOTIONAL` and `RESERVED_CAPITAL` PASS while the overall RiskDecision and `ACCOUNT_ARMING` remain `UNAVAILABLE`. Approval is ineligible, the approval list is empty, the Binance account remains `DISARMED`, and the pre-arm Arm button is disabled.
+
+Responsive measurements (body width / statement panel width):
+initial saved view: 1280=390/390, 768=422/422, 390=268/268
+positive saved view: 1280=390/390, 768=422/422, 390=268/268
+pre-arm captured view: 1280=608/608, 768=608/608, 390=326/326
+
+The first responsive run found a long BNB conversion-reference list overflowing at 390 px; list items now wrap. An earlier fixture setup also changed risk policy after Proposal creation, which correctly invalidated that Proposal; the test now configures its isolated policy before Proposal creation. Product defaults and proposal invalidation semantics were not changed.
+
+No real account/provider read, real Support report, approval artifact, Arm, consent, Prepare, Gateway dispatch or order occurred. This evidence covers a synthetic UI slice only; it does not establish real data rights, positive owning-plan Prepare, full settlement/lifecycle or ticket acceptance.
+
+Validation:
+npm run check — PASS: schema agreement, production build/typecheck, 18 frontend unit tests, full Rust workspace tests and requirements traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files)
+  - Rust library tests: 268 passed
+  - changed `binance_rules` suite: 120 passed
+cargo fmt --all -- --check — PASS
+node --check tests/spot-owning-admission-ui.mjs — PASS
+node --check tests/spot-bnb-fee-estimate-ui.mjs — PASS
+git diff --check — PASS
+Fixed-base Standards then Spec reviews remain pending.
+
+GitHub #135 and parent #134 remain OPEN.

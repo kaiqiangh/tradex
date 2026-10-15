@@ -1,0 +1,8 @@
+# Binance Hot serial integration suite — 2026-10-12
+
+- Branch: `dev`.
+- Command: `npm run test:binance-hot`.
+- Test runner: each discovered `binance_market_hot` scenario ran in a separate application process, serially, with the integration-test HTTP/WebSocket fixtures.
+- Result: all 60 scenarios passed; 0 failed. This includes fee-only BNBUSDT continuity, retirement/expiry, owning BNB fee estimate arithmetic, and the public source-use gate behavior.
+
+These are isolated fake-producer integration results, not a live Binance BNBUSDT observation or real account/provider evidence. The native TradeX window remained inaccessible to CUA, so no real source lease or provider request was made. The user's RevC unknown future `commissionAsset` gate remains unchanged; no approval, Prepare, Arm, consent, dispatch, account read, or financial action occurred. No issue state or acceptance checkbox changed.

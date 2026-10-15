@@ -1047,8 +1047,58 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 
 ## 14.33 拥有方费用与所需执行 FX 捕获复核（S29.9 #131，IN_PROGRESS）
 
-当前保存评估、不可变历史及pre-arm复核在精确rate/单位/出处/实际notional旁同时说明route阻断与独立未知fee currency。缺失观察区别于声明rate、比较基准区别于费额估计、同币种identity区别于外部执行FX、provider时间区别于首次收据。不制造费用/换汇/maximum/parity。捕获无refresh/polling；账户/source变化、get与reopen不重写历史。实际keyboard1280/768/390当前/捕获/pre-arm须无溢出且门禁失败时Arm禁用。适用Backend §41.49/Frontend §13.34；source-only不关闭完整金融/原生/物理/main验收。原型代码未改。
+当前保存评估、不可变历史及pre-arm复核在精确rate/单位/出处/实际notional旁同时说明用途特定route结果与独立未知fee currency。区分仅价格估值的`INTENT_POLICY`与资金执行`INTENT_FUNDING`、provider rate quality与route用途资格、缺失观察与声明rate、比较基准与费用估算、provider时间与首次收据。Policy route的执行深度/成本不适用；不制造费用/换汇/maximum/parity。捕获无refresh/polling；账户/source变化、get与reopen不重写历史。实际keyboard1280/768/390当前/捕获/pre-arm须无溢出且门禁失败时Arm禁用。适用Backend §41.49/Frontend §13.34；route资格不关闭完整金融/原生/物理/main验收。原型代码未改。
 
 ## 14.34 精确标的佣金来源披露（S29.10 #133，限定来源PASS）
 
 为已保存普通 Binance Live Proposal 展示当前佣金面板，单独提供键盘可用的“Read symbol commission terms”。区分未观察、已观察声明、失败和过期，来源成功明确没有执行资格。精确展示 standard/tax/special maker/taker/buyer/seller，标注收到资产费率单位及签名标的出处，原始折扣声明不做算术，BUY BASE / SELL QUOTE 分支及需要余额/换算证据的条件 BNB/回退。已知声明齐全与未知活动条款、完整金融资格分开。USDT≠USD、精确身份/hash/source/material、缺失的提供方时间和原始收讫/digest 相邻，不制造费用或提供方时间。保存的 risk/history/pre-arm 面板携带原评估，没有读取控制或鲜度更新。验证键盘1280/768/390、完整原因披露及金融保护失败时 Arm 禁用。适用 Backend§41.50/Frontend§13.35。原型代码未改，规范文字本身不是运行 PASS。
+
+## 14.35 拥有方金融审阅的当前费用模型（S29.11，验收待完成）
+
+仅当同一intent的`INTENT_POLICY` route合格时，按精确金额展示`workspaceBaseExpectedSpend`价格估值，并使用BUY ask / SELL bid。展示owning RiskDecision如何将其用于Proposal已配置货币risk checks。route或source-use qualification不可用时，金额显示不可用且不得回退账户历史FX；statement费用/rights阻塞、独立risk outcome与禁用权限控件继续可见。这不授予approval、Arm或Prepare权限。
+
+保存拥有方有`currentFeeModel`时，单独展示“Current received-asset fee scenario”：method/class、模型gross及收到资产、所选完整角色、standard/tax/special/total原币费用、net receipt、charging condition及全部局限。明确当前模型不保证未来费用，与历史账户比较/原始symbol声明/批准资金允额度/真实收费分开；缺模型或模型失败不造金额。金额存在时仍相邻完整显示金融拒绝。所选拥有方Binance Live Spot门禁的当前及捕获RiskDecision检查须展示`SPOT_FEE_FX`与准确owning statement outcome/reason；检查通过不授予Arm/Prepare权限。risk/history/pre-arm捕获无采集控件/续期，Arm禁用及所需FX/BNB/资金门禁不变。要求键盘1280/768/390、不可变历史、无overflow/console错误。适用Backend§41.51/Frontend§13.37；完整拥有方/真实验收待完成，原型代码未改。
+
+实际消费BNB资金证明时展示原free/locked、准确本地claims/可用金额及原receipt/binding/digest；极小正余额仍为正。区分准确零可用BNB回退与完整折扣表达式准确零；后者不消费BNB钱包/汇率，不声明支付资产或未来费用保证，未折扣fallback仅是条件情景，不称当前实际收费。
+
+当折扣BNB情景消费当前费用book时，显示独立选择的完整折扣角色、三族ceil18 BNB金额及总额、与余额的充足性比较，以及每个消费pair/direction/side、准确覆盖金额与原始收据。BNB折扣角色可不同于收到资产回退角色。将当前估算与交易所实际扣费及审批分开，明确显示`BNB_INTERNAL_AVERAGE_EQUIVALENCE_UNPROVEN`；缺失或数量不足不能显示充足。捕获仅保存引用及准确派生金额，不含原始价格/数量。已知零分支不要求未使用的BNB来源。
+
+模型消费MARKET quote时，“Current market scenario reference”展示选定BID/ASK及原snapshot/source/代次/material/book引用、provider/first-receipt时间，独立data-use状态明确。MARKET仅TAKER，派生金额为当前情景，不是未来保证；捕获不加入原quote/深度或刷新控件。
+
+显示取整不生成新的算术输入：模型gross/net收入显示floor18，各族最终原生费用ceil18，费用计算输入仍为完整有理收到资产情景。BUY QUOTE MARKET使用原生QUOTE金额/当前ask作全量成交情景，不预测实际BASE成交。原生QUOTE覆盖检查使用准确ask×显示BASE ask-size；不支持订单形式及独立规则/金融门禁仍拒绝。
+
+审批复核中须将原生 QUOTE 本金（准确的 `quoteOrderQty`）与独立的 `maximumSpend` 总成本授权区分显示。后端容量投影的请求金额是原生 QUOTE 数量；更高的 `maximumSpend` 不得展示为本金容量。
+
+对于 BUY LIMIT，显示的原生 QUOTE 本金应为准确 BASE 数量 × 不可变限价。任何 `maximumSpend` 都作为独立本地上限；若低于本金，则禁用审批，同时保留完整本金容量投影。
+
+## 14.36 固定 BNB 费用来源输入（S29.11，验收待完成）
+
+普通Binance Live Proposal显示独立“Current BNB fee source”面板及键盘可用“Read BNB fee source”/“Release BNB fee source”。仅使用明确保存的公共来源，与Proposal交易Hot租约同时工作。显示技术生命周期、原始BNB/USDT metadata/status/digest/响应完成时间、真实USDT单位bid/ask、显示BASE数量、原始event/首次receipt时间、准确source/snapshot/connection及独立UNVERIFIED使用状态。说明BNB仍不可交易，不建立账户key/order/funding/approval；已知零分支不要求未消费来源。隐藏/卸载视图释放自己的费用租约，也处理迟到acquire；source变化不复用旧ready。Getter不续期证据；failed/stale/released仅提供真实重读，不补造数据；release保留交易租约。验证键盘1280/768/390及console/overflow。Backend§41.52/Frontend§13.38适用；完整金融验收待完成，原型未改。
+
+## 14.37 明确的Alpaca加密location来源配置（S29.11，验收待完成）
+
+在Settings → Data & Storage保留既有Alpaca Paper account选择器，并增加默认空白的“Crypto market-data location”选择器，仅含`us`、`us-1`及`eu-1`。Save绑定账户与location，不联系Alpaca；重新打开时显示已保存选择。更改任一选择后必须Save才能Refresh。加密观察只能使用准确所选location，不得回退region、host、dataset或credential；仅外汇读取无需加密location。说明location和认证不构成使用许可，实际source-use证据通过评估前rights保持`UNVERIFIED`。Disconnect清除此来源profile但保留account/key。面板键盘可操作，并在390/768/1280px响应式可用。Backend§41.53及Frontend§13.39适用。本目标不证明source entitlement、producer验收或S29.11全部完成；原型源码未改。
+
+## 14.38 所选location的 USDT/USD 证据（S29.11，验收待完成）
+
+在当前与捕获的Currency Evidence中区分USDT→USD crypto quote路由和方向性forex路由。显示配置的Alpaca crypto location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。说明quote size仅保留来源记录，不能证明可执行深度或换算成本；不显示合成mid。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可仅为价格估值资格化；不能资格化资金执行。即使认证rate observation当前可用，仍清晰显示`FX_DATA_USE_RIGHTS`为`UNVERIFIED`，并保持transaction qualification阻塞。当前证据过期后，捕获的pre-arm review仍保留准确quote/location且不刷新。验证键盘可用性及390/768/1280px溢出。Backend§41.54与Frontend§13.40适用；完整S29.11验收仍待完成。原型源码未改。
+
+## 14.39 Alpaca source-use事实与本地policy结果（S29.11，验收待完成）
+
+在Settings → Data & Storage → Alpaca currency rates中增加键盘可操作的行情计划、账户法域、协议复核日期、可选的逐国Alpaca Support确认国家/日期/reference、声明用途范围和原始数据去向字段。没有已保存context时保持空白；重开恢复已保存值。切换账户会清空draft context；同一账户仅更改location时保留。context只填了一部分时禁用Save；允许清空全部字段。Save持久化账户、location和完整可选context，但不读取Alpaca。
+
+显示Control Plane结果、provenance、policy版本、原因以及固定的一手条款链接和SHA-256。Alpaca公开国家可用性指引没有发布清单并要求用户向Support确认具体国家，因此`SUPPORTED_FOR_DECLARED_SCOPE`除用户报告的计划和用途事实外，还要求带日期和reference、且国家与账户法域匹配的Support确认；缺失或国家不一致时保持未解决。这一本地policy结果不是provider entitlement。所有结果中的`FX_DATA_USE_RIGHTS`均保持`UNVERIFIED`，不得推导商业、再分发、交易或执行权限。说明Alpaca原始数据保留本地。验证重开后的值、字段键盘访问以及390/768/1280px无横向溢出。适用Backend§41.55及Frontend§13.41；完整S29.11验收仍未完成，原型代码未改。
+
+## 14.40 Proposal绑定的BASE/QUOTE/BNB钱包覆盖（S29.11 AC5，验收待完成）
+
+在已保存的owning review中只显示其绑定statement里的钱包覆盖。分别标识`COMPLETE`、`INCOMPLETE`、`UNAVAILABLE`、`RETIRED`和`NOT_OBSERVED`；列出required/missing的BASE、QUOTE、BNB资产，绝不把缺失行当作零。显示准确account、Proposal/hash、source/rule/capacity binding、collection，以及唯一account读取的开始时间、首次receipt和原始响应digest。对每条已存在的行，显示原始free/locked decimal字符串、活动本地claims与effective free。明确provider free已经排除broker locks；同一account同一原生资产的本地claim只扣一次，不得再次扣locked。保留准确文本和精度，不用float或数值归一化。陈旧、失败、重复、格式错误或不匹配的读取会清除旧行和receipt。已保存历史保留首次receipt与数值，不重新读取或续期。相同数值的新collection只改变捕获的provenance；金额、local claims、binding或覆盖状态变化仍是金融material。条件BNB模型复用规范BNB行，不重复扣claim。键盘可操作、无刷新动作、不授予approval/Arm/consent/dispatch权限；验证390/768/1280px无溢出且内容可读。适用Backend§41.56与Frontend§13.42；完整S29.11验收仍待完成，原型源码未改。
+
+## 14.41 PLACE逐资产预留证据（S29.11 AC6，验收待完成）
+
+按原生资产分别显示已准备预留中保存的`assetClaims`与`assetCapacities`。保持`PRINCIPAL`和`FEE`行分开，同时呈现每项资产的汇总请求金额、broker free、已有本地claims、本次attempt前容量及预留后的余额。保留精确来源decimal字符串及旧标量捕获。逐资产容量缺失时为不可用而非零。资产容量拒绝时审批保持未消费，且不创建attempt或reservation。界面只读：不得编辑claim金额、启动资金操作或授予Arm、consent、dispatch。保留不可变历史，并验证键盘操作与390/768/1280px无溢出。适用Backend§41.57与Frontend§13.43；原型代码仍未更改。
+
+## 14.42 累计逐资产结算证据（S29.11 AC7，验收待完成）
+
+在当前及captured的PLACE执行历史中，分别显示不可变初始原生claims和当前剩余claims、提供方累计成交数量/金额及按资产记录的实际费用。保留准确十进制字符串，并将旧标量历史标为无法提供完整初始向量。成交/费用不完整或矛盾、订单状态未知、累计证据减少、`UNRESERVED_FEE_ASSET`或`SETTLEMENT_EXCEEDS_COMMITMENT`时，必须说明容量继续冻结待核对。仅在完整broker终态证据后显示未用claim释放；provider accepted不等于成交。界面只展示证据，不授予重试、资金操作、approval、Arm、consent或dispatch权限。验证键盘操作、保存历史不可变性及390/768/1280px无横向溢出。适用Backend§41.58与Frontend§13.44；多腿公开结算、响应式runtime及clickable prototype验收仍待完成，原型源码未改。
+
+对于`MAY_HAVE_SUBMITTED`、reservation仍活动且尚无结算结果的已消费PLACE，在保存的Live账户可读取时，当前Order Drafts可显示显式“Refresh exact order”操作。它把attempt保存的provider订单ID和当前账户版本发送给`trade.live_order.refresh`；后端根据保存的Proposal推导准确提供方身份，不信任renderer选择symbol/order pair。该动作仅执行只读provider刷新，不PLACE、不重试、不CANCEL、不创建approval、不Arm、不consent、不dispatch，也不自动轮询。通过可访问的状态语义报告成功/失败，并渲染保存后的settlement投影。此项只扩展实现行为；clickable prototype仍未修改且未验收。

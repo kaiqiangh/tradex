@@ -165,6 +165,11 @@ const SYNTHETIC_RESEARCH_ARTIFACT_ID: &str = "artifact-1";
 const SYNTHETIC_RESEARCH_ARTIFACT_HASH: &str =
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+#[cfg(test)]
+thread_local! {
+    static SYNTHETIC_RESEARCH_FIXTURE_OVERRIDE: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn synthetic_research_artifact_context() -> ThreadContextRef {
     ThreadContextRef {
         kind: "artifact".into(),
@@ -174,7 +179,30 @@ pub fn synthetic_research_artifact_context() -> ThreadContextRef {
 }
 
 pub fn synthetic_research_fixture_enabled() -> bool {
+    #[cfg(test)]
+    if let Some(enabled) = SYNTHETIC_RESEARCH_FIXTURE_OVERRIDE.with(std::cell::Cell::get) {
+        return cfg!(feature = "integration-test") && enabled;
+    }
+
     cfg!(feature = "integration-test") && std::env::var_os("TRADEX_RESEARCH_FIXTURE").is_some()
+}
+
+#[cfg(test)]
+pub(crate) fn with_synthetic_research_fixture_for_test<T>(
+    enabled: bool,
+    operation: impl FnOnce() -> T,
+) -> T {
+    struct Restore(Option<bool>);
+
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            SYNTHETIC_RESEARCH_FIXTURE_OVERRIDE.with(|value| value.set(self.0));
+        }
+    }
+
+    let previous = SYNTHETIC_RESEARCH_FIXTURE_OVERRIDE.with(|value| value.replace(Some(enabled)));
+    let _restore = Restore(previous);
+    operation()
 }
 
 pub fn context_catalog(accounts: &[AccountConnection]) -> Result<ContextCatalog> {

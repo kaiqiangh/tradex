@@ -1,0 +1,6 @@
+# BNB/USDT native UI attempt — 2026-10-12
+
+- Time: 2026-10-12 11:21 UTC.
+- The temporary TradeX app process remained running. Native accessibility automation could not expose a TradeX window after reactivation.
+- No page command, source lease, Binance request, account read, or BNB/USDT observation was issued in this attempt.
+- BNB fee-market live producer evidence therefore remains unverified. No account or financial state changed.

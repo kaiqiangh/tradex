@@ -1,0 +1,5 @@
+S29.11 AC7 per-asset settlement — RED before implementation
+Date: 2026-10-11
+Command: cargo test -p tradex --lib storage::execution_reservation_claim_tests::settlement_claims_apply_cumulative_fees_once_to_each_native_asset -- --nocapture
+Observed: compile failed because `storage::remaining_native_reservation_claims` did not exist (unresolved import E0432).
+Behavior under test: cumulative actual fills reduce native principal once; cumulative fee debits reduce only their matching fee-asset allowance; a received-asset fee is not double-reserved.

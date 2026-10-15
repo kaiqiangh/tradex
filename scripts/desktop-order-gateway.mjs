@@ -36,6 +36,10 @@ if (action === 'browser') {
     ...process.env,
     TRADEX_ORDER_GATEWAY_SHA256: sha256,
     TRADEX_INTEGRATION_ORDER_GATEWAY: '1',
+    TRADEX_FX_HTTP_FIXTURE: '1',
+    TRADEX_BINANCE_RULE_HTTP_FIXTURE: '1',
+    TRADEX_QUOTE_STREAM_FIXTURE: '1',
+    TRADEX_BINANCE_MARKET_STREAM_FIXTURE: '1',
   });
 } else {
   const tauri = join(root, 'node_modules', '.bin', 'tauri');

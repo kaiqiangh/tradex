@@ -14,6 +14,9 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+#[cfg(all(test, unix))]
+use std::path::Path;
+
 const MAX_FRAME_BYTES: usize = 65_536;
 const MAX_PENDING_FRAMES: usize = 64;
 const DEFAULT_TIMEOUT_SECS: u64 = 20;
@@ -119,6 +122,58 @@ pub fn run(
 ) -> Result<()> {
     let cancelled = AtomicBool::new(false);
     run_cancellable(request, access, &cancelled, emit).map(|_| ())
+}
+
+#[cfg(all(test, unix))]
+pub(crate) fn capture_turn_start_for_test(
+    request: &RuntimeRequest,
+    directory: &Path,
+    executable_name: &str,
+) -> (Value, Vec<RuntimeEvent>) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let executable = directory.join(executable_name);
+    let captured_turn = directory.join(format!("{executable_name}-turn-start.json"));
+    let shell_path = format!(
+        "'{}'",
+        captured_turn.display().to_string().replace('\'', "'\"'\"'")
+    );
+    let script = format!(
+        r#"#!/bin/sh
+while IFS= read -r line; do
+  case "$line" in
+    *'"method":"initialize"'*) printf '%s\n' '{{"jsonrpc":"2.0","id":1,"result":{{}}}}' ;;
+    *'"method":"thread/start"'*) printf '%s\n' '{{"jsonrpc":"2.0","id":2,"result":{{"threadId":"fake-thread"}}}}' ;;
+    *'"method":"turn/start"'*)
+      printf '%s\n' "$line" > {shell_path}
+      printf '%s\n' '{{"jsonrpc":"2.0","id":3,"result":{{"turnId":"fake-turn"}}}}'
+      printf '%s\n' '{{"method":"turn/started","params":{{}}}}'
+      printf '%s\n' '{{"method":"item/started","params":{{"item":{{"id":"item-1","type":"agent_message"}}}}}}'
+      printf '%s\n' '{{"method":"item/completed","params":{{"item":{{"id":"item-1","type":"agent_message","text":"OK"}}}}}}'
+      printf '%s\n' '{{"method":"turn/completed","params":{{}}}}' ;;
+  esac
+done
+"#,
+        shell_path = shell_path
+    );
+    fs::write(&executable, script).unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+
+    let config = AppServerConfig {
+        executable,
+        timeout: Duration::from_secs(3),
+    };
+    let access = RuntimeAccess::for_gateway("test-key").unwrap();
+    let cancelled = AtomicBool::new(false);
+    let mut events = Vec::new();
+    run_process(&config, request, &access, &cancelled, &mut |event| {
+        events.push(event);
+        Ok(())
+    })
+    .unwrap();
+    let outbound: Value =
+        serde_json::from_str(&fs::read_to_string(captured_turn).unwrap()).unwrap();
+    (outbound, events)
 }
 
 pub fn run_cancellable(
@@ -861,6 +916,55 @@ mod tests {
     fn bounded_frame_reader_rejects_an_unterminated_oversized_frame() {
         let mut reader = std::io::Cursor::new(vec![b'x'; MAX_FRAME_BYTES + 1]);
         assert_eq!(read_frame(&mut reader), Err("oversized".into()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_adapter_sends_only_user_text_and_research_marker_to_model_runtime() {
+        let directory = tempfile::tempdir().unwrap();
+
+        // This local fixture contributes only a bounded marker to the preconstructed
+        // RuntimeRequest below; source collection and request construction are not under test.
+        let local_source_values = json!({
+            "bp": "60000.12500000",
+            "ap": "60001.25000000",
+            "rawResponse": "raw-market-response-secret"
+        });
+        let local_json = serde_json::to_string(&local_source_values).unwrap();
+        use sha2::Digest;
+        let digest = sha2::Sha256::digest(local_json.as_bytes());
+        let marker = format!("research:v1:sha256:{}", hex::encode(digest));
+        let request = RuntimeRequest {
+            codex_thread_id: None,
+            model: ThreadModel {
+                provider: "CHATGPT".into(),
+                model_id: "gpt-5.6-sol".into(),
+                thinking_type: None,
+            },
+            message: "Summarize the selected local research result.".into(),
+            research_marker: Some(marker.clone()),
+        };
+        let (outbound, events) =
+            capture_turn_start_for_test(&request, directory.path(), "fake-codex-egress");
+        let outbound_json = outbound.to_string();
+        assert_eq!(outbound["method"], "turn/start");
+        assert_eq!(
+            outbound["params"]["input"][0]["text"],
+            format!("{}\nResearch result marker: {}", request.message, marker)
+        );
+        assert!(outbound_json.contains(&marker));
+        assert!(!outbound_json.contains("\"bp\""));
+        assert!(!outbound_json.contains("\"ap\""));
+        assert!(!outbound_json.contains("\"rawResponse\""));
+        assert!(!outbound_json.contains("60000.12500000"));
+        assert!(!outbound_json.contains("60001.25000000"));
+        assert!(!outbound_json.contains("raw-market-response-secret"));
+        assert!(!outbound_json.contains("attachedContexts"));
+        assert!(local_json.contains("raw-market-response-secret"));
+        assert!(matches!(
+            events.last(),
+            Some(RuntimeEvent::TurnCompleted { .. })
+        ));
     }
 
     #[cfg(unix)]

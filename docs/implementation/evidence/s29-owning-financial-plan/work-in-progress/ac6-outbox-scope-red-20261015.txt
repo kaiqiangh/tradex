@@ -1,0 +1,30 @@
+running 1 test
+
+running 1 test
+test unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state ... FAILED
+
+failures:
+
+failures:
+    unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.17s
+
+
+thread 'unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state' (2932293) panicked at src-tauri/tests/binance_rules.rs:6309:9:
+The workspace outbox scope must include public account events before asserting absence of financial events
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state' (2932285) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state ... FAILED
+
+failures:
+
+failures:
+    unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.47s
+
+error: test failed, to rerun pass `--test binance_rules`

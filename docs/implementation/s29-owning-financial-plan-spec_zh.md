@@ -56,15 +56,15 @@ Prepare 在一个事务内消费审批并预留完整原币资产向量；Gatewa
 - 扩展既有 Proposal/风控/review/Prepare/Gateway 唯一拥有方。复用保存密钥及 HTTP/vault/WS 外部接缝；不接受 renderer 金融输入、权限 setter、正向权威快照注入、第二 Gateway 或第二结算拥有方。
 - 消费精确 symbol 佣金声明及账户/来源/规则/Proposal 绑定。账户比较费率保留历史含义。保留12个原始字符串；缺失、重复、未知活跃扩展或矛盾不得资格化。
 - 每个角色在各族加方向费率，再比较完整 maker/taker 分支总额；不把独立最大分量拼成虚假角色。BUY 基于模型收到 BASE，SELL 基于模型收到 QUOTE。普通 LIMIT 不等于 maker-only。
-- 返回 discount 是 standard 支付乘数；tax/special 不折扣。保留 flags/asset/fallback。未知扣费资产不可用，BNB 充足性覆盖三族换算总额。
+- 返回 discount 是 standard 支付乘数；tax/special 不折扣。保留 flags/asset/fallback。成交的实际费用资产直到券商结算后才确定。根据用户2026-10-15对S29.11作出的决定，只要所有独立的来源、钱包、行情、风险和权限门禁都通过，完整且绑定同一intent/账户的当前费用估算即可使review和Prepare具备资格。必须展示文档定义的BNB折扣与收到资产回退两种结果，披露`ACTUAL_FEE_ASSET_PENDING`，不得保证未来费用或资产。只预留当前选定分支实际会流出的额度：BNB分支预留原生BNB，收到资产回退分支不增加流出费用claim。Prepare和Gateway即时前置检查须重新验证绑定证据与额度，不得静默切换分支。结算以券商实际`commissionAsset`和扣款为准。未建模的币种/分支、费用缺失或扣款超过已保存额度时冻结容量并进入对账；不得截断或追认。当前分支不完整时仍不可用。BNB充足性覆盖三族换算总额。
 - 用精确十进制及下文固定的向外有理数模型。LOT_SIZE 不能证明佣金舍入或成交次数；聚合 ceiling 不等于逐笔费用绝对上界。
 - 区分当前费用估算、授权本金/费用额度、券商原生边界与真实费用。时间、精度、现价与快照均不保证未来费率不变；下文提交前授权检查保留RevC硬限，不伪造未来费用保证或任意安全系数。
 - 保留用户真正的 order type、quantity/notional、TIF。固定 BASE 的 BUY LIMIT 可由 quantity×limit 约束 QUOTE 本金；SELL LIMIT 是最低价格与获准 BASE 数量，不是最高收入。MARKET quantity/quoteOrderQty 保留原生语义，不自动改订单形状来制造边界。
-- 从认证生产者保留 proposal-scoped 精确 BASE/QUOTE/BNB free/locked 与原始回执/代次；必需行缺失不填零，重复失败。保留非原子性和缺少 snapshot timestamp，不把事务更新时间当作新鲜采集时间。
+- 从认证生产者保留 proposal-scoped 精确 BASE/QUOTE/BNB free/locked 与原始回执/代次；必需行缺失不填零，重复失败。保留非原子性和缺少 snapshot timestamp，不把事务更新时间当作新鲜采集时间。规范钱包投影在不可变历史中保留完整receipt，但从审批material排除collection/读取receipt身份；准确金额、本地claims、binding和覆盖状态仍绑定审批。
 - 复用原生本金容量。券商 free 已排除 locked；本地有效预留只扣一次。足额 USDT 的 BUY 是 USDT→USDT identity；SELL 使用提交 BASE。不得暗加 Convert、转账、提款、新券商或金融操作。
 - fallback 费用减少收入，不另加一次支出本金；真正消费的第三资产费用额度有独立原币 claim。一次事务预留全部实际支出 claim，保留分支/模型净收入与支出差异。
-- 既有 PLACE/outbox 事务扩展有界逐资产预留向量，以 account+asset+intent 为范围，兼容历史主预留。审批消费、attempt、全部 claims 全部提交或全部不提交；本金与条件费用并发共享容量谓词。
-- 由真实累计成交/费用及其资产、execution identity 结算，回放去重，只应用 delta 一次。pending CANCEL/UNKNOWN_RECONCILING 保留未解决 claim；只有终态券商事实释放未用容量。费用缺失不填零、不早释、不恢复 healthy；超出模型费用额度的实际风险必须可见并对账。
+- 既有 PLACE/outbox 事务扩展有界逐资产预留向量，以account+asset+intent为范围，兼容历史主预留。在预留旁以结算元数据保存不可变的已选费用处置分支、收到资产回退额度和净收款；这些值不占用流出钱包容量。须校验它与审批绑定的当前预览一致。审批消费、attempt及全部流出claim全部提交或全部不提交；本金与条件费用并发共享容量谓词。
+- 根据真实累计成交/费用、实际资产和execution identity结算，回放去重，只应用delta一次。只接受已保存分支和原币额度内的费用；资产/分支不符或扣款超额时冻结全部剩余容量并进入对账。pending CANCEL/UNKNOWN_RECONCILING保留未解决claim；只有终态券商事实释放未用容量。费用真值缺失/不完整时不填零、不早释、不恢复healthy。
 - 仅派生真正消费的本金政策估值、原生资金 identity、fallback 费用估值、条件扣费换算/估值；只有启用政策真实消费时才带入组合路由。保留配置的 fiat 本位币，必需缺失阻塞，无关资产不新增门禁。
 - Rust/schema/TypeScript 协同放宽资产/币对。选定直接路由或另行明确批准的逐腿路径保留原始单位、方向、bid/ask/size、provider/first receipt、代次、质量/脱锚、成本方法及每腿。不得平价、隐含倒数/桥接、拒绝后回退或未知成本填零。
 - 政策估值与真实资金换算不同。仅作原币估值的路由不是兑换交易或保证报价；identity 无需外部行情。仅实际会发生的兑换操作需要其真实成本，而本票不新增此类操作。
@@ -138,8 +138,8 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 - [ ] AC3. 固定当前估算舍入、授权及原生边界，保留不确定性与不支持绝对保证。
 - [ ] AC4. 条件BNB及收到资产分支保留实际消费的诚实当前估算、原币、净收入及三族足额；已证明零BNB的fallback不需无用换算，不伪造不活跃BNB金额。
 - [ ] AC5. BASE/QUOTE/BNB持仓覆盖、first receipt、free/locked/local claims只消费一次并完整绑定/退休。
-- [ ] AC6. 已足额本金及实际费用claims形成原子account-scoped逐资产向量，不暗加资金操作。
-- [ ] AC7. 真实逐资产成交/费用恰好结算一次，保留pending/unknown，只按券商真值释放未用容量。
+- [ ] AC6. 按已批准的条件费用契约，完整的当前owning plan可在所有独立门禁通过时使review/Prepare具备资格；预先持有的原生本金及当前分支实际消费的费用claim在同一事务产生账户范围逐资产预留向量。Prepare还须持久化审批绑定的费用分支和回退额度供后续结算；收到资产扣费不作为流出容量claim。无隐藏资金操作。
+- [ ] AC7. 逐资产成交/费用对照已保存分支与原币额度恰好结算一次；分支/币种不符、费用真值缺失或扣款超额时冻结并进入对账，保留pending/unknown，只按券商真值释放未用容量。
 - [ ] AC8. Rust/schema/TypeScript支持真实资产/币对/路径/用途/时间/质量/成本，兼容历史捕获/预留。
 - [ ] AC9. 必需估值/费用路由正向资格化并保留配置本位币/方向/逐腿，identity/不可用处理无平价。
 - [ ] AC10. 支持的真实外部响应达到拥有方金融正向及同一风控/Prepare，无注入权限捷径。

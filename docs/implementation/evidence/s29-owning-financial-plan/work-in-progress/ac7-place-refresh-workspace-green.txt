@@ -1,0 +1,13 @@
+AC7 PLACE exact-order refresh — full workspace check summary, 2026-10-11
+
+Command: npm run check
+Result: completed successfully.
+
+- IPC schema check: generated Rust / JSON Schema / TypeScript agree.
+- Production frontend build and TypeScript check: passed. Vite reported a large-bundle warning (5,633.99 kB minified JS).
+- Frontend unit tests: 18 passed, 0 failed.
+- cargo test --workspace: all executed library and integration tests passed; Rust library suite reported 262 passed, 0 failed. Tests marked ignored by existing conditions were not run.
+- Requirement traceability: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files; check passed.
+- Post-run git diff --check: passed.
+
+The complete cargo output was emitted to the active terminal rather than redirected into this receipt. Focused exact-order refresh and cancellation-race test output is retained in ac7-public-place-refresh-green.txt. This verifies the current workspace only; it does not establish S29.11 AC7 or owning-ticket acceptance, normal producer-to-Prepare acceptance, desktop UI evidence, real-source rights, or any real-provider behavior.

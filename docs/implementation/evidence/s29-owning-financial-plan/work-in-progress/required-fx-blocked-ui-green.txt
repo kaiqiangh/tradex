@@ -1,0 +1,9 @@
+S29.11 required-FX blocked UI replay — 2026-10-12
+
+Environment: isolated localhost integration page at 127.0.0.1:1440; current React and Rust integration binaries; disposable SQLite workspace; synthetic HTTP and vault producers only. No user desktop session, saved real account, or real provider was read or written.
+
+Replay: tests/spot-fee-required-fx-ui.mjs via the real CUA browser harness. The current Proposal initially has no exact-symbol commission observation and no bound USDT/USD policy quote. The captured statement names SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE, leaves the fee and workspace-base spend undeclared, and says owning Live Spot risk never substitutes historical portfolio FX. The review is ineligible with UNAVAILABLE risk status. The pre-arm capture preserves the blocker, exposes no refresh control, and keeps Arm disabled. The account remains DISARMED; no Arm, consent, Prepare, dispatch, or order action occurred.
+
+Responsive measurements passed at 1280 / 768 / 390 CSS px. Current statement body widths were 1280 / 768 / 390 px; panel/client widths were 390/390, 422/422, and 268/268 px. Pre-arm panel/client widths were 608/608, 608/608, and 326/326 px. No horizontal overflow was observed.
+
+This is the unresolved-source-use path, not positive provider-rights evidence or owning qualification. Alpaca Support has not confirmed the account/data-set jurisdiction; real source-use remains UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED. S29.11, issue #135, and parent #134 remain open.

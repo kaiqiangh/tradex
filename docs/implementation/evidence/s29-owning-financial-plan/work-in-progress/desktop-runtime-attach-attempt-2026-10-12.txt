@@ -1,0 +1,5 @@
+S29.11 built executable launch / native UI attachment attempt — 2026-10-12
+
+The freshly built `target/release/tradex` Mach-O arm64 executable was started from the repository. Its process stayed alive in the command session until the agent sent Ctrl-C (session exit 130). The executable is not listed as a registered app in the macOS CUA inventory; `cua.getApp` rejected both the binary path and display name, so no native accessibility tree or screenshot could be captured. No UI control was activated, no account was read, and no TradeX data or setting was changed.
+
+`src-tauri/tauri.conf.json` sets `bundle.active=false`; `npm run desktop:build` invokes Tauri with `--no-bundle`. Therefore this attempt verifies neither visible app startup nor UI behavior. A properly packaged app/runtime QA path is still required for the full product goal; PRD OPS-006 separately requires a repeatable packaged and code-signed release pipeline. The ordinary executable build and embedded Gateway pin remain verified by `desktop-build-gateway-pin-2026-10-12.txt`.

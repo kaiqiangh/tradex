@@ -1307,6 +1307,9 @@ Owning Spot fee/required-FX review consumes the already-read account commission 
 
 A separate explicit exact-symbol commission source may collect the complete declared rate families and conditional charging branches for the saved Proposal. Original account comparison rates and this source declaration are distinct; neither establishes a numeric total fee, a guaranteed future charging asset or required execution FX. Missing or changed terms retire current evidence; saved assessments retain original receipts. Backend §41.50/UI §14.34 define the source-only contract.
 
+
+An owning current fee scenario may derive complete standard/tax/special role+side amounts from the current exact-symbol declaration, with explicit received asset, rounding method, net modeled receipt and uncertainty. It is distinct from account-rate comparisons, financial approval allowances, native broker bounds and realized charges; a numeric estimate alone does not qualify required FX, funding or execution. Backend§41.51/UI§14.35 define the additive current-model contract; full S29.11 implementation and real acceptance remain pending, prototype unchanged.
+
 # 22. Pre-approval and Pre-execution Validation
 
 Every live order goes through two deterministic checks.
@@ -1829,6 +1832,10 @@ Each market-data integration must explicitly define:
 
 TradeX should not assume that locally caching market data automatically grants redistribution rights.
 
+A versioned local source-use policy may assess user-reported account plan, jurisdiction, agreement-review date, intended scope and raw-data destination for a bounded local purpose. Keep this assessment separate from provider entitlement: a user declaration or a locally supported purpose must never set market-data rights to `VERIFIED` or authorize redistribution. Keep raw provider data local until applicable provider entitlement and permitted downstream use are independently established.
+
+When the provider does not publish a supported-jurisdiction list and directs users to Support, the local policy may require a dated, referenced, user-reported confirmation for the exact account jurisdiction. This country-specific confirmation remains distinct from market-data rights and does not establish provider entitlement.
+
 ---
 
 # 35. Market Calendar and Corporate Actions
@@ -2218,6 +2225,10 @@ The product must visibly represent at least:
 - private-stream disconnection;
 - startup reconciliation.
 
+## 43.6 Exact Live Wallet Evidence
+
+Every immutable Live financial review binds wallet coverage to the exact workspace, Proposal/hash, account and source/rule/capacity generation. It preserves one authenticated account-read receipt and the original free/locked amount for each observed required BASE, QUOTE and conditional BNB asset. Missing, stale, duplicate, malformed or mismatched holdings remain unavailable; a missing row is never zero. Broker free already excludes locked funds. Subtract known active local claims once per native asset and retain the original free, locked and claim values for review. Receipt-only rereads preserve captured provenance without changing unchanged financial material; changed holdings or claims require fresh review. Wallet evidence is read-only and does not itself grant approval, Prepare, Arm or dispatch. Backend §41.56, Frontend §13.42 and UI §14.40 define the contract; full S29.11 acceptance remains pending.
+
 
 ---
 
@@ -2249,6 +2260,10 @@ Spread: 1.7 bps
 ```
 
 If actual required spend would exceed the approved hard limit, TradeX rejects submission.
+
+For a BUY MARKET Proposal with QUOTE quantity, the native principal remains the exact `quoteOrderQty`. Keep it distinct from `maximumSpend`, which is the separate local total-cost authorization limit; a larger limit does not increase native principal capacity.
+
+For a BUY LIMIT Proposal, the native QUOTE principal is the exact BASE quantity multiplied by its immutable limit price. A supplied `maximumSpend` remains a separate local authorization ceiling; when it is below the required principal, refuse the review rather than reducing the native principal amount.
 
 ---
 
@@ -3689,3 +3704,11 @@ Experience goals:
 When the LLM chain is unavailable, the user can still review existing artifacts, approve/reject already-created valid approvals, cancel/reconcile open orders, inspect account health, and use non-model control-plane functions. No live authority depends on model availability.
 
 > **The agent reasons. The TradeX control plane authorizes. The broker/exchange is execution truth.**
+
+# 74. S29.11 Native-Asset Settlement Contract
+
+An owning Spot PLACE stores its immutable initial principal/fee claim vector beside cumulative provider fills and actual fees. Current claims are recomputed from that original vector using exact native decimals, so repeated cumulative observations cannot charge a fill or fee twice. BUY principal follows cumulative filled quote value; SELL principal follows cumulative filled base quantity; each fee reduces reserved capacity only in its charged native asset. A fee charged from received proceeds is preserved as an actual debit and does not consume an unrelated outgoing claim.
+
+Incomplete, contradictory, unknown or decreasing cumulative fill/fee facts preserve the last trusted reservation; an older provider timestamp cannot replace the saved observation. An unreserved outgoing fee or a debit above the claim produces a typed reconciliation hold. Only complete broker-terminal facts release unused native capacity. Provider acceptance, cancellation request, timeout or an absent fee row is not settlement truth. Older scalar-only records remain readable and explicitly lack a full vector. The additive wire and UI contracts are Backend§41.58, Frontend§13.44 and UI§14.42. This contract does not establish S29.11 acceptance; real rights, positive producer-to-Prepare, Gateway preflight, public settlement/replay/concurrency, responsive current/captured/pre-arm evidence and the independent remaining gates remain open.
+
+After a consumed Live PLACE attempt may have reached the provider, the user may explicitly refresh that exact attempt's order evidence while its reservation remains active. The Control Plane binds the read to the consumed approval, saved account, immutable Proposal, saved provider-order ID and current account version, derives any provider-specific symbol namespace, and persists fills/fees through the same cumulative settlement rules. This is a GET-only recovery read and does not authorize or repeat any financial action; incomplete evidence keeps the capacity held. Cancellation-race reads remain a separate approval-bound use of the same command.

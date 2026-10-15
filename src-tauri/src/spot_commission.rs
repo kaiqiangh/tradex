@@ -138,6 +138,55 @@ pub struct SpotCommissionInputs {
     #[schemars(length(min = 1, max = 128))]
     pub state_version: String,
 }
+
+impl SpotCommissionInputs {
+    /// Binds one exact-symbol commission observation to the same proposal, account, instrument,
+    /// capacity source, selected rules and provider generation consumed by financial decisions.
+    pub(crate) fn matches_capacity_binding(
+        &self,
+        proposal: &OrderProposal,
+        capacity: &crate::spot_capacity::SpotCapacityInputs,
+        side: OrderSide,
+    ) -> bool {
+        capacity.workspace_id == proposal.workspace_id
+            && capacity.proposal_id == proposal.proposal_id
+            && capacity.proposal_hash == proposal.proposal_hash
+            && Some(capacity.account_id.as_str()) == proposal.fields.account_id.as_deref()
+            && capacity.instrument_id == proposal.fields.instrument_id
+            && self.workspace_id == capacity.workspace_id
+            && self.proposal_id == capacity.proposal_id
+            && self.proposal_hash == capacity.proposal_hash
+            && self.account_id == capacity.account_id
+            && self.instrument_id == capacity.instrument_id
+            && self.base_asset == capacity.base_asset
+            && self.quote_asset == capacity.quote_asset
+            && self.side == side
+            && side == proposal.fields.side
+            && self.source_version == capacity.source_version
+            && self.rule_material_version == capacity.rule_material_version
+            && self.binding_version == capacity.binding_version
+    }
+}
+
+impl SpotCommissionObservation {
+    /// Confirms the provider-reported observation describes the same symbol and received asset
+    /// branch as the exact proposal-bound capacity inputs.
+    pub(crate) fn matches_capacity_symbol(
+        &self,
+        capacity: &crate::spot_capacity::SpotCapacityInputs,
+        side: OrderSide,
+    ) -> bool {
+        let expected_symbol = format!("{}{}", capacity.base_asset, capacity.quote_asset);
+        let expected_received_asset = match side {
+            OrderSide::Buy => capacity.base_asset.as_str(),
+            OrderSide::Sell => capacity.quote_asset.as_str(),
+        };
+        self.symbol == expected_symbol
+            && self.received_asset == expected_received_asset
+            && self.quality == SpotCommissionQuality::ReadOnlySymbolCommission
+    }
+}
+
 fn invalid() -> TradeXError {
     TradeXError::new("PROVIDER_RESPONSE_INVALID")
 }

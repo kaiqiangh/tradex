@@ -1,0 +1,5 @@
+{
+  "stage": "PREPARATION_COMPETING_LEASE_NOT_EXPECTED_UI_RED",
+  "name": "AssertionError",
+  "message": "market.hot.get: {\"blocking\":true,\"category\":\"STATE_STALE\",\"code\":\"STATE_VERSION_CONFLICT\",\"message\":\"The state cursor cannot be resumed. Reload authoritative state.\",\"remediationActions\":[{\"id\":\"reload_snapshot\",\"label\":\"Reload state\"}],\"retryable\":false}\n\nfalse !== true\n"
+}

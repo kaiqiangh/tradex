@@ -37,6 +37,10 @@
 
 仅对S29.9验收，当前#130/#131 AC与本节取代原始正向方案/测试要求。以上正向用户故事仍为完整goal必需工作，未豁免、未交付。本片零新增提供方读取：账户声明maker/taker/buyer/seller费率保持原串，max(maker,taker)仅是比较基准，完整佣金/计入币种未知，预期费用与换算支出均不存在。完整费用/计入币种与真正所需USDT执行FX两项以后都必须建立。既有CURRENCY_CONVERSION语义不变。当前公开路径不可用，不放宽fixture或生产者制造正向。
 
+### 后续拥有方路由说明（S29.11 #134/#135）
+
+本S29.9验收仍限定于其零新增读取的生产者/输入范围。后续S29.11拥有方项目增加用途特定的价格估值`INTENT_POLICY`路线：只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`时，新鲜且准确绑定的方向性quote才可仅为该用途QUALIFIED；USDT/USD还要求bid和ask均处于含边界的`0.99–1.01`区间。原始provider quality仍为`UNQUALIFIED_FX_RATE`；执行深度/成本对此估值不适用，也不核验source-use rights或资格化`INTENT_FUNDING`。下方S29.9拒绝证据仅是该来源切片的历史验收，不是后续拥有方项目的当前路由契约。
+
 ## 实现决策（除明确后续项外，均为当前切片）
 
 - 仅对普通 Binance Spot Live 账户、且仅对精确金额 Market/Limit 意图边界，扩展既有拥有方 Live PLACE 路径（风险判定 → 不可变审批复核 → Prepare → 已认证子 Gateway）。不引入并行权威模型、不新增第二套费用或 FX 投影、不新增第二套结算路径、不新增账户、不新增已保存来源或来源选择命令，也不接受渲染器提供的金额、数量、汇率或费用。本切片不进行任何提供方写操作、不下探针订单、不 Arm、不 consent、不派发。

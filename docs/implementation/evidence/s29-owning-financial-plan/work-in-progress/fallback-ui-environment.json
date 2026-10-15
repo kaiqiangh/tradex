@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-10T23:07:57.605113+00:00",
+  "classification": "ENVIRONMENT_FAILURE_NOT_EXPECTED_RED_OR_UI_ACCEPTANCE",
+  "facts": [
+    "Owned Vite1432 listener existed but had no IPC child",
+    "workspace.open HTTP timed out after8seconds",
+    "Cargo metadata target_directory was repository target; target/debug/tradex-ipc and target directory were absent"
+  ],
+  "nextAction": "Rebuild missing current IPC artifact, then restart only owned isolated Vite1432"
+}

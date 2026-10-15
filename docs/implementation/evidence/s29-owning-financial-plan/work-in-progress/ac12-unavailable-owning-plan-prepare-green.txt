@@ -1,0 +1,21 @@
+S29.11 AC12 unavailable owning-plan Prepare refusal — 2026-10-12
+
+Recorded: 2026-10-12T09:34:12Z
+Branch/head: dev / 015f4ba19b0dcba138d2a48fafb42b6323821e83
+
+Public integration regression added:
+- Test: unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state
+- Focused command: cargo test --manifest-path src-tauri/Cargo.toml --test binance_rules unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state -- --exact --nocapture
+- Result: 1 passed, 0 failed.
+
+The disposable RuleRig collects ordinary synthetic Binance rules and capacity through public commands. The owning review remains ineligible because fee/required-FX evidence is unavailable; no approval is issued. The test then submits the public trade.execution.prepare command with the Proposal ID in the approval slot. Control Plane refuses it with IPC_AGGREGATE_NOT_FOUND. The public preparation query has no preparation or persisted rejection, the approval list remains empty, the account remains DISARMED, and the fake provider's GET-only request log is unchanged.
+
+The strengthened regression also opens the disposable SQLite database read-only and compares persisted financial approval, execution attempt, reservation, and execution outbox counts before and after Prepare. They remain unchanged at (0, 0, 0, 0). The added assertion passed in the focused rerun and in the complete integration file below.
+
+Validation:
+- Focused regression after adding the persistence-count assertion — 1 passed, 0 failed.
+- cargo fmt --all -- --check — passed.
+- git diff --check — passed.
+- cargo test --manifest-path src-tauri/Cargo.toml --test binance_rules — 123 passed, 0 failed, 0 ignored (169.98s).
+
+Scope limit: this proves the unavailable-review / unissued-approval refusal branch only. It does not prove changed evidence rejection after a valid issued approval, atomic per-asset Prepare capacity, Gateway preflight, positive owning-plan Prepare, or full AC12. The synthetic provider supports only GET and no real account/provider was accessed. No approval, Arm, consent, reservation, dispatch, or order was created.

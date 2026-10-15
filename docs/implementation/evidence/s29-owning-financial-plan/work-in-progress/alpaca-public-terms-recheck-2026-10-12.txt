@@ -1,0 +1,13 @@
+S29.11 Alpaca public terms recheck — 2026-10-12
+
+Retrieved: 2026-10-12T09:58:51Z
+Sources:
+- Alpaca Terms & Conditions: https://files.alpaca.markets/disclosures/library/TermsAndConditions.pdf
+- Alpaca real-time crypto data: https://docs.alpaca.markets/us/docs/real-time-crypto-pricing-data
+- Alpaca Crypto Customer Agreement: https://files.alpaca.markets/disclosures/library/Crypto%20Customer%20Agreement.pdf
+
+The public Terms & Conditions describe market data and third-party material as service “Content,” bind users of the service/content to the terms, and generally limit use to personal, non-commercial purposes. They also say a User Application made available to others requires advance notice. This aligns with the user's declared own-local/non-commercial scope and no redistribution; it does not establish which customer/account agreements apply to the user's specific Paper API account or exact market-data subscription.
+
+The current crypto-data documentation says the `v1beta3` feed distributes data from Alpaca and Kraken, and that `us-1` / `eu-1` presently map to Kraken sources whose providers may change. This makes selected location and exact source relevant to any account-specific rights assessment. The public references do not supply a universal entitlement-verification endpoint or evidence that this user's account accepted each applicable agreement.
+
+Conclusion: public terms support the general personal/non-commercial use context, but do not settle this account's applicable agreement, exact dataset entitlement, or current source-specific permission. The user reported no Alpaca Support jurisdiction response. Actual source-use therefore stays `UNRESOLVED`; `FX_DATA_USE_RIGHTS` stays `UNVERIFIED`. No gate, issue, or acceptance checkbox changed. No account/provider was accessed and no financial action occurred.

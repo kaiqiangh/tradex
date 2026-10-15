@@ -1,0 +1,92 @@
+S29.11 AC6 supporting evidence — 2026-10-14
+
+Added `storage::execution_reservation_claim_tests::prepare_capacity_isolates_multileg_claims_by_workspace_and_account` in `src-tauri/src/storage.rs`. Its in-memory SQLite fixture places principal+fee claims for the same account/workspace, a different account in the same workspace, and the same account in another workspace. The production capacity helper counts only the same-workspace/same-account claims and returns exact per-asset USDT and BNB capacity projections.
+
+Validation:
+- `cargo fmt --all -- --check` — passed.
+- `cargo test --lib prepare_capacity -- --nocapture` — 2 passed, 0 failed.
+- `cargo test --lib live_place_preparation_ -- --nocapture` — 6 passed, 0 failed.
+- `cargo test --lib concurrent_live_place_preparations_isolate_account_capacity -- --nocapture` — 1 passed, 0 failed.
+- `cargo test --features integration-test --test binance_rules unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state -- --exact --nocapture` — the focused isolated integration scenario passed; an unavailable owning plan remains ineligible and leaves approval/attempt/reservation/outbox counts unchanged.
+
+This is storage-helper evidence plus existing generic single-asset public Prepare/concurrency regressions. It does not establish an owning Spot multi-asset producer→RiskDecision→Prepare path: the public Spot review remains ineligible while actual source-use is unresolved and the future fee asset is undeclared. The fixture uses in-memory reservation projections and is not AC6 acceptance. AC5 remains waived but unchecked/unaccepted; AC6 remains unchecked. No issue checkbox changed, no real provider/account was read or written, and no approval, Arm, consent, Prepare, dispatch, or financial action was performed in this slice.
+
+The read-only Order Drafts claim panel also incorrectly called any reservation without saved `assetCapacities` a legacy reservation, including a new single-asset reservation. Its status now says that per-asset capacity evidence was not saved for this reservation, and `tests/live-approval-ui.mjs` asserts the new principal claim and status wording. `tsc --noEmit` and `node --check tests/live-approval-ui.mjs` passed. Full browser interaction was not verified: the available CUA browser returned `window.fetch` as unavailable in integration mode (the local integration bridge itself returned HTTP 200 to a direct command smoke request), so this was recorded as an environment limitation, not a UI pass.
+
+Source trace (supporting evidence only): `ControlPlane::prepare_live_place` derives claims from the bound review's `current_fee_model.funding_plan_preview` and passes those claims to storage (`src-tauri/src/lib.rs:9338-9364,9463-9473`). `WorkspaceStore::prepare_live_place` starts one `Immediate` SQLite transaction, validates the owning plan and account-scoped asset capacities, then writes the consumed proposal, approval, reservation and attempt before one commit (`src-tauri/src/storage.rs:5491-5527,5979-6012`). The reviewed Prepare call path creates no Convert, transfer, withdrawal or deposit operation. This source inspection supports claim derivation, atomicity and absence of a hidden funding action; it is not a successful owning Spot public Prepare observation and does not satisfy AC6.
+
+Feasibility trace: `spot_fee_fx::fee_situation` returns `CurrencyUnknown` after a complete current fee model and complete bound BASE/QUOTE/BNB wallet evidence pass their checks, because the pinned contract keeps the owning statement unavailable until the future fee-charging asset is declared (`src-tauri/src/spot_fee_fx.rs:273-308`). Consequently the owning review cannot pass into approval/Prepare under the current evidence. Weakening this guard or seeding a synthetic approved statement/reservation would contradict the specification and #135's public-path test decision. Actual source-use remains unresolved and data-use collection was explicitly skipped by the user. AC6 stays unchecked; this is an external-evidence/spec gate, not acceptance.
+
+Full local check on 2026-10-14: `npm run check` exited 0. Schema generation agreement, TypeScript check and Vite production build passed; 27 frontend unit tests passed; `cargo test --workspace` completed with all non-ignored tests passing; secret scan passed; traceability reported 203 requirements, 70 screens, 13 QA scenarios and 23 baseline files. `cargo fmt --all -- --check` passed. Existing tests explicitly marked for provider/Keychain/long-running gates remain ignored. The build emitted a 5,779 kB JavaScript chunk warning and Rust test-fixture dead-code warnings; neither failed the check. The S27 model-recovery test overflows libtest's default 2 MiB worker stack, so its test wrapper now runs the same scenario on a dedicated 4 MiB thread; its ordinary default-environment rerun and the complete workspace suite passed. These results do not satisfy AC6's missing positive owning Spot Prepare observation, and browser interaction remains unverified.
+
+
+AC6 shared claims UI follow-up — 2026-10-15, supporting evidence only
+
+The real Chromium render exposed adjacent inline claim/status spans: the principal and the absent-capacity explanation ran together. A new public UI assertion first failed at1280px with principal top1302.5/bottom1315.5 and capacity-status top1302.5/bottom1330.5. The production fix adds a grid only to the existing native-reservation-claims section, with a six-pixel gap and zero heading margin. Original amounts and all Control Plane/financial behavior are preserved. The existing UI test now checks distinct rows and no overflow at1280/768/390; its default full run is retained, with an optional stopAfterNativeClaims checkpoint for focused diagnosis.
+
+Run environment: TRADEX_LIVE_APPROVAL_FIXTURE=1 npm run dev:browser, Chromium 153.0.8010.12, normal React -> typed Rust IPC -> disposable SQLite and the repository's fake child Gateway. Browser plugin was unavailable; an existing local Playwright package and cached Chromium executable were used without installing dependencies. These are historical generic lifecycle fixtures, including a seeded synthetic account; they are excluded from S29.11's owning Spot positive acceptance. Synthetic Arm/approval/Prepare and fake-provider POSTs occurred solely in the disposable workspaces; no actual account, provider, saved credential or financial action was involved.
+
+The initial full run hit the real five-second summary cooldown. Honoring it exposed an outdated error expectation: the backend returned ORDER_STATUS_UNKNOWN, while S32 correctly rendered STATE_STALE with Reload state guidance. Recorded requested/current account versions were identical, so no account-cache production fix was made. A later full run showed that a successful ordinary read retires the synthetic account's prior trading permission proof; its state correctly became REVIEW_REQUIRED/DISARMED. The test now runs that read after the same account's approval cases and asserts the retirement. A duplicated remediation text locator is scoped to the saved approval-history region. Production rate limits, permission checks and fee-asset gates were not relaxed.
+
+Final default full checkLiveApprovalUI passed all17 checkpoints, including native claims, capacity refusals, exact-order refresh, scope retirement, unknown outcome, rejection, navigation persistence, and no additional fake-provider POST on reads/manual keep. Responsive native-claim screenshots passed1280/768/390; the final selected unknown attempt displays PRINCIPAL50USD with the missing-capacity explanation on its own row. The earlier accepted400USD checkpoint is independently asserted during the same full run. No framework overlay or JavaScript runtime/application warning was observed. A single favicon.ico404 resource error is retained separately in the report and excluded from the adapter's application-error list; this is not an all-console-zero claim.
+
+Checks: npm run build (including tsc --noEmit), npm run test:unit (27/27), node --check tests/live-approval-ui.mjs, git diff --check, and git diff --cached --check passed. Vite retains its existing5779kB chunk warning. The full Rust workspace check from2026-10-14 remains prior evidence; this CSS/JSX/test-only slice did not rerun it.
+
+External temporary evidence (not copied into source):
+- Layout assertion RED: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-claims-red-hu9EIy/report.json
+- Before-fix render: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-ui-shtRjq/failure.png
+- Final complete UI GREEN: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-claims-green-ub2S7Q/report.json
+- Screenshots: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-claims-green-ub2S7Q/claims-1280.png, /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-claims-green-ub2S7Q/claims-768.png, /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-claims-green-ub2S7Q/claims-390.png
+- Reproduction adapter: /tmp/tradex-ac6-claims-ui-20261015.mjs
+
+Current source SHA-256 values:
+- src/OrderDrafts.tsx: 9009da0abbd4c700c4c7cb60cc70b5b42a73a583922739f574766c645edcec36
+- src/styles.css: e7ba3b232c24b8ccc798fd1f21bf374ebee4d6e0237b7dc6038aacc56243dc86
+- tests/live-approval-ui.mjs: dc638fdbc159fe89f024f81d262b90ee3455076e55ffc60dc22a5485b316059a
+
+The owned Vite/IPC fixture processes were stopped, port1420 was no longer listening, all sixteen owned temporary fixture trees from this session were removed after checking for open files, and the temporary node_modules symlink was removed. Reports/screenshots remain outside the repository for review. AC5 stays waived but unaccepted; AC6 stays unchecked because a genuine owning Spot principal+fee public Prepare remains unavailable under the pinned fee/source-use contract. Work has not advanced to AC7, and no issue checkbox, commit, merge or PR was made.
+
+
+Owning funding-preview native-unit UI follow-up — 2026-10-15, supporting AC6 evidence only
+
+Strengthened the existing producer-driven UI regressions with independent literal funding-plan oracles. For the fictional BUY LIMIT0.001BTC at60000USDT/BTC, the prefunded principal remains60USDT. With current BTCUSDT ASK60001, BNBUSDT BID500 and multiplier0.75, the complete TAKER fee estimate is0.00600042340539BNB, held as a separate current fee-claim preview. The received-asset fallback is0.00005000282BTC with net receipt0.00094999718BTC. Independent Python Fraction reference arithmetic reproduces both complete role totals (MAKER0.0048003920052BNB, TAKER0.00600042340539BNB), each final-family ceil18, the native principal, fallback and net receipt. No production arithmetic is called to generate expectations. The UI assertions preserve the backend's native asset/amount pairs instead of adding amounts from different assets.
+
+The existing received-asset-deduction UI case now asserts the same60USDT principal, the BTC fallback amount/net receipt, and the absence of currentFeeClaim rather than a zero or invented BNB claim. It then retires the current model using an incomplete external commission response and verifies that the older financial capture remains verbatim. The BNB case can stop after the current preview and before the existing policy-evaluator fixture branch, so this run creates no synthetic Support report or source-use assessment. The default test still includes its separately identified policy branch; that branch was not run and remains excluded from acceptance.
+
+Test synchronization changes: the shared workspace picker uses its accessible Local storage field instead of CUA-specific accessibility indices. Evaluate now waits for an additional visible saved owning assessment; the first fallback run had read its previous capture before the new asynchronous result rendered. The old fallback test's unsupported-USDT route expectation was updated to the current supported USDTUSD route's EVIDENCE_UNAVAILABLE state when no proposal quote exists. These were harness/expectation corrections, not product or financial-gate changes, and the failed run is not reported as a missing financial implementation RED.
+
+Both final public UI cases passed separately in fresh application processes, through actual React -> typed Rust -> disposable SQLite with only external HTTP/vault/WS producers fake. Each passed1280/768/390 no-overflow checks, correct literal amounts and read-only preview copy. The BNB case confirms empty approval history and DISARMED; the fallback case confirms ineligible review, DISARMED and unchanged captured history after retirement. Recorded command traces contain no account.arm, trade.approve, trade.execution.prepare or data.fx.configure. No fake financial authority or user Support basis was supplied. Current fee currency remains UNKNOWN and the complete owning review remains unavailable.
+
+Three changed .mjs files pass node --check; git diff --check and git diff --cached --check pass. No production Rust/React/schema file changed in this slice, so prior production build/unit/workspace results were not rerun or relabeled as current new runs. Both browser cases retain one known favicon.ico404 resource error separately and no other JavaScript/application warnings/errors. The owned server/IPC processes, eight disposable fixture directories and temporary node_modules symlink were removed; report and screenshot artifacts remain outside the repository.
+
+External current evidence:
+- BNB current-preview GREEN: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-HwSNMs/report.json
+- Received-asset fallback and source-retirement GREEN: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-pwHTXn/report.json
+- Earlier asynchronous-capture failure: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-WwTuGY/report.json
+- Independent literal reference: /tmp/tradex-ac6-preview-oracle-20261015.json
+- Browser reproduction adapter: /tmp/tradex-ac6-preview-ui-20261015.mjs
+
+BNB: 101 successful observed UI commands; screenshot paths: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-HwSNMs/funding-preview-1280.png, /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-HwSNMs/funding-preview-768.png, /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-HwSNMs/funding-preview-390.png
+
+received-asset fallback: 85 successful observed UI commands; screenshot paths: /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-pwHTXn/funding-preview-1280.png, /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-pwHTXn/funding-preview-768.png, /var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-ac6-preview-pwHTXn/funding-preview-390.png
+
+Final tested SHA-256 values:
+- src/SpotFeeFxExplanation.tsx: 63d56f12de02633163232a4bc501db0d64ee1785032a8e5432d530dd6e545829
+- tests/spot-bnb-fee-estimate-ui.mjs: 2816e12c15f16609af400d297d2e9fd467ccaf9927b89e19d3456a35308fa4a8
+- tests/spot-owning-admission-ui.mjs: 037d453a122ad76722e11e3338b2bf42d771281826b8fc79971bc53d580aefac
+- tests/spot-financial-plan-ui.mjs: c384e55bb58100564fe6537654e02ad5f3d9129dc10a93d9abe4346c66dff2cc
+
+This verifies the current owning funding-preview inputs and read-only captures only. It does not prove an actual atomic owning Spot principal+fee reservation. AC5 remains waived but unaccepted; AC6 remains unchecked, no AC7 work was started, and no issue checkbox, commit, merge or PR was made.
+
+
+Public unavailable-plan outbox-scope RED/GREEN — 2026-10-15
+
+An audit found that this public negative test had counted financial outbox rows by aggregate_id=workspaceId. Financial aggregate IDs identify approvals, attempts, reservations or proposals, so that predicate could falsely report zero. Added a positive control requiring an existing public account event in the same scope. With the old predicate, the focused test failed at that positive control (RED). Changed only the test query to json_extract(envelope, '$.payload.workspaceId') and aggregate_type; the focused integration scenario then passed (GREEN, one isolated scenario, 122 others filtered out). The positive control remains in the test. Financial approval/attempt/reservation/preparation/proposal-consumption event counts and persisted rows remain unchanged after rejected public Prepare; external producer calls remain unchanged and account stays DISARMED. No production financial implementation failure is claimed by this RED.
+
+Command: cargo test --features integration-test --test binance_rules unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state -- --exact --nocapture
+Receipts: ac6-outbox-scope-red-20261015.txt; ac6-outbox-scope-green-20261015.txt
+Full compiler logs: /tmp/tradex-ac6-outbox-scope-red-20261015.log; /tmp/tradex-ac6-outbox-scope-green-20261015.log
+Final src-tauri/tests/binance_rules.rs SHA-256: 4035d96539165f14272ece3b1f3544ccaebceb2a14eeea0f87b391893f1a4ba3
+cargo fmt --all -- --check and git diff --check passed. Full workspace suite was not rerun for this test-only change.
+
+User decision — 2026-10-15: retain RevC and wait for authoritative fee-asset evidence. Do not restart to-spec or adopt the conditional-fee draft. Unknown future charging asset continues to refuse the owning approval/Prepare path. Actual source-use remains unresolved after the user's earlier decision to skip basis collection. AC5 remains waived/unaccepted; AC6 remains unchecked, no AC7 started. No real provider/account read or financial action, no seeded reservation/approval, no new commit/merge/PR.

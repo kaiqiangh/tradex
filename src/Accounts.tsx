@@ -366,6 +366,12 @@ function LiveCancellationAttemptHistory({ account, approval }: { account: Accoun
             : settlement.feesComplete
               ? `No fees reported in complete ${displayProviderName} provider evidence`
               : `Unavailable or incomplete in ${displayProviderName} provider evidence`}</span>
+          <span>Initial native claims {settlement.initialAssetClaims?.length
+            ? settlement.initialAssetClaims.map(claim => `${claim.purpose} ${claim.amount} ${claim.asset}`).join(', ')
+            : 'Unavailable for this legacy settlement'}</span>
+          <span>Remaining native claims {preparation.reservation?.assetClaims?.length
+            ? preparation.reservation.assetClaims.map(claim => `${claim.purpose} ${claim.amount} ${claim.asset}`).join(', ')
+            : 'Unavailable for this legacy reservation'}</span>
           {settlement.tradeFacts?.length
             ? <details>
               <summary>Provider trade details ({settlement.tradeFacts.length})</summary>

@@ -62,6 +62,11 @@ export type CapacityFreshness = "CURRENT" | "STALE" | "UNAVAILABLE";
 export type FxRequirementNeed = "IDENTITY" | "EXTERNAL_RATE" | "UNKNOWN_CURRENCY";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxProviderDataset".
+ */
+export type FxProviderDataset = "FOREX_LATEST_RATES" | "CRYPTO_LATEST_QUOTES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FxRequirementPurpose".
  */
 export type FxRequirementPurpose =
@@ -85,6 +90,7 @@ export type FinancialEvidenceCapability =
   | "EXCHANGE_HALTS"
   | "ACCOUNT_TRADABILITY"
   | "FX_RATE_OBSERVATION"
+  | "FX_DATA_USE_RIGHTS"
   | "TRANSACTION_FX_QUALIFICATION"
   | "BROKER_CONVERSION_COSTS"
   | "MONETARY_INPUT_COMPLETENESS"
@@ -97,6 +103,13 @@ export type FinancialEvidenceCapability =
  * via the `definition` "DataSourceStatus".
  */
 export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * Explicit Alpaca crypto data location. A failed or unsupported location never falls back.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaCryptoLocation".
+ */
+export type AlpacaCryptoLocation = "us" | "us-1" | "eu-1";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialSourceEvidence".
@@ -133,6 +146,11 @@ export type FinancialSourceEvidence =
     }
   | {
       binding: FinancialEvidenceBinding;
+      cryptoLocation?: AlpacaCryptoLocation | null;
+      /**
+       * @maxItems 1
+       */
+      cryptoQuotes?: [] | [FxCryptoQuote];
       kind: "FX";
       materialVersion: string;
       observedAt: string;
@@ -326,6 +344,32 @@ export type BinanceSpotSymbolStatus = "TRADING" | "HALT" | "BREAK" | "UNKNOWN";
 export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS" | "FX" | "BINANCE_SPOT_RULES";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaMarketDataPlan".
+ */
+export type AlpacaMarketDataPlan = "BASIC" | "ALGO_TRADER_PLUS" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRawDataDestination".
+ */
+export type FxRawDataDestination = "LOCAL_ONLY" | "EXTERNAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxDeclaredUseScope".
+ */
+export type FxDeclaredUseScope = "OWN_LOCAL_NONCOMMERCIAL" | "COMMERCIAL_OR_SHARED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseEvidenceProvenance".
+ */
+export type FxSourceUseEvidenceProvenance =
+  "NOT_RECORDED" | "USER_REPORTED_PROVIDER_UI" | "USER_REPORTED_PROVIDER_SUPPORT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseAssessmentStatus".
+ */
+export type FxSourceUseAssessmentStatus = "UNRESOLVED" | "SUPPORTED_FOR_DECLARED_SCOPE" | "OUT_OF_PROFILE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AdjustmentStatus".
  */
 export type AdjustmentStatus = "ADJUSTED" | "UNADJUSTED" | "UNKNOWN" | "UNAVAILABLE";
@@ -490,7 +534,8 @@ export type RiskCheckId =
   | "CANCELLATION_ORDER"
   | "CANCELLATION_CAPABILITY"
   | "SNAPSHOT_FRESHNESS"
-  | "CURRENCY_CONVERSION";
+  | "CURRENCY_CONVERSION"
+  | "SPOT_FEE_FX";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskCheckOutcome".
@@ -535,7 +580,8 @@ export type RiskDecisionReasonCode =
   | "INVALID_PROPOSAL_VALUE"
   | "ORDER_NOT_CANCELABLE"
   | "CANCELLATION_UNSUPPORTED"
-  | "CURRENCY_CONVERSION_UNAVAILABLE";
+  | "CURRENCY_CONVERSION_UNAVAILABLE"
+  | "SPOT_FEE_FX_UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionInputKind".
@@ -591,15 +637,45 @@ export type SpotCommissionReadKind = "ACCOUNT_IDENTITY" | "SYMBOL_COMMISSION";
  */
 export type SpotCommissionStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
 /**
- * The conservative declared basis this statement relies on; present whenever the venue declares
- * commission rates, even when no fee amount can be stated because the fee-charging asset is
- * undeclared. It is always the **larger** of the declared maker and taker rates, compared as exact
- * decimals (never `f64`), without claiming an all-in fee amount.
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeePriceSide".
+ */
+export type FeePriceSide = "BID" | "ASK";
+/**
+ * A maker/taker role label. Legacy `feeRateBasis` values on captured statements describe the
+ * historical account-comparison calculation; new owning statements leave that field absent.
  *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotFeeRateBasis".
  */
 export type SpotFeeRateBasis = "MAKER" | "TAKER";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ChargingCondition".
+ */
+export type ChargingCondition =
+  | "DISCOUNT_DISABLED_CURRENT_FALLBACK"
+  | "CONDITIONAL_BNB_INPUTS_REQUIRED"
+  | "ZERO_BNB_CURRENT_FALLBACK"
+  | "ZERO_DISCOUNTED_FEE_EXPRESSION"
+  | "DISCOUNTED_BNB_CURRENT_ESTIMATE"
+  | "INSUFFICIENT_BNB_CURRENT_FALLBACK";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeModelClass".
+ */
+export type FeeModelClass = "CURRENT_ORDER_SCENARIO";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeFundingDisposition".
+ */
+export type FeeFundingDisposition =
+  "RECEIVED_ASSET_DEDUCTION" | "BNB_CURRENT_ESTIMATE" | "NO_CURRENT_FEE" | "CONDITIONAL_INPUTS_REQUIRED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeModelMethod".
+ */
+export type FeeModelMethod = "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1";
 /**
  * The single typed reason a fee/FX statement carries. The wire value is screaming-snake.
  *
@@ -629,6 +705,11 @@ export type SpotRequiredRoutePurpose = "INTENT_POLICY" | "INTENT_FUNDING";
  * via the `definition` "SpotRequiredRouteState".
  */
 export type SpotRequiredRouteState = "QUALIFIED" | "UNQUALIFIED" | "UNSUPPORTED_ROUTE" | "EVIDENCE_UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotWalletFundingStatus".
+ */
+export type SpotWalletFundingStatus = "NOT_OBSERVED" | "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE" | "RETIRED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotOrderIntervalReadKind".
@@ -938,6 +1019,11 @@ export type ResolutionEvidenceOutcome = "CANDIDATES_FOUND" | "INCONCLUSIVE";
 export type ManualResolutionDecision = "CONFIRMED_NOT_SUBMITTED" | "CONFIRMED_SUBMITTED" | "KEEP_RECONCILING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationClaimPurpose".
+ */
+export type ExecutionReservationClaimPurpose = "PRINCIPAL" | "FEE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ExecutionReservationStatus".
  */
 export type ExecutionReservationStatus = "ACTIVE" | "RELEASED";
@@ -1106,6 +1192,7 @@ export type ReplyData =
   | SpotProposalRules
   | SpotCapacityInputs
   | SpotCommissionInputs
+  | SpotFeeMarketProjection
   | SpotOrderIntervalInputs
   | RiskDecision
   | RiskDecisionHistory
@@ -1445,6 +1532,8 @@ export interface IpcSchema {
   setOnboardingStep: SetOnboardingStep;
   spotCapacityInputs: SpotCapacityInputs;
   spotCommissionInputs: SpotCommissionInputs;
+  spotFeeMarketAcquire: SpotFeeMarketAcquire;
+  spotFeeMarketProjection: SpotFeeMarketProjection;
   spotOrderIntervalInputs: SpotOrderIntervalInputs;
   spotProposalRules: SpotProposalRules;
   spotRulesQuery: SpotRulesQuery;
@@ -1990,6 +2079,7 @@ export interface FxRouteRequirement {
   connectionId?: string;
   fromCurrency?: string;
   need: FxRequirementNeed;
+  providerDataset?: FxProviderDataset | null;
   providerPair?: string;
   purpose: FxRequirementPurpose;
   reason: string;
@@ -2048,6 +2138,7 @@ export interface FinancialSourceConnection {
       ];
   configured: boolean;
   connectionId?: string;
+  cryptoLocation?: AlpacaCryptoLocation | null;
   /**
    * @maxItems 256
    */
@@ -2058,6 +2149,8 @@ export interface FinancialSourceConnection {
   instrumentId?: string;
   kind: FinancialSourceKind;
   observedAt?: string;
+  sourceUseAssessment?: FxSourceUseAssessment | null;
+  sourceUseContext?: FxSourceUseContext | null;
   stateVersion: string;
   status: DataSourceStatus;
   workspaceId: string;
@@ -2630,13 +2723,28 @@ export interface BrokerScheduleEvent {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxCryptoQuote".
+ */
+export interface FxCryptoQuote {
+  askPrice: string;
+  askSize: string;
+  bidPrice: string;
+  bidSize: string;
+  providerSymbol: string;
+  providerTimestamp: string;
+  receivedAt: string;
+  requestPath: string;
+  responseSha256: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FxObservedRate".
  */
 export interface FxObservedRate {
   ask: string;
   bid: string;
   fromCurrency: string;
-  mid: string;
+  mid?: string | null;
   providerPair: string;
   providerTimestamp: string;
   toCurrency: string;
@@ -2681,6 +2789,107 @@ export interface BinanceSpotOrderFormFlags {
   opoAllowed?: boolean | null;
   otoAllowed?: boolean | null;
   pegInstructionsAllowed?: boolean | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseAssessment".
+ */
+export interface FxSourceUseAssessment {
+  context?: FxSourceUseContext | null;
+  /**
+   * @maxItems 8
+   */
+  documents:
+    | []
+    | [FxSourceUsePolicyDocument]
+    | [FxSourceUsePolicyDocument, FxSourceUsePolicyDocument]
+    | [FxSourceUsePolicyDocument, FxSourceUsePolicyDocument, FxSourceUsePolicyDocument]
+    | [FxSourceUsePolicyDocument, FxSourceUsePolicyDocument, FxSourceUsePolicyDocument, FxSourceUsePolicyDocument]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ];
+  policyVersion: string;
+  provenance: FxSourceUseEvidenceProvenance;
+  reason: string;
+  status: FxSourceUseAssessmentStatus;
+  /**
+   * @maxItems 8
+   */
+  supportedPurposes:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseContext".
+ */
+export interface FxSourceUseContext {
+  accountJurisdiction: string;
+  agreementReviewedAt: string;
+  countrySupportConfirmation?: FxCountrySupportConfirmation | null;
+  marketDataPlan: AlpacaMarketDataPlan;
+  rawDataDestination: FxRawDataDestination;
+  useScope: FxDeclaredUseScope;
+}
+/**
+ * User-reported provider UI facts used only as input to the local source-use policy.
+ * These facts are not a provider permission or entitlement assertion.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxCountrySupportConfirmation".
+ */
+export interface FxCountrySupportConfirmation {
+  confirmedAt: string;
+  confirmedJurisdiction: string;
+  reference: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUsePolicyDocument".
+ */
+export interface FxSourceUsePolicyDocument {
+  documentId: string;
+  sha256: string;
+  title: string;
+  url: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -3852,6 +4061,17 @@ export interface SpotCapacityObservation {
         string,
         string
       ];
+  /**
+   * Original selected BASE/QUOTE/BNB rows from the same authenticated account read.
+   * Missing rows remain missing; older captures omit this additive projection.
+   *
+   * @maxItems 3
+   */
+  walletBalances?:
+    | []
+    | [SpotCapacityBalance]
+    | [SpotCapacityBalance, SpotCapacityBalance]
+    | [SpotCapacityBalance, SpotCapacityBalance, SpotCapacityBalance];
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -4062,9 +4282,10 @@ export interface SpotCommissionRates {
   taker: string;
 }
 /**
- * One exact statement of the reviewed intent's owning fee and genuinely-required execution FX.
- * It is explicitly execution-unqualified: it carries no Arm, consent, dispatch or execution
- * authority even when fully qualified, and it is not a substitute for authenticated preflight.
+ * One exact statement of the reviewed intent's owning fee and genuinely-required FX.
+ * Price-only policy valuation and funding/execution routes have separate qualification rules.
+ * This statement carries no Arm, consent, dispatch or execution authority even when complete,
+ * and it is not a substitute for authenticated preflight.
  *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotFeeFxStatement".
@@ -4086,9 +4307,16 @@ export interface SpotFeeFxStatement {
     | [string, string, string]
     | [string, string, string, string]
     | [string, string, string, string, string];
+  /**
+   * S29.11 current scenario; it does not qualify absent funding or required FX.
+   * Absent on older persisted captures, whose source-only meaning is preserved.
+   */
+  currentFeeModel?: SpotCurrentFeeModel | null;
+  currentFeeModelFailure?: string | null;
   declaredBuyerRate?: string | null;
   /**
-   * The venue's declared rates, reported verbatim, never promoted into a hidden gate.
+   * Historical account-level comparison rates from older captures. New statements leave these
+   * absent; exact-symbol terms are preserved by the bound SpotCommission evidence input.
    */
   declaredMakerRate?: string | null;
   declaredSellerRate?: string | null;
@@ -4114,6 +4342,10 @@ export interface SpotFeeFxStatement {
    * Bound fee-evidence version: a full 71-character `sha256:` digest.
    */
   feeEvidenceVersion: string;
+  /**
+   * Historical account-level comparison basis, retained only when reading older captures.
+   * New statements leave it absent; current fee modeling is bound to exact-symbol terms.
+   */
   feeRateBasis?: SpotFeeRateBasis | null;
   instrumentId: string;
   maximumAuthorizedSpendQuote?: string | null;
@@ -4131,10 +4363,19 @@ export interface SpotFeeFxStatement {
    */
   routeEvidenceVersion: string;
   /**
-   * @maxItems 2
+   * @maxItems 3
    */
-  routes: [] | [SpotRequiredRoute] | [SpotRequiredRoute, SpotRequiredRoute];
+  routes:
+    | []
+    | [SpotRequiredRoute]
+    | [SpotRequiredRoute, SpotRequiredRoute]
+    | [SpotRequiredRoute, SpotRequiredRoute, SpotRequiredRoute];
   side: OrderSide;
+  /**
+   * Exact BASE/QUOTE/BNB wallet rows bound to the current account-read receipt.
+   * Older captures omit this additive evidence; retirement never reuses prior rows.
+   */
+  walletFundingEvidence?: SpotWalletFundingEvidence | null;
   workspaceBaseExpectedFee?: string | null;
   /**
    * Present only when the corresponding required conversion is genuinely qualified.
@@ -4143,7 +4384,174 @@ export interface SpotFeeFxStatement {
   workspaceId: string;
 }
 /**
- * One genuinely-required execution FX route. A statement carries at most two of these.
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCurrentFeeModel".
+ */
+export interface SpotCurrentFeeModel {
+  /**
+   * @maxItems 2
+   */
+  bnbConversionReferences?: [] | [FeeConversionReference] | [FeeConversionReference, FeeConversionReference];
+  bnbFee?: FeeBnbScenario | null;
+  /**
+   * @maxItems 2
+   */
+  bnbFeeCandidates?: [] | [FeeBnbScenario] | [FeeBnbScenario, FeeBnbScenario];
+  bnbFeeFailure?: string | null;
+  bnbFundingEvidence?: FeeFundingEvidence | null;
+  chargingCondition: ChargingCondition;
+  class: FeeModelClass;
+  discountedFeeIsExactlyZero?: boolean | null;
+  fallback: FeeFamilyScenario;
+  /**
+   * @maxItems 2
+   */
+  fallbackCandidates?: [] | [FeeFamilyScenario] | [FeeFamilyScenario, FeeFamilyScenario];
+  /**
+   * Backend-derived, current-branch plan preview. It is captured in the same financial digest.
+   */
+  fundingPlanPreview?: SpotFundingPlanPreview | null;
+  grossReceived: string;
+  /**
+   * @maxItems 2
+   */
+  limitations: [] | [string] | [string, string];
+  marketReference?: FeeMarketReference | null;
+  method: FeeModelMethod;
+  receivedAsset: string;
+}
+/**
+ * One exact purpose-bound price leg used only by the current BNB fee estimate.
+ * Price and size remain ephemeral; the saved reference contains identity and exact consumed
+ * amount only.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeConversionReference".
+ */
+export interface FeeConversionReference {
+  bookUpdateId: string;
+  connectionGeneration: string;
+  coverage: FeeExactExpression;
+  coverageAsset: string;
+  dataUseRights: DataSourceStatus;
+  firstReceipt: string;
+  fromAsset: string;
+  marketSnapshotId: string;
+  materialHash: string;
+  pair: string;
+  priceSide: FeePriceSide;
+  providerTimestamp: string;
+  source: string;
+  sourceVersion: string;
+  toAsset: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeExactExpression".
+ */
+export interface FeeExactExpression {
+  denominator: string;
+  numerator: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeBnbScenario".
+ */
+export interface FeeBnbScenario {
+  preRounding?: FeeUnroundedFamilies | null;
+  role: SpotFeeRateBasis;
+  special: string;
+  standard: string;
+  tax: string;
+  total: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeUnroundedFamilies".
+ */
+export interface FeeUnroundedFamilies {
+  special: FeeExactExpression;
+  standard: FeeExactExpression;
+  tax: FeeExactExpression;
+  total: FeeExactExpression;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeFundingEvidence".
+ */
+export interface FeeFundingEvidence {
+  asset: string;
+  capacityBindingVersion: string;
+  collectionId: string;
+  effectiveFree: string;
+  firstReceipt: string;
+  free: string;
+  localClaims: string;
+  locked: string;
+  originalDigest: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeFamilyScenario".
+ */
+export interface FeeFamilyScenario {
+  netReceived: string;
+  preRounding?: FeeUnroundedFamilies | null;
+  role: SpotFeeRateBasis;
+  special: string;
+  standard: string;
+  tax: string;
+  total: string;
+}
+/**
+ * Review-bound preview of the native principal and the currently modeled fee branch.
+ * The eventual reservation is still created only by explicit approval and atomic Prepare.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFundingPlanPreview".
+ */
+export interface SpotFundingPlanPreview {
+  currentFeeClaim?: FeeNativeClaimPreview | null;
+  fallbackFeeAmount: string;
+  fallbackFeeAsset: string;
+  fallbackNetReceipt: string;
+  feeDisposition: FeeFundingDisposition;
+  principalClaim: FeeNativeClaimPreview;
+}
+/**
+ * One backend-derived native claim shown with the current scenario. It is not an approval and
+ * never comes from renderer-supplied amounts.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeNativeClaimPreview".
+ */
+export interface FeeNativeClaimPreview {
+  amount: string;
+  asset: string;
+}
+/**
+ * Immutable market identity/receipts, without persisting raw depth or quote prices.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeMarketReference".
+ */
+export interface FeeMarketReference {
+  bookUpdateId: string;
+  connectionGeneration: string;
+  dataUseRights: DataSourceStatus;
+  firstReceipt: string;
+  marketSnapshotId: string;
+  materialHash: string;
+  priceSide: FeePriceSide;
+  providerTimestamp: string;
+  source: string;
+  sourceVersion: string;
+}
+/**
+ * One genuinely-required, purpose-scoped FX leg. A statement carries at most three: two explicit
+ * policy-valuation legs plus a separate funding leg. `QUALIFIED` applies only to `purpose` and
+ * never means provider permission or execution authority.
  *
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotRequiredRoute".
@@ -4154,7 +4562,7 @@ export interface SpotRequiredRoute {
   fromCurrency: string;
   /**
    * Present only when a supported bounded producer pair exists for this route. Its length bound
-   * mirrors the delivered `FxRouteRequirement.providerPair` exactly (`min = 6, max = 6`).
+   * mirrors `FxRouteRequirement.providerPair`, including the seven-character `USDTUSD` pair.
    */
   providerPair?: string | null;
   providerQuality?: string | null;
@@ -4163,6 +4571,57 @@ export interface SpotRequiredRoute {
   reason: string;
   state: SpotRequiredRouteState;
   toCurrency: string;
+}
+/**
+ * Proposal/account-bound exact BASE/QUOTE/BNB wallet coverage from one account-read receipt.
+ * Missing holdings remain missing. This is descriptive local evidence, not execution authority.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotWalletFundingEvidence".
+ */
+export interface SpotWalletFundingEvidence {
+  accountId: string;
+  accountReadStartedAt?: string | null;
+  /**
+   * @maxItems 3
+   */
+  balances:
+    | []
+    | [SpotWalletBalanceEvidence]
+    | [SpotWalletBalanceEvidence, SpotWalletBalanceEvidence]
+    | [SpotWalletBalanceEvidence, SpotWalletBalanceEvidence, SpotWalletBalanceEvidence];
+  capacityBindingVersion: string;
+  collectionId?: string | null;
+  firstReceipt?: string | null;
+  /**
+   * @maxItems 3
+   */
+  missingAssets: [] | [string] | [string, string] | [string, string, string];
+  originalDigest?: string | null;
+  proposalHash: string;
+  proposalId: string;
+  reason?: string | null;
+  /**
+   * @maxItems 3
+   */
+  requiredAssets: [] | [string] | [string, string] | [string, string, string];
+  ruleMaterialVersion?: string | null;
+  sourceVersion: string;
+  status: SpotWalletFundingStatus;
+  workspaceId: string;
+}
+/**
+ * One original account wallet row with active same-account claims for this asset applied once.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotWalletBalanceEvidence".
+ */
+export interface SpotWalletBalanceEvidence {
+  asset: string;
+  effectiveFree?: string | null;
+  free: string;
+  localClaims: string;
+  locked: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -5975,6 +6434,338 @@ export interface ExecutionReservation {
   accountId: string;
   accountStateVersion: string;
   amount: string;
+  /**
+   * Per-asset balance capacity captured and validated in the same atomic Prepare transaction.
+   *
+   * @minItems 1
+   * @maxItems 16
+   */
+  assetCapacities?:
+    | [ExecutionReservationAssetCapacity]
+    | [ExecutionReservationAssetCapacity, ExecutionReservationAssetCapacity]
+    | [ExecutionReservationAssetCapacity, ExecutionReservationAssetCapacity, ExecutionReservationAssetCapacity]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ];
+  /**
+   * Additive for old reservation captures, which remain scalar-only when absent.
+   *
+   * @minItems 1
+   * @maxItems 16
+   */
+  assetClaims?:
+    | [ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ];
   attemptId: string;
   brokerAvailable: string;
   capacityKey: string;
@@ -5982,6 +6773,11 @@ export interface ExecutionReservation {
   createdAt: string;
   effectiveAvailable: string;
   existingReservations: string;
+  /**
+   * Immutable selected conditional-fee branch and received-asset allowance used by settlement.
+   * This metadata is not an outgoing capacity claim; old scalar/vector captures omit it.
+   */
+  feeSettlementPlan?: SpotFundingPlanPreview | null;
   instrumentId: string;
   notional: string;
   notionalCurrency: string;
@@ -5997,6 +6793,37 @@ export interface ExecutionReservation {
   workspaceNotional?: string;
 }
 /**
+ * Atomic per-asset capacity recorded alongside the PLACE reservation vector.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationAssetCapacity".
+ */
+export interface ExecutionReservationAssetCapacity {
+  asset: string;
+  brokerAvailable: string;
+  /**
+   * Capacity before this attempt, after existing local reservations.
+   */
+  effectiveAvailable: string;
+  existingReservations: string;
+  /**
+   * Capacity remaining after this attempt's complete claims for this asset.
+   */
+  remainingAfterReservation: string;
+  requestedAmount: string;
+}
+/**
+ * One native-asset allowance in an account-scoped PLACE reservation.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationAssetClaim".
+ */
+export interface ExecutionReservationAssetClaim {
+  amount: string;
+  asset: string;
+  purpose: ExecutionReservationClaimPurpose;
+}
+/**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LiveOrderSettlement".
  */
@@ -6009,6 +6836,172 @@ export interface LiveOrderSettlement {
   fillEvidenceComplete: boolean;
   filledQuantity?: string;
   filledValue?: string;
+  /**
+   * Immutable initial native claims for exactly-once per-asset settlement.
+   *
+   * @maxItems 16
+   */
+  initialAssetClaims?:
+    | []
+    | [ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ];
   initialCommitment: string;
   observedAt: string;
   providerObservedAt?: string | null;
@@ -6560,7 +7553,9 @@ export interface FinancialApprovalHistoryQuery {
  */
 export interface FinancialSourceConfigure {
   connectionId: string;
+  cryptoLocation?: AlpacaCryptoLocation | null;
   expectedStateVersion: string;
+  sourceUseContext?: FxSourceUseContext | null;
   workspaceId: string;
 }
 /**
@@ -7349,6 +8344,39 @@ export interface ThreadSummary {
   title: string;
   updatedAt: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeMarketProjection".
+ */
+export interface SpotFeeMarketProjection {
+  connectionGeneration: string;
+  generation: string;
+  leaseId: string;
+  metadata?: FeeMarketMetadata | null;
+  reason: string;
+  reconnectAttempt: number;
+  sequence: number;
+  /**
+   * Current/raw fee inputs are protected ephemeral reads, never saved risk history.
+   */
+  snapshot?: MarketSnapshot | null;
+  sourceId: string;
+  sourceVersion: string;
+  status: HotQuoteStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeMarketMetadata".
+ */
+export interface FeeMarketMetadata {
+  baseAsset: string;
+  marketStatus: string;
+  originalDigest: string;
+  providerSymbol: string;
+  quoteAsset: string;
+  receivedAt: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -8868,6 +9896,14 @@ export interface SetFallbackPolicy {
 export interface SetOnboardingStep {
   expectedStateVersion: string;
   step: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeMarketAcquire".
+ */
+export interface SpotFeeMarketAcquire {
+  expectedSourceVersion: string;
   workspaceId: string;
 }
 /**

@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.63s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-01462f343f6b72a8)
+
+running 1 test
+
+running 1 test
+test owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend ... FAILED
+
+failures:
+
+failures:
+    owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.49s
+
+
+thread 'owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend' (16481425) panicked at src-tauri/tests/binance_market_hot.rs:3442:5:
+assertion `left == right` failed
+  left: String("50")
+ right: "40"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend' (16481418) panicked at src-tauri/tests/binance_market_hot.rs:27:5:
+Isolated Hot scenario failed: owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend ... FAILED
+
+failures:
+
+failures:
+    owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 59 filtered out; finished in 0.73s
+
+error: test failed, to rerun pass `-p tradex --test binance_market_hot`

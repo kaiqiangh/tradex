@@ -1,0 +1,14 @@
+S29.11 current worktree check — 2026-10-12
+
+`npm run check` passed after updating the blocked-path required-FX UI replay:
+- IPC schema agreement: Rust / JSON Schema / TypeScript agree.
+- Production build and typecheck passed; Vite retained its existing >500 kB chunk warning.
+- Frontend unit tests: 18 passed.
+- Rust library tests: 265 passed.
+- All executed Rust workspace integration suites passed. Existing conditional tests remained ignored (including 3 existing financial-source timing tests).
+- Requirements traceability: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.
+- The exact `binance_rules` suite passed 119/119; `financial_sources` passed 41 with 3 ignored.
+
+Separately, `node --check tests/spot-fee-required-fx-ui.mjs`, `cargo fmt --all -- --check`, and `git diff --check` passed. Compiler output included existing fixture dead-code warnings.
+
+The isolated blocked-path UI replay passed on synthetic HTTP/vault producers and a disposable workspace. Alpaca Support has not confirmed the account/data-set jurisdiction; real source-use remains UNRESOLVED and `FX_DATA_USE_RIGHTS=UNVERIFIED`. No real account/provider read or write, approval, Arm, consent, Prepare, dispatch, or order occurred. This check does not complete S29.11 positive rights or owning qualification.

@@ -1,0 +1,23 @@
+S29.11 AC1/AC9 Artifact export raw-market-data boundary — 2026-10-12
+
+Public RED→GREEN regression:
+- RED: `cargo test -p tradex --features integration-test --lib artifact_round_trip_preserves_provenance_and_exports_safely -- --nocapture` failed because `artifact.export` succeeded and wrote an Artifact JSON containing original structured bid/ask/spread/depth/quote-age values.
+- GREEN: the same focused test passed after export refused an Artifact containing any structured raw spot observation. The error is `ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED`, and no destination file is created.
+- `artifact.get` still returns the original local quote `60000.00`; a separate ordinary research Artifact without raw quote values still exports successfully. This preserves local evidence and immutable stored content while enforcing the export boundary.
+
+Validation:
+- `cargo test -p tradex --features integration-test --lib artifact_round_trip_preserves_provenance_and_exports_safely -- --nocapture` — 1 passed.
+- `npm run check` — passed: generated schema agreement, production build/typecheck, 18 frontend unit tests, 270 Rust library tests, executed workspace integration suites (including `binance_rules` 120/120 and `financial_sources` 41 passed / 3 existing ignored), and requirement traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files).
+- `npm run desktop:build` — passed; built `target/release/tradex`.
+- Pinned Gateway SHA-256 after build: `394def41b850d2e383b0fcacd4d3538aea2c1b2ec7b0609eff974b23a8ea1701`. The same hash is embedded in the desktop executable; the build script restored that exact Gateway after Tauri's second release build.
+- `cargo fmt --all -- --check` and `git diff --check` — passed.
+
+The test uses a local synthetic typed research result. No real account, source, provider, model, or financial action was used. This slice protects structured spot quote/depth/age fields in Artifact exports; it does not prove every raw observation, cache, textual-content, or external-consumer boundary. Alpaca Support has not replied; real source-use remains `UNRESOLVED` and `FX_DATA_USE_RIGHTS=UNVERIFIED`. AC1/AC9 and GitHub #135/#134 remain open.
+
+Standards-review follow-up:
+- The review found that the deliberate export refusal had a user-safe message but fell through to `INTERNAL_ERROR`. The canonical category mapping now returns `PERMISSION_ERROR`, and the public regression asserts that category.
+- The focused Artifact regression passed again (1/1); `cargo fmt --all -- --check` and `git diff --check` passed.
+- The final-state `npm run check` passed after the category fix: schema agreement, production build/typecheck, 18 frontend unit tests, 270 Rust library tests, all executed workspace integration suites, and requirement traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files). `binance_rules` passed 120/120; `financial_sources` passed 41 with 3 existing ignored tests. Existing Vite large-chunk and fixture dead-code warnings remain.
+- The final-state `npm run desktop:build` passed and built `target/release/tradex`. Gateway SHA-256 is `716efb932d10ca07ea09cb63e64014a9cb67f52cd576ae604d5654d7c1683608`; the exact hash is present in the built desktop executable. The application was not launched.
+
+This fixes only the error classification of the structured raw-market Artifact export refusal. It does not broaden the tested boundary or close an acceptance criterion. Alpaca Support has not replied; real source-use remains `UNRESOLVED` and `FX_DATA_USE_RIGHTS=UNVERIFIED`. #135 and #134 remain open.

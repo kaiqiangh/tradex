@@ -1,0 +1,16 @@
+AC3 current-estimate, authorization and native-bound verification
+Date: 2026-10-12
+Branch: dev
+Review base: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+HEAD reviewed: 015f4ba19b0dcba138d2a48fafb42b6323821e83
+
+Focused checks run on the reviewed worktree:
+- npm run test:unit: PASS, 21/21. Includes SELL LIMIT scenario copy, SELL MARKET pre-submission authorization disclosure and unchanged BUY copy.
+- cargo test --features integration-test --test binance_rules owning_fee_model_selects_complete_role_after_outward_family_rounding -- --nocapture: PASS, 1/1. A pre-rounding MAKER winner loses to TAKER after complete family ceil18 rounding; the selected result remains an estimate.
+- cargo test -p tradex --lib market_live_approval_rejects_expected_value_above_authorized_maximum -- --nocapture: PASS, 1/1. The current modeled market amount above the immutable TradeX maximum remains ineligible and creates no approval or order attempt.
+
+Serial independent review:
+- Spec: the changed approval copy matches the spec; with the existing exact-rational model and authorization-bound implementation, AC3 is independently complete.
+- Standards: PASS; no actionable finding.
+
+Scope boundary: tests use local synthetic fixtures. No real account/provider read, approval, Arm, consent, Prepare, dispatch or order occurred. Alpaca Support has not replied; real source-use remains UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED. This receipt does not accept the remaining S29.11 criteria or close either issue.

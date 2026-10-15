@@ -1,0 +1,23 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.70s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-07788a036a50d474)
+
+running 1 test
+test immutable_intent_adds_only_its_actual_funding_direction_to_fx_read ... 
+thread 'immutable_intent_adds_only_its_actual_funding_direction_to_fx_read' (18040448) panicked at src-tauri/tests/financial_sources.rs:3469:5:
+assertion failed: requirements["data"]["requirements"].as_array().unwrap().iter().any(|row|
+        row["purpose"] == "INTENT_POLICY" && row["fromCurrency"] == "USD" &&
+                    row["toCurrency"] == "GBP" &&
+                row["providerPair"] == "USDGBP" &&
+            row["providerDataset"] == "FOREX_LATEST_RATES")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    immutable_intent_adds_only_its_actual_funding_direction_to_fx_read
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `--test financial_sources`

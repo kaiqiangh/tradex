@@ -1,0 +1,7 @@
+S29.11 public GREEN behavior: route-qualified Proposal valuation supplies owning monetary risk without historical FX fallback.
+
+Command: cargo test --test binance_rules intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth -- --exact --nocapture
+
+GREEN result: PASS (1 focused public integration scenario; its isolated child scenario also passed). With source-use unresolved, the current policy route is UNQUALIFIED, `workspaceBaseExpectedSpend` is absent and owning `ORDER_NOTIONAL` is UNAVAILABLE; no historical portfolio FX is substituted. With a test-only synthetic supported source-use assessment, the exact current `USDT/USD` quote and normalized route agree, BUY uses ask 1.0001, and 60 USDT becomes 60.006 USD. Against 60.005 USD limits, both `ORDER_NOTIONAL` and the configured `RESERVED_CAPITAL` check reject. The fee statement remains UNAVAILABLE because the fee-charging asset is unknown, and other independent Live guards remain in force. Contract tests confirm EUR/USD BUY uses ask 1.0801 and SELL uses bid 1.0800, and identity preserves the Proposal amount without external FX evidence.
+
+This proves only the synthetic public producer → owning statement → risk path. The user's real Support response has not arrived; real source-use remains UNRESOLVED and `FX_DATA_USE_RIGHTS=UNVERIFIED`. No real account/provider was read or written; no approval, Arm, consent, Prepare, dispatch or order was performed.

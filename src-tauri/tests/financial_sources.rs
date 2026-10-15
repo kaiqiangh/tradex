@@ -2912,11 +2912,11 @@ fn observed_wallet_units_require_named_portfolio_routes_and_actual_supported_rea
                 && r["purpose"] == "ACCOUNT_WORKSPACE"
                 && r["need"] == "UNKNOWN_CURRENCY")
     );
-    for (unit, pair) in [
-        ("USDT", Value::Null),
-        ("EUR", json!("EURUSD")),
-        ("OP", Value::Null),
-        ("1INCH", Value::Null),
+    for (unit, pair, dataset) in [
+        ("USDT", json!("USDTUSD"), json!("CRYPTO_LATEST_QUOTES")),
+        ("EUR", json!("EURUSD"), json!("FOREX_LATEST_RATES")),
+        ("OP", Value::Null, Value::Null),
+        ("1INCH", Value::Null, Value::Null),
     ] {
         let row = rows
             .iter()
@@ -2931,6 +2931,7 @@ fn observed_wallet_units_require_named_portfolio_routes_and_actual_supported_rea
         assert_eq!(row["toCurrency"], "USD");
         assert_eq!(row["need"], "EXTERNAL_RATE");
         assert_eq!(row["providerPair"], pair);
+        assert_eq!(row["providerDataset"], dataset);
     }
     command(
         &mut control,
@@ -2942,10 +2943,44 @@ fn observed_wallet_units_require_named_portfolio_routes_and_actual_supported_rea
         "data.fx.connection",
         json!({"workspaceId":workspace}),
     );
-    let saved = command(
+    let unlocated = command(
         &mut control,
         "data.fx.configure",
         json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"]}),
+    );
+    let control = Arc::new(Mutex::new(control));
+    let missing_location = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"wallet-fx-no-location","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":unlocated["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(missing_location["error"]["code"], "PROVIDER_UNSUPPORTED");
+    assert!(http.0.paths.borrow().is_empty());
+    drop(control);
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    assert_eq!(
+        command(&mut control, "workspace.open", json!({}))["ok"],
+        true
+    );
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace})
+        )["ok"],
+        true
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"],"cryptoLocation":"eu-1"}),
     );
     let control = Arc::new(Mutex::new(control));
     let read = tradex::financial_sources::execute_refresh(
@@ -2958,11 +2993,52 @@ fn observed_wallet_units_require_named_portfolio_routes_and_actual_supported_rea
     assert_eq!(read["data"]["status"], "AVAILABLE", "{read}");
     assert_eq!(
         &*http.0.paths.borrow(),
-        &["/v1beta1/forex/latest/rates?currency_pairs=EURUSD"]
+        &[
+            "/v1beta1/forex/latest/rates?currency_pairs=EURUSD",
+            "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD"
+        ]
     );
+    let evidence = &read["data"]["evidence"];
+    assert_eq!(evidence["cryptoLocation"], "eu-1");
+    assert_eq!(evidence["cryptoQuotes"][0]["providerSymbol"], "USDT/USD");
+    assert_eq!(
+        evidence["cryptoQuotes"][0]["bidPrice"],
+        "1.00000000000000012345"
+    );
+    assert_eq!(
+        evidence["cryptoQuotes"][0]["bidSize"],
+        "9.876543210987654321"
+    );
+    assert_eq!(
+        evidence["cryptoQuotes"][0]["askPrice"],
+        "1.00000000000000023456"
+    );
+    assert_eq!(
+        evidence["cryptoQuotes"][0]["askSize"],
+        "8.76543210987654321"
+    );
+    assert_eq!(
+        evidence["cryptoQuotes"][0]["responseSha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+    assert_eq!(evidence["rates"][1]["providerPair"], "USDTUSD");
+    assert_eq!(evidence["rates"][1]["mid"], Value::Null);
     assert_eq!(
         read["data"]["capabilityStatuses"][1]["status"],
         "BLOCKED_EXTERNAL"
+    );
+    assert_eq!(
+        read["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "Location and access never act as a data-rights setter"
     );
     assert!(http.0.account.trading212_posts.borrow().is_empty());
     assert!(http.0.account.trading212_delete_calls.borrow().is_empty());
@@ -2974,10 +3050,33 @@ impl tradex::provider_io::ProviderHttp for FxReadHttp {
         path: &str,
         headers: reqwest::header::HeaderMap,
     ) -> tradex::protocol::Result<Vec<u8>> {
+        if path.starts_with("/v1beta3/crypto/") {
+            assert_eq!(
+                endpoint,
+                tradex::provider_io::ProviderEndpoint::AlpacaMarketData
+            );
+            assert_eq!(
+                path,
+                "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD"
+            );
+            assert_eq!(headers["APCA-API-KEY-ID"], provider_fixtures::KEY);
+            assert_eq!(headers["APCA-API-SECRET-KEY"], provider_fixtures::SECRET);
+            assert!(!headers.contains_key("authorization"));
+            self.paths.borrow_mut().push(path.into());
+            let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap();
+            return Ok(format!(
+                r#"{{"quotes":{{"USDT/USD":{{"bp":1.00000000000000012345,"bs":9.876543210987654321,"ap":1.00000000000000023456,"as":8.76543210987654321,"t":"{t}"}}}}}}"#
+            )
+            .into_bytes());
+        }
         if matches!(
             path,
             "/v1beta1/forex/latest/rates?currency_pairs=EURUSD"
                 | "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR"
+                | "/v1beta1/forex/latest/rates?currency_pairs=USDGBP"
+                | "/v1beta1/forex/latest/rates?currency_pairs=USDEUR,USDGBP"
         ) {
             assert_eq!(
                 endpoint,
@@ -3001,6 +3100,135 @@ impl tradex::provider_io::ProviderHttp for FxReadHttp {
         }
         Ok(bytes)
     }
+}
+
+#[test]
+fn malformed_crypto_quote_retires_previous_fx_evidence_without_fallback() {
+    use std::cell::RefCell;
+    use std::sync::{Arc, Mutex};
+
+    struct CryptoQuoteHttp {
+        inner: FxReadHttp,
+        crypto_body: RefCell<Vec<u8>>,
+        crypto_paths: RefCell<Vec<String>>,
+    }
+
+    impl tradex::provider_io::ProviderHttp for CryptoQuoteHttp {
+        fn get(
+            &self,
+            endpoint: tradex::provider_io::ProviderEndpoint,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            if path.starts_with("/v1beta3/crypto/") {
+                assert_eq!(
+                    endpoint,
+                    tradex::provider_io::ProviderEndpoint::AlpacaMarketData
+                );
+                self.crypto_paths.borrow_mut().push(path.into());
+                return Ok(self.crypto_body.borrow().clone());
+            }
+            let bytes = self.inner.get(endpoint, path, headers)?;
+            if path == "/api/v2/spot/account/info" {
+                let mut body: Value = serde_json::from_slice(&bytes).unwrap();
+                body["data"].as_object_mut().unwrap().remove("authorities");
+                return Ok(serde_json::to_vec(&body).unwrap());
+            }
+            Ok(bytes)
+        }
+    }
+
+    fn crypto_body(bid: &str, ask: &str) -> Vec<u8> {
+        let provider_time = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        format!(
+            r#"{{"quotes":{{"USDT/USD":{{"bp":{bid},"bs":1.25,"ap":{ask},"as":2.5,"t":"{provider_time}"}}}}}}"#
+        )
+        .into_bytes()
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let provider_time = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    let http = CryptoQuoteHttp {
+        inner: FxReadHttp {
+            account: provider_fixtures::Http::default(),
+            body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{provider_time}"}}}}}}"#)
+                .into_bytes(),
+            paths: Default::default(),
+        },
+        crypto_body: RefCell::new(crypto_body("0.9999", "1.0001")),
+        crypto_paths: Default::default(),
+    };
+    connect_using(&mut control, &workspace, "bitget", "LIVE", &vault, &http);
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace})
+        )["ok"],
+        true
+    );
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":source_account["connectionId"],"cryptoLocation":"eu-1"}),
+    );
+    let request = json!({"requestId":"crypto-quote-invalid","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"]}});
+    let control = Arc::new(Mutex::new(control));
+
+    let available =
+        tradex::financial_sources::execute_refresh(&control, &request, "main", &vault, &http);
+    assert_eq!(available["data"]["status"], "AVAILABLE", "{available}");
+    assert_eq!(
+        available["data"]["evidence"]["cryptoQuotes"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    *http.crypto_body.borrow_mut() = crypto_body("1.0002", "1.0001");
+    let rejected =
+        tradex::financial_sources::execute_refresh(&control, &request, "main", &vault, &http);
+    assert_eq!(rejected["ok"], true, "{rejected}");
+    assert_eq!(rejected["data"]["status"], "UNAVAILABLE", "{rejected}");
+    assert!(rejected["data"]["evidence"].is_null(), "{rejected}");
+    assert!(rejected["data"]["observedAt"].is_null(), "{rejected}");
+    assert!(
+        rejected["data"]["availabilityReason"].is_string(),
+        "{rejected}"
+    );
+    assert_eq!(
+        &*http.crypto_paths.borrow(),
+        &[
+            "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD",
+            "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD"
+        ],
+        "The refresh must use only the explicitly selected location"
+    );
+    assert!(!rejected.to_string().contains(provider_fixtures::KEY));
+    assert!(http.inner.account.alpaca_posts.borrow().is_empty());
+    assert!(http.inner.account.trading212_posts.borrow().is_empty());
+    assert!(
+        http.inner
+            .account
+            .trading212_delete_calls
+            .borrow()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -3175,8 +3403,12 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
     use std::sync::{Arc, Mutex};
     let directory = tempfile::tempdir().unwrap();
     let mut control = ControlPlane::new(directory.path().join("workspace"));
-    let workspace =
-        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let workspace = command(
+        &mut control,
+        "workspace.open",
+        json!({"baseCurrency":"GBP"}),
+    )["data"]["workspaceId"]
+        .clone();
     let vault = provider_fixtures::Vault::default();
     let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
     let t = time::OffsetDateTime::now_utc()
@@ -3184,7 +3416,7 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
         .unwrap();
     let http = FxReadHttp {
         account: provider_fixtures::Http::default(),
-        body: format!(r#"{{"rates":{{"EURUSD":{{"bp":1.01,"ap":1.12,"mp":1.07,"t":"{t}"}},"USDEUR":{{"bp":0.88,"ap":0.99,"mp":0.93,"t":"{t}"}}}}}}"#).into_bytes(),
+        body: format!(r#"{{"rates":{{"USDEUR":{{"bp":0.88,"ap":0.99,"mp":0.93,"t":"{t}"}},"USDGBP":{{"bp":0.78,"ap":0.79,"mp":0.785,"t":"{t}"}}}}}}"#).into_bytes(),
         paths: Default::default(),
     };
     let live = connect_using(
@@ -3234,6 +3466,17 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
                 && row["toCurrency"] == "EUR"
                 && row["providerPair"] == "USDEUR")
     );
+    assert!(
+        requirements["data"]["requirements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["purpose"] == "INTENT_POLICY"
+                && row["fromCurrency"] == "USD"
+                && row["toCurrency"] == "GBP"
+                && row["providerPair"] == "USDGBP"
+                && row["providerDataset"] == "FOREX_LATEST_RATES")
+    );
     let source = command(
         &mut control,
         "data.fx.connection",
@@ -3259,7 +3502,7 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
     assert_eq!(result["data"]["status"], "AVAILABLE", "{result}");
     assert_eq!(
         *http.paths.borrow(),
-        vec!["/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR"]
+        vec!["/v1beta1/forex/latest/rates?currency_pairs=USDEUR,USDGBP"]
     );
     assert_eq!(
         result["data"]["evidence"]["requirements"],
@@ -3271,11 +3514,16 @@ fn immutable_intent_adds_only_its_actual_funding_direction_to_fx_read() {
         json!({"workspaceId":workspace}),
     );
     assert_eq!(reread["data"]["status"], "AVAILABLE", "{reread}");
-    assert_eq!(
-        reread["data"]["evidence"]["rates"][1]["fromCurrency"],
-        "USD"
-    );
-    assert_eq!(reread["data"]["evidence"]["rates"][1]["bid"], "0.88");
+    let gbp_rate = reread["data"]["evidence"]["rates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|rate| rate["providerPair"] == "USDGBP")
+        .unwrap();
+    assert_eq!(gbp_rate["fromCurrency"], "USD");
+    assert_eq!(gbp_rate["toCurrency"], "GBP");
+    assert_eq!(gbp_rate["bid"], "0.78");
+    assert_eq!(gbp_rate["ask"], "0.79");
     let review_payload =
         json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]});
     let review = command(
@@ -4052,7 +4300,8 @@ fn spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt
     assert_eq!(policy["fromCurrency"], "USDT");
     assert_eq!(policy["toCurrency"], "USD");
     assert_eq!(policy["need"], "EXTERNAL_RATE");
-    assert!(policy["providerPair"].is_null());
+    assert_eq!(policy["providerPair"], "USDTUSD");
+    assert_eq!(policy["providerDataset"], "CRYPTO_LATEST_QUOTES");
     let funding = rows
         .iter()
         .find(|row| row["purpose"] == "INTENT_FUNDING")
@@ -4087,17 +4336,333 @@ fn spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt
         &no_key,
         &http,
     );
-    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(result["ok"], false, "{result}");
+    assert_eq!(result["error"]["code"], "PROVIDER_UNSUPPORTED");
     assert_eq!(no_key.0.load(Ordering::SeqCst), 0);
     assert!(http.calls.borrow().is_empty());
-    assert!(
-        result["data"]["availabilityReason"]
-            .as_str()
-            .unwrap()
-            .contains("unknown or unsupported"),
-        "{result}"
+}
+
+#[test]
+fn usdt_usd_policy_valuation_accepts_inclusive_band_and_refuses_dislocation() {
+    use std::cell::RefCell;
+    use std::sync::{Arc, Mutex};
+    use tradex::provider_io::{ProviderEndpoint, ProviderHttp};
+
+    struct PolicyQuoteHttp {
+        inner: FxReadHttp,
+        crypto_body: RefCell<Vec<u8>>,
+        crypto_paths: RefCell<Vec<String>>,
+    }
+
+    impl ProviderHttp for PolicyQuoteHttp {
+        fn get(
+            &self,
+            endpoint: ProviderEndpoint,
+            path: &str,
+            headers: reqwest::header::HeaderMap,
+        ) -> tradex::protocol::Result<Vec<u8>> {
+            if path.starts_with("/v1beta3/crypto/") {
+                assert_eq!(endpoint, ProviderEndpoint::AlpacaMarketData);
+                assert_eq!(
+                    path,
+                    "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD"
+                );
+                assert_eq!(headers["APCA-API-KEY-ID"], provider_fixtures::KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], provider_fixtures::SECRET);
+                assert!(!headers.contains_key("authorization"));
+                self.crypto_paths.borrow_mut().push(path.into());
+                return Ok(self.crypto_body.borrow().clone());
+            }
+            if let Some(pairs) = path.strip_prefix("/v1beta1/forex/latest/rates?currency_pairs=") {
+                assert_eq!(endpoint, ProviderEndpoint::AlpacaMarketData);
+                let timestamp = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap();
+                let mut rates = serde_json::Map::new();
+                for pair in pairs.split(',') {
+                    rates.insert(
+                        pair.into(),
+                        json!({"bp":1.09,"ap":1.11,"mp":1.10,"t":timestamp}),
+                    );
+                }
+                return Ok(serde_json::to_vec(&json!({"rates":rates})).unwrap());
+            }
+
+            let bytes = self.inner.get(endpoint, path, headers)?;
+            if path == "/api/v2/spot/account/info" {
+                let mut account: Value = serde_json::from_slice(&bytes).unwrap();
+                account["data"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("authorities");
+                return Ok(serde_json::to_vec(&account).unwrap());
+            }
+            Ok(bytes)
+        }
+    }
+
+    fn crypto_body(bid: &str, ask: &str) -> Vec<u8> {
+        let provider_time = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        format!(
+            r#"{{"quotes":{{"USDT/USD":{{"bp":{bid},"bs":10,"ap":{ask},"as":10,"t":"{provider_time}"}}}}}}"#
+        )
+        .into_bytes()
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace = command(
+        &mut control,
+        "workspace.open",
+        json!({"baseCurrency":"USD"}),
+    )["data"]["workspaceId"]
+        .clone();
+    let vault = provider_fixtures::Vault::default();
+    let source_account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let http = PolicyQuoteHttp {
+        inner: FxReadHttp {
+            account: {
+                let mut account = provider_fixtures::Http::default();
+                account.binance_rules_ui = true;
+                account
+                    .binance_capacity_ui
+                    .set(provider_fixtures::BinanceCapacityFixture::CompleteCoverage);
+                account
+            },
+            body: Vec::new(),
+            paths: Default::default(),
+        },
+        crypto_body: RefCell::new(crypto_body("0.99", "1.01")),
+        crypto_paths: Default::default(),
+    };
+    let connection_test = control
+        .prepare_provider(&json!({
+            "requestId":"depeg-binance-test",
+            "schemaVersion":1,
+            "command":"provider.connect",
+            "payload":{"step":"test","workspaceId":workspace,"providerId":"binance","environment":"LIVE","label":"Synthetic USDT policy boundary"}
+        }))
+        .unwrap()
+        .unwrap();
+    let connection_result = connection_test.run(
+        &vault,
+        |_| provider_fixtures::credentials(),
+        &http,
+        || control.provider_job_current(&connection_test),
     );
-    assert!(result["data"]["evidence"].is_null());
+    let tested = control.complete_provider(&connection_test, connection_result);
+    assert_eq!(tested["ok"], true, "{tested}");
+    let spot_account = command(
+        &mut control,
+        "provider.connect",
+        json!({
+            "step":"confirm",
+            "workspaceId":workspace,
+            "connectionId":tested["data"]["connectionId"],
+            "expectedStateVersion":tested["data"]["stateVersion"],
+            "acknowledgeUnverified":true
+        }),
+    );
+    assert_eq!(spot_account["ok"], true, "{spot_account}");
+    let spot_account = spot_account["data"].clone();
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace})
+        )["ok"],
+        true
+    );
+    let draft = command(
+        &mut control,
+        "trade.save_draft",
+        json!({"workspaceId":workspace,"fields":{
+            "accountId":spot_account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.01"},"limitPrice":"20000","timeInForce":"GTC"
+        }}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &mut control,
+        "trade.generate_proposal",
+        json!({"workspaceId":workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    let rules = command(
+        &mut control,
+        "data.binance_rules.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let rules = command(
+        &mut control,
+        "data.binance_rules.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":rules["data"]["stateVersion"],
+            "connectionId":spot_account["connectionId"],
+            "instrumentId":"crypto:BTC/USDT:spot"
+        }),
+    );
+    assert_eq!(rules["ok"], true, "{rules}");
+    let control = Arc::new(Mutex::new(control));
+    let rules = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"depeg-binance-rules","schemaVersion":1,"command":"data.binance_rules.refresh","payload":{"workspaceId":workspace,"expectedStateVersion":rules["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(rules["data"]["status"], "AVAILABLE", "{rules}");
+    let capacity = command(
+        &mut control.lock().unwrap(),
+        "trade.spot_capacity.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    let capacity = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"depeg-binance-capacity","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"],"expectedStateVersion":capacity["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(capacity["data"]["status"], "OBSERVED", "{capacity}");
+    let intervals = command(
+        &mut control.lock().unwrap(),
+        "trade.spot_order_intervals.get",
+        json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+    );
+    let intervals = tradex::financial_sources::execute_refresh(
+        &control,
+        &json!({"requestId":"depeg-binance-intervals","schemaVersion":1,"command":"trade.spot_order_intervals.refresh","payload":{"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"],"expectedStateVersion":intervals["data"]["stateVersion"]}}),
+        "main",
+        &vault,
+        &http,
+    );
+    assert_eq!(intervals["data"]["status"], "OBSERVED", "{intervals}");
+    let source = command(
+        &mut control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let configured = command(
+        &mut control.lock().unwrap(),
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":source["data"]["stateVersion"],
+            "connectionId":source_account["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-11",
+                "countrySupportConfirmation":{
+                    "confirmedJurisdiction":"IE",
+                    "confirmedAt":"2026-10-11",
+                    "reference":"SYNTHETIC-SUPPORT-REPORT-DEPEG-TEST"
+                },
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["status"],
+        "SUPPORTED_FOR_DECLARED_SCOPE"
+    );
+    assert_eq!(
+        configured["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "Synthetic user-reported support can exercise policy only; it is not a rights grant"
+    );
+
+    let cases = [
+        ("0.99", "1.01", "QUALIFIED", None),
+        (
+            "0.989999999",
+            "0.99",
+            "UNQUALIFIED",
+            Some("outside the reviewed one-percent policy-valuation band"),
+        ),
+        (
+            "1.01",
+            "1.010000001",
+            "UNQUALIFIED",
+            Some("outside the reviewed one-percent policy-valuation band"),
+        ),
+    ];
+    for (bid, ask, expected_state, expected_reason) in cases {
+        *http.crypto_body.borrow_mut() = crypto_body(bid, ask);
+        let source = {
+            let mut control = control.lock().unwrap();
+            command(
+                &mut control,
+                "data.fx.connection",
+                json!({"workspaceId":workspace}),
+            )
+        };
+        let refreshed = tradex::financial_sources::execute_refresh(
+            &control,
+            &json!({"requestId":"policy-band-refresh","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"],"expectedStateVersion":source["data"]["stateVersion"]}}),
+            "main",
+            &vault,
+            &http,
+        );
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+        assert_eq!(refreshed["data"]["status"], "AVAILABLE", "{refreshed}");
+        assert_eq!(refreshed["data"]["evidence"]["rates"][0]["bid"], bid);
+        assert_eq!(refreshed["data"]["evidence"]["rates"][0]["ask"], ask);
+
+        let review = {
+            let mut control = control.lock().unwrap();
+            command(
+                &mut control,
+                "trade.request_approval",
+                json!({"workspaceId":workspace,"proposalId":proposal["data"]["proposalId"]}),
+            )
+        };
+        assert_eq!(review["ok"], true, "{review}");
+        let policy_route = review["data"]["spotFeeFx"]["routes"]
+            .as_array()
+            .unwrap_or_else(|| panic!("Review omitted owning FX routes: {review}"))
+            .iter()
+            .find(|route| route["purpose"] == "INTENT_POLICY")
+            .unwrap_or_else(|| panic!("Missing policy route: {review}"));
+        assert_eq!(policy_route["providerPair"], "USDTUSD");
+        assert_eq!(policy_route["state"], expected_state, "{policy_route}");
+        if let Some(reason) = expected_reason {
+            assert!(policy_route["reason"].as_str().unwrap().contains(reason));
+        } else {
+            assert!(
+                policy_route["reason"]
+                    .as_str()
+                    .unwrap()
+                    .contains("within the reviewed one-percent policy-valuation band")
+            );
+        }
+        assert_eq!(review["data"]["eligible"], false);
+    }
+    assert_eq!(
+        http.crypto_paths.borrow().len(),
+        3,
+        "Each result must come from a new explicit provider observation"
+    );
+    let account = {
+        let mut control = control.lock().unwrap();
+        command(
+            &mut control,
+            "account.get",
+            json!({"workspaceId":workspace,"connectionId":spot_account["connectionId"]}),
+        )
+    };
+    assert_eq!(account["data"]["health"]["arming"], "DISARMED");
 }
 
 #[test]
@@ -4245,4 +4810,333 @@ fn fx_commands_reject_renderer_assertions_before_vault_or_provider_work() {
         json!({"workspaceId":workspace}),
     );
     assert_eq!(before["data"], after["data"]);
+}
+
+#[test]
+fn fx_crypto_location_is_explicit_bounded_and_persisted_without_fallback() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let initial = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(initial["ok"], true, "{initial}");
+    assert!(initial["data"]["cryptoLocation"].is_null());
+    let saved = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":initial["data"]["stateVersion"],"connectionId":account["connectionId"],"cryptoLocation":"eu-1"}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    assert_eq!(saved["data"]["cryptoLocation"], "eu-1");
+    assert_eq!(saved["data"]["status"], "UNVERIFIED");
+    let unsupported = command(
+        &mut control,
+        "data.fx.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":saved["data"]["stateVersion"],"connectionId":account["connectionId"],"cryptoLocation":"us-2"}),
+    );
+    assert_eq!(unsupported["error"]["code"], "IPC_PAYLOAD_INVALID");
+    assert_eq!(
+        command(
+            &mut control,
+            "data.fx.connection",
+            json!({"workspaceId":workspace}),
+        )["data"]["cryptoLocation"],
+        "eu-1",
+        "Unsupported locations never fall back or overwrite the selected profile"
+    );
+    let actions = command(
+        &mut control,
+        "data.actions.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let wrong_source = command(
+        &mut control,
+        "data.actions.configure",
+        json!({"workspaceId":workspace,"expectedStateVersion":actions["data"]["stateVersion"],"connectionId":account["connectionId"],"cryptoLocation":"us"}),
+    );
+    assert_eq!(wrong_source["error"]["code"], "IPC_PAYLOAD_INVALID");
+    drop(control);
+
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(
+        &mut reopened,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(restored["data"]["cryptoLocation"], "eu-1");
+    assert_eq!(restored["data"]["status"], "UNVERIFIED");
+    let disconnected = command(
+        &mut reopened,
+        "data.fx.disconnect",
+        json!({"workspaceId":workspace,"expectedStateVersion":restored["data"]["stateVersion"]}),
+    );
+    assert_eq!(
+        disconnected["data"]["cryptoLocation"],
+        serde_json::Value::Null
+    );
+    assert_eq!(disconnected["data"]["configured"], false);
+}
+
+#[test]
+fn fx_source_use_assessment_records_provider_ui_facts_without_a_rights_setter() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut control = ControlPlane::new(path.clone());
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let initial = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(initial["ok"], true, "{initial}");
+    assert_eq!(
+        initial["data"]["sourceUseAssessment"]["status"], "UNRESOLVED",
+        "A saved credential and market-data location do not resolve use terms"
+    );
+    assert_eq!(
+        initial["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED"
+    );
+
+    let configured = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":initial["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+            "accountJurisdiction":"ZZ",
+                "agreementReviewedAt":"2026-10-11",
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["status"], "UNRESOLVED",
+        "A syntactically valid but unreviewed jurisdiction cannot qualify under the local policy"
+    );
+    assert!(
+        configured["data"]["sourceUseAssessment"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("No country-specific Alpaca Support confirmation")
+    );
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["provenance"],
+        "USER_REPORTED_PROVIDER_UI"
+    );
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["policyVersion"],
+        "ALPACA_PERSONAL_LOCAL_V1"
+    );
+    assert_eq!(
+        configured["data"]["sourceUseContext"]["accountJurisdiction"],
+        "ZZ"
+    );
+    assert_eq!(
+        configured["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "A local-use assessment must not turn into a provider entitlement claim"
+    );
+    assert!(
+        configured["data"]["sourceUseAssessment"]["documents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|document| document["sha256"]
+                == "2dc774d4aeeafbe4c7f0565e7842d932bc8bc10488af805fce43b8734e7b9859")
+    );
+    assert!(
+        configured["data"]["sourceUseAssessment"]["documents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|document| document["sha256"]
+                == "15949958e176c22888db353989b6598a6d926bf642075e8400197b872680c1e9")
+    );
+
+    let unsupported_scope = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":configured["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"ZZ",
+                "agreementReviewedAt":"2026-10-11",
+                "useScope":"COMMERCIAL_OR_SHARED",
+                "rawDataDestination":"EXTERNAL"
+            }
+        }),
+    );
+    assert_eq!(unsupported_scope["ok"], true, "{unsupported_scope}");
+    assert_eq!(
+        unsupported_scope["data"]["sourceUseAssessment"]["status"],
+        "OUT_OF_PROFILE"
+    );
+
+    let mut false_rights_claim = json!({
+        "workspaceId":workspace,
+        "expectedStateVersion":unsupported_scope["data"]["stateVersion"],
+        "connectionId":account["connectionId"],
+        "cryptoLocation":"eu-1",
+        "sourceUseContext":{
+            "marketDataPlan":"BASIC",
+            "accountJurisdiction":"ZZ",
+            "agreementReviewedAt":"2026-10-11",
+            "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+            "rawDataDestination":"LOCAL_ONLY",
+            "verified":true
+        }
+    });
+    let rejected_claim = command(&mut control, "data.fx.configure", false_rights_claim.take());
+    assert_eq!(rejected_claim["ok"], false, "{rejected_claim}");
+    assert_eq!(rejected_claim["error"]["code"], "IPC_PAYLOAD_INVALID");
+
+    drop(control);
+    let mut reopened = ControlPlane::new(path);
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let restored = command(
+        &mut reopened,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    assert_eq!(
+        restored["data"]["sourceUseAssessment"]["status"], "OUT_OF_PROFILE",
+        "The declared use record persists without creating a right"
+    );
+    assert_eq!(restored["data"]["status"], "UNVERIFIED");
+    assert!(restored["data"]["evidence"].is_null());
+}
+
+#[test]
+fn fx_source_use_policy_requires_matching_country_specific_support_evidence() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let workspace =
+        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+    let vault = provider_fixtures::Vault::default();
+    let account = connect(&mut control, &workspace, "alpaca", "PAPER", &vault);
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":workspace}),
+    );
+    let supported = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":source["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-11",
+                "countrySupportConfirmation":{
+                    "confirmedJurisdiction":"IE",
+                    "confirmedAt":"2026-10-11",
+                    "reference":"SYNTHETIC-ALPACA-SUPPORT-CASE"
+                },
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(supported["ok"], true, "{supported}");
+    assert_eq!(
+        supported["data"]["sourceUseAssessment"]["status"], "SUPPORTED_FOR_DECLARED_SCOPE",
+        "A matching provider-support report creates only a local policy path"
+    );
+    assert_eq!(
+        supported["data"]["sourceUseAssessment"]["provenance"],
+        "USER_REPORTED_PROVIDER_SUPPORT"
+    );
+    assert_eq!(
+        supported["data"]["sourceUseAssessment"]["supportedPurposes"],
+        json!(["POLICY_VALUATION"])
+    );
+    assert_eq!(
+        supported["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "A human-reported support reference is not a provider entitlement grant"
+    );
+
+    let mismatch = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":workspace,
+            "expectedStateVersion":supported["data"]["stateVersion"],
+            "connectionId":account["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"ZZ",
+                "agreementReviewedAt":"2026-10-11",
+                "countrySupportConfirmation":{
+                    "confirmedJurisdiction":"IE",
+                    "confirmedAt":"2026-10-11",
+                    "reference":"SYNTHETIC-ALPACA-SUPPORT-CASE"
+                },
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(mismatch["ok"], true, "{mismatch}");
+    assert_eq!(
+        mismatch["data"]["sourceUseAssessment"]["status"],
+        "UNRESOLVED"
+    );
+    assert_eq!(
+        mismatch["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED"
+    );
 }

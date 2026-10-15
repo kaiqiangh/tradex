@@ -566,7 +566,11 @@ fn price_range_row(
         }
         SpotPriceRangeState::ReferenceUnavailable => {
             unresolved.push("EXECUTION_PRICE_RANGE_UNQUALIFIED".into());
-            (true, RiskCheckOutcome::Unavailable, preview.explanation.as_str())
+            (
+                true,
+                RiskCheckOutcome::Unavailable,
+                preview.explanation.as_str(),
+            )
         }
         SpotPriceRangeState::NoStatedExecutionPrice => (
             false,
@@ -681,9 +685,8 @@ pub(crate) fn get(control: &mut ControlPlane, input: &SpotRulesQuery) -> Result<
         })
         .map(|(r, _)| r)
         .collect();
-    let price_range_preview = evidence.map(|e| {
-        price_range_preview(e, fields, base_asset, slot, maximum_reference_age, &time)
-    });
+    let price_range_preview = evidence
+        .map(|e| price_range_preview(e, fields, base_asset, slot, maximum_reference_age, &time));
     let mut rules = Vec::new();
     let mut unresolved = Vec::new();
     if let Some(e) = evidence {

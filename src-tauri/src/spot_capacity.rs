@@ -144,6 +144,11 @@ pub struct SpotCapacityObservation {
     pub provider_observed_at: Option<String>,
     pub counts: SpotCapacityCounts,
     pub base_balance: Option<SpotCapacityBalance>,
+    /// Original selected BASE/QUOTE/BNB rows from the same authenticated account read.
+    /// Missing rows remain missing; older captures omit this additive projection.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 3))]
+    pub wallet_balances: Vec<SpotCapacityBalance>,
     pub position: Option<SpotCapacityPosition>,
     /// The venue's already-validated declared commission rates, projected verbatim. Additive only;
     /// no delivered field changes meaning.
@@ -645,7 +650,10 @@ pub(crate) fn execute_refresh(
             let rates = rates.as_object().ok_or_else(invalid)?;
             let mut values = std::collections::BTreeMap::new();
             for field in ["maker", "taker", "buyer", "seller"] {
-                values.insert(field, original_decimal(rates.get(field).ok_or_else(invalid)?)?);
+                values.insert(
+                    field,
+                    original_decimal(rates.get(field).ok_or_else(invalid)?)?,
+                );
             }
             // Unknown commissionRates keys stay recorded as an account-extension obligation exactly
             // as delivered, and are additionally listed verbatim (bounded) on the projection.
@@ -673,6 +681,7 @@ pub(crate) fn execute_refresh(
         }
         let mut balance_extensions = false;
         let mut selected_balance = None;
+        let mut wallet_balances = Vec::new();
         if let Some(balances) = account.get("balances") {
             let rows = balances
                 .as_array()
@@ -691,6 +700,13 @@ pub(crate) fn execute_refresh(
                 }
                 let free = original_decimal(&row["free"])?;
                 let locked = original_decimal(&row["locked"])?;
+                if asset == before.base_asset || asset == before.quote_asset || asset == "BNB" {
+                    wallet_balances.push(SpotCapacityBalance {
+                        asset: asset.into(),
+                        free: free.clone(),
+                        locked: locked.clone(),
+                    });
+                }
                 if position_required && asset == before.base_asset {
                     selected_balance = Some(SpotCapacityBalance {
                         asset: asset.into(),
@@ -700,6 +716,7 @@ pub(crate) fn execute_refresh(
                 }
             }
         }
+        wallet_balances.sort_by(|left, right| left.asset.cmp(&right.asset));
         let base_balance = if position_required {
             Some(selected_balance.ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?)
         } else {
@@ -1100,6 +1117,7 @@ pub(crate) fn execute_refresh(
                         .to_string(),
                 },
                 base_balance,
+                wallet_balances,
                 position: position_required.then_some(SpotCapacityPosition {
                     selected_symbol_open_buy_original_quantity: original_quantity,
                     selected_symbol_open_buy_executed_quantity: executed_quantity,

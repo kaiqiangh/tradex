@@ -1,0 +1,12 @@
+# Alpaca saved-account EUR/USD read attempt — 2026-10-12
+
+- Time: 2026-10-12 10:53 UTC (local TradeX desktop session).
+- Surface: temporary local native TradeX app built from the current uncommitted `dev` worktree; existing default workspace.
+- Operation: one read-only refresh of the currently required `EUR → USD` / `EURUSD` currency route through the saved Alpaca Paper connection. No crypto route or crypto location was involved.
+- Precondition: TradeX time health had been synchronized to `TRUSTED` in Settings. The saved account/key remained in the user's workspace and was not displayed, copied, or changed.
+- Result displayed by TradeX: `unavailable` — “The provider denied access to the requested read-only endpoint. This response does not establish the account's broader permissions.” `First receipt` remained `Not checked`; no current FX observation was recorded.
+- Qualification: transaction FX remains `blocked external`; broker conversion costs remain `blocked external`; `FX_DATA_USE_RIGHTS` remains `UNVERIFIED`; the Alpaca source-use assessment remains `UNRESOLVED` because account/plan/jurisdiction/agreement facts were not supplied and there is no Support confirmation.
+- Diagnostic: the current FX response mapper maps HTTP 403 to `PROVIDER_PERMISSION_BLOCKED`, whose sanitized message is the one displayed by the UI. This makes HTTP 403 the likely status, but it was not independently surfaced in the UI or captured in a receipt. Alpaca's current FAQ says market-data HTTP 403 may mean an unauthenticated request, incorrect credentials, or insufficient permissions; the FX endpoint reference describes 403 only as a forbidden resource. The available evidence does not distinguish these causes ([FAQ](https://docs.alpaca.markets/us/docs/market-data-faq), [FX endpoint](https://docs.alpaca.markets/us/reference/latestrates-1)).
+- Limits: no successful provider receipt was captured, so this records the TradeX result and a code-based status inference only; it does not establish the precise cause or broader account permissions. No quote values, account identifiers, balances, holdings, or credentials are recorded here.
+- Safety: no account settings were saved or changed, no crypto location was selected, and no approval, Arm, consent, Prepare, reservation, order, or provider mutation occurred.
+- Acceptance: no ticket criterion or GitHub issue state changed. #135 and #134 remain OPEN; #135 remains 4/14 checked.

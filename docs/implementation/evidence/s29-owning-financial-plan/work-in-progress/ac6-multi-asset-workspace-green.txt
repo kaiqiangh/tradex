@@ -1,0 +1,9 @@
+S29.11 AC6 multi-asset reservation capacity — GREEN
+Date: 2026-10-11
+Command: cargo test --workspace
+Result: exit 0; 34 test-result summaries; 534 passed, 0 failed, 39 ignored.
+Included regressions:
+- storage::execution_reservation_claim_tests::prepare_claim_vector_accepts_one_native_fee_leg_and_rejects_duplicates
+- storage::execution_reservation_claim_tests::prepare_capacity_checks_principal_and_fee_assets_together
+Additional checks in this worktree: cargo fmt --all -- --check; git diff --check; npm run schema:check; npm run build; npm run test:unit (18/18); python3 scripts/check_requirements.py (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files).
+Boundary: fixture/local verification only. No real account/provider mutation or real order occurred. Real Alpaca source-use remains UNRESOLVED; FX_DATA_USE_RIGHTS remains UNVERIFIED. Full producer-to-Prepare positive path, AC6 acceptance, settlement, concurrency, preflight, and serial independent reviews remain open; GitHub #135 and #134 remain OPEN.

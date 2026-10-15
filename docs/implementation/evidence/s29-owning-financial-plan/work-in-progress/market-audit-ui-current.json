@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "form": {
+    "side": "BUY",
+    "type": "QUOTE",
+    "quantity": "60",
+    "sidePrice": "ASK",
+    "gross": "0.000999983333611106 BTC",
+    "fee": "0.000050001986633557 BTC",
+    "net": "0.000949981346977549 BTC"
+  },
+  "text": "Captured Proposal Spot fee and required execution FX\n\nspot required fx unsupported route: The genuinely-required execution conversion USDT -> USD is unsupported by the selected bounded FX producer, so no qualified rate can bound this intent; No current declared commission observation is available; fee currency remains UNKNOWN and no fee amount is fabricated.\n\nSaved assessment. Reading this history never renews the statement, re-reads a venue or restores consent. Arm, consent, dispatch, immediate authenticated preflight, private-stream readiness, funding and exact CANCEL/reconciliation remain separate checks.\n\nCurrent received-asset fee scenario\n\nThis current model has no future fee guarantee. It models a full fill using the recorded intent and complete symbol commission terms; it does not establish funding, BNB payment or required FX. A SELL limit models proceeds at its minimum price, not the largest possible proceeds or fee.\n\nFee calculations use the full modeled receipt before display rounding. The displayed gross and net receipt are rounded down to18 decimal places; each final fee family is rounded up separately.\n\nModel method · class\nSPOT_THREE_FAMILY_RATIONAL_CEIL18_V1 · CURRENT_ORDER_SCENARIO\nModeled gross receipt\n0.000999983333611106 BTC\nComplete fallback role\nTAKER. Selected by the full rounded three-family total, not independent family maxima.\nModeled standard fee\n0.000000000499991667 BTC\nModeled tax fee\n0.000000002319961334 BTC\nModeled special fee\n0.000049999166680556 BTC\nModeled received-asset fee total\n0.000050001986633557 BTC\nModeled net receipt\n0.000949981346977549 BTC\nCurrent charging condition\nDISCOUNT_DISABLED_CURRENT_FALLBACK. This is a current condition, not a promised future charging asset.\nModel limitations\nVENUE_PER_FILL_ROUNDING_UNPROVEN\nCurrent market scenario reference\n\nThe MARKET scenario uses the recorded ASK side and TAKER families. It is a current modeled receipt, not an actual fill prediction or a future proceeds or fee bound. Reading this capture does not renew the original observation.\n\nPrice side · data-use rights\nASK · UNVERIFIED\nSource · snapshot\nBINANCE_SPOT_PUBLIC · 280cfc08-2e27-47a0-8a1c-8be0d7b2ea81\nOriginal provider time · first receipt\n2026-10-11T00:41:34.966Z · 2026-10-11T00:41:34.967Z\nSource version · connection generation\nbinance-market:87b02574-5854-44d0-8b4a-ee6f23355e3f:2 · e3549f9d-e4ab-4776-8ca8-5809e77dd81f\nBook update · material hash\n9007199257740993 · 55f2c03b261e2e301fdba56c1b0fdd14552a8baf5a6f632f183ce5a5bd1b9271\nReason code\nSPOT_REQUIRED_FX_UNSUPPORTED_ROUTE\nBinding blocker\nSPOT_REQUIRED_FX_UNSUPPORTED_ROUTE\nFee currency · declared origin\nUNKNOWN · UNKNOWN. This is an independent fact, reported even when the binding blocker above is the required execution route.\nFee rate basis · declared origin ACCOUNT_DECLARED_COMMISSION_RATES\nNot declared. The larger declared maker/taker comparison basis, not a complete fee estimate. The account rates do not establish the complete symbol/side commission or fee-charging asset.\nDeclared maker / taker rate · origin ACCOUNT_DECLARED_COMMISSION_RATES\nNot declared / Not declared. Reported verbatim, never promoted into a hidden gate.\nDeclared buyer / seller rate · origin ACCOUNT_DECLARED_COMMISSION_RATES\nNot declared / Not declared\nExpected fee · declared origin UNKNOWN\nNot declared. Never fabricated from an unknown fee currency.\nIntent notional · declared origin INTENT_PROPOSAL\n60 USDT · maximum authorized 61 USDT\nWorkspace base currency · declared origin WORKSPACE_BASE_CURRENCY\nUSD. The workspace base is a three-letter ISO code, so USDT is never read as USD: USDT ≠ USD.\nWorkspace-base expected spend / fee · declared origin REQUIRED_EXECUTION_FX\nNot declared / Not declared. Present only when the required conversion is genuinely qualified; no conversion cost is fabricated.\nExact account · instrument\n69360744-9e7a-4a2f-b3a2-4cb313e5e640 · crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT\nProposal · hash\nproposal:65af3865-ee7f-44ce-b345-00966da0c617 · sha256:d69164a5c1caf2cc6bc14b10f768304e254f8a0016c1bec13f29357b929f676a\nGenuinely-required execution FX routes\nintent funding · USDT -> USDT · qualified · provider pair no supported pair · rate quality Not declared · provider time Not declared · first receipt Not declared · declared cost no declared cost · The monetary input and target share one currency, so no external rate is required.\nintent policy · USDT -> USD · unsupported route · provider pair no supported pair · rate quality Not declared · provider time Not declared · first receipt Not declared · declared cost no declared cost · This required conversion is unsupported by the selected bounded FX producer; currency parity is never assumed.\nStanding limitations carried from the consumed read-only inputs\nNo standing limitation reported with the underlying observations.\n\nThese describe how the evidence was obtained, not what it failed to cover. Separately read account, order and balance responses are not one atomic provider snapshot. Nothing here is a fill promise, a fee promise or an approval.\n\nBound evidence versions\nsha256:0c68cded87372ecfd660df3eed1510f52444e18a29b9326cdbb96fee29966469 · sha256:d5e3c1e8d91575c113cdf533652f2d556d4bdaa7327ebac8f222317f17ab2900",
+  "widths": [
+    {
+      "body": 1265,
+      "client": 375,
+      "panel": 375,
+      "viewport": 1280
+    },
+    {
+      "body": 753,
+      "client": 407,
+      "panel": 407,
+      "viewport": 768
+    },
+    {
+      "body": 375,
+      "client": 253,
+      "panel": 253,
+      "viewport": 390
+    }
+  ],
+  "originalAudit": {
+    "special": {
+      "denominator": "60001",
+      "numerator": "3"
+    },
+    "standard": {
+      "denominator": "6000100000",
+      "numerator": "3"
+    },
+    "tax": {
+      "denominator": "1293125000",
+      "numerator": "3"
+    },
+    "total": {
+      "denominator": "150002500000",
+      "numerator": "7500423"
+    }
+  },
+  "capturedUnchanged": true,
+  "completeFinancialAcceptance": false,
+  "armingPerformed": false,
+  "consentPerformed": false
+}

@@ -1,0 +1,7 @@
+# S29.11 Standards review — 2026-10-12
+
+- Fixed base: `308747ad19e5f0fc1ba4e0b3b54b062250e317f0`.
+- Reviewed: current `dev` worktree delta, tracked and relevant untracked files.
+- Result: no hard documented-standard violations found. English/Chinese product-document changes appear paired under `AGENTS.md`'s synchronization rule. No `CONTRIBUTING`, `CODING_STANDARDS`, or nested `AGENTS.md` was found; `docs/agents/domain.md` directs proceeding silently when context/ADR files are absent.
+- Judgment-only smell: possible Data Clumps at `src-tauri/src/spot_fee_model.rs:81` and `:107`; `FeeMarketReference` and `FeeConversionReference` repeat provider identity and receipt fields. A shared provenance type might reduce duplication, though keeping the distinct wire records explicit may be preferable.
+- No other smell or hard finding reported.

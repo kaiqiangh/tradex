@@ -14,10 +14,10 @@
 //! distinguish an ordinary intent's actually-applicable capacity from authenticated execution
 //! qualification: this module answers the former and never the latter.
 use crate::protocol::{OrderSide, Result};
+use crate::provider_io;
 use crate::risk::RiskCheckOutcome;
 use crate::spot_capacity::SpotCapacityInputs;
 use crate::spot_order_intervals::SpotOrderIntervalInputs;
-use crate::provider_io;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -277,9 +277,7 @@ pub(crate) fn qualify(
     let capacity_gaps = capacity_observation
         .unresolved_obligations
         .iter()
-        .filter(|obligation| {
-            !CARRIED_CAPACITY_LIMITATIONS.contains(&obligation.as_str())
-        })
+        .filter(|obligation| !CARRIED_CAPACITY_LIMITATIONS.contains(&obligation.as_str()))
         .count();
     if !counts.classifications_complete
         || !counts.order_coverage_complete

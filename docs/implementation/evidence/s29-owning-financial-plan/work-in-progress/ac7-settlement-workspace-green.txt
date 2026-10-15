@@ -1,0 +1,24 @@
+S29.11 AC7 cumulative native-asset settlement — work-in-progress verification
+Date: 2026-10-11
+Branch: dev
+Independent review baseline: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+
+Command: npm run check
+Exit: 0
+
+Observed checks:
+- IPC Rust, JSON Schema and TypeScript agree.
+- TypeScript check and Vite production build pass. Vite reports the existing large-bundle warning.
+- Frontend unit tests: 18 passed, 0 failed.
+- Rust workspace: 537 passed, 0 failed, 39 existing ignored.
+- Requirement traceability: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.
+- AC7 storage tests in the workspace cover cumulative multi-asset fee subtraction, over-allowance refusal, and unreserved fee-asset refusal.
+
+Scope and limit:
+- Settlement derives current claims from the immutable original native vector and cumulative fill/fee facts using exact decimals.
+- Existing legacy scalar settlement lifecycle tests remain green.
+- This is not public multileg producer-to-Prepare-to-settlement acceptance; no browser capture of rendered multileg settlement was taken.
+- The real Alpaca Support response is absent. Real-account source-use remains UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED.
+- Automated tests use synthetic or fake-only isolated fixtures; this verification made no real account read or provider write.
+
+Acceptance: AC7 and GitHub #135/#134 remain OPEN.

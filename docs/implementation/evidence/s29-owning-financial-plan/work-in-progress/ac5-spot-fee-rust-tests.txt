@@ -1,0 +1,292 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: variants `BaseLists`, `CompleteCoverage`, and `FeeDeclared` are never constructed
+  --> src-tauri/tests/support/provider_fixtures.rs:56:5
+   |
+53 | pub enum BinanceCapacityFixture {
+   |          ---------------------- variants in this enum
+...
+56 |     BaseLists,
+   |     ^^^^^^^^^
+...
+61 |     CompleteCoverage,
+   |     ^^^^^^^^^^^^^^^^
+...
+65 |     FeeDeclared,
+   |     ^^^^^^^^^^^
+   |
+   = note: `BinanceCapacityFixture` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: multiple variants are never constructed
+  --> src-tauri/tests/support/provider_fixtures.rs:90:5
+   |
+87 | pub enum BinanceCommissionFixture {
+   |          ------------------------ variants in this enum
+...
+90 |     Changed,
+   |     ^^^^^^^
+91 |     Incomplete,
+   |     ^^^^^^^^^^
+92 |     Extensions,
+   |     ^^^^^^^^^^
+93 |     ZeroBnb,
+   |     ^^^^^^^
+94 |     TinyBnb,
+   |     ^^^^^^^
+95 |     BnbSufficient,
+   |     ^^^^^^^^^^^^^
+96 |     ZeroExpression,
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `BinanceCommissionFixture` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: methods `set_order_info`, `set_order_info_error`, `set_order_info_transport_error`, and `order_writes` are never used
+  --> src-tauri/tests/support/bitget_fixtures.rs:23:12
+   |
+22 | impl Http {
+   | --------- methods in this implementation
+23 |     pub fn set_order_info(&self, order: Option<Value>) {
+   |            ^^^^^^^^^^^^^^
+...
+29 |     pub fn set_order_info_error(&self, code: Option<String>) {
+   |            ^^^^^^^^^^^^^^^^^^^^
+...
+34 |     pub fn set_order_info_transport_error(&self, enabled: bool) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+39 |     pub fn order_writes(&self) -> usize {
+   |            ^^^^^^^^^^^^
+
+warning: `tradex` (test "binance_rate_limit") generated 3 warnings
+warning: `tradex` (test "trading212") generated 3 warnings (3 duplicates)
+warning: methods `set_order_info`, `set_order_info_error`, `set_order_info_transport_error`, and `order_writes` are never used
+  --> src-tauri/tests/support/bitget_fixtures.rs:23:12
+   |
+22 | impl Http {
+   | --------- methods in this implementation
+23 |     pub fn set_order_info(&self, order: Option<Value>) {
+   |            ^^^^^^^^^^^^^^
+...
+29 |     pub fn set_order_info_error(&self, code: Option<String>) {
+   |            ^^^^^^^^^^^^^^^^^^^^
+...
+34 |     pub fn set_order_info_transport_error(&self, enabled: bool) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+39 |     pub fn order_writes(&self) -> usize {
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "binance") generated 3 warnings (3 duplicates)
+warning: `tradex` (test "providers") generated 3 warnings (3 duplicates)
+warning: `tradex` (test "bitget") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.70s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 10 tests
+test spot_fee_fx::tests::returns_none_when_the_capacity_does_not_describe_the_same_immutable_intent ... ok
+test spot_fee_fx::tests::shared_commission_binding_rejects_changed_capacity_and_symbol_identity ... ok
+test spot_fee_fx::tests::supported_local_use_and_read_only_fx_qualify_policy_valuation_but_not_execution ... ok
+test spot_fee_fx::tests::fails_closed_with_evidence_unavailable_when_no_current_commission_is_bound ... ok
+test spot_fee_fx::tests::never_reaches_qualified_or_pass_even_when_every_declared_input_is_present ... ok
+test spot_fee_fx::tests::fails_closed_with_currency_unknown_when_rates_are_valid_but_the_fee_asset_is_undeclared ... ok
+test spot_fee_fx::tests::fails_closed_with_rate_unsupported_when_the_declared_rates_are_not_exact_decimals ... ok
+test spot_fee_fx::tests::policy_valuation_route_requires_a_current_supported_source_use_purpose ... ok
+test spot_fee_fx::tests::reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent ... ok
+test spot_fee_fx::tests::active_non_bnb_place_reservation_keeps_discounted_bnb_funding_unresolved ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 244 filtered out; finished in 0.00s
+
+     Running unittests src/bin/schema-export.rs (target/debug/deps/schema_export-3d0eea20fa0f1bad)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/strategy-worker.rs (target/debug/deps/strategy_worker-5eea3ed8691573ba)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/ipc.rs (target/debug/deps/tradex_ipc-6bdddf8ad6a098d2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/tradex-order-gateway.rs (target/debug/deps/tradex_order_gateway-cc86afb1ddea9042)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/backtest.rs (target/debug/deps/backtest-1899aba2ab1682db)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/binance.rs (target/debug/deps/binance-4d2a53567e44f627)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+     Running tests/binance_market.rs (target/debug/deps/binance_market-de89c98cdc21cb29)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-58f63f5836925b44)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_market_stream_cancellation.rs (target/debug/deps/binance_market_stream_cancellation-fecb6dd9ca2af873)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_market_stream_limits.rs (target/debug/deps/binance_market_stream_limits-66a917391ef71ccb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_rate_limit.rs (target/debug/deps/binance_rate_limit-da7b294a9bfcc5ac)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/binance_rule_limits.rs (target/debug/deps/binance_rule_limits-c1ed9d131bfe61c1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-1740cd553d5aeb1f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 119 filtered out; finished in 0.00s
+
+     Running tests/bitget.rs (target/debug/deps/bitget-1bf478746e735b3b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-c30afde8cced7d2d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests/data_sources.rs (target/debug/deps/data_sources-4f6e66f026765cd0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-c68c1ca195c3ae56)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.00s
+
+     Running tests/gateway.rs (target/debug/deps/gateway-86fe3101a95b86ef)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/market.rs (target/debug/deps/market-e14fc2d5f31c6fdd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/model.rs (target/debug/deps/model-450a4fd5fd55da09)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests/order_gateway.rs (target/debug/deps/order_gateway-7978c42d4f9f10d1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests/portfolio.rs (target/debug/deps/portfolio-af18a5ed894dc141)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/providers.rs (target/debug/deps/providers-cfe4374283f4137f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.00s
+
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-fd6a4ae4cfa6b34f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/screener.rs (target/debug/deps/screener-2d2b9501f21882ae)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/screener_persistence.rs (target/debug/deps/screener_persistence-aa412525d96fbff2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/strategy.rs (target/debug/deps/strategy-7ad855f2dc625138)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/strategy_worker.rs (target/debug/deps/strategy_worker-0a48d022d423c7d1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/time.rs (target/debug/deps/time-1f28ae4bf89de7fa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/trading212.rs (target/debug/deps/trading212-f48f5bc0e4b9f1b0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/watchlists.rs (target/debug/deps/watchlists-318703c1139a5b7b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests/workspace.rs (target/debug/deps/workspace-aa9b2d6b06dfbbe8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+

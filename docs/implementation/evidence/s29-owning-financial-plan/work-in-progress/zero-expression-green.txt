@@ -1,0 +1,43 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.71s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-1740cd553d5aeb1f)
+
+running 5 tests
+test owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate ... 
+running 1 test
+test owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.13s
+
+ok
+test owning_fee_model_preserves_tiny_positive_bnb_instead_of_inventing_zero_fallback ... 
+running 1 test
+test owning_fee_model_preserves_tiny_positive_bnb_instead_of_inventing_zero_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.14s
+
+ok
+test owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion ... 
+running 1 test
+test owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.15s
+
+ok
+test owning_fee_model_selects_complete_role_after_outward_family_rounding ... 
+running 1 test
+test owning_fee_model_selects_complete_role_after_outward_family_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.12s
+
+ok
+test owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx ... 
+running 1 test
+test owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.15s
+
+ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 112 filtered out; finished in 1.93s
+

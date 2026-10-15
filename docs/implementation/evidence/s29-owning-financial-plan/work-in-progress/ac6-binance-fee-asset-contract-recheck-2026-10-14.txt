@@ -1,0 +1,15 @@
+S29.11 AC6 Binance fee-asset contract recheck — 2026-10-14
+
+Read-only review of current official Binance documentation; no provider/account request or financial action was made.
+
+Sources:
+- Binance Spot WebSocket Account API, `account.commission` and `myTrades`: https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-api/account
+- Binance Spot API glossary: https://developers.binance.com/en/docs/products/spot/faqs/spot_glossary
+- Binance Support, BNB fee deduction: https://www.binance.com/en/support/faq/detail/115000583311
+- Binance Support, Spot fee calculation: https://www.binance.com/en-GB/support/faq/how-to-calculate-binance-spot-trading-fees-e85d6e703b874674840122196b89780a
+
+The authenticated pre-trade `account.commission` response exposes standard, tax and special commission rates and BNB discount flags/asset/multiplier. The documented `myTrades` record exposes the paid `commission` and `commissionAsset` for executed trades. The API evidence therefore does not give TradeX a per-fill `commissionAsset` before execution.
+
+Binance Support describes the received asset as the usual fee asset, BNB payment when enabled and funded, and the original received-asset fee when BNB is insufficient. It also says the displayed fee is only an estimate because the final fill amount is unknown; exceptions are noted for unsupported discount cases. This guidance supports modeling conditional outcomes but does not guarantee which asset a future fill will debit or a maximum final fee. The Support page is explanatory guidance, not an account-specific agreement or entitlement record.
+
+This recheck is consistent with the pinned RevC gate. It does not justify making the owning statement `Pass`, reaching approval/Prepare, changing the future-asset guard, or seeding financial rows. The user has skipped collection of data-use basis; no source permission or account entitlement is inferred. AC5 remains waived for sequencing only and unaccepted; AC6 remains unchecked. No account/provider read, approval, Arm, consent, Prepare, dispatch, or financial action occurred.

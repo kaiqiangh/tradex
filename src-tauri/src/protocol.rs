@@ -352,6 +352,7 @@ pub enum ReplyData {
     SpotProposalRules(Box<crate::spot_proposal_rules::SpotProposalRules>),
     SpotCapacityInputs(Box<crate::spot_capacity::SpotCapacityInputs>),
     SpotCommissionInputs(Box<crate::spot_commission::SpotCommissionInputs>),
+    SpotFeeMarketProjection(Box<crate::spot_fee_market::SpotFeeMarketProjection>),
     SpotOrderIntervalInputs(Box<crate::spot_order_intervals::SpotOrderIntervalInputs>),
     RiskDecision(Box<RiskDecision>),
     RiskDecisionHistory(RiskDecisionHistory),
@@ -469,6 +470,8 @@ pub struct IpcSchema {
     pub spot_proposal_rules: crate::spot_proposal_rules::SpotProposalRules,
     pub spot_capacity_inputs: crate::spot_capacity::SpotCapacityInputs,
     pub spot_commission_inputs: crate::spot_commission::SpotCommissionInputs,
+    pub spot_fee_market_acquire: crate::spot_fee_market::SpotFeeMarketAcquire,
+    pub spot_fee_market_projection: crate::spot_fee_market::SpotFeeMarketProjection,
     pub spot_order_interval_inputs: crate::spot_order_intervals::SpotOrderIntervalInputs,
     pub risk_decision_query: RiskDecisionQuery,
     pub save_risk_policy: SaveRiskPolicy,
@@ -2054,6 +2057,113 @@ pub enum FinancialSourceKind {
     BinanceSpotRules,
 }
 
+/// Explicit Alpaca crypto data location. A failed or unsupported location never falls back.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum AlpacaCryptoLocation {
+    Us,
+    #[serde(rename = "us-1")]
+    #[schemars(rename = "us-1")]
+    Us1,
+    #[serde(rename = "eu-1")]
+    #[schemars(rename = "eu-1")]
+    Eu1,
+}
+
+/// User-reported provider UI facts used only as input to the local source-use policy.
+/// These facts are not a provider permission or entitlement assertion.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxCountrySupportConfirmation {
+    #[schemars(length(min = 2, max = 2))]
+    pub confirmed_jurisdiction: String,
+    #[schemars(length(min = 10, max = 10))]
+    pub confirmed_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub reference: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceUseContext {
+    pub market_data_plan: AlpacaMarketDataPlan,
+    #[schemars(length(min = 2, max = 2))]
+    pub account_jurisdiction: String,
+    #[schemars(length(min = 10, max = 10))]
+    pub agreement_reviewed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country_support_confirmation: Option<FxCountrySupportConfirmation>,
+    pub use_scope: FxDeclaredUseScope,
+    pub raw_data_destination: FxRawDataDestination,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaMarketDataPlan {
+    Basic,
+    AlgoTraderPlus,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxDeclaredUseScope {
+    OwnLocalNoncommercial,
+    CommercialOrShared,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxRawDataDestination {
+    LocalOnly,
+    External,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxSourceUseAssessmentStatus {
+    Unresolved,
+    SupportedForDeclaredScope,
+    OutOfProfile,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxSourceUseEvidenceProvenance {
+    NotRecorded,
+    UserReportedProviderUi,
+    UserReportedProviderSupport,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceUsePolicyDocument {
+    #[schemars(length(min = 1, max = 64))]
+    pub document_id: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub title: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub url: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub sha256: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceUseAssessment {
+    #[schemars(length(min = 1, max = 64))]
+    pub policy_version: String,
+    pub status: FxSourceUseAssessmentStatus,
+    pub provenance: FxSourceUseEvidenceProvenance,
+    pub context: Option<FxSourceUseContext>,
+    #[schemars(length(max = 8))]
+    pub documents: Vec<FxSourceUsePolicyDocument>,
+    #[schemars(length(max = 8))]
+    pub supported_purposes: Vec<String>,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FxRequirementsQuery {
@@ -2095,6 +2205,13 @@ pub enum FxRequirementNeed {
     UnknownCurrency,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxProviderDataset {
+    ForexLatestRates,
+    CryptoLatestQuotes,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FxRouteRequirement {
@@ -2113,8 +2230,10 @@ pub struct FxRouteRequirement {
     pub to_currency: Option<String>,
     pub need: FxRequirementNeed,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "String", length(min = 6, max = 6))]
+    #[schemars(with = "String", length(min = 6, max = 7))]
     pub provider_pair: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_dataset: Option<FxProviderDataset>,
     #[schemars(length(min = 1, max = 256))]
     pub reason: String,
 }
@@ -2157,6 +2276,12 @@ pub struct FinancialSourceConnection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub instrument_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_use_context: Option<FxSourceUseContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_use_assessment: Option<FxSourceUseAssessment>,
     #[schemars(length(min = 1, max = 16))]
     pub environment: String,
     pub status: DataSourceStatus,
@@ -2184,6 +2309,10 @@ pub struct FinancialSourceConfigure {
     pub expected_state_version: String,
     #[schemars(length(min = 1, max = 128))]
     pub connection_id: String,
+    #[serde(default)]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    #[serde(default)]
+    pub source_use_context: Option<FxSourceUseContext>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
@@ -2211,6 +2340,7 @@ pub enum FinancialEvidenceCapability {
     ExchangeHalts,
     AccountTradability,
     FxRateObservation,
+    FxDataUseRights,
     TransactionFxQualification,
     BrokerConversionCosts,
     MonetaryInputCompleteness,
@@ -2533,20 +2663,44 @@ pub struct BinanceSpotRuleEvidence {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FxObservedRate {
-    #[schemars(length(min = 6, max = 6))]
+    #[schemars(length(min = 6, max = 7))]
     pub provider_pair: String,
-    #[schemars(length(min = 3, max = 3))]
+    #[schemars(length(min = 3, max = 4))]
     pub from_currency: String,
-    #[schemars(length(min = 3, max = 3))]
+    #[schemars(length(min = 3, max = 4))]
     pub to_currency: String,
     #[schemars(length(min = 1, max = 64))]
     pub bid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>", length(min = 1, max = 64))]
+    pub mid: Option<String>,
     #[schemars(length(min = 1, max = 64))]
     pub ask: String,
     #[schemars(length(min = 1, max = 64))]
-    pub mid: String,
+    pub provider_timestamp: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxCryptoQuote {
+    #[schemars(length(min = 8, max = 8))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid_price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid_size: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask_price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask_size: String,
     #[schemars(length(min = 1, max = 64))]
     pub provider_timestamp: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub request_path: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub response_sha256: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_at: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2562,6 +2716,11 @@ pub struct FxRateEvidence {
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub provider_observed_at: Option<String>,
     pub requirements: FxRequirements,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 1))]
+    pub crypto_quotes: Vec<FxCryptoQuote>,
     #[schemars(length(min = 1, max = 2))]
     pub rates: Vec<FxObservedRate>,
 }
@@ -4519,6 +4678,44 @@ pub enum ExecutionReservationStatus {
     Released,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExecutionReservationClaimPurpose {
+    Principal,
+    Fee,
+}
+
+/// One native-asset allowance in an account-scoped PLACE reservation.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionReservationAssetClaim {
+    #[schemars(length(min = 1, max = 16))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub amount: String,
+    pub purpose: ExecutionReservationClaimPurpose,
+}
+
+/// Atomic per-asset capacity recorded alongside the PLACE reservation vector.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionReservationAssetCapacity {
+    #[schemars(length(min = 1, max = 16))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub requested_amount: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub broker_available: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub existing_reservations: String,
+    /// Capacity before this attempt, after existing local reservations.
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub effective_available: String,
+    /// Capacity remaining after this attempt's complete claims for this asset.
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub remaining_after_reservation: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LiveOrderObservation {
@@ -4638,6 +4835,18 @@ pub struct ExecutionReservation {
     pub amount: String,
     #[schemars(length(min = 1, max = 32))]
     pub unit: String,
+    /// Additive for old reservation captures, which remain scalar-only when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(min = 1, max = 16))]
+    pub asset_claims: Vec<ExecutionReservationAssetClaim>,
+    /// Immutable selected conditional-fee branch and received-asset allowance used by settlement.
+    /// This metadata is not an outgoing capacity claim; old scalar/vector captures omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fee_settlement_plan: Option<crate::spot_fee_model::SpotFundingPlanPreview>,
+    /// Per-asset balance capacity captured and validated in the same atomic Prepare transaction.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(min = 1, max = 16))]
+    pub asset_capacities: Vec<ExecutionReservationAssetCapacity>,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub notional: String,
     #[schemars(length(min = 1, max = 16))]
@@ -4748,6 +4957,10 @@ pub struct LiveOrderSettlement {
     pub observed_at: String,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub initial_commitment: String,
+    /// Immutable initial native claims for exactly-once per-asset settlement.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 16))]
+    pub initial_asset_claims: Vec<ExecutionReservationAssetClaim>,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub remaining_commitment: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6781,9 +6994,9 @@ impl TradeXError {
                 "Review order terms",
             ),
             "ORDER_STATUS_UNKNOWN" => (
-                "Alpaca has not established this order's status. Reconcile by client order ID; do not submit it again.",
+                "The provider has not established this order's status. Refresh this exact order; do not submit it again.",
                 "retry_provider",
-                "Reconcile order",
+                "Refresh exact order",
             ),
             "ORDER_NOT_CANCELLABLE" => (
                 "This Live order is missing, terminal, changed, or lacks an exact remaining quantity. Refresh the account and review the current order again.",
@@ -7175,6 +7388,11 @@ impl TradeXError {
                 "retry_request",
                 "Review content",
             ),
+            "ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED" => (
+                "Raw market quotes are kept in the local workspace and are not included in artifact exports.",
+                "retry_request",
+                "Review artifact",
+            ),
             "ARTIFACT_EXPORT_PATH_INVALID" => (
                 "Choose a safe local JSON filename inside the TradeX exports folder.",
                 "retry_request",
@@ -7550,7 +7768,9 @@ impl TradeXError {
                 code
             } else if matches!(
                 code,
-                "PROVIDER_PERMISSION_BLOCKED" | "ORDER_SUBMIT_FORBIDDEN"
+                "PROVIDER_PERMISSION_BLOCKED"
+                    | "ORDER_SUBMIT_FORBIDDEN"
+                    | "ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED"
             ) {
                 "PERMISSION_ERROR"
             } else if matches!(
@@ -7997,3 +8217,19 @@ pub struct PaperOrderResult {
 }
 
 pub type Result<T> = std::result::Result<T, TradeXError>;
+
+#[cfg(test)]
+mod trade_x_error_tests {
+    use super::TradeXError;
+
+    #[test]
+    fn unknown_order_status_guidance_is_provider_neutral() {
+        let error = TradeXError::new("ORDER_STATUS_UNKNOWN");
+
+        assert_eq!(
+            error.message,
+            "The provider has not established this order's status. Refresh this exact order; do not submit it again."
+        );
+        assert_eq!(error.remediation_actions[0].label, "Refresh exact order");
+    }
+}

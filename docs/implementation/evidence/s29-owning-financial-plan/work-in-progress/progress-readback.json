@@ -1,0 +1,33 @@
+{
+  "kind": "UNCOMMITTED_IMPLEMENTATION_PROGRESS_NOT_ACCEPTANCE",
+  "checkedAt": "2026-10-11T00:07:39.261124+00:00",
+  "baseline": "308747ad19e5f0fc1ba4e0b3b54b062250e317f0",
+  "implementationIssue": 135,
+  "specIssue": 134,
+  "issuesOpen": true,
+  "pendingAcceptanceCriteria": 14,
+  "newPublicBehaviorsPassed": 6,
+  "affectedOwningFeeTestsPassed": 15,
+  "actualUiFinancialAcceptance": false,
+  "schemaAndTypecheckPassed": true,
+  "ordinaryDesktopBuildOrReviewComplete": false,
+  "actualSourceSelectedOrGranted": false,
+  "prototypeChanged": false,
+  "mainChanged": false,
+  "hashes": {
+    "src-tauri/src/spot_fee_model.rs": "97f29564ea6fb83157f37da333b95a3cbaa28d15b2c1134ea22ebd4e4c563110",
+    "src-tauri/src/spot_fee_fx.rs": "f818bc3ad86824aa1191b412f07e77762caf6ed2d308badb1f5cf703ab3e19bd",
+    "src-tauri/src/spot_capacity.rs": "44441d70ccb735515e3362b80c1ad8ad67688cd46f41b7319a2f5385057e6662",
+    "src-tauri/src/lib.rs": "c4a815ce6b7f7cc77bbc1fc4fde93b1ffd1ca2d16f8188386d174443c8c45880",
+    "src/SpotFeeFxExplanation.tsx": "1430e41bb4b2568ebb2858681e61ab7a3e316c0e85c289fe49435eca92686851",
+    "tests/spot-financial-plan-ui.mjs": "bab826cd23ac5ded8f23a2f7ef2062a8f754f914bc48b648c678d02cf728d5fa",
+    "src-tauri/tests/binance_rules.rs": "f1b348912cc3c97f3122f5a074d4d632900afd81d7b1458347286b09af85ffd7",
+    "src-tauri/tests/support/provider_fixtures.rs": "08f88be16d975ad4ae21645b3058b61da1c0cc7412ee4bddf06e2cdc724bb29e",
+    "src-tauri/src/bin/ipc.rs": "3c4e7b09a4fe73f229cbd4f2764902636fb2db0a271e31da41f97927e6d764f1",
+    "shared/ipc-v1.schema.json": "30a8cc7c39fafbdca56e9a8d53ba2ee8fab46927686dc7661752a8268eb7fb2b",
+    "shared/ipc-types.ts": "99d970da342856ef7e6b331310640677eb7561ac7dd33aade77ad637c7b58a6f"
+  },
+  "ownedUiTabClosed": true,
+  "ownedVite1432ListenerAbsent": true,
+  "cleanupCheckedAt": "2026-10-11T00:12:52.545473+00:00"
+}

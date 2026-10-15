@@ -699,6 +699,8 @@ mod local_provider_tests {
                 capacity_key: "account-1:USD".into(),
                 amount: "200".into(),
                 unit: "USD".into(),
+                asset_claims: Vec::new(),
+                fee_settlement_plan: None,
                 notional: "200".into(),
                 notional_currency: "USD".into(),
                 workspace_notional: Some("200".into()),

@@ -1,0 +1,37 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+Serial isolated scenario: owning_market_buy_base_fee_is_a_received_base_deduction_at_the_real_ask
+
+running 1 test
+test owning_market_buy_base_fee_is_a_received_base_deduction_at_the_real_ask ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.64s
+
+Serial isolated scenario: owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding
+
+running 1 test
+test owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.47s
+
+Serial isolated scenario: owning_market_sell_fee_uses_the_real_current_bid_and_taker_families
+
+running 1 test
+test owning_market_sell_fee_uses_the_real_current_bid_and_taker_families ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.47s
+
+Serial isolated scenario: owning_quote_market_coverage_compares_native_quote_units_without_rounding
+
+running 1 test
+test owning_quote_market_coverage_compares_native_quote_units_without_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.67s
+
+Serial isolated scenario: owning_quote_subscale_remainder_is_not_discarded_before_fee_ceiling
+
+running 1 test
+test owning_quote_subscale_remainder_is_not_discarded_before_fee_ceiling ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.47s
+
+PASS: 5 current owning market/quote scenarios, serial isolated processes

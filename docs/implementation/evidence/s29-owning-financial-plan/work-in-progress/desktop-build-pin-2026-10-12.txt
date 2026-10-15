@@ -1,0 +1,12 @@
+# S29.11 ordinary desktop build and Gateway pin — 2026-10-12
+
+- Branch: `dev`.
+- Command: `npm run desktop:build`.
+- Exit status: 0.
+- Release Gateway build completed, followed by Tauri desktop build at `target/release/tradex`.
+- The build script atomically restored the exact Gateway bytes used to compute the embedded pin.
+- Post-build verification: `target/release/tradex-order-gateway` is executable and has SHA-256 `af0c0057c0437b19ebc83d66cc1c04733dbb1fd5b7d85f0380a4921719815f71`; `target/release/tradex` is executable and contains that exact digest.
+- Tauri ran with `--no-bundle`; this is ordinary executable/build and pin evidence, not packaged, signed, or visible native-window verification. The prior native TradeX window attempt remains unavailable to CUA.
+- No account/provider read or financial action occurred during the build.
+
+This closes the build/pin portion only. It does not satisfy source-use, real producer, positive owning-plan, settlement, actual UI, frozen handoff, or other #135 acceptance requirements. No acceptance checkbox or GitHub issue state changed.

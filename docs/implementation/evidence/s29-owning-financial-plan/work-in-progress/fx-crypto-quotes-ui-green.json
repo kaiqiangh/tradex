@@ -1,0 +1,107 @@
+{
+  "capturedAt": "2026-10-11T15:17:07.71Z",
+  "status": "WORK_IN_PROGRESS_NOT_ACCEPTANCE",
+  "environment": "Rust-backed Vite integration bridge with disposable SQLite workspace and fixture-only external HTTP/vault producers",
+  "tests": [
+    {
+      "file": "tests/fx-sources-ui.mjs",
+      "passed": true,
+      "observations": [
+        "FX account selection is saved explicitly; an unsaved account selection keeps Refresh disabled.",
+        "Fiat bid, ask and independently supplied mid render without restoring transaction-grade qualification.",
+        "The third fixture Forex response is denied; the UI reports a sanitized error and offers Reload.",
+        "Reload retains saved selection metadata only; disconnect keeps both account records and borrowed credentials.",
+        "Captured review retains its original evidence after expiry and does not enable Arm or create approval."
+      ],
+      "responsiveWidths": [
+        390,
+        768,
+        1280
+      ],
+      "approvalCount": 0,
+      "providerMutation": false
+    },
+    {
+      "file": "tests/fx-crypto-quotes-ui.mjs",
+      "passed": true,
+      "proposal": "Read-only UI-created BINANCE_LIVE BTC/USDT Spot BUY proposal; no order was submitted",
+      "route": {
+        "from": "USDT",
+        "to": "USD",
+        "providerPair": "USDTUSD",
+        "providerDataset": "CRYPTO_LATEST_QUOTES",
+        "purposeQualification": "QUALIFIED_PRICE_ONLY_POLICY_VALUATION",
+        "providerQuality": "UNQUALIFIED_FX_RATE",
+        "conservativeExecutionCost": null,
+        "freshQuoteRereadImmediatelyBeforeApprovalSnapshot": true
+      },
+      "selectedLocation": "eu-1",
+      "quote": {
+        "askPrice": "1.0001",
+        "askSize": "23.456789012",
+        "bidPrice": "0.9999",
+        "bidSize": "12.345678901",
+        "providerSymbol": "USDT/USD",
+        "providerTimestamp": "2026-10-11T15:17:06.710221Z",
+        "receivedAt": "2026-10-11T15:17:07.71Z",
+        "requestPath": "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD",
+        "responseSha256": "fd49dd92c82c2ebc3fef0b2dfe8146d7eed5194bec03cf0da4f9e9848f23aab9"
+      },
+      "rights": "UNVERIFIED",
+      "transactionFxQualification": "UNAVAILABLE",
+      "approvalEligible": false,
+      "accountArming": "DISARMED",
+      "responsive": [
+        {
+          "viewport": 1280,
+          "documentWidth": 1265,
+          "panelWidth": 385,
+          "panelClientWidth": 385
+        },
+        {
+          "viewport": 768,
+          "documentWidth": 753,
+          "panelWidth": 417,
+          "panelClientWidth": 417
+        },
+        {
+          "viewport": 390,
+          "documentWidth": 375,
+          "panelWidth": 263,
+          "panelClientWidth": 263
+        }
+      ],
+      "screenshot": "fx-crypto-quotes-ui-current.png",
+      "riskPolicyForDisposableFreshnessWindowSeconds": 30,
+      "workspacePath": "/private/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-browser-suDPmK/workspace-s29-fx-crypto-00000000-0000-4000-8000-469e92490002",
+      "approvalReview": {
+        "riskRequestRecorded": true,
+        "eligible": false,
+        "currencyConversion": "UNAVAILABLE",
+        "fxDataUseRights": "UNVERIFIED",
+        "armConsentPrepareDispatchPerformed": false
+      },
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "providerMutation": false,
+      "sourceUse": {
+        "status": "SUPPORTED_FOR_DECLARED_SCOPE",
+        "provenance": "USER_REPORTED_PROVIDER_SUPPORT",
+        "supportedPurposes": [
+          "POLICY_VALUATION"
+        ],
+        "fixtureOnly": true,
+        "actualAlpacaSupportConfirmation": "NOT_RECEIVED"
+      }
+    }
+  ],
+  "limitations": [
+    "The quote and matching Support report are produced by authenticated-shaped local fixtures, not live Alpaca requests or evidence about the real account.",
+    "Alpaca Support confirmation has not been received for the real account; actual source-use status remains UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED.",
+    "A synthetic matching report demonstrates only conditional local POLICY_VALUATION behavior; it does not establish provider entitlement.",
+    "This slice does not qualify transaction FX, complete monetary risk, or satisfy S29.11 acceptance."
+  ]
+}

@@ -1,0 +1,7 @@
+S29.11 single public RED -> GREEN behavior: RiskDecision consumes the owning fee/FX statement.
+
+Command: cargo test --test binance_rules intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth -- --exact --nocapture
+
+GREEN result: PASS (1 focused integration scenario; its isolated child scenario also passed). The synthetic USDT/USD INTENT_POLICY route is QUALIFIED for price-only valuation; the same owning statement remains UNAVAILABLE because the venue has not declared a future fee-charging asset. RiskDecision now contains SPOT_FEE_FX / UNAVAILABLE / SPOT_FEE_FX_UNAVAILABLE, with the exact statement reason, and its decision status remains UNAVAILABLE. No generic CURRENCY_CONVERSION check is added for this policy-only route. Other review contexts retain the existing generic conversion refusal.
+
+The check grants no financial authority and does not verify actual source-use rights. The synthetic Support facts remain user-reported and FX_DATA_USE_RIGHTS remains UNVERIFIED. No real account/provider was read or written; no approval, Arm, consent, Prepare, dispatch or order was performed.

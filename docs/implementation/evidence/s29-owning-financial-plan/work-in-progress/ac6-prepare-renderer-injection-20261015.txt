@@ -1,0 +1,22 @@
+AC6 supporting public Prepare renderer-injection regression — 2026-10-15
+
+At the standing typed Control Plane -> disposable SQLite/outbox seam, the existing unavailable-owning-plan scenario now separately submits renderer-supplied assetClaims, assetCapacities and fundingPlanPreview through trade.execution.prepare. Each command returns IPC_PAYLOAD_INVALID before the normal nonexistent-approval lookup. After each rejection, workspace-scoped financial approval/attempt/reservation rows and financial outbox counts equal their baseline; fake external producer calls are unchanged. The scenario's public preparation query remains empty, approval list remains empty and account remains DISARMED. No financial authority or reservation was seeded.
+
+This is coverage of an existing deny-unknown-fields boundary, which passed on its first run. No production change was needed and no implementation RED is claimed. It does not demonstrate a positive owning Spot atomic principal+fee reservation, validate account capacities on that path, or satisfy AC6 by itself. The user-retained RevC future-fee-asset refusal remains in place; source-use is still unresolved, AC5 is waived/unaccepted, AC6 is unchecked, and AC7 has not started. No real provider/account read or financial action occurred.
+
+Command: cargo test --features integration-test --test binance_rules unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state -- --exact --nocapture
+Source src-tauri/tests/binance_rules.rs SHA-256: 5513c3b280f63e09b1644f7ccb3db3c62fcb184b5963dc01b9a90db35b6c483e
+Full compiler log: /tmp/tradex-ac6-prepare-injection-20261015.log
+Formatting and both staged/unstaged diff checks passed. Full workspace suite not rerun for this test-only change.
+
+running 1 test
+
+running 1 test
+test unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.18s
+
+test unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.44s
+

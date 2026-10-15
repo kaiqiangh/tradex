@@ -1,0 +1,10 @@
+S29.11 diagnostic Spec follow-up
+Date: 2026-10-12
+Review baseline: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+Worktree HEAD: 015f4ba19b0dcba138d2a48fafb42b6323821e83 (uncommitted)
+
+The serial Spec recheck confirmed that the prior remediation correctly excludes its synthetic Alpaca Support report from ticket acceptance. It identified one second UI fixture in tests/fx-crypto-quotes-ui.mjs that also writes SYNTHETIC-SUPPORT-CASE-123 and asserts a policy result. Added a test-local comment stating that these user-reported facts exercise the policy evaluator only, are not provider evidence, and are excluded from S29.11 acceptance.
+
+Validation: node --check tests/fx-crypto-quotes-ui.mjs passed; git diff --check passed. Fresh GitHub read: #135 OPEN, 4/14 acceptance criteria checked. No issue body, checkbox, contract, or source-use state changed. No real provider/account read or financial action occurred.
+
+This closes only the annotation gap. AC1/AC9 real source-use and outbound-boundary proof, owning-plan Prepare, complete lifecycle, responsive acceptance, and final source/review handoff remain open.

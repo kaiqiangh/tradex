@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 1 test
+
+thread 'storage::execution_reservation_claim_tests::prepare_claim_vector_accepts_one_native_fee_leg_and_rejects_duplicates' (16546512) panicked at src-tauri/src/storage.rs:17188:9:
+assertion failed: validate_execution_reservation_primary_claim(&reservation).is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test storage::execution_reservation_claim_tests::prepare_claim_vector_accepts_one_native_fee_leg_and_rejects_duplicates ... FAILED
+
+failures:
+
+failures:
+    storage::execution_reservation_claim_tests::prepare_claim_vector_accepts_one_native_fee_leg_and_rejects_duplicates
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 254 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tradex --lib`

@@ -754,7 +754,27 @@ fn interval_saved_risk_assessment_keeps_bounded_original_inputs_after_reopen_wit
         "Runtime counter observations must not revive: {current}"
     );
     assert_eq!(external.calls.borrow().len(), reads);
-    assert!(!saved.to_string().contains("balances"));
+    assert!(
+        !saved["spotOrderIntervals"].to_string().contains("balances"),
+        "Interval evidence must stay bounded to its own inputs: {saved}"
+    );
+    let wallet_rows = saved["spotFeeFx"]["walletFundingEvidence"]["balances"]
+        .as_array()
+        .expect("The saved owning statement carries its bounded wallet projection");
+    for row in wallet_rows {
+        let keys = row
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<std::collections::BTreeSet<_>>();
+        assert!(keys.iter().all(|key| {
+            matches!(
+                *key,
+                "asset" | "free" | "locked" | "localClaims" | "effectiveFree"
+            )
+        }));
+    }
     assert!(!saved.to_string().contains("X-MBX"));
     assert!(!saved.to_string().contains("signature="));
     assert!(!saved.to_string().contains("private-capacity-client"));
@@ -3813,10 +3833,7 @@ fn proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rule
     let rows = decision["spotRules"]["rules"].as_array().unwrap();
     for (kind, reason) in [
         ("PERCENT_PRICE", "REFERENCE_PRICE_MISSING"),
-        (
-            "PRICE_RANGE",
-            "EXECUTION_REFERENCE_PRICE_MISSING",
-        ),
+        ("PRICE_RANGE", "EXECUTION_REFERENCE_PRICE_MISSING"),
         (
             "EXCHANGE_MAX_NUM_ORDERS",
             "CURRENT_ACCOUNT_EXCHANGE_ORDER_COUNTS_REQUIRED",
@@ -3872,7 +3889,10 @@ fn proposal_price_range_explains_selected_side_snapshot_without_placement_author
         .unwrap()
         .clone();
     assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
-    assert_eq!(row["reasonCode"], "EXECUTION_REFERENCE_PRICE_MISSING", "{row}");
+    assert_eq!(
+        row["reasonCode"], "EXECUTION_REFERENCE_PRICE_MISSING",
+        "{row}"
+    );
     assert_eq!(before["data"]["outcome"], "UNAVAILABLE");
 
     let refreshed = rules_refresh(&rig, &decision, &external);
@@ -3898,7 +3918,10 @@ fn proposal_price_range_explains_selected_side_snapshot_without_placement_author
         .unwrap()
         .clone();
     assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
-    assert_eq!(row["reasonCode"], "PRICE_RANGE_SNAPSHOT_BOUNDS_ONLY", "{row}");
+    assert_eq!(
+        row["reasonCode"], "PRICE_RANGE_SNAPSHOT_BOUNDS_ONLY",
+        "{row}"
+    );
     assert_eq!(
         refreshed["data"]["outcome"], "UNAVAILABLE",
         "A price-range snapshot preview is not placement authority: {refreshed}"
@@ -3924,8 +3947,14 @@ fn proposal_price_range_explains_selected_side_snapshot_without_placement_author
     let sell = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
     let ask = rules_refresh(&rig, &sell, &external);
     assert_eq!(ask["data"]["priceRangePreview"]["side"], "SELL", "{ask}");
-    assert_eq!(ask["data"]["priceRangePreview"]["lowerBound"], "59994", "{ask}");
-    assert_eq!(ask["data"]["priceRangePreview"]["upperBound"], "60006", "{ask}");
+    assert_eq!(
+        ask["data"]["priceRangePreview"]["lowerBound"], "59994",
+        "{ask}"
+    );
+    assert_eq!(
+        ask["data"]["priceRangePreview"]["upperBound"], "60006",
+        "{ask}"
+    );
     assert_ne!(
         ask["data"]["priceRangePreview"]["boundsDigest"], buy_digest,
         "The bound digest must bind the selected side, not only the numbers: {ask}"
@@ -4003,14 +4032,16 @@ fn proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configu
         .unwrap()
         .clone();
     assert_eq!(row["applicable"], false, "{row}");
-    assert_eq!(row["reasonCode"], "PRICE_RANGE_NOT_ENFORCED_WITHOUT_REFERENCE", "{row}");
+    assert_eq!(
+        row["reasonCode"], "PRICE_RANGE_NOT_ENFORCED_WITHOUT_REFERENCE",
+        "{row}"
+    );
     assert!(
         !external
             .calls
             .borrow()
             .iter()
-            .any(|call| call.starts_with("/api/v3/avgPrice")
-                || call.starts_with("/api/v3/trades")),
+            .any(|call| call.starts_with("/api/v3/avgPrice") || call.starts_with("/api/v3/trades")),
         "An explicit null execution reference must not fall back to average or last trade"
     );
 
@@ -4035,7 +4066,10 @@ fn proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configu
         .unwrap()
         .clone();
     assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
-    assert_eq!(row["reasonCode"], "UNSUPPORTED_ACTIVE_CONSTRAINT_SCHEMA", "{row}");
+    assert_eq!(
+        row["reasonCode"], "UNSUPPORTED_ACTIVE_CONSTRAINT_SCHEMA",
+        "{row}"
+    );
     assert!(
         unsupported["data"]["unresolvedObligations"]
             .as_array()
@@ -4057,7 +4091,10 @@ fn proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configu
     let absent = rules_get(&rig, &decision);
     let preview = &absent["data"]["priceRangePreview"];
     assert_eq!(preview["state"], "NO_RULE", "{absent}");
-    assert_eq!(preview["explanation"], "PRICE_RANGE_NOT_CONFIGURED", "{absent}");
+    assert_eq!(
+        preview["explanation"], "PRICE_RANGE_NOT_CONFIGURED",
+        "{absent}"
+    );
     assert!(preview["reference"].is_null());
     assert!(preview["lowerBound"].is_null() && preview["boundsDigest"].is_null());
     assert_eq!(absent["data"]["referencePurposes"], json!([]), "{absent}");
@@ -4071,7 +4108,10 @@ fn proposal_price_range_distinguishes_empty_partial_null_and_unsupported_configu
     );
     let calls = external.calls.borrow().len();
     let unneeded = rules_refresh(&rig, &decision, &external);
-    assert_eq!(unneeded["error"]["code"], "REFERENCE_PRICE_NOT_REQUIRED", "{unneeded}");
+    assert_eq!(
+        unneeded["error"]["code"], "REFERENCE_PRICE_NOT_REQUIRED",
+        "{unneeded}"
+    );
     assert_eq!(
         external.calls.borrow().len(),
         calls,
@@ -4108,13 +4148,19 @@ fn proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_ch
         preview["directions"][0]["lowerMultiplier"], "0",
         "An exact reported zero stays a real multiplier: {preview}"
     );
-    assert_eq!(preview["directions"][1]["lowerMultiplier"], "0.00000000000000000000000000000001");
+    assert_eq!(
+        preview["directions"][1]["lowerMultiplier"],
+        "0.00000000000000000000000000000001"
+    );
     assert_eq!(preview["lowerBound"], "0", "{refreshed}");
     assert_eq!(preview["upperBound"], "60006", "{refreshed}");
     // The same intent bound to SELL uses the ask multipliers with exact precision.
     let sell = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
     let exact = rules_refresh(&rig, &sell, &external);
-    assert_eq!(exact["data"]["priceRangePreview"]["state"], "SNAPSHOT_AVAILABLE", "{exact}");
+    assert_eq!(
+        exact["data"]["priceRangePreview"]["state"], "SNAPSHOT_AVAILABLE",
+        "{exact}"
+    );
     assert_eq!(
         exact["data"]["priceRangePreview"]["lowerBound"], "0.0000000000000000000000000006",
         "Exact decimal multiplication must not round: {exact}"
@@ -5051,10 +5097,17 @@ struct RuleRig {
 }
 impl RuleRig {
     fn new() -> Self {
+        Self::with_base_currency("USD")
+    }
+    fn with_base_currency(base_currency: &str) -> Self {
         let folder = tempfile::tempdir().unwrap();
         let mut control = ControlPlane::new(folder.path().into());
-        let workspace =
-            command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+        let workspace = command(
+            &mut control,
+            "workspace.open",
+            json!({"baseCurrency":base_currency}),
+        )["data"]["workspaceId"]
+            .clone();
         let vault = fixtures::Vault::default();
         let http = fixtures::Http::default();
         static NEXT_UID: std::sync::atomic::AtomicU64 =
@@ -5817,9 +5870,22 @@ fn owning_spot_qualification_derives_current_declared_headroom_without_granting_
     assert!(owning["declaredBaseFree"].is_null());
     assert!(owning["declaredBaseLocked"].is_null());
     assert_eq!(owning["inventorySource"], "PROVIDER_DECLARED_OPEN_ORDERS");
-    assert_eq!(owning["quotaSource"], "PROVIDER_DECLARED_ORDER_RATE_COUNTERS");
-    assert!(owning["bindingVersion"].as_str().unwrap().starts_with("sha256:"));
-    assert!(owning["stateVersion"].as_str().unwrap().starts_with("sha256:"));
+    assert_eq!(
+        owning["quotaSource"],
+        "PROVIDER_DECLARED_ORDER_RATE_COUNTERS"
+    );
+    assert!(
+        owning["bindingVersion"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
+    assert!(
+        owning["stateVersion"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:")
+    );
     // The standing provenance labels of both consumed slices are carried forward verbatim
     // instead of being promoted into a second, hidden admission veto.
     for label in [
@@ -5969,10 +6035,9 @@ fn owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evi
     // A declared order-rate interval with no matching counter is unknown coverage, not headroom.
     external.edit.set(Some(|route, body| {
         if route == "/api/v3/exchangeInfo" {
-            body["rateLimits"]
-                .as_array_mut()
-                .unwrap()
-                .push(json!({"rateLimitType":"ORDERS","interval":"MINUTE","intervalNum":1,"limit":10}));
+            body["rateLimits"].as_array_mut().unwrap().push(
+                json!({"rateLimitType":"ORDERS","interval":"MINUTE","intervalNum":1,"limit":10}),
+            );
         }
     }));
     assert_eq!(
@@ -5986,7 +6051,10 @@ fn owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evi
     let gapped = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
     assert_eq!(gapped["outcome"], "UNAVAILABLE", "{gapped}");
     assert_eq!(gapped["reasonCode"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE");
-    assert_eq!(gapped["bindingBlocker"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE");
+    assert_eq!(
+        gapped["bindingBlocker"],
+        "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+    );
     assert!(gapped["remainingOrderSlots"].is_null());
 
     // A declared count that exceeds its own declared limit is the venue's numbers disagreeing.
@@ -6021,7 +6089,10 @@ fn owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evi
     let partial = risk_evaluate(&rig, &proposal)["spotOwning"].clone();
     assert_eq!(partial["outcome"], "UNAVAILABLE", "{partial}");
     assert_eq!(partial["reasonCode"], "SPOT_CAPACITY_COVERAGE_INCOMPLETE");
-    assert_eq!(partial["bindingBlocker"], "SPOT_CAPACITY_COVERAGE_INCOMPLETE");
+    assert_eq!(
+        partial["bindingBlocker"],
+        "SPOT_CAPACITY_COVERAGE_INCOMPLETE"
+    );
 
     // A fresh intent with no bound interval observation at all is equally unavailable.
     external.edit.set(None);
@@ -6033,7 +6104,8 @@ fn owning_spot_qualification_fails_closed_on_incomplete_coverage_and_unbound_evi
     let unobserved = risk_evaluate(&rig, &unbound)["spotOwning"].clone();
     assert_eq!(unobserved["outcome"], "UNAVAILABLE", "{unobserved}");
     assert_eq!(
-        unobserved["reasonCode"], "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+        unobserved["reasonCode"],
+        "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
     );
     assert_eq!(
         unobserved["capacityUnit"], "BTC",
@@ -6128,15 +6200,15 @@ fn owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_pr
     assert_eq!(statement["feeCurrency"], "UNKNOWN", "{statement}");
     assert_eq!(statement["feeCurrencyOrigin"], "UNKNOWN", "{statement}");
     assert!(statement["expectedFee"].is_null(), "{statement}");
-    // The genuinely-required USDT -> base conversion is unsupported by the bounded producer, so it
-    // is the single binding fact; the route is named verbatim and parity is never inferred.
+    // The genuinely-required USDT -> USD conversion has a bounded producer, but no selected
+    // location or current quote evidence is bound, so it is the single binding fact.
     assert_eq!(statement["outcome"], "UNAVAILABLE", "{statement}");
     assert_eq!(
-        statement["reasonCode"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        statement["reasonCode"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
         "{statement}"
     );
     assert_eq!(
-        statement["bindingBlocker"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
         "{statement}"
     );
     let routes = statement["routes"].as_array().unwrap();
@@ -6146,8 +6218,8 @@ fn owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_pr
         .unwrap_or_else(|| panic!("The intent-policy route must be named: {statement}"));
     assert_eq!(intent["fromCurrency"], "USDT", "{statement}");
     assert_eq!(intent["toCurrency"], "USD", "{statement}");
-    assert_eq!(intent["state"], "UNSUPPORTED_ROUTE", "{statement}");
-    assert!(intent["providerPair"].is_null(), "{statement}");
+    assert_eq!(intent["state"], "EVIDENCE_UNAVAILABLE", "{statement}");
+    assert_eq!(intent["providerPair"], "USDTUSD", "{statement}");
     // Both bound evidence versions are full 71-character `sha256:` digests.
     for field in ["proposalHash", "feeEvidenceVersion", "routeEvidenceVersion"] {
         let value = statement[field].as_str().unwrap_or_default();
@@ -6161,13 +6233,1025 @@ fn owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_pr
     );
     // Execution-unqualified: the statement names no arming, consent or dispatch.
     assert!(
-        statement.as_object().unwrap().keys().all(|key| ![
-            "arm", "consent", "dispatch", "execute"
-        ]
-        .iter()
-        .any(|word| key.to_lowercase().contains(word))),
+        statement
+            .as_object()
+            .unwrap()
+            .keys()
+            .all(|key| !["arm", "consent", "dispatch", "execute"]
+                .iter()
+                .any(|word| key.to_lowercase().contains(word))),
         "{statement}"
     );
+}
+
+#[test]
+fn unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state() {
+    if isolated_rule_scenario(
+        "unavailable_owning_plan_cannot_be_prepared_or_leave_partial_financial_state",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(
+        review["data"]["eligible"], false,
+        "Missing required FX and unknown future fee asset must keep review ineligible: {review}"
+    );
+    assert_eq!(
+        review["data"]["spotFeeFx"]["outcome"], "UNAVAILABLE",
+        "{review}"
+    );
+    let proposal_id = proposal["proposalId"].as_str().unwrap();
+
+    let approvals_before = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.approval.list",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal_id}),
+    );
+    assert_eq!(approvals_before["ok"], true, "{approvals_before}");
+    assert!(
+        approvals_before["data"]["approvals"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "An ineligible review must not issue an approval: {approvals_before}"
+    );
+    let persistence_counts = || {
+        let connection = rusqlite::Connection::open_with_flags(
+            rig._folder.path().join("workspace.sqlite3"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .unwrap();
+        let workspace_id = rig.workspace.as_str().unwrap();
+        let count = |query: &str| {
+            connection
+                .query_row(query, [workspace_id], |row| row.get::<_, i64>(0))
+                .unwrap()
+        };
+        let outbox_count = |aggregate_type: &str| {
+            connection
+                .query_row(
+                    "SELECT COUNT(*) FROM outbox WHERE json_extract(envelope, '$.payload.workspaceId')=?1 AND aggregate_type=?2",
+                    rusqlite::params![workspace_id, aggregate_type],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap()
+        };
+        assert!(
+            outbox_count("account") > 0,
+            "The workspace outbox scope must include public account events before asserting absence of financial events"
+        );
+        (
+            count("SELECT COUNT(*) FROM financial_approvals WHERE workspace_id=?1"),
+            count("SELECT COUNT(*) FROM execution_attempts WHERE workspace_id=?1"),
+            count("SELECT COUNT(*) FROM execution_reservations WHERE workspace_id=?1"),
+            [
+                "financial-approval",
+                "execution-attempt",
+                "execution-reservation",
+                "execution-preparation",
+                "order-proposal-consumption",
+            ]
+            .into_iter()
+            .map(outbox_count)
+            .sum::<i64>(),
+        )
+    };
+    let persisted_before_prepare = persistence_counts();
+    assert_eq!(
+        persisted_before_prepare,
+        (0, 0, 0, 0),
+        "An ineligible review must not persist approval or execution rows"
+    );
+
+    // A caller cannot turn the Proposal into authority by supplying its ID as an approval.
+    // Prepare remains a normal public command here; no approval, reservation, or provider job
+    // can be created from the unavailable financial statement.
+    let provider_reads_before = external.calls.borrow().clone();
+    let attempted = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.execution.prepare",
+        json!({
+            "workspaceId":rig.workspace,
+            "approvalId":proposal_id,
+            "expectedApprovalStateVersion":"unissued",
+            "idempotencyKey":"unavailable-owning-plan-prepare",
+            "confirmed":true
+        }),
+    );
+    assert_eq!(attempted["ok"], false, "{attempted}");
+    assert_eq!(
+        attempted["error"]["code"], "IPC_AGGREGATE_NOT_FOUND",
+        "Only a stored eligible approval can reach Prepare: {attempted}"
+    );
+
+    // Native claims and capacities must be derived from trusted stored review evidence.
+    // Rejected renderer payloads cannot supply that authority or reach provider IO.
+    for (field, value) in [
+        (
+            "assetClaims",
+            json!([
+                {"asset":"USDT","amount":"60","purpose":"PRINCIPAL"},
+                {"asset":"BNB","amount":"0.00600042340539","purpose":"FEE"}
+            ]),
+        ),
+        (
+            "assetCapacities",
+            json!([{"asset":"USDT","free":"1000","localClaims":"0","available":"1000"}]),
+        ),
+        (
+            "fundingPlanPreview",
+            json!({
+                "principalClaim":{"asset":"USDT","amount":"60"},
+                "currentFeeClaim":{"asset":"BNB","amount":"0.00600042340539"},
+                "feeDisposition":"BNB_CURRENT_ESTIMATE"
+            }),
+        ),
+        (
+            "feeSettlementPlan",
+            json!({
+                "principalClaim":{"asset":"USDT","amount":"60"},
+                "currentFeeClaim":{"asset":"BNB","amount":"0.00600042340539"},
+                "feeDisposition":"BNB_CURRENT_ESTIMATE",
+                "fallbackFeeAsset":"BTC",
+                "fallbackFeeAmount":"0.00005000282",
+                "fallbackNetReceipt":"0.00094999718"
+            }),
+        ),
+    ] {
+        let mut payload = json!({
+            "workspaceId":rig.workspace,
+            "approvalId":proposal_id,
+            "expectedApprovalStateVersion":"unissued",
+            "idempotencyKey":format!("injected-owning-plan-{field}"),
+            "confirmed":true
+        });
+        payload[field] = value;
+        let rejected = command(
+            &mut rig.control.lock().unwrap(),
+            "trade.execution.prepare",
+            payload,
+        );
+        assert_eq!(rejected["ok"], false, "{field}: {rejected}");
+        assert_eq!(
+            rejected["error"]["code"], "IPC_PAYLOAD_INVALID",
+            "Injected {field} must be rejected before approval lookup: {rejected}"
+        );
+        assert_eq!(
+            persistence_counts(),
+            persisted_before_prepare,
+            "Injected {field} must not create partial financial rows or outbox"
+        );
+        assert_eq!(
+            *external.calls.borrow(),
+            provider_reads_before,
+            "Injected {field} must not add a provider request"
+        );
+    }
+
+    let preparation = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.execution.preparation.get",
+        json!({"workspaceId":rig.workspace,"approvalId":proposal_id}),
+    );
+    assert_eq!(preparation["ok"], true, "{preparation}");
+    assert!(
+        preparation["data"]["preparation"].is_null(),
+        "Rejected Prepare must not leave an attempt or reservation: {preparation}"
+    );
+    assert!(
+        preparation["data"]["rejections"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "A nonexistent approval must not leave a durable preparation rejection: {preparation}"
+    );
+    let approvals_after = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.approval.list",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal_id}),
+    );
+    assert_eq!(approvals_after["data"]["approvals"], json!([]));
+    let account = command(
+        &mut rig.control.lock().unwrap(),
+        "account.get",
+        json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]}),
+    );
+    assert_eq!(account["data"]["health"]["arming"], "DISARMED");
+    assert_eq!(
+        *external.calls.borrow(),
+        provider_reads_before,
+        "Rejected local Prepare must not add any provider request"
+    );
+    assert_eq!(
+        persistence_counts(),
+        persisted_before_prepare,
+        "Rejected Prepare must leave approval, attempt, reservation and execution outbox unchanged"
+    );
+}
+
+#[test]
+fn intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth() {
+    if isolated_rule_scenario(
+        "intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let binance_http = RuleHttp::default();
+    binance_http.edit.set(Some(|route, body| match route {
+        "/api/v3/account" => {
+            body["balances"] = json!([
+                {"asset":"BTC","free":"0.1","locked":"0"},
+                {"asset":"USDT","free":"1000","locked":"0"},
+                {"asset":"BNB","free":"1","locked":"0"}
+            ]);
+        }
+        "/api/v3/account/commission" => {
+            body["discount"]["enabledForAccount"] = json!(false);
+            body["discount"]["enabledForSymbol"] = json!(false);
+        }
+        _ => {}
+    }));
+    assert_eq!(rig.refresh(&binance_http)["data"]["status"], "AVAILABLE");
+    let current_policy = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.get_policy",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let mut policy = current_policy["data"]["policy"].clone();
+    policy["maxOrderNotional"] = json!("60.005");
+    policy["maxReservedCapital"] = json!("60.005");
+    let saved_policy = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.save_policy",
+        json!({"workspaceId":rig.workspace,"expectedStateVersion":current_policy["data"]["stateVersion"],"policy":policy}),
+    );
+    assert_eq!(saved_policy["ok"], true, "{saved_policy}");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &binance_http)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &binance_http)["data"]["status"],
+        "OBSERVED"
+    );
+    let mut control = rig.control.lock().unwrap();
+    let alpaca_http = fixtures::Http::default();
+    let request = json!({"requestId":"alpaca-fx-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":rig.workspace,"providerId":"alpaca","environment":"PAPER","label":"Policy valuation source"}});
+    let job = control
+        .prepare_provider_for(&request, "main")
+        .unwrap()
+        .unwrap();
+    let observed = job.run(
+        &rig.vault,
+        |_| fixtures::credentials(),
+        &alpaca_http,
+        || control.provider_job_current(&job),
+    );
+    let tested = control.complete_provider(&job, observed);
+    assert_eq!(tested["ok"], true, "{tested}");
+    let alpaca = command(
+        &mut control,
+        "provider.connect",
+        json!({"step":"confirm","workspaceId":rig.workspace,"connectionId":tested["data"]["connectionId"],"expectedStateVersion":tested["data"]["stateVersion"],"acknowledgeUnverified":true}),
+    );
+    assert_eq!(alpaca["ok"], true, "{alpaca}");
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let configured = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":rig.workspace,
+            "expectedStateVersion":source["data"]["stateVersion"],
+            "connectionId":alpaca["data"]["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-11",
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["status"],
+        "UNRESOLVED"
+    );
+    assert_eq!(
+        configured["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED"
+    );
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["status"],
+        "UNRESOLVED"
+    );
+    drop(control);
+
+    let mut fx_http = fixtures::Http::default();
+    fx_http.fx_ui = true;
+    let saved = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let refreshed = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"intent-policy-fx","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &fx_http,
+    );
+    assert_eq!(refreshed["ok"], true, "{refreshed}");
+    assert_eq!(refreshed["data"]["status"], "AVAILABLE", "{refreshed}");
+
+    let unresolved_decision = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(unresolved_decision["ok"], true, "{unresolved_decision}");
+    let statement_input_digest = |decision: &Value| {
+        decision["data"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|input| input["kind"] == "SPOT_FEE_FX")
+            .unwrap_or_else(|| {
+                panic!("The owning statement must be an approval-bound input: {decision}")
+            })["digest"]
+            .clone()
+    };
+    let unresolved_statement_digest = statement_input_digest(&unresolved_decision);
+    let unresolved_route = unresolved_decision["data"]["spotFeeFx"]["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|route| route["purpose"] == "INTENT_POLICY")
+        .unwrap();
+    assert_eq!(
+        unresolved_route["state"], "UNQUALIFIED",
+        "{unresolved_route}"
+    );
+    assert!(
+        unresolved_route["reason"]
+            .as_str()
+            .unwrap()
+            .contains("does not support POLICY_VALUATION"),
+        "{unresolved_route}"
+    );
+    assert!(
+        unresolved_decision["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"].is_null(),
+        "An unresolved source-use route cannot produce the owning monetary value"
+    );
+    let unresolved_order_notional = unresolved_decision["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["checkId"] == "ORDER_NOTIONAL")
+        .unwrap();
+    assert_eq!(
+        unresolved_order_notional["outcome"], "UNAVAILABLE",
+        "Owning Live Spot risk must not fall back to historical portfolio FX"
+    );
+
+    let supported = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.configure",
+        json!({
+            "workspaceId":rig.workspace,
+            "expectedStateVersion":saved["data"]["stateVersion"],
+            "connectionId":alpaca["data"]["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-11",
+                "countrySupportConfirmation":{
+                    "confirmedJurisdiction":"IE",
+                    "confirmedAt":"2026-10-11",
+                    "reference":"SYNTHETIC-ALPACA-SUPPORT-CASE"
+                },
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(supported["ok"], true, "{supported}");
+    assert_eq!(
+        supported["data"]["sourceUseAssessment"]["supportedPurposes"],
+        json!(["POLICY_VALUATION"]),
+        "{supported}"
+    );
+    assert_eq!(
+        supported["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "Synthetic support context permits only the local policy purpose"
+    );
+    let saved = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let refreshed = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"intent-policy-fx-supported-use","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":saved["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &fx_http,
+    );
+    assert_eq!(refreshed["ok"], true, "{refreshed}");
+    assert_eq!(refreshed["data"]["status"], "AVAILABLE", "{refreshed}");
+
+    let decision = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let supported_statement_digest = statement_input_digest(&decision);
+    assert_ne!(
+        unresolved_statement_digest, supported_statement_digest,
+        "A purpose-qualified source-use assessment changes approval-bound material"
+    );
+    let statement = &decision["data"]["spotFeeFx"];
+    let route = statement["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|route| route["purpose"] == "INTENT_POLICY")
+        .unwrap();
+    assert_eq!(route["providerPair"], "USDTUSD", "{statement}");
+    assert_eq!(route["state"], "QUALIFIED", "{statement}");
+    assert!(route["conservativeCost"].is_null(), "{statement}");
+    assert!(
+        route["reason"]
+            .as_str()
+            .unwrap()
+            .contains("conversion-transaction cost do not apply"),
+        "{statement}"
+    );
+    assert_eq!(
+        route["providerQuality"], "UNQUALIFIED_FX_RATE",
+        "{statement}"
+    );
+    assert_eq!(
+        statement["workspaceBaseExpectedSpend"], "60.006",
+        "A BUY liability uses the exact current USDT/USD ask 1.0001: {statement}"
+    );
+    let order_notional = decision["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["checkId"] == "ORDER_NOTIONAL")
+        .expect("The workspace-base owning amount must feed the existing order-notional guard");
+    assert_eq!(order_notional["outcome"], "REJECT", "{order_notional}");
+    assert_eq!(
+        order_notional["reasonCode"], "LIMIT_EXCEEDED",
+        "{order_notional}"
+    );
+    let reserved_capital = decision["data"]["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["checkId"] == "RESERVED_CAPITAL")
+        .expect("The owning Proposal amount must also feed the reservation guard");
+    assert_eq!(reserved_capital["outcome"], "REJECT", "{reserved_capital}");
+    assert_eq!(
+        reserved_capital["reasonCode"], "LIMIT_EXCEEDED",
+        "{reserved_capital}"
+    );
+    assert_eq!(
+        decision["data"]["spotFeeFx"]["outcome"], "PASS",
+        "A complete current estimate and qualified required route qualify the owning fee/FX statement"
+    );
+    assert_eq!(statement["feeCurrency"], "UNKNOWN");
+    assert!(statement["expectedFee"].is_null());
+    assert_ne!(
+        statement["bindingBlocker"], "SPOT_FEE_CURRENCY_UNKNOWN",
+        "The complete current branch and wallet qualify the conditional estimate; actual settlement asset stays unknown"
+    );
+    assert_eq!(
+        statement["currentFeeModel"]["chargingCondition"],
+        "DISCOUNT_DISABLED_CURRENT_FALLBACK"
+    );
+    assert_eq!(statement["walletFundingEvidence"]["status"], "COMPLETE");
+    let risk_checks = decision["data"]["checks"].as_array().unwrap();
+    let owning_check = risk_checks
+        .iter()
+        .find(|check| check["checkId"] == "SPOT_FEE_FX")
+        .expect("RiskDecision must consume the same owning fee/FX statement");
+    assert_eq!(owning_check["outcome"], "PASS", "{owning_check}");
+    assert_eq!(owning_check["reasonCode"], "WITHIN_LIMIT", "{owning_check}");
+    assert_eq!(
+        owning_check["reason"], statement["reason"],
+        "Risk history must retain the owning statement's exact binding reason"
+    );
+    assert_eq!(
+        decision["data"]["status"], "REJECTED",
+        "The owning amount exceeds maxOrderNotional even though independent guards remain unavailable"
+    );
+    assert!(
+        !risk_checks
+            .iter()
+            .any(|check| check["checkId"] == "CURRENCY_CONVERSION"),
+        "A qualified read-only policy valuation is not an execution conversion"
+    );
+
+    // A policy change invalidates the old proposal, so the positive monetary-risk path must
+    // create a fresh Proposal and recollect its proposal-bound inputs through public commands.
+    let current_policy = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.get_policy",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let mut permissive_policy = current_policy["data"]["policy"].clone();
+    permissive_policy["maxOrderNotional"] = json!("1000");
+    permissive_policy["maxReservedCapital"] = json!("1000");
+    let saved_policy = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.save_policy",
+        json!({
+            "workspaceId":rig.workspace,
+            "expectedStateVersion":current_policy["data"]["stateVersion"],
+            "policy":permissive_policy
+        }),
+    );
+    assert_eq!(saved_policy["ok"], true, "{saved_policy}");
+    let positive_proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &positive_proposal, &binance_http)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &positive_proposal, &binance_http)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        interval_refresh(&rig, &positive_proposal, &binance_http)["data"]["status"],
+        "OBSERVED"
+    );
+    let source = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let positive_fx = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"intent-policy-fx-positive-proposal","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":rig.workspace,"proposalId":positive_proposal["proposalId"],"expectedStateVersion":source["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &fx_http,
+    );
+    assert_eq!(positive_fx["ok"], true, "{positive_fx}");
+    let allowed_decision = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":positive_proposal["proposalId"]}),
+    );
+    assert_eq!(allowed_decision["ok"], true, "{allowed_decision}");
+    assert_eq!(
+        allowed_decision["data"]["status"], "UNAVAILABLE",
+        "The account remains disarmed and unrelated Live gates stay independent: {allowed_decision}"
+    );
+    assert_eq!(
+        allowed_decision["data"]["spotFeeFx"]["outcome"], "PASS",
+        "A complete current fee/FX statement can pass while the account remains disarmed"
+    );
+    assert!(
+        allowed_decision["data"]["spotFeeFx"]["bindingBlocker"].is_null(),
+        "A complete estimate must not be blocked only because settlement later confirms the actual asset"
+    );
+    let check = |check_id: &str| {
+        allowed_decision["data"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == check_id)
+            .unwrap_or_else(|| panic!("Missing {check_id}: {allowed_decision}"))
+    };
+    assert_eq!(
+        check("ORDER_NOTIONAL")["outcome"],
+        "PASS",
+        "{allowed_decision}"
+    );
+    assert_eq!(
+        check("RESERVED_CAPITAL")["outcome"],
+        "PASS",
+        "{allowed_decision}"
+    );
+    assert_eq!(
+        check("ACCOUNT_ARMING")["outcome"],
+        "UNAVAILABLE",
+        "This fixture must not arm or grant execution authority: {allowed_decision}"
+    );
+    let approval_review = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.request_approval",
+        json!({"workspaceId":rig.workspace,"proposalId":positive_proposal["proposalId"]}),
+    );
+    assert_eq!(approval_review["ok"], true, "{approval_review}");
+    assert_eq!(
+        approval_review["data"]["eligible"], false,
+        "{approval_review}"
+    );
+    assert_eq!(
+        approval_review["data"]["riskDecision"]["spotFeeFx"], allowed_decision["data"]["spotFeeFx"],
+        "Ineligible approval review must retain the same estimate and independent binding blocker"
+    );
+    let account_state = command(
+        &mut rig.control.lock().unwrap(),
+        "account.get",
+        json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]}),
+    );
+    assert_eq!(account_state["data"]["health"]["arming"], "DISARMED");
+    let approvals = command(
+        &mut rig.control.lock().unwrap(),
+        "trade.approval.list",
+        json!({"workspaceId":rig.workspace,"proposalId":positive_proposal["proposalId"]}),
+    );
+    assert_eq!(approvals["ok"], true, "{approvals}");
+    assert!(
+        approvals["data"]["approvals"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "An unavailable unrelated guard must not leave an approval behind: {approvals}"
+    );
+    let positive_statement_digest = statement_input_digest(&allowed_decision);
+
+    let provider_time = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap();
+    fx_http.alpaca_quote_body.replace(Some(
+        format!(r#"{{"quotes":{{"USDT/USD":{{"bp":0.98,"bs":12.345678901,"ap":1.02,"as":23.456789012,"t":"{provider_time}"}}}}}}"#)
+            .into_bytes(),
+    ));
+    let current_source = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let dislocated = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"intent-policy-fx-dislocated","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":rig.workspace,"proposalId":positive_proposal["proposalId"],"expectedStateVersion":current_source["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &fx_http,
+    );
+    assert_eq!(dislocated["ok"], true, "{dislocated}");
+    let dislocated_decision = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":positive_proposal["proposalId"]}),
+    );
+    assert_ne!(
+        positive_statement_digest,
+        statement_input_digest(&dislocated_decision),
+        "A changed selected quote and route outcome invalidate the owning material digest"
+    );
+    let dislocated_route = dislocated_decision["data"]["spotFeeFx"]["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|route| route["purpose"] == "INTENT_POLICY")
+        .unwrap();
+    assert_eq!(
+        dislocated_route["state"], "UNQUALIFIED",
+        "{dislocated_route}"
+    );
+    assert!(
+        dislocated_route["reason"]
+            .as_str()
+            .unwrap()
+            .contains("outside the reviewed one-percent policy-valuation band")
+    );
+}
+
+#[test]
+fn eur_workspace_intent_policy_names_both_required_fx_legs() {
+    if isolated_rule_scenario("eur_workspace_intent_policy_names_both_required_fx_legs") {
+        return;
+    }
+    let rig = RuleRig::with_base_currency("EUR");
+    let decision = rig.decision();
+    assert_eq!(decision["spotFeeFx"]["baseCurrency"], "EUR", "{decision}");
+    let routes = decision["spotFeeFx"]["routes"].as_array().unwrap();
+    let policy_routes = routes
+        .iter()
+        .filter(|route| route["purpose"] == "INTENT_POLICY")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        policy_routes.len(),
+        2,
+        "USDT valuation in an EUR workspace must retain both selected legs: {decision}"
+    );
+    assert!(policy_routes.iter().any(|route| {
+        route["fromCurrency"] == "USDT"
+            && route["toCurrency"] == "USD"
+            && route["providerPair"] == "USDTUSD"
+    }));
+    assert!(policy_routes.iter().any(|route| {
+        route["fromCurrency"] == "USD"
+            && route["toCurrency"] == "EUR"
+            && route["providerPair"] == "USDEUR"
+    }));
+
+    let mut control = rig.control.lock().unwrap();
+    let alpaca_http = fixtures::Http::default();
+    let request = json!({"requestId":"eur-policy-fx-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":rig.workspace,"providerId":"alpaca","environment":"PAPER","label":"Synthetic policy valuation source"}});
+    let job = control
+        .prepare_provider_for(&request, "main")
+        .unwrap()
+        .unwrap();
+    let observed = job.run(
+        &rig.vault,
+        |_| fixtures::credentials(),
+        &alpaca_http,
+        || control.provider_job_current(&job),
+    );
+    let tested = control.complete_provider(&job, observed);
+    assert_eq!(tested["ok"], true, "{tested}");
+    let alpaca = command(
+        &mut control,
+        "provider.connect",
+        json!({"step":"confirm","workspaceId":rig.workspace,"connectionId":tested["data"]["connectionId"],"expectedStateVersion":tested["data"]["stateVersion"],"acknowledgeUnverified":true}),
+    );
+    assert_eq!(alpaca["ok"], true, "{alpaca}");
+    let source = command(
+        &mut control,
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    let configured = command(
+        &mut control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":rig.workspace,
+            "expectedStateVersion":source["data"]["stateVersion"],
+            "connectionId":alpaca["data"]["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-11",
+                "countrySupportConfirmation":{
+                    "confirmedJurisdiction":"IE",
+                    "confirmedAt":"2026-10-11",
+                    "reference":"SYNTHETIC-ALPACA-SUPPORT-CASE"
+                },
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(configured["ok"], true, "{configured}");
+    assert_eq!(
+        configured["data"]["sourceUseAssessment"]["status"],
+        "SUPPORTED_FOR_DECLARED_SCOPE"
+    );
+    assert_eq!(
+        configured["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "A synthetic report tests only the conditional policy path"
+    );
+    drop(control);
+
+    let mut fx_http = fixtures::Http::default();
+    fx_http.fx_ui = true;
+    let refresh_for = |request_id: &str, proposal_id: &Value| {
+        let source = command(
+            &mut rig.control.lock().unwrap(),
+            "data.fx.connection",
+            json!({"workspaceId":rig.workspace}),
+        );
+        tradex::financial_sources::execute_refresh(
+            &rig.control,
+            &json!({"requestId":request_id,"schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal_id,"expectedStateVersion":source["data"]["stateVersion"]}}),
+            "main",
+            &rig.vault,
+            &fx_http,
+        )
+    };
+    let buy_proposal_id = decision["proposalId"].clone();
+    let buy_refresh = refresh_for("eur-policy-fx-buy", &buy_proposal_id);
+    assert_eq!(buy_refresh["ok"], true, "{buy_refresh}");
+    assert_eq!(buy_refresh["data"]["status"], "AVAILABLE", "{buy_refresh}");
+    let buy_evidence = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.connection",
+        json!({"workspaceId":rig.workspace}),
+    );
+    assert_eq!(
+        buy_evidence["data"]["status"], "AVAILABLE",
+        "{buy_evidence}"
+    );
+    assert!(
+        buy_evidence["data"]["evidence"].is_object(),
+        "{buy_evidence}"
+    );
+    let fx_requirements = buy_evidence["data"]["evidence"]["requirements"]["requirements"]
+        .as_array()
+        .unwrap_or_else(|| panic!("FX observation omitted selected requirements: {buy_evidence}"))
+        .iter()
+        .filter(|requirement| requirement["purpose"] == "INTENT_POLICY")
+        .collect::<Vec<_>>();
+    assert_eq!(fx_requirements.len(), 2, "{buy_refresh}");
+    assert!(fx_requirements.iter().any(|requirement| {
+        requirement["fromCurrency"] == "USDT"
+            && requirement["toCurrency"] == "USD"
+            && requirement["providerPair"] == "USDTUSD"
+            && requirement["providerDataset"] == "CRYPTO_LATEST_QUOTES"
+    }));
+    assert!(fx_requirements.iter().any(|requirement| {
+        requirement["fromCurrency"] == "USD"
+            && requirement["toCurrency"] == "EUR"
+            && requirement["providerPair"] == "USDEUR"
+            && requirement["providerDataset"] == "FOREX_LATEST_RATES"
+    }));
+    assert_eq!(
+        buy_evidence["data"]["evidence"]["rates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|rate| rate["providerPair"].as_str().unwrap())
+            .collect::<std::collections::BTreeSet<_>>(),
+        ["USDEUR", "USDTUSD"].into_iter().collect()
+    );
+    assert!(
+        fx_http
+            .calls
+            .borrow()
+            .contains(&"/v1beta1/forex/latest/rates?currency_pairs=USDEUR".into())
+    );
+    let buy_review = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":buy_proposal_id}),
+    );
+    assert_eq!(buy_review["ok"], true, "{buy_review}");
+    assert_eq!(
+        buy_review["data"]["spotFeeFx"]["outcome"], "UNAVAILABLE",
+        "Policy valuation does not replace the exact-symbol fee evidence gate"
+    );
+    assert_eq!(buy_review["data"]["spotFeeFx"]["feeCurrency"], "UNKNOWN");
+    assert_eq!(
+        buy_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"], "59.40594",
+        "A BUY liability uses both asks: 60 USDT * 1.0001 USD/USDT * 0.99 EUR/USD"
+    );
+    let statement_routes = buy_review["data"]["spotFeeFx"]["routes"]
+        .as_array()
+        .unwrap();
+    let ordered_policy_routes = statement_routes
+        .iter()
+        .filter(|route| route["purpose"] == "INTENT_POLICY")
+        .collect::<Vec<_>>();
+    assert_eq!(ordered_policy_routes.len(), 2);
+    assert_eq!(ordered_policy_routes[0]["providerPair"], "USDTUSD");
+    assert_eq!(ordered_policy_routes[1]["providerPair"], "USDEUR");
+    for route in statement_routes {
+        if route["purpose"] == "INTENT_POLICY" {
+            assert_eq!(route["state"], "QUALIFIED", "{route}");
+            assert_eq!(route["conservativeCost"], Value::Null, "{route}");
+        }
+    }
+
+    let sell_decision = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"SELL","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
+    let sell_proposal_id = sell_decision["proposalId"].clone();
+    let sell_refresh = refresh_for("eur-policy-fx-sell", &sell_proposal_id);
+    assert_eq!(sell_refresh["ok"], true, "{sell_refresh}");
+    assert_eq!(
+        sell_refresh["data"]["status"], "AVAILABLE",
+        "{sell_refresh}"
+    );
+    let sell_review = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.evaluate_proposal",
+        json!({"workspaceId":rig.workspace,"proposalId":sell_proposal_id}),
+    );
+    assert_eq!(sell_review["ok"], true, "{sell_review}");
+    assert_eq!(
+        sell_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"], "52.79472",
+        "A SELL receipt uses both bids: 60 USDT * 0.9999 USD/USDT * 0.88 EUR/USD"
+    );
+    println!(
+        "AC9_TEST_EVIDENCE={}",
+        json!({
+            "scenario":"EUR workspace, Binance Spot BUY and SELL policy valuation",
+            "source":"synthetic external HTTP and vault fixtures only",
+            "sourceUseAssessment":configured["data"]["sourceUseAssessment"]["status"],
+            "fxDataUseRights":configured["data"]["capabilityStatuses"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+                .unwrap()["status"],
+            "providerCalls":fx_http.calls.borrow().clone(),
+            "observedRates":buy_evidence["data"]["evidence"]["rates"],
+            "selectedPolicyRequirements":fx_requirements,
+            "buy":{
+                "notional":"60 USDT",
+                "workspaceBaseExpectedSpend":buy_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+                "routes":buy_review["data"]["spotFeeFx"]["routes"],
+                "statementOutcome":buy_review["data"]["spotFeeFx"]["outcome"],
+                "feeCurrency":buy_review["data"]["spotFeeFx"]["feeCurrency"]
+            },
+            "sell":{
+                "notional":"60 USDT",
+                "workspaceBaseExpectedSpend":sell_review["data"]["spotFeeFx"]["workspaceBaseExpectedSpend"],
+                "routes":sell_review["data"]["spotFeeFx"]["routes"],
+                "statementOutcome":sell_review["data"]["spotFeeFx"]["outcome"],
+                "feeCurrency":sell_review["data"]["spotFeeFx"]["feeCurrency"]
+            },
+            "externalProviderAccess":false,
+            "prepareArmOrDispatch":false
+        })
+    );
+}
+
+#[test]
+fn gbp_workspace_policy_requests_exact_directional_fx_without_reciprocal_or_bridge() {
+    if isolated_rule_scenario(
+        "gbp_workspace_policy_requests_exact_directional_fx_without_reciprocal_or_bridge",
+    ) {
+        return;
+    }
+    let rig = RuleRig::with_base_currency("GBP");
+    let decision = rig.decision();
+    let statement = &decision["spotFeeFx"];
+    assert_eq!(statement["baseCurrency"], "GBP", "{decision}");
+    assert_eq!(
+        statement["workspaceBaseExpectedSpend"],
+        Value::Null,
+        "{decision}"
+    );
+    assert_eq!(
+        statement["reasonCode"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
+        "{decision}"
+    );
+    let requirements = command(
+        &mut rig.control.lock().unwrap(),
+        "data.fx.requirements",
+        json!({"workspaceId":rig.workspace,"proposalId":decision["proposalId"]}),
+    );
+    assert_eq!(requirements["ok"], true, "{requirements}");
+    let requirements = requirements["data"]["requirements"].as_array().unwrap();
+    assert!(requirements.iter().any(|requirement| {
+        requirement["purpose"] == "INTENT_POLICY"
+            && requirement["fromCurrency"] == "USD"
+            && requirement["toCurrency"] == "GBP"
+            && requirement["providerPair"] == "USDGBP"
+            && requirement["providerDataset"] == "FOREX_LATEST_RATES"
+    }));
+    let policy_routes = statement["routes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|route| route["purpose"] == "INTENT_POLICY")
+        .collect::<Vec<_>>();
+    assert_eq!(policy_routes.len(), 2, "{decision}");
+    assert!(policy_routes.iter().any(|route| {
+        route["fromCurrency"] == "USDT"
+            && route["toCurrency"] == "USD"
+            && route["providerPair"] == "USDTUSD"
+    }));
+    assert!(policy_routes.iter().any(|route| {
+        route["fromCurrency"] == "USD"
+            && route["toCurrency"] == "GBP"
+            && route["providerPair"] == "USDGBP"
+            && route["state"] == "EVIDENCE_UNAVAILABLE"
+    }));
 }
 
 #[test]
@@ -6208,7 +7292,7 @@ fn owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact() {
             .any(|blocker| blocker
                 .as_str()
                 .unwrap()
-                .starts_with("SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE")),
+                .starts_with("SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE")),
         "The single binding fact must be named: {review}"
     );
     // Every blocker stays single-line so the review UI can join them with ' · '.
@@ -6242,7 +7326,7 @@ fn owning_fee_fx_stays_visible_when_capacity_evidence_is_absent() {
     );
     assert_eq!(statement["feeCurrency"], "UNKNOWN", "{statement}");
     assert_eq!(
-        statement["bindingBlocker"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
         "{statement}"
     );
     assert!(
@@ -6253,7 +7337,7 @@ fn owning_fee_fx_stays_visible_when_capacity_evidence_is_absent() {
             .any(|blocker| blocker
                 .as_str()
                 .unwrap()
-                .starts_with("SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE")),
+                .starts_with("SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE")),
         "The single binding fact must be named: {review}"
     );
 }
@@ -6275,14 +7359,14 @@ fn owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visibl
     );
     let decision = risk_evaluate(&rig, &proposal);
     let statement = &decision["spotFeeFx"];
-    // P2 priority: the unsupported required route is the single binding blocker, because a
-    // structural impossibility precedes any fee arithmetic.
+    // Missing selected-location quote evidence is the binding blocker; no fallback source or
+    // parity route is inferred.
     assert_eq!(
-        statement["reasonCode"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        statement["reasonCode"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
         "{statement}"
     );
     assert_eq!(
-        statement["bindingBlocker"], "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
         "{statement}"
     );
     // The co-occurring fee-currency fact is still reported and never silently dropped.
@@ -6295,21 +7379,22 @@ fn owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visibl
             .contains("fee currency remains UNKNOWN"),
         "The fee-currency fact must survive in the reason: {statement}"
     );
-    // The binding route is the intent-policy USDT -> base conversion that has no supported pair.
+    // The binding route is the intent-policy USDT -> USD conversion with a known pair but no
+    // selected-location evidence.
     let intent = statement["routes"]
         .as_array()
         .unwrap()
         .iter()
         .find(|route| route["purpose"] == "INTENT_POLICY")
         .expect("The intent-policy route must be named");
-    assert_eq!(intent["state"], "UNSUPPORTED_ROUTE", "{statement}");
-    assert!(intent["providerPair"].is_null(), "{statement}");
+    assert_eq!(intent["state"], "EVIDENCE_UNAVAILABLE", "{statement}");
+    assert_eq!(intent["providerPair"], "USDTUSD", "{statement}");
 }
 
 #[test]
-fn owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority() {
+fn owning_fee_fx_binds_exact_symbol_commission_separately_from_account_comparison_rates() {
     if isolated_rule_scenario(
-        "owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority",
+        "owning_fee_fx_binds_exact_symbol_commission_separately_from_account_comparison_rates",
     ) {
         return;
     }
@@ -6331,17 +7416,47 @@ fn owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without
         capacity_refresh(&rig, &proposal, &external)["data"]["status"],
         "OBSERVED"
     );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let commission_input_digest = |review: &Value| {
+        review["data"]["riskDecision"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|input| input["kind"] == "SPOT_COMMISSION")
+            .unwrap()["digest"]
+            .clone()
+    };
+    let owning_statement_input_digest = |review: &Value| {
+        review["data"]["riskDecision"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|input| input["kind"] == "SPOT_FEE_FX")
+            .unwrap_or_else(|| {
+                panic!("The owning statement must be an approval-bound input: {review}")
+            })["digest"]
+            .clone()
+    };
     let first = request_approval(&rig, &proposal);
     assert_eq!(first["ok"], true, "{first}");
     assert_eq!(first["data"]["eligible"], false, "{first}");
+    assert!(first["data"]["spotFeeFx"]["declaredMakerRate"].is_null());
+    assert!(first["data"]["spotFeeFx"]["feeRateBasis"].is_null());
     assert_eq!(
-        first["data"]["spotFeeFx"]["declaredMakerRate"], "0.0010",
-        "{first}"
+        first["data"]["riskDecision"]["spotCapacity"]["observation"]["declaredCommission"]["maker"],
+        "0.0010",
+        "Account comparison stays in its historical capacity evidence: {first}"
     );
     assert_eq!(
-        first["data"]["spotFeeFx"]["feeRateBasis"], "TAKER",
-        "{first}"
+        first["data"]["riskDecision"]["spotCommission"]["observation"]["standardCommission"]["maker"],
+        "0.00000010",
+        "The owning financial plan must bind exact-symbol terms: {first}"
     );
+    let initial_fee_evidence = first["data"]["spotFeeFx"]["feeEvidenceVersion"].clone();
+    let initial_statement_input = owning_statement_input_digest(&first);
     external.edit.set(Some(|route, body| {
         if route == "/api/v3/account" {
             body["commissionRates"] =
@@ -6355,27 +7470,79 @@ fn owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without
     let second = request_approval(&rig, &proposal);
     assert_eq!(second["ok"], true, "{second}");
     assert_eq!(second["data"]["eligible"], false, "{second}");
-    assert_eq!(
-        second["data"]["spotFeeFx"]["declaredMakerRate"], "0.0020",
-        "{second}"
-    );
-    assert_eq!(
-        second["data"]["spotFeeFx"]["feeRateBasis"], "MAKER",
-        "{second}"
-    );
+    assert!(second["data"]["spotFeeFx"]["declaredMakerRate"].is_null());
     assert_ne!(
-        first["data"]["spotFeeFx"]["feeEvidenceVersion"],
-        second["data"]["spotFeeFx"]["feeEvidenceVersion"]
+        first["data"]["riskDecision"]["spotCapacity"]["observation"]["declaredCommission"]["maker"],
+        second["data"]["riskDecision"]["spotCapacity"]["observation"]["declaredCommission"]["maker"]
     );
-    assert_ne!(
-        first["data"]["reviewDigest"],
-        second["data"]["reviewDigest"]
+    assert_eq!(
+        initial_fee_evidence, second["data"]["spotFeeFx"]["feeEvidenceVersion"],
+        "Account-level comparison changes do not change the exact-symbol fee binding: {second}"
+    );
+    assert_eq!(
+        initial_statement_input,
+        owning_statement_input_digest(&second),
+        "Historical account-level comparison rates are outside the owning statement digest: {second}"
     );
     assert!(second["data"]["spotFeeFx"]["expectedFee"].is_null());
     assert_eq!(second["data"]["spotFeeFx"]["feeCurrency"], "UNKNOWN");
     assert_eq!(
         second["data"]["spotFeeFx"]["bindingBlocker"],
-        "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+        "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
+    );
+    let previous_collection_id =
+        second["data"]["riskDecision"]["spotCommission"]["observation"]["collectionId"].clone();
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let receipt_only = request_approval(&rig, &proposal);
+    assert_eq!(receipt_only["ok"], true, "{receipt_only}");
+    assert_ne!(
+        receipt_only["data"]["riskDecision"]["spotCommission"]["observation"]["collectionId"],
+        previous_collection_id,
+        "A repeated collection must preserve a new provenance identity"
+    );
+    assert_eq!(
+        receipt_only["data"]["spotFeeFx"]["feeEvidenceVersion"],
+        second["data"]["spotFeeFx"]["feeEvidenceVersion"],
+        "Receipt-only refreshes are not new fee material"
+    );
+    assert_eq!(
+        commission_input_digest(&receipt_only),
+        commission_input_digest(&second),
+        "Receipt-only refreshes retain the same approval-bound material digest"
+    );
+    assert_eq!(
+        owning_statement_input_digest(&receipt_only),
+        owning_statement_input_digest(&second),
+        "Fresh collection provenance must not create a receipt-only owning-consent loop: {receipt_only}"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"]["maker"] = json!("0.00000050");
+        }
+    }));
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let third = request_approval(&rig, &proposal);
+    assert_eq!(third["ok"], true, "{third}");
+    assert_eq!(third["data"]["eligible"], false, "{third}");
+    assert_eq!(
+        third["data"]["riskDecision"]["spotCommission"]["observation"]["standardCommission"]["maker"],
+        "0.00000050"
+    );
+    assert_ne!(
+        second["data"]["spotFeeFx"]["feeEvidenceVersion"],
+        third["data"]["spotFeeFx"]["feeEvidenceVersion"],
+        "Exact-symbol commission changes must update owning fee evidence: {third}"
+    );
+    assert_ne!(
+        owning_statement_input_digest(&second),
+        owning_statement_input_digest(&third),
+        "Material exact-symbol commission changes must invalidate the owning review input: {third}"
     );
 }
 
@@ -6551,33 +7718,45 @@ fn capacity_commission_extension_names_must_fit_the_declared_wire_bound() {
 }
 
 #[test]
-fn owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate() {
+fn owning_fee_fx_selects_conservative_role_from_exact_commission_without_a_fee_estimate() {
     if isolated_rule_scenario(
-        "owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate",
+        "owning_fee_fx_selects_conservative_role_from_exact_commission_without_a_fee_estimate",
     ) {
         return;
     }
     let cases: [(fn(&str, &mut Value), &str); 3] = [
         (
             |route, body| {
-                if route == "/api/v3/account" {
-                    body["commissionRates"] = json!({"maker":"0.00100","taker":"0.0010","buyer":"0.0000","seller":"0.0000"});
+                if route == "/api/v3/account/commission" {
+                    body["standardCommission"] = json!({"maker":"0.00100","taker":"0.0010","buyer":"0.0000","seller":"0.0000"});
+                    body["taxCommission"] =
+                        json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                    body["specialCommission"] =
+                        json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
                 }
             },
             "TAKER",
         ),
         (
             |route, body| {
-                if route == "/api/v3/account" {
-                    body["commissionRates"] = json!({"maker":"0.0020","taker":"0.0010","buyer":"0.0000","seller":"0.0000"});
+                if route == "/api/v3/account/commission" {
+                    body["standardCommission"] = json!({"maker":"0.0020","taker":"0.0010","buyer":"0.0000","seller":"0.0000"});
+                    body["taxCommission"] =
+                        json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                    body["specialCommission"] =
+                        json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
                 }
             },
             "MAKER",
         ),
         (
             |route, body| {
-                if route == "/api/v3/account" {
-                    body["commissionRates"] = json!({"maker":"0.0010","taker":"0.0020","buyer":"0.0000","seller":"0.0000"});
+                if route == "/api/v3/account/commission" {
+                    body["standardCommission"] = json!({"maker":"0.0010","taker":"0.0020","buyer":"0.0000","seller":"0.0000"});
+                    body["taxCommission"] =
+                        json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                    body["specialCommission"] =
+                        json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
                 }
             },
             "TAKER",
@@ -6593,15 +7772,80 @@ fn owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_
             capacity_refresh(&rig, &proposal, &external)["data"]["status"],
             "OBSERVED"
         );
+        assert_eq!(
+            commission_refresh(&rig, &proposal, &external)["data"]["status"],
+            "OBSERVED"
+        );
         let decision = risk_evaluate(&rig, &proposal);
         let statement = &decision["spotFeeFx"];
-        assert_eq!(statement["feeRateBasis"], expected_basis, "{statement}");
-        assert!(statement["declaredMakerRate"].is_string());
-        assert!(statement["declaredTakerRate"].is_string());
+        assert_eq!(
+            statement["currentFeeModel"]["fallback"]["role"], expected_basis,
+            "{statement}"
+        );
+        assert!(
+            decision["spotCommission"]["observation"]["standardCommission"]["maker"].is_string()
+        );
+        assert!(
+            decision["spotCommission"]["observation"]["standardCommission"]["taker"].is_string()
+        );
         assert_eq!(statement["feeCurrency"], "UNKNOWN");
         assert!(statement["expectedFee"].is_null());
         assert_eq!(statement["outcome"], "UNAVAILABLE");
     }
+}
+
+#[test]
+fn owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset() {
+    if isolated_rule_scenario(
+        "owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["discount"]["enabledForAccount"] = json!(false);
+            body["discount"]["enabledForSymbol"] = json!(false);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+
+    let decision = risk_evaluate(&rig, &proposal);
+    let statement = &decision["spotFeeFx"];
+    assert_eq!(
+        statement["currentFeeModel"]["chargingCondition"], "DISCOUNT_DISABLED_CURRENT_FALLBACK",
+        "The test must consume a complete backend-derived current branch: {statement}"
+    );
+    assert_eq!(statement["feeCurrency"], "UNKNOWN", "{statement}");
+    assert!(
+        statement["expectedFee"].is_null(),
+        "A current model must not be stated as a future charged amount: {statement}"
+    );
+    assert!(
+        statement["reason"]
+            .as_str()
+            .unwrap()
+            .contains("exact BASE/QUOTE/BNB wallet coverage is incomplete"),
+        "A current branch cannot qualify without exact account-bound wallet coverage: {statement}"
+    );
+    assert_eq!(
+        statement["outcome"], "UNAVAILABLE",
+        "No Alpaca quote or source-use evidence has been configured in this fixture"
+    );
+    assert_eq!(
+        statement["bindingBlocker"], "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
+        "The route remains the independently binding refusal"
+    );
 }
 
 #[test]
@@ -6628,7 +7872,7 @@ fn owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation(
     let statement = &decision["spotFeeFx"];
     assert_eq!(
         statement["bindingBlocker"],
-        "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+        "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
     );
     assert!(statement["declaredMakerRate"].is_null());
     assert!(statement["declaredTakerRate"].is_null());
@@ -6636,7 +7880,7 @@ fn owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation(
         statement["reason"]
             .as_str()
             .unwrap()
-            .contains("No current declared commission observation"),
+            .contains("No current exact-symbol commission observation"),
         "Missing rates cannot be described as declared: {statement}"
     );
     assert!(
@@ -6657,9 +7901,8 @@ fn owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider
     let rig = RuleRig::new();
     let external = RuleHttp::default();
     external.edit.set(Some(|route, body| {
-        if route == "/api/v3/account" {
-            body["commissionRates"] =
-                json!({"maker":"0.0010","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"]["maker"] = json!("0.00000010");
         }
     }));
     assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
@@ -6668,16 +7911,22 @@ fn owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider
         capacity_refresh(&rig, &proposal, &external)["data"]["status"],
         "OBSERVED"
     );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
     let captured = risk_evaluate(&rig, &proposal);
-    assert_eq!(captured["spotFeeFx"]["declaredMakerRate"], "0.0010");
+    assert_eq!(
+        captured["spotCommission"]["observation"]["standardCommission"]["maker"],
+        "0.00000010"
+    );
     external.edit.set(Some(|route, body| {
-        if route == "/api/v3/account" {
-            body["commissionRates"] =
-                json!({"maker":"0.0020","taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"]["maker"] = json!("0.00000050");
         }
     }));
     assert_eq!(
-        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
         "OBSERVED"
     );
     let query = json!({"workspaceId": rig.workspace, "proposalId": proposal["proposalId"]});
@@ -6803,119 +8052,722 @@ fn symbol_commission_collects_all_declared_families_for_the_exact_account_withou
 
 #[test]
 fn symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification() {
-    if isolated_rule_scenario("symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification") { return; }
-    let rig=RuleRig::new();let external=RuleHttp::default();
-    assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");
-    let proposal=rig.decision();assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
-    let captured=risk_evaluate(&rig,&proposal);
-    assert_eq!(captured["spotCommission"]["observation"]["standardCommission"]["maker"],"0.00000010","Risk history must carry the symbol-specific declaration: {captured}");
-    let first=request_approval(&rig,&proposal);assert_eq!(first["data"]["eligible"],false);
-    external.edit.set(Some(|route,body| {if route=="/api/v3/account/commission" {body["standardCommission"]["maker"]=json!("0.00000025");body["discount"]["enabledForSymbol"]=json!(false);}}));
-    let changed=commission_refresh(&rig,&proposal,&external);assert_eq!(changed["data"]["status"],"OBSERVED");
+    if isolated_rule_scenario(
+        "symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let captured = risk_evaluate(&rig, &proposal);
+    assert_eq!(
+        captured["spotCommission"]["observation"]["standardCommission"]["maker"], "0.00000010",
+        "Risk history must carry the symbol-specific declaration: {captured}"
+    );
+    let first = request_approval(&rig, &proposal);
+    assert_eq!(first["data"]["eligible"], false);
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"]["maker"] = json!("0.00000025");
+            body["discount"]["enabledForSymbol"] = json!(false);
+        }
+    }));
+    let changed = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(changed["data"]["status"], "OBSERVED");
     assert!(changed["data"]["observation"]["conditionalDiscountAsset"].is_null());
-    let second=request_approval(&rig,&proposal);
-    assert_eq!(second["data"]["riskDecision"]["spotCommission"]["observation"]["standardCommission"]["maker"],"0.00000025");
-    assert_ne!(first["data"]["reviewDigest"],second["data"]["reviewDigest"]);
-    assert_eq!(second["data"]["eligible"],false);
-    assert_eq!(second["data"]["riskDecision"]["spotFeeFx"]["feeCurrency"],"UNKNOWN");
-    let calls=external.calls.borrow().len();
-    let history=command(&mut rig.control.lock().unwrap(),"risk.decision.list",json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}));
-    let saved=history["data"]["decisions"].as_array().unwrap().iter().find(|d|d["decisionId"]==captured["decisionId"]).unwrap();
-    assert_eq!(saved["spotCommission"],captured["spotCommission"]);
-    assert_eq!(external.calls.borrow().len(),calls,"Captured reads do not call the provider");
+    let second = request_approval(&rig, &proposal);
+    assert_eq!(
+        second["data"]["riskDecision"]["spotCommission"]["observation"]["standardCommission"]["maker"],
+        "0.00000025"
+    );
+    assert_ne!(
+        first["data"]["reviewDigest"],
+        second["data"]["reviewDigest"]
+    );
+    assert_eq!(second["data"]["eligible"], false);
+    assert_eq!(
+        second["data"]["riskDecision"]["spotFeeFx"]["feeCurrency"],
+        "UNKNOWN"
+    );
+    let calls = external.calls.borrow().len();
+    let history = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.decision.list",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == captured["decisionId"])
+        .unwrap();
+    assert_eq!(saved["spotCommission"], captured["spotCommission"]);
+    assert_eq!(
+        external.calls.borrow().len(),
+        calls,
+        "Captured reads do not call the provider"
+    );
 }
 
 #[test]
 fn symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source() {
-    if isolated_rule_scenario("symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source") {return;}
-    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["discount"]["discount"]=json!("1.00000001");}}));
-    let failed=commission_refresh(&rig,&proposal,&external);
-    assert_eq!(failed["data"]["status"],"UNAVAILABLE","An out-of-range discount is not a valid complete source: {failed}");
-    assert_eq!(failed["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+    if isolated_rule_scenario(
+        "symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["discount"]["discount"] = json!("1.00000001");
+        }
+    }));
+    let failed = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(
+        failed["data"]["status"], "UNAVAILABLE",
+        "An out-of-range discount is not a valid complete source: {failed}"
+    );
+    assert_eq!(failed["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
     assert!(failed["data"]["observation"].is_null());
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["taxCommission"].as_object_mut().unwrap().remove("seller");}}));
-    let missing=commission_refresh(&rig,&proposal,&external);
-    assert_eq!(missing["data"]["status"],"UNAVAILABLE");assert!(missing["data"]["observation"].is_null());
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["standardCommission"]["maker"]=json!(0.001);}}));
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["taxCommission"]
+                .as_object_mut()
+                .unwrap()
+                .remove("seller");
+        }
+    }));
+    let missing = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(missing["data"]["status"], "UNAVAILABLE");
+    assert!(missing["data"]["observation"].is_null());
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"]["maker"] = json!(0.001);
+        }
+    }));
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["failure"],
+        "PROVIDER_RESPONSE_INVALID"
+    );
     external.edit.set(None);
-    *external.raw.borrow_mut()=Some(("/api/v3/account/commission".into(),b"{\"symbol\":\"BTCUSDT\",\"symbol\":\"ETHUSDT\"}".to_vec()));
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
-    *external.raw.borrow_mut()=None;
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
+    *external.raw.borrow_mut() = Some((
+        "/api/v3/account/commission".into(),
+        b"{\"symbol\":\"BTCUSDT\",\"symbol\":\"ETHUSDT\"}".to_vec(),
+    ));
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["failure"],
+        "PROVIDER_RESPONSE_INVALID"
+    );
+    *external.raw.borrow_mut() = None;
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
 }
 
 #[test]
 fn symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified() {
-    if isolated_rule_scenario("symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified") {return;}
-    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=sell_proposal(&rig);
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["specialCommission"]["futureFee"]=json!("private-undeclared-fee-term");}}));
-    let source=commission_refresh(&rig,&proposal,&external);
-    assert_eq!(source["data"]["status"],"OBSERVED");let observation=&source["data"]["observation"];
-    assert_eq!(observation["receivedAsset"],"USDT","SELL receives the quote asset");
-    assert_eq!(observation["termsComplete"],false);
-    assert_eq!(observation["extensionKeys"],json!(["specialCommission.futureFee"]));
-    assert!(observation["unresolvedObligations"].as_array().unwrap().contains(&json!("UNKNOWN_ACTIVE_COMMISSION_FIELDS_UNRESOLVED")));
+    if isolated_rule_scenario(
+        "symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = sell_proposal(&rig);
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["specialCommission"]["futureFee"] = json!("private-undeclared-fee-term");
+        }
+    }));
+    let source = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(source["data"]["status"], "OBSERVED");
+    let observation = &source["data"]["observation"];
+    assert_eq!(
+        observation["receivedAsset"], "USDT",
+        "SELL receives the quote asset"
+    );
+    assert_eq!(observation["termsComplete"], false);
+    assert_eq!(
+        observation["extensionKeys"],
+        json!(["specialCommission.futureFee"])
+    );
+    assert!(
+        observation["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("UNKNOWN_ACTIVE_COMMISSION_FIELDS_UNRESOLVED"))
+    );
     assert!(!source.to_string().contains("private-undeclared-fee-term"));
-    assert_eq!(observation["chargingAssetQualified"],false);
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["discount"]["enabledForAccount"]=json!(false);}}));
-    let disabled=commission_refresh(&rig,&proposal,&external);
-    assert_eq!(disabled["data"]["status"],"OBSERVED");assert!(disabled["data"]["observation"]["conditionalDiscountAsset"].is_null());
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["discount"]["discountAsset"]=json!("FUTURETOKEN");}}));
-    let unsupported=commission_refresh(&rig,&proposal,&external);assert_eq!(unsupported["data"]["observation"]["termsComplete"],false);
-    assert!(unsupported["data"]["observation"]["unresolvedObligations"].as_array().unwrap().contains(&json!("UNSUPPORTED_DISCOUNT_ASSET")));
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["standardCommission"]["x".repeat(65)]=json!("0.1");}}));
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_RESPONSE_INVALID");
+    assert_eq!(observation["chargingAssetQualified"], false);
+    let decision = risk_evaluate(&rig, &proposal);
+    assert!(decision["spotFeeFx"]["currentFeeModel"].is_null());
+    assert_eq!(
+        decision["spotFeeFx"]["currentFeeModelFailure"],
+        "SPOT_FEE_MODEL_EVIDENCE_UNAVAILABLE"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["discount"]["enabledForAccount"] = json!(false);
+        }
+    }));
+    let disabled = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(disabled["data"]["status"], "OBSERVED");
+    assert!(disabled["data"]["observation"]["conditionalDiscountAsset"].is_null());
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["discount"]["discountAsset"] = json!("FUTURETOKEN");
+        }
+    }));
+    let unsupported = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(unsupported["data"]["observation"]["termsComplete"], false);
+    assert!(
+        unsupported["data"]["observation"]["unresolvedObligations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("UNSUPPORTED_DISCOUNT_ASSET"))
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"]["x".repeat(65)] = json!("0.1");
+        }
+    }));
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["failure"],
+        "PROVIDER_RESPONSE_INVALID"
+    );
 }
 
 #[test]
 fn symbol_commission_identity_and_provider_failures_never_reuse_an_older_success() {
-    if isolated_rule_scenario("symbol_commission_identity_and_provider_failures_never_reuse_an_older_success") {return;}
-    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["status"],"OBSERVED");
-    external.edit.set(Some(|route,body|{if route=="/api/v3/account/commission" {body["symbol"]=json!("ETHUSDT");}}));
-    assert_eq!(commission_refresh(&rig,&proposal,&external)["data"]["failure"],"PROVIDER_IDENTITY_CHANGED");
-    external.edit.set(None);external.uid.set(1);
-    let first=external.calls.borrow().len();let mismatched=commission_refresh(&rig,&proposal,&external);
-    assert_eq!(mismatched["data"]["failure"],"PROVIDER_IDENTITY_CHANGED");assert_eq!(external.calls.borrow().len()-first,2,"A wrong UID stops before the symbol read");
-    external.uid.set(rig.account["data"]["remoteAccountId"].as_str().unwrap().parse().unwrap());
-    for (status,reason) in [(401,"PROVIDER_AUTHENTICATION_FAILED"),(403,"PROVIDER_PERMISSION_BLOCKED"),(500,"PROVIDER_UNAVAILABLE"),(429,"PROVIDER_RATE_LIMITED")] {
-        *external.response.borrow_mut()=Some(("/api/v3/account/commission".into(),status,2));
-        let result=commission_refresh(&rig,&proposal,&external);assert_eq!(result["data"]["status"],"UNAVAILABLE","{result}");assert_eq!(result["data"]["failure"],reason);assert!(result["data"]["observation"].is_null());
+    if isolated_rule_scenario(
+        "symbol_commission_identity_and_provider_failures_never_reuse_an_older_success",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["symbol"] = json!("ETHUSDT");
+        }
+    }));
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["failure"],
+        "PROVIDER_IDENTITY_CHANGED"
+    );
+    external.edit.set(None);
+    external.uid.set(1);
+    let first = external.calls.borrow().len();
+    let mismatched = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(mismatched["data"]["failure"], "PROVIDER_IDENTITY_CHANGED");
+    assert_eq!(
+        external.calls.borrow().len() - first,
+        2,
+        "A wrong UID stops before the symbol read"
+    );
+    external.uid.set(
+        rig.account["data"]["remoteAccountId"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap(),
+    );
+    for (status, reason) in [
+        (401, "PROVIDER_AUTHENTICATION_FAILED"),
+        (403, "PROVIDER_PERMISSION_BLOCKED"),
+        (500, "PROVIDER_UNAVAILABLE"),
+        (429, "PROVIDER_RATE_LIMITED"),
+    ] {
+        *external.response.borrow_mut() = Some(("/api/v3/account/commission".into(), status, 2));
+        let result = commission_refresh(&rig, &proposal, &external);
+        assert_eq!(result["data"]["status"], "UNAVAILABLE", "{result}");
+        assert_eq!(result["data"]["failure"], reason);
+        assert!(result["data"]["observation"].is_null());
     }
 }
 
 #[test]
 fn symbol_commission_late_source_generation_and_renderer_authority_are_refused() {
-    if isolated_rule_scenario("symbol_commission_late_source_generation_and_renderer_authority_are_refused") {return;}
-    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
-    let before=commission_get(&rig,&proposal);let first=external.calls.borrow().len();
-    let forged=tradex::financial_sources::execute_refresh(&rig.control,&json!({"requestId":"forged-fee","schemaVersion":1,"command":"trade.spot_commission.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"],"qualification":"PASS"}}),"main",&rig.vault,&external);
-    assert_eq!(forged["ok"],false);assert_eq!(external.calls.borrow().len(),first);
-    let control=rig.control.clone();let workspace=rig.workspace.clone();let account_id=rig.account["connectionId"].clone();
-    *external.hook.borrow_mut()=Some(("/api/v3/account/commission".into(),Box::new(move || {
-        let mut cp=control.lock().unwrap();let source=command(&mut cp,"data.binance_rules.connection",json!({"workspaceId":workspace}));
-        let changed=command(&mut cp,"data.binance_rules.configure",json!({"workspaceId":workspace,"connectionId":account_id,"instrumentId":"crypto:BTC/USDT:spot","expectedStateVersion":source["data"]["stateVersion"]}));assert_eq!(changed["ok"],true);
-    })));
-    let late=commission_refresh(&rig,&proposal,&external);assert_eq!(late["error"]["code"],"STATE_VERSION_CONFLICT","{late}");
-    *external.hook.borrow_mut()=None;
-    assert!(commission_get(&rig,&proposal)["data"]["observation"].is_null());
-    let unavailable=commission_refresh(&rig,&proposal,&external);assert_eq!(unavailable["error"]["code"],"ORDER_FILTERS_UNAVAILABLE");
+    if isolated_rule_scenario(
+        "symbol_commission_late_source_generation_and_renderer_authority_are_refused",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let before = commission_get(&rig, &proposal);
+    let first = external.calls.borrow().len();
+    let forged = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"forged-fee","schemaVersion":1,"command":"trade.spot_commission.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":before["data"]["stateVersion"],"qualification":"PASS"}}),
+        "main",
+        &rig.vault,
+        &external,
+    );
+    assert_eq!(forged["ok"], false);
+    assert_eq!(external.calls.borrow().len(), first);
+    let control = rig.control.clone();
+    let workspace = rig.workspace.clone();
+    let account_id = rig.account["connectionId"].clone();
+    *external.hook.borrow_mut() = Some((
+        "/api/v3/account/commission".into(),
+        Box::new(move || {
+            let mut cp = control.lock().unwrap();
+            let source = command(
+                &mut cp,
+                "data.binance_rules.connection",
+                json!({"workspaceId":workspace}),
+            );
+            let changed = command(
+                &mut cp,
+                "data.binance_rules.configure",
+                json!({"workspaceId":workspace,"connectionId":account_id,"instrumentId":"crypto:BTC/USDT:spot","expectedStateVersion":source["data"]["stateVersion"]}),
+            );
+            assert_eq!(changed["ok"], true);
+        }),
+    ));
+    let late = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(late["error"]["code"], "STATE_VERSION_CONFLICT", "{late}");
+    *external.hook.borrow_mut() = None;
+    assert!(commission_get(&rig, &proposal)["data"]["observation"].is_null());
+    let unavailable = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(unavailable["error"]["code"], "ORDER_FILTERS_UNAVAILABLE");
 }
 
 #[test]
 fn symbol_commission_expires_without_renewal_and_captured_history_survives_reopen() {
-    if isolated_rule_scenario("symbol_commission_expires_without_renewal_and_captured_history_survives_reopen") {return;}
-    let rig=RuleRig::new();let external=RuleHttp::default();assert_eq!(rig.refresh(&external)["data"]["status"],"AVAILABLE");let proposal=rig.decision();
-    let collected=commission_refresh(&rig,&proposal,&external);assert_eq!(collected["data"]["status"],"OBSERVED");let captured=risk_evaluate(&rig,&proposal);
-    let calls=external.calls.borrow().len();std::thread::sleep(std::time::Duration::from_secs(6));
-    let expired=commission_get(&rig,&proposal);assert_eq!(expired["data"]["status"],"STALE");assert!(expired["data"]["observation"].is_null());assert_eq!(external.calls.borrow().len(),calls);
-    let query=json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]});
-    let RuleRig{_folder,control,..}=rig;drop(control);
-    let mut reopened=ControlPlane::new(_folder.path().into());assert_eq!(command(&mut reopened,"workspace.open",json!({}))["ok"],true);
-    let history=command(&mut reopened,"risk.decision.list",query);
-    let saved=history["data"]["decisions"].as_array().unwrap().iter().find(|d|d["decisionId"]==captured["decisionId"]).unwrap();
-    assert_eq!(saved["spotCommission"],captured["spotCommission"]);assert_eq!(external.calls.borrow().len(),calls);
+    if isolated_rule_scenario(
+        "symbol_commission_expires_without_renewal_and_captured_history_survives_reopen",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    let collected = commission_refresh(&rig, &proposal, &external);
+    assert_eq!(collected["data"]["status"], "OBSERVED");
+    let captured = risk_evaluate(&rig, &proposal);
+    let calls = external.calls.borrow().len();
+    std::thread::sleep(std::time::Duration::from_secs(6));
+    let expired = commission_get(&rig, &proposal);
+    assert_eq!(expired["data"]["status"], "STALE");
+    assert!(expired["data"]["observation"].is_null());
+    assert_eq!(external.calls.borrow().len(), calls);
+    let query = json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]});
+    let RuleRig {
+        _folder, control, ..
+    } = rig;
+    drop(control);
+    let mut reopened = ControlPlane::new(_folder.path().into());
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let history = command(&mut reopened, "risk.decision.list", query);
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == captured["decisionId"])
+        .unwrap();
+    assert_eq!(saved["spotCommission"], captured["spotCommission"]);
+    assert_eq!(external.calls.borrow().len(), calls);
+}
+
+#[test]
+fn owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx() {
+    if isolated_rule_scenario(
+        "owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["discount"]["enabledForSymbol"] = json!(false);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let model = &decision["spotFeeFx"]["currentFeeModel"];
+    // Independently worked literals for received0.001BTC: complete TAKER+BUYER
+    // standard0.00000050, tax0.00000232, special0.05000000. Account-level
+    // comparison rates cannot produce these family amounts.
+    assert_eq!(model["method"], "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1");
+    assert_eq!(model["class"], "CURRENT_ORDER_SCENARIO");
+    assert_eq!(model["receivedAsset"], "BTC");
+    assert_eq!(model["grossReceived"], "0.001");
+    assert_eq!(model["fallback"]["role"], "TAKER");
+    assert_eq!(model["fallback"]["standard"], "0.0000000005");
+    assert_eq!(model["fallback"]["tax"], "0.00000000232");
+    assert_eq!(model["fallback"]["special"], "0.00005");
+    assert_eq!(model["fallback"]["total"], "0.00005000282");
+    assert_eq!(model["fallback"]["netReceived"], "0.00094999718");
+    assert_eq!(
+        model["fundingPlanPreview"]["principalClaim"]["asset"],
+        "USDT"
+    );
+    assert_eq!(
+        model["fundingPlanPreview"]["principalClaim"]["amount"],
+        "60"
+    );
+    assert_eq!(
+        model["fundingPlanPreview"]["feeDisposition"],
+        "RECEIVED_ASSET_DEDUCTION"
+    );
+    assert_eq!(model["fundingPlanPreview"]["currentFeeClaim"], Value::Null);
+    assert_eq!(
+        model["chargingCondition"],
+        "DISCOUNT_DISABLED_CURRENT_FALLBACK"
+    );
+    assert!(
+        model["limitations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("VENUE_PER_FILL_ROUNDING_UNPROVEN"))
+    );
+    assert_eq!(model["fallbackCandidates"].as_array().unwrap().len(), 2);
+    assert_eq!(model["fallbackCandidates"][0]["role"], "MAKER");
+    assert_eq!(model["fallbackCandidates"][0]["total"], "0.0000400027");
+    assert_eq!(
+        model["fallbackCandidates"][0]["netReceived"],
+        "0.0009599973"
+    );
+    assert_eq!(model["fallbackCandidates"][1]["role"], "TAKER");
+    // A numeric current scenario cannot qualify missing FX or create approval.
+    assert_eq!(decision["spotFeeFx"]["outcome"], "UNAVAILABLE");
+    assert_eq!(decision["spotFeeFx"]["feeCurrency"], "UNKNOWN");
+    assert_ne!(
+        decision["spotFeeFx"]["bindingBlocker"], "SPOT_FEE_CURRENCY_UNKNOWN",
+        "A complete conditional estimate must not be the blocker when independent FX evidence is missing: {decision}"
+    );
+    let review = request_approval(&rig, &proposal);
+    assert_eq!(review["data"]["eligible"], false);
+    assert_eq!(review["data"]["spotFeeFx"]["currentFeeModel"], *model);
+}
+
+#[test]
+fn owning_fee_model_selects_complete_role_after_outward_family_rounding() {
+    if isolated_rule_scenario(
+        "owning_fee_model_selects_complete_role_after_outward_family_rounding",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["standardCommission"] = json!({"maker":"0.0000000000000009","taker":"0.0000000000000004","buyer":"0","seller":"0"});
+            body["taxCommission"] = json!({"maker":"0","taker":"0.0000000000000004","buyer":"0","seller":"0"});
+            body["specialCommission"] = json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+            body["discount"]["enabledForAccount"] = json!(false);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let model = &decision["spotFeeFx"]["currentFeeModel"];
+    // Before rounding MAKER0.9e-18 exceeds TAKER0.8e-18. Independently
+    // rounded families instead give MAKER1e-18 versus TAKER2e-18.
+    assert_eq!(model["fallback"]["role"], "TAKER");
+    assert_eq!(model["fallback"]["standard"], "0.000000000000000001");
+    assert_eq!(model["fallback"]["tax"], "0.000000000000000001");
+    assert_eq!(model["fallback"]["special"], "0");
+    assert_eq!(model["fallback"]["total"], "0.000000000000000002");
+    assert_eq!(model["fallback"]["netReceived"], "0.000999999999999998");
+    assert_eq!(decision["spotFeeFx"]["outcome"], "UNAVAILABLE");
+}
+
+#[test]
+fn owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion() {
+    if isolated_rule_scenario(
+        "owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["balances"] = json!([
+                {"asset":"BTC","free":"0.10000000","locked":"0.02000000"},
+                {"asset":"USDT","free":"500.00000000","locked":"300.00000000"},
+                {"asset":"BNB","free":"0.00000000","locked":"2.00000000"}
+            ]);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let model = &decision["spotFeeFx"]["currentFeeModel"];
+    assert_eq!(model["chargingCondition"], "ZERO_BNB_CURRENT_FALLBACK");
+    assert_eq!(model["bnbFundingEvidence"]["asset"], "BNB");
+    assert_eq!(model["bnbFundingEvidence"]["free"], "0.00000000");
+    assert_eq!(model["bnbFundingEvidence"]["locked"], "2.00000000");
+    assert_eq!(model["bnbFundingEvidence"]["localClaims"], "0");
+    assert_eq!(model["bnbFundingEvidence"]["effectiveFree"], "0.00000000");
+    assert_eq!(model["fallback"]["total"], "0.00005000282");
+    assert_eq!(
+        model["fundingPlanPreview"]["feeDisposition"],
+        "RECEIVED_ASSET_DEDUCTION"
+    );
+    assert_eq!(model["fundingPlanPreview"]["currentFeeClaim"], Value::Null);
+    assert_eq!(model["fundingPlanPreview"]["fallbackFeeAsset"], "BTC");
+    assert!(
+        model["bnbFee"].is_null(),
+        "An unused BNB conversion is absent, not a fabricated0 fee"
+    );
+    assert!(
+        external
+            .calls
+            .borrow()
+            .iter()
+            .all(|path| !path.contains("BNBUSDT"))
+    );
+    assert_eq!(decision["spotFeeFx"]["outcome"], "UNAVAILABLE");
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+}
+
+#[test]
+fn owning_fee_model_preserves_tiny_positive_bnb_instead_of_inventing_zero_fallback() {
+    if isolated_rule_scenario(
+        "owning_fee_model_preserves_tiny_positive_bnb_instead_of_inventing_zero_fallback",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["balances"] = json!([
+                {"asset":"BTC","free":"0.10000000","locked":"0.02000000"},
+                {"asset":"USDT","free":"500.00000000","locked":"300.00000000"},
+                {"asset":"BNB","free":"0.000000000000000000001","locked":"0"}
+            ]);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let model = &decision["spotFeeFx"]["currentFeeModel"];
+    assert_eq!(
+        model["chargingCondition"],
+        "CONDITIONAL_BNB_INPUTS_REQUIRED"
+    );
+    assert_eq!(
+        model["bnbFundingEvidence"]["effectiveFree"],
+        "0.000000000000000000001"
+    );
+    assert_eq!(
+        model["fundingPlanPreview"]["feeDisposition"],
+        "CONDITIONAL_INPUTS_REQUIRED"
+    );
+    assert_eq!(model["fundingPlanPreview"]["currentFeeClaim"], Value::Null);
+    assert_eq!(model["bnbFundingEvidence"]["localClaims"], "0");
+    assert_eq!(decision["spotFeeFx"]["outcome"], "UNAVAILABLE");
+}
+
+#[test]
+fn owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate() {
+    if isolated_rule_scenario(
+        "owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account/commission" {
+            body["taxCommission"] = json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+            body["specialCommission"] = json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+            body["discount"]["discount"] = json!("0");
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    // No wallet collection is needed to prove this exact algebraic zero.
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let decision = risk_evaluate(&rig, &proposal);
+    let model = &decision["spotFeeFx"]["currentFeeModel"];
+    assert_eq!(
+        model["fallback"]["preRounding"]["tax"],
+        json!({"numerator":"0","denominator":"1"})
+    );
+    assert_eq!(
+        model["fallback"]["preRounding"]["special"],
+        json!({"numerator":"0","denominator":"1"})
+    );
+
+    assert_eq!(model["chargingCondition"], "ZERO_DISCOUNTED_FEE_EXPRESSION");
+    assert_eq!(
+        model["fundingPlanPreview"]["feeDisposition"],
+        "NO_CURRENT_FEE"
+    );
+    assert_eq!(model["fundingPlanPreview"]["currentFeeClaim"], Value::Null);
+    assert_eq!(model["discountedFeeIsExactlyZero"], true);
+    assert!(model["bnbFundingEvidence"].is_null());
+    assert!(
+        model["bnbFee"].is_null(),
+        "Known zero does not invent a conversion or paid asset"
+    );
+    assert!(
+        external
+            .calls
+            .borrow()
+            .iter()
+            .all(|path| !path.contains("BNBUSDT"))
+    );
+    assert_eq!(decision["spotFeeFx"]["outcome"], "UNAVAILABLE");
+}
+
+#[test]
+fn owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof() {
+    if isolated_rule_scenario(
+        "owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let external = RuleHttp::default();
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["balances"] = json!([
+                {"asset":"BTC","free":"0.1","locked":"0.02"},
+                {"asset":"USDT","free":"500","locked":"300"},
+                {"asset":"BNB","free":"0","locked":"2"}
+            ]);
+        }
+    }));
+    assert_eq!(rig.refresh(&external)["data"]["status"], "AVAILABLE");
+    let proposal = rig.decision();
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    assert_eq!(
+        commission_refresh(&rig, &proposal, &external)["data"]["status"],
+        "OBSERVED"
+    );
+    let complete = risk_evaluate(&rig, &proposal);
+    assert_eq!(
+        complete["spotFeeFx"]["currentFeeModel"]["chargingCondition"],
+        "ZERO_BNB_CURRENT_FALLBACK"
+    );
+    let complete_wallet = &complete["spotFeeFx"]["walletFundingEvidence"];
+    assert_eq!(complete_wallet["status"], "COMPLETE");
+    assert_eq!(
+        complete_wallet["requiredAssets"],
+        json!(["BTC", "USDT", "BNB"])
+    );
+    assert_eq!(complete_wallet["missingAssets"], json!([]));
+    assert_eq!(complete_wallet["balances"].as_array().unwrap().len(), 3);
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["balances"] = json!([
+                {"asset":"BTC","free":"0.1","locked":"0.02"},
+                {"asset":"USDT","free":"500","locked":"300"}
+            ]);
+        }
+    }));
+    let missing_capacity = capacity_refresh(&rig, &proposal, &external);
+    assert_eq!(missing_capacity["data"]["status"], "OBSERVED");
+    let missing = risk_evaluate(&rig, &proposal);
+    let missing_wallet = &missing["spotFeeFx"]["walletFundingEvidence"];
+    assert_eq!(missing_wallet["status"], "INCOMPLETE");
+    assert_eq!(missing_wallet["missingAssets"], json!(["BNB"]));
+    assert_eq!(missing_wallet["balances"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        missing_wallet["collectionId"],
+        missing_capacity["data"]["observation"]["collectionId"]
+    );
+    assert_eq!(
+        missing["spotFeeFx"]["currentFeeModel"]["chargingCondition"],
+        "CONDITIONAL_BNB_INPUTS_REQUIRED"
+    );
+    assert!(missing["spotFeeFx"]["currentFeeModel"]["bnbFundingEvidence"].is_null());
+    external.edit.set(Some(|route, body| {
+        if route == "/api/v3/account" {
+            body["balances"] = json!([
+                {"asset":"BTC","free":"0.1","locked":"0.02"},
+                {"asset":"BNB","free":"0","locked":"2"},
+                {"asset":"BNB","free":"0","locked":"0"}
+            ]);
+        }
+    }));
+    let duplicate = capacity_refresh(&rig, &proposal, &external);
+    assert_eq!(duplicate["data"]["status"], "UNAVAILABLE");
+    assert_eq!(duplicate["data"]["failure"], "PROVIDER_RESPONSE_INVALID");
+    let retired = risk_evaluate(&rig, &proposal);
+    let retired_wallet = &retired["spotFeeFx"]["walletFundingEvidence"];
+    assert_eq!(retired_wallet["status"], "UNAVAILABLE");
+    assert_eq!(retired_wallet["balances"], json!([]));
+    assert!(retired_wallet["collectionId"].is_null());
+    assert!(retired_wallet["originalDigest"].is_null());
+    assert!(retired["spotFeeFx"]["currentFeeModel"]["bnbFundingEvidence"].is_null());
+    assert_eq!(
+        retired["spotFeeFx"]["currentFeeModel"]["chargingCondition"],
+        "CONDITIONAL_BNB_INPUTS_REQUIRED"
+    );
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
 }

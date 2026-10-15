@@ -1,0 +1,11 @@
+S29.11 Standards diagnostic review — 2026-10-12
+
+Fixed review base: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+HEAD at review: 015f4ba19b0dcba138d2a48fafb42b6323821e83
+Scope: current tracked worktree diff plus untracked S29.11 source, test and evidence files.
+
+Finding: `docs/FILE_MANIFEST.md` had stale SHA-256 values for the current English and Chinese Frontend and Backend ARDs. Current line counts remained accurate. The four hashes were recomputed from the current files and updated.
+
+Judgement-only observations: two fee reference types repeat evidence identity fields; two browser helpers repeat parts of integration setup. No other documented-standard violation was reported. These are not acceptance blockers.
+
+Review source: root `AGENTS.md` and `docs/agents/domain.md`. No source files were edited by the reviewer; no real provider/account access or financial action occurred.

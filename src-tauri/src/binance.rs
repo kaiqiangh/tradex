@@ -91,6 +91,16 @@ fn testnet_ip_retry_at() -> Option<(String, &'static str)> {
 }
 
 pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
+    // Fixed ordinary public fee inputs only. This does not admit a signed
+    // account/order route, a Testnet path or any BNB financial mutation.
+    if endpoint == ProviderEndpoint::BinanceLive
+        && matches!(
+            path,
+            "/api/v3/exchangeInfo?symbol=BNBUSDT" | "/api/v3/depth?symbol=BNBUSDT&limit=1000"
+        )
+    {
+        return true;
+    }
     if endpoint == ProviderEndpoint::BinanceLive
         && matches!(
             path,

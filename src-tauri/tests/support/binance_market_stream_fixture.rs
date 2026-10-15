@@ -52,6 +52,7 @@ impl Fixture {
         let symbol = match instrument {
             "crypto:BTC/USDT:spot" => "btcusdt",
             "crypto:ETH/USDT:spot" => "ethusdt",
+            "internal:BNB/USDT:fee" => "bnbusdt",
             _ => {
                 return Err(tradex::protocol::TradeXError::new(
                     "MARKET_INSTRUMENT_INVALID",
@@ -80,6 +81,11 @@ pub fn start() -> io::Result<Fixture> {
     let ledger = Arc::new(Ledger::default());
     ledger.snapshot_base.store(START, Ordering::Release);
     let observed = ledger.clone();
+    let symbol_bases = Arc::new(std::sync::Mutex::new(std::collections::HashMap::<
+        String,
+        u64,
+    >::new()));
+    let rest_bases = symbol_bases.clone();
     thread::spawn(move || {
         for accepted in rest.incoming() {
             let Ok(mut socket) = accepted else { break };
@@ -104,7 +110,19 @@ pub fn start() -> io::Result<Fixture> {
                 paths.push(path.into());
             }
             drop(paths);
-            let base = observed.snapshot_base.load(Ordering::Acquire);
+            let pair = if path.contains("symbol=BTCUSDT") {
+                "BTCUSDT"
+            } else if path.contains("symbol=ETHUSDT") {
+                "ETHUSDT"
+            } else {
+                "BNBUSDT"
+            };
+            let base = rest_bases
+                .lock()
+                .unwrap()
+                .get(pair)
+                .copied()
+                .unwrap_or(START);
             let body = match path {
                 "/api/v3/time" => {
                     json!({"serverTime":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64})
@@ -114,6 +132,12 @@ pub fn start() -> io::Result<Fixture> {
                 }
                 "/api/v3/depth?symbol=ETHUSDT&limit=1000" => {
                     json!({"lastUpdateId":base,"bids":[["3500","1"],["3499","2"]],"asks":[["3501","1"],["3502","2"]]})
+                }
+                "/api/v3/exchangeInfo?symbol=BNBUSDT" => {
+                    json!({"symbols":[{"symbol":"BNBUSDT","baseAsset":"BNB","quoteAsset":"USDT","status":"TRADING"}]})
+                }
+                "/api/v3/depth?symbol=BNBUSDT&limit=1000" => {
+                    json!({"lastUpdateId":base,"bids":[["500","1"],["499","2"]],"asks":[["501","1"],["502","2"]]})
                 }
                 _ => panic!("Unexpected public market route"),
             };
@@ -131,77 +155,85 @@ pub fn start() -> io::Result<Fixture> {
     thread::spawn(move || {
         for accepted in stream.incoming() {
             let Ok(tcp) = accepted else { break };
-            let _ = tcp.set_read_timeout(Some(Duration::from_secs(2)));
-            let mut symbol = "";
-            let Ok(mut socket) = tungstenite::accept_hdr(
-                tcp,
-                |request: &tungstenite::handshake::server::Request,
-                 response: tungstenite::handshake::server::Response| {
-                    assert!(!request.headers().contains_key("x-mbx-apikey"));
-                    symbol = match request.uri().path() {
-                        "/ws/btcusdt@depth@100ms" => "BTCUSDT",
-                        "/ws/ethusdt@depth@100ms" => "ETHUSDT",
-                        _ => panic!("Unexpected public market stream"),
-                    };
-                    observed
-                        .streams
-                        .lock()
-                        .unwrap()
-                        .push(request.uri().path().into());
-                    Ok(response)
-                },
-            ) else {
-                continue;
-            };
-            let connection = observed.connections.fetch_add(1, Ordering::AcqRel) + 1;
-            let base = START + connection * 1_000_000;
-            observed.snapshot_base.store(base, Ordering::Release);
-            let _ = socket
-                .get_mut()
-                .set_read_timeout(Some(Duration::from_millis(200)));
-            let (bid, ask) = if symbol == "BTCUSDT" {
-                ("60000", "60001")
-            } else {
-                ("3500", "3501")
-            };
-            let mut cursor = base;
-            loop {
-                let first = cursor
-                    + if observed.gap.load(Ordering::Acquire) {
-                        100
-                    } else {
-                        0
-                    };
-                let event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64,"s":symbol,"U":first,"u":first+1,"b":[[bid,"0.5"]],"a":[[ask,"0.75"]]});
-                if socket
-                    .send(tungstenite::Message::Text(event.to_string().into()))
-                    .is_err()
-                {
-                    break;
-                }
-                observed.frames.fetch_add(1, Ordering::AcqRel);
-                cursor += 2;
-                match socket.read() {
-                    Ok(tungstenite::Message::Close(_)) => {
-                        let _ = socket.flush();
+            let observed = observed.clone();
+            let symbol_bases = symbol_bases.clone();
+            std::thread::spawn(move || {
+                let _ = tcp.set_read_timeout(Some(Duration::from_secs(2)));
+                let mut symbol = "";
+                let Ok(mut socket) = tungstenite::accept_hdr(
+                    tcp,
+                    |request: &tungstenite::handshake::server::Request,
+                     response: tungstenite::handshake::server::Response| {
+                        assert!(!request.headers().contains_key("x-mbx-apikey"));
+                        symbol = match request.uri().path() {
+                            "/ws/btcusdt@depth@100ms" => "BTCUSDT",
+                            "/ws/ethusdt@depth@100ms" => "ETHUSDT",
+                            "/ws/bnbusdt@depth@100ms" => "BNBUSDT",
+                            _ => panic!("Unexpected public market stream"),
+                        };
+                        observed
+                            .streams
+                            .lock()
+                            .unwrap()
+                            .push(request.uri().path().into());
+                        Ok(response)
+                    },
+                ) else {
+                    return;
+                };
+                let connection = observed.connections.fetch_add(1, Ordering::AcqRel) + 1;
+                let base = START + connection * 1_000_000;
+                observed.snapshot_base.store(base, Ordering::Release);
+                symbol_bases.lock().unwrap().insert(symbol.into(), base);
+                let _ = socket
+                    .get_mut()
+                    .set_read_timeout(Some(Duration::from_millis(200)));
+                let (bid, ask) = if symbol == "BTCUSDT" {
+                    ("60000", "60001")
+                } else if symbol == "ETHUSDT" {
+                    ("3500", "3501")
+                } else {
+                    ("500", "501")
+                };
+                let mut cursor = base;
+                loop {
+                    let first = cursor
+                        + if observed.gap.load(Ordering::Acquire) {
+                            100
+                        } else {
+                            0
+                        };
+                    let event = json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64,"s":symbol,"U":first,"u":first+1,"b":[[bid,"0.5"]],"a":[[ask,"0.75"]]});
+                    if socket
+                        .send(tungstenite::Message::Text(event.to_string().into()))
+                        .is_err()
+                    {
                         break;
                     }
-                    Ok(tungstenite::Message::Ping(bytes)) => {
-                        let _ = socket.send(tungstenite::Message::Pong(bytes));
+                    observed.frames.fetch_add(1, Ordering::AcqRel);
+                    cursor += 2;
+                    match socket.read() {
+                        Ok(tungstenite::Message::Close(_)) => {
+                            let _ = socket.flush();
+                            break;
+                        }
+                        Ok(tungstenite::Message::Ping(bytes)) => {
+                            let _ = socket.send(tungstenite::Message::Pong(bytes));
+                        }
+                        Err(tungstenite::Error::Io(e))
+                            if matches!(
+                                e.kind(),
+                                io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+                            ) =>
+                        {
+                            ()
+                        }
+                        Err(_) => break,
+                        _ => (),
                     }
-                    Err(tungstenite::Error::Io(e))
-                        if matches!(
-                            e.kind(),
-                            io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-                        ) =>
-                    {
-                        ()
-                    }
-                    Err(_) => break,
-                    _ => (),
                 }
-            }
-            observed.closed.fetch_add(1, Ordering::AcqRel);
+                observed.closed.fetch_add(1, Ordering::AcqRel);
+            });
         }
     });
     Ok(Fixture {

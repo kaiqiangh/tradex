@@ -201,7 +201,10 @@ pub(crate) fn projection(
 pub(crate) fn retire_for_session(control: &mut ControlPlane) {
     invalidate_quotes(control, "DATA_SOURCE_SESSION_CHANGED");
     control.quote_source_access_binding = None;
-    if let Some(lease) = control.hot_quote.as_mut() {
+    for lease in [&mut control.hot_quote, &mut control.fee_quote]
+        .into_iter()
+        .filter_map(Option::as_mut)
+    {
         lease.clear_snapshot();
         let lease = lease.projection_mut();
         lease.status = HotQuoteStatus::Stale;
@@ -250,6 +253,7 @@ impl Drop for Worker {
 #[derive(Clone, Default)]
 pub struct QuoteHotSupervisor {
     worker: Arc<Mutex<Option<Worker>>>,
+    fee_worker: Arc<Mutex<Option<Worker>>>,
     stopped: Arc<AtomicBool>,
 }
 impl QuoteHotSupervisor {
@@ -257,10 +261,12 @@ impl QuoteHotSupervisor {
         Self::default()
     }
     pub fn stop_all(&self) {
-        if let Ok(worker) = self.worker.lock() {
-            self.stopped.store(true, Ordering::Release);
-            if let Some(worker) = worker.as_ref() {
-                worker.pending.1.notify_all();
+        self.stopped.store(true, Ordering::Release);
+        for worker in [&self.worker, &self.fee_worker] {
+            if let Ok(worker) = worker.lock() {
+                if let Some(worker) = worker.as_ref() {
+                    worker.pending.1.notify_all();
+                }
             }
         }
     }
@@ -288,17 +294,31 @@ impl QuoteHotSupervisor {
             if !crate::valid_bounded_text(&envelope.request_id, 128) {
                 return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
             }
-            if envelope.command == "market.hot.release" {
+            let purpose = if matches!(
+                envelope.command.as_str(),
+                "trade.spot_fee_market.acquire" | "trade.spot_fee_market.release"
+            ) {
+                crate::binance_market::stream::LeasePurpose::FeeMarket
+            } else {
+                crate::binance_market::stream::LeasePurpose::Primary
+            };
+            if matches!(
+                envelope.command.as_str(),
+                "market.hot.release" | "trade.spot_fee_market.release"
+            ) {
                 let input: HotQuoteQuery = payload(envelope.payload)?;
                 let mut control = control
                     .lock()
                     .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
                 control.require_workspace(&input.workspace_id)?;
-                let released = if let Some(lease) = control.hot_quote.as_mut().filter(|lease| {
-                    lease.projection().lease_id == input.lease_id
-                        && lease.projection().generation == input.generation
-                        && lease.projection().workspace_id == input.workspace_id
-                }) {
+                let released = if let Some(lease) =
+                    crate::binance_market::stream::lease_slot_mut(&mut control, purpose)
+                        .as_mut()
+                        .filter(|lease| {
+                            lease.projection().lease_id == input.lease_id
+                                && lease.projection().generation == input.generation
+                                && lease.projection().workspace_id == input.workspace_id
+                        }) {
                     lease.clear_snapshot();
                     let lease = lease.projection_mut();
                     let changed = lease.status != HotQuoteStatus::Closed;
@@ -319,95 +339,129 @@ impl QuoteHotSupervisor {
                     status: HotQuoteStatus::Closed
                 }));
             }
-            if envelope.command != "market.hot.acquire" {
+            if !matches!(
+                envelope.command.as_str(),
+                "market.hot.acquire" | "trade.spot_fee_market.acquire"
+            ) {
                 return Err(TradeXError::new("IPC_COMMAND_UNKNOWN"));
             }
-            let input: HotQuoteAcquire = payload(envelope.payload)?;
+            let input: HotQuoteAcquire =
+                if purpose == crate::binance_market::stream::LeasePurpose::FeeMarket {
+                    let query: crate::spot_fee_market::SpotFeeMarketAcquire =
+                        payload(envelope.payload)?;
+                    HotQuoteAcquire {
+                        workspace_id: query.workspace_id,
+                        expected_source_version: query.expected_source_version,
+                        instrument_id: crate::spot_fee_market::INTERNAL_ID.into(),
+                    }
+                } else {
+                    payload(envelope.payload)?
+                };
             // Serialize stop and acquire before modifying any public lease or quote binding.
-            let mut worker = self
-                .worker
-                .lock()
-                .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
+            let mut worker = if purpose == crate::binance_market::stream::LeasePurpose::FeeMarket {
+                &self.fee_worker
+            } else {
+                &self.worker
+            }
+            .lock()
+            .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
             if self.stopped.load(Ordering::Acquire) {
                 return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
             }
             let mut locked = control
                 .lock()
                 .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))?;
-            let detail = locked.market_detail_for(
-                &input.workspace_id,
-                &input.instrument_id,
-                &MarketTier::Hot,
-                false,
-            )?;
-            let pending_job = match detail.instrument.asset_class {
-                crate::protocol::AssetClass::Equity => {
-                    let mut binding = SourceReadBinding::capture(&mut locked, &input.workspace_id)?;
-                    if binding.source_version != input.expected_source_version {
-                        return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+            let pending_job = if purpose == crate::binance_market::stream::LeasePurpose::FeeMarket {
+                PendingJob::Binance(crate::binance_market::stream::Job::prepare(
+                    &mut locked,
+                    control.clone(),
+                    &input,
+                    http,
+                    connectors.binance,
+                    self.stopped.clone(),
+                    purpose,
+                )?)
+            } else {
+                let detail = locked.market_detail_for(
+                    &input.workspace_id,
+                    &input.instrument_id,
+                    &MarketTier::Hot,
+                    false,
+                )?;
+                match detail.instrument.asset_class {
+                    crate::protocol::AssetClass::Equity => {
+                        let mut binding =
+                            SourceReadBinding::capture(&mut locked, &input.workspace_id)?;
+                        if binding.source_version != input.expected_source_version {
+                            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                        }
+                        if binding.reference.is_none() || binding.saved.feed.is_none() {
+                            return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+                        }
+                        let generation = uuid::Uuid::new_v4().to_string();
+                        locked.quote_connection_generation = generation.clone();
+                        binding.connection_generation = generation.clone();
+                        let lease = StockLeaseState {
+                            binding: binding.clone(),
+                            instrument: detail.instrument,
+                            stream_snapshot_id: None,
+                            projection: HotQuoteProjection {
+                                workspace_id: input.workspace_id.clone(),
+                                source_id: "OD-001".into(),
+                                instrument_id: input.instrument_id,
+                                lease_id: uuid::Uuid::new_v4().to_string(),
+                                connection_generation: generation.clone(),
+                                reconnect_attempt: 0,
+                                generation,
+                                source_version: binding.source_version,
+                                sequence: 0,
+                                status: HotQuoteStatus::Connecting,
+                                authenticated: false,
+                                subscribed: false,
+                                reason: "Connecting to the explicitly selected stock feed.".into(),
+                                detail: None,
+                            },
+                        };
+                        locked.hot_quote = Some(HotLeaseState::Stock(lease.clone()));
+                        let pending_job = PendingJob::Stock(Job {
+                            control: control.clone(),
+                            lease,
+                            vault,
+                            http,
+                            connector: connectors.stock,
+                        });
+                        pending_job
                     }
-                    if binding.reference.is_none() || binding.saved.feed.is_none() {
-                        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+                    crate::protocol::AssetClass::CryptoSpot => {
+                        PendingJob::Binance(crate::binance_market::stream::Job::prepare(
+                            &mut locked,
+                            control.clone(),
+                            &input,
+                            http,
+                            connectors.binance,
+                            self.stopped.clone(),
+                            purpose,
+                        )?)
                     }
-                    let generation = uuid::Uuid::new_v4().to_string();
-                    locked.quote_connection_generation = generation.clone();
-                    binding.connection_generation = generation.clone();
-                    let lease = StockLeaseState {
-                        binding: binding.clone(),
-                        instrument: detail.instrument,
-                        stream_snapshot_id: None,
-                        projection: HotQuoteProjection {
-                            workspace_id: input.workspace_id.clone(),
-                            source_id: "OD-001".into(),
-                            instrument_id: input.instrument_id,
-                            lease_id: uuid::Uuid::new_v4().to_string(),
-                            connection_generation: generation.clone(),
-                            reconnect_attempt: 0,
-                            generation,
-                            source_version: binding.source_version,
-                            sequence: 0,
-                            status: HotQuoteStatus::Connecting,
-                            authenticated: false,
-                            subscribed: false,
-                            reason: "Connecting to the explicitly selected stock feed.".into(),
-                            detail: None,
-                        },
-                    };
-                    locked.hot_quote = Some(HotLeaseState::Stock(lease.clone()));
-                    let pending_job = PendingJob::Stock(Job {
-                        control: control.clone(),
-                        lease,
-                        vault,
-                        http,
-                        connector: connectors.stock,
-                    });
-                    pending_job
-                }
-                crate::protocol::AssetClass::CryptoSpot => {
-                    PendingJob::Binance(crate::binance_market::stream::Job::prepare(
-                        &mut locked,
-                        control.clone(),
-                        &input,
-                        detail.instrument,
-                        http,
-                        connectors.binance,
-                        self.stopped.clone(),
-                    )?)
                 }
             };
-            let owner = locked
-                .hot_quote
+            let owner = crate::binance_market::stream::lease_slot(&locked, purpose)
                 .as_ref()
                 .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?
                 .clone();
-            let result = projection(
-                &mut locked,
-                HotQuoteQuery {
-                    workspace_id: input.workspace_id.clone(),
-                    lease_id: owner.projection().lease_id.clone(),
-                    generation: owner.projection().generation.clone(),
-                },
-            )?;
+            let query = HotQuoteQuery {
+                workspace_id: input.workspace_id.clone(),
+                lease_id: owner.projection().lease_id.clone(),
+                generation: owner.projection().generation.clone(),
+            };
+            let result = if purpose == crate::binance_market::stream::LeasePurpose::FeeMarket {
+                json!(crate::binance_market::stream::fee_projection(
+                    &mut locked,
+                    query
+                )?)
+            } else {
+                json!(projection(&mut locked, query)?)
+            };
             drop(locked);
             // Concurrent acquire completion must not replace a newer pending job with an old lease.
             if !control.lock().is_ok_and(|control| owner.current(&control)) {
@@ -457,7 +511,7 @@ impl QuoteHotSupervisor {
                 .map_err(|_| TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE"))? =
                 Some(pending_job);
             worker.pending.1.notify_one();
-            Ok(json!(result))
+            Ok(result)
         })();
         match result {
             Ok(value) => success_reply(request_id(request), value, None),

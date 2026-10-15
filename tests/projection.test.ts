@@ -49,6 +49,15 @@ test('generated result schema rejects false success, mixed envelopes and foreign
   ]) assert.throws(() => decode('ResultEnvelope', invalid));
 });
 
+test('Spot FX route schema accepts the bounded seven-character USDTUSD provider pair', () => {
+  const route = {
+    purpose: 'INTENT_POLICY', fromCurrency: 'USDT', toCurrency: 'USD', providerPair: 'USDTUSD',
+    state: 'EVIDENCE_UNAVAILABLE', reason: 'No current quote is bound to this intent.',
+  } as const;
+  assert.deepEqual(decode('SpotRequiredRoute', route), route);
+  assert.throws(() => decode('SpotRequiredRoute', { ...route, providerPair: 'USDTUSDX' }));
+});
+
 test('research venue schema keeps unavailable values nullable and rejects numeric zero', () => {
   const venue = {
     venue: 'BINANCE', state: 'UNAVAILABLE', selected: false,

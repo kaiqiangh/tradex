@@ -1312,6 +1312,9 @@ PRICE_RANGE 执行规则按快照解释，绝不作为资格。展示选定 side
 
 独立显式精确标的佣金来源可为已保存 Proposal 采集完整声明费率类别及条件扣费分支。原账户比较费率与此来源声明不同；两者都不建立数值总费用、保证的未来扣费资产或必需执行 FX。缺失或变化条款使当前证据退役，保存评估保留原始收讫。Backend §41.50/UI §14.34 定义限定来源契约。
 
+
+拥有方当前费用情景可由准确symbol当前声明派生完整standard/tax/special角色+方向金额，明确收到资产、舍入方法、模型净收入及不确定性；它与账户比较、金融审批额度、原生券商边界及真实收费不同。金额估算本身不资格化所需FX/资金/执行。Backend§41.51/UI§14.35定义新增当前模型契约；完整S29.11实现/真实验收仍待完成，原型代码未改。
+
 # 22. 审批前与执行前校验
 
 每笔实盘订单都经过两次确定性校验。
@@ -1828,6 +1831,10 @@ TradeX 维护 `TimeService` 用于 quote age、approval TTL、reconciliation win
 
 TradeX 不应假定本地缓存市场数据即自动获得再分发权利。
 
+版本化的本地 source-use policy 可以基于用户报告的账户计划、法域、协议复核日期、用途范围和原始数据去向，评估有界的本地用途。该评估必须与 provider entitlement 分离：用户声明或本地政策支持的用途不得将市场数据权利设置为 `VERIFIED`，也不得授权再分发。在适用 provider entitlement 和允许的下游用途得到独立证明前，原始 provider 数据必须留在本地。
+
+当provider未发布支持法域清单并指引用户联系Support时，本地policy可以要求用户报告带日期和reference、且对应准确账户法域的确认。逐国确认仍与市场数据权利分离，也不构成provider entitlement。
+
 ---
 
 # 35. 市场日历与公司行为
@@ -2215,6 +2222,10 @@ v1.0 不提供可绕过审批的 broker-native amend/replace 快捷方式。修�
 - 私有流断开；
 - 启动对账。
 
+## 43.6 精确 Live 钱包证据
+
+每个不可变Live金融审阅都将钱包覆盖绑定到准确的workspace、Proposal/hash、account及source/rule/capacity generation。对观察到的必需BASE、QUOTE和条件性BNB资产，保留唯一经认证account读取的receipt及原始free/locked金额。缺失、陈旧、重复、格式错误或不匹配的持仓保持不可用；缺失行绝不等于零。Broker free已经排除锁定资金。按原生资产只扣减已知活动本地claims一次，并在审阅中保留原始free、locked和claim值。仅receipt不同的重读保留捕获provenance，不改变未变化的金融material；持仓或claims变化必须重新审阅。钱包证据为只读，不能单独授予approval、Prepare、Arm或dispatch。Backend §41.56、Frontend §13.42和UI §14.40定义此契约；完整S29.11验收仍待完成。
+
 ---
 
 # 44. 市价单安全
@@ -2245,6 +2256,10 @@ Spread: 1.7 bps
 ```
 
 若实际所需花费将超过已批准的硬性上限，TradeX 拒绝提交。
+
+对于 QUOTE 数量的 BUY MARKET Proposal，原生本金仍是准确的 `quoteOrderQty`。它必须与独立的本地总成本授权上限 `maximumSpend` 区分；更高的上限不会增加原生本金容量。
+
+对于 BUY LIMIT Proposal，原生 QUOTE 本金是准确的 BASE 数量乘以不可变限价。已提供的 `maximumSpend` 仍是独立的本地授权上限；若低于所需本金，应拒绝复核，而不是缩小原生本金金额。
 
 ---
 
@@ -3681,3 +3696,11 @@ Ask a market question
 LLM 链不可用时,用户仍可查看既有 artifacts、处理已创建且仍有效的 approval、cancel/reconcile open orders、检查 account health 与使用非模型 control-plane 功能。任何 Live authority 都不依赖模型可用性。
 
 > **Agent 负责推理。TradeX Control Plane 负责授权。Broker/Exchange 是执行事实来源。**
+
+# 74. S29.11 原生资产结算契约
+
+拥有方Spot PLACE在累计提供方成交与实际费用旁保存不可变的初始本金/费用claim向量。当前claims依据该原始向量和精确原生十进制重新计算，重复的累计观察不会对同一成交或费用重复扣减。BUY本金按累计成交quote value消耗；SELL本金按累计成交base数量消耗；每笔费用只减少其实际收费原生资产的预留容量。向收到收益收取的费用保留为实际扣款，不消耗无关的支出claim。
+
+不完整、矛盾、未知或成交/费用累计值减少的broker事实保留上次可信reservation；provider时间戳较早时不得替换已保存观察。未预留的支出费用或超过claim的扣款会产生类型化核对冻结。只有完整的broker终态事实才能释放未用原生容量。Provider accepted、取消请求、超时或缺少费用行均不是结算事实。旧标量记录仍可读取，并明确其不含完整向量。增量wire/UI契约见Backend§41.58、Frontend§13.44和UI§14.42。本契约不表示S29.11验收完成；真实权利、producer到Prepare正向路径、Gateway preflight、公开结算/重放/并发、响应式current/captured/pre-arm证据和独立剩余门禁仍开放。
+
+已消费Live PLACE可能到达提供方后，只要其reservation仍活动，用户可以显式刷新该准确attempt的订单证据。Control Plane将读取绑定到已消费approval、保存的account、不可变Proposal、已保存provider订单ID及当前账户版本，推导提供方所需的symbol namespace，并按相同累计结算规则持久化成交/费用。该恢复读取仅发送GET，不授权或重复任何金融操作；证据不完整时继续冻结capacity。撤单竞态读取是相同命令下独立的approval绑定用途。

@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.84s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-1740cd553d5aeb1f)
+
+running 1 test
+test owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion ... 
+running 1 test
+test owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion ... FAILED
+
+failures:
+
+failures:
+    owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.15s
+
+
+thread 'owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion' (14434625) panicked at src-tauri/tests/binance_rules.rs:7022:5:
+assertion `left == right` failed
+  left: String("CONDITIONAL_BNB_INPUTS_REQUIRED")
+ right: "ZERO_BNB_CURRENT_FALLBACK"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion' (14434623) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 114 filtered out; finished in 0.40s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

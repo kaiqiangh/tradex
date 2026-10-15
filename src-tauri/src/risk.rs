@@ -788,6 +788,7 @@ pub enum RiskCheckId {
     CancellationCapability,
     SnapshotFreshness,
     CurrencyConversion,
+    SpotFeeFx,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -828,6 +829,7 @@ pub enum RiskDecisionReasonCode {
     OrderNotCancelable,
     CancellationUnsupported,
     CurrencyConversionUnavailable,
+    SpotFeeFxUnavailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1081,6 +1083,48 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
             object.remove("monotonicMs");
             object.remove("observedAt");
         }
+        RiskDecisionInputKind::SpotCommission => {
+            // Keep collection identity and receipts in captured evidence without treating a fresh
+            // read of unchanged terms as new financial material.
+            object.remove("stateVersion");
+            if let Some(observation) = object.get_mut("observation").and_then(Value::as_object_mut)
+            {
+                observation.remove("collectionId");
+                observation.remove("reads");
+            }
+        }
+        RiskDecisionInputKind::SpotFeeFx => {
+            // Preserve the exact account-read provenance in each immutable statement, but do not
+            // make an unchanged wallet require renewed consent just because it was reread.
+            if let Some(wallet) = object
+                .get_mut("walletFundingEvidence")
+                .and_then(Value::as_object_mut)
+            {
+                for key in [
+                    "collectionId",
+                    "accountReadStartedAt",
+                    "firstReceipt",
+                    "originalDigest",
+                ] {
+                    wallet.remove(key);
+                }
+            }
+            if let Some(funding) = object
+                .get_mut("currentFeeModel")
+                .and_then(Value::as_object_mut)
+                .and_then(|model| model.get_mut("bnbFundingEvidence"))
+                .and_then(Value::as_object_mut)
+            {
+                for key in [
+                    "collectionId",
+                    "startedAt",
+                    "firstReceipt",
+                    "originalDigest",
+                ] {
+                    funding.remove(key);
+                }
+            }
+        }
         RiskDecisionInputKind::Account
         | RiskDecisionInputKind::Calendar
         | RiskDecisionInputKind::DailyCounters
@@ -1088,9 +1132,7 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
         | RiskDecisionInputKind::InstrumentRules
         | RiskDecisionInputKind::CurrencyRates
         | RiskDecisionInputKind::SpotCapacity
-        | RiskDecisionInputKind::SpotOrderIntervals
-        | RiskDecisionInputKind::SpotFeeFx
-        | RiskDecisionInputKind::SpotCommission => {}
+        | RiskDecisionInputKind::SpotOrderIntervals => {}
     }
 }
 
@@ -1129,6 +1171,8 @@ pub(crate) fn evaluate(
     policy_state: Option<&RiskPolicyState>,
     account: Option<&crate::providers::AccountConnection>,
     portfolio: Option<&crate::protocol::PortfolioSnapshot>,
+    owning_spot_required: bool,
+    owning_workspace_base_notional: Option<&str>,
     market: Option<&crate::protocol::MarketDetail>,
     time_status: &crate::protocol::TimeStatus,
     inputs: Vec<RiskDecisionInputReference>,
@@ -1568,7 +1612,14 @@ pub(crate) fn evaluate(
         },
     );
 
-    let notional = proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock);
+    // A selected owning Live Spot gate must use only the Proposal-bound, purpose-qualified
+    // valuation from its owning statement. If that route is unavailable, do not fall back to the
+    // portfolio's historical comparison FX projection. Other contexts retain the existing path.
+    let notional = if owning_spot_required {
+        owning_workspace_base_notional.map(str::to_owned)
+    } else {
+        proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock)
+    };
     limit!(
         RiskCheckId::OrderNotional,
         notional.as_deref(),
@@ -1799,7 +1850,7 @@ pub(crate) fn evaluate(
     );
     let reserved_limit = policy.and_then(|policy| policy.max_reserved_capital.as_deref());
     let projected_reserved_capital = existing_reserved_capital
-        .zip(proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock).as_deref())
+        .zip(notional.as_deref())
         .and_then(|(reserved, proposed)| crate::portfolio::decimal_add(reserved, proposed).ok());
     let (reserved_outcome, reserved_reason, reserved_message) = match reserved_limit {
         None => (
@@ -2473,7 +2524,6 @@ pub(crate) fn market_order_slippage(
     use crate::protocol::{OrderQuantityType, OrderSide, OrderType};
     use std::cmp::Ordering;
     if proposal.fields.order_type != OrderType::Market
-        || proposal.fields.quantity.r#type != OrderQuantityType::Base
         || market_freshness(market, time_status, maximum_age_seconds).0 != RiskCheckOutcome::Pass
     {
         return None;
@@ -2510,8 +2560,19 @@ pub(crate) fn market_order_slippage(
             return None;
         }
     }
+    // BUY quoteOrderQty is in QUOTE; compare with exact ask * displayed BASE
+    // size. Never truncate a derived BASE quantity before the coverage check.
+    let covered = match proposal.fields.quantity.r#type {
+        OrderQuantityType::Base => size.to_owned(),
+        OrderQuantityType::Quote
+            if proposal.fields.side == OrderSide::Buy && snapshot.provenance.binance.is_some() =>
+        {
+            crate::portfolio::decimal_mul(ask, size).ok()?
+        }
+        _ => return None,
+    };
     if crate::provider_io::decimal_cmp(bid, ask).ok()? == Ordering::Greater
-        || crate::provider_io::decimal_cmp(quantity, size).ok()? == Ordering::Greater
+        || crate::provider_io::decimal_cmp(quantity, &covered).ok()? == Ordering::Greater
     {
         return None;
     }
@@ -2522,7 +2583,7 @@ pub(crate) fn market_order_slippage(
     ))
 }
 
-fn execution_quote_matches(
+pub(crate) fn execution_quote_matches(
     proposal: &crate::protocol::OrderProposal,
     market: &crate::protocol::MarketDetail,
 ) -> bool {
@@ -2695,7 +2756,7 @@ fn verified_sip_quote(
             })
 }
 
-fn market_freshness(
+pub(crate) fn market_freshness(
     market: Option<&crate::protocol::MarketDetail>,
     time_status: &crate::protocol::TimeStatus,
     maximum_age_seconds: u64,
@@ -3011,6 +3072,64 @@ mod tests {
             portfolio_digest(&portfolio_a),
             portfolio_digest(&portfolio_b)
         );
+    }
+
+    #[test]
+    fn spot_fee_fx_input_digest_ignores_wallet_read_receipts_but_binds_balances_and_claims() {
+        let statement = serde_json::json!({
+            "outcome": "PASS",
+            "walletFundingEvidence": {
+                "status": "COMPLETE",
+                "requiredAssets": ["BTC", "USDT", "BNB"],
+                "missingAssets": [],
+                "balances": [{
+                    "asset": "USDT", "free": "500", "locked": "300",
+                    "localClaims": "20", "effectiveFree": "480"
+                }],
+                "workspaceId": "workspace", "proposalId": "proposal",
+                "proposalHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                "accountId": "account", "sourceVersion": "source-v1",
+                "ruleMaterialVersion": "rules-v1", "capacityBindingVersion": "binding-v1",
+                "collectionId": "collection-1", "accountReadStartedAt": "start-1",
+                "firstReceipt": "receipt-1", "originalDigest": "digest-1"
+            },
+            "currentFeeModel": {
+                "bnbFundingEvidence": {
+                    "asset": "BNB", "free": "1", "locked": "0", "localClaims": "0",
+                    "effectiveFree": "1", "collectionId": "collection-1",
+                    "capacityBindingVersion": "binding-v1", "startedAt": "start-1",
+                    "firstReceipt": "receipt-1", "originalDigest": "digest-1"
+                }
+            }
+        });
+        let digest = |value: &Value| {
+            input_reference(
+                RiskDecisionInputKind::SpotFeeFx,
+                "proposal".into(),
+                None,
+                value,
+            )
+            .unwrap()
+            .digest
+        };
+
+        let original_digest = digest(&statement);
+        let mut reread = statement.clone();
+        reread["walletFundingEvidence"]["collectionId"] = "collection-2".into();
+        reread["walletFundingEvidence"]["accountReadStartedAt"] = "start-2".into();
+        reread["walletFundingEvidence"]["firstReceipt"] = "receipt-2".into();
+        reread["walletFundingEvidence"]["originalDigest"] = "digest-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["collectionId"] = "collection-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["startedAt"] = "start-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["firstReceipt"] = "receipt-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["originalDigest"] = "digest-2".into();
+        assert_eq!(original_digest, digest(&reread));
+
+        reread["walletFundingEvidence"]["balances"][0]["free"] = "499".into();
+        assert_ne!(original_digest, digest(&reread));
+        reread["walletFundingEvidence"]["balances"][0]["free"] = "500".into();
+        reread["walletFundingEvidence"]["balances"][0]["localClaims"] = "21".into();
+        assert_ne!(original_digest, digest(&reread));
     }
 
     #[test]

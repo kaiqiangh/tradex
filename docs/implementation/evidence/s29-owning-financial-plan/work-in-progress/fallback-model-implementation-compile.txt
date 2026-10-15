@@ -1,0 +1,30 @@
+   Compiling num-bigint v0.4.8
+   Compiling arrow-buffer v58.4.0
+   Compiling arrow-data v58.4.0
+   Compiling arrow-array v58.4.0
+   Compiling arrow-select v58.4.0
+   Compiling arrow-row v58.4.0
+   Compiling arrow-arith v58.4.0
+   Compiling arrow-ord v58.4.0
+   Compiling arrow-string v58.4.0
+   Compiling arrow-cast v58.4.0
+   Compiling arrow v58.4.0
+   Compiling duckdb v1.10505.0
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0432]: unresolved import `crate::protocol::QuantityType`
+ --> src-tauri/src/spot_fee_model.rs:2:60
+  |
+2 | use crate::protocol::{OrderProposal, OrderSide, OrderType, QuantityType, Result, TradeXError};
+  |                                                            ^^^^^^^^^^^^ no `QuantityType` in `protocol`
+
+error[E0609]: no field `kind` on type `OrderQuantity`
+   --> src-tauri/src/spot_fee_model.rs:165:83
+    |
+165 |     if proposal.fields.order_type != OrderType::Limit || proposal.fields.quantity.kind != QuantityType::Base {
+    |                                                                                   ^^^^ unknown field
+    |
+    = note: available fields are: `type`, `value`
+
+Some errors have detailed explanations: E0432, E0609.
+For more information about an error, try `rustc --explain E0432`.
+error: could not compile `tradex` (lib) due to 2 previous errors

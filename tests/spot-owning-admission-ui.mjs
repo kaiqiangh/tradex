@@ -5,14 +5,26 @@
 // .last() is the original one.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { dirname, join } from 'node:path';
 
 const OWNING = 'Captured Proposal Spot owning admission';
 const owning = ui => ui.getByRole('region', { name: OWNING, exact: true });
+export async function waitForUIText(locator, expected, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  let actual = await locator.innerText();
+  const matches = value => expected instanceof RegExp ? expected.test(value) : value.includes(expected);
+  while (!matches(actual) && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    actual = await locator.innerText();
+  }
+  assert.ok(matches(actual), `Expected visible UI text ${String(expected)}; received ${actual.slice(0, 500)}`);
+  return actual;
+}
 // The saved history renders newest first, so the first statement is the newest assessment.
 const statements = ui => owning(ui).allInnerTexts();
 const occurrences = (texts, text) => texts.filter(item => item === text).length;
 
-export async function checkSpotOwningAdmissionUI(tab, browser) {
+export async function checkSpotOwningAdmissionUI(tab, browser, options = {}) {
   const ui = tab.playwright;
   const endpoint = new URL('/__integration/command', await tab.url());
   const send = async (command, payload) => {
@@ -22,11 +34,38 @@ export async function checkSpotOwningAdmissionUI(tab, browser) {
     assert.equal(result.ok, true, `${command}: ${JSON.stringify(result.error)}`);
     return result.data;
   };
-  const workspace = await send('workspace.open', {}), workspaceId = workspace.workspaceId;
-  if (await ui.getByRole('heading', { name: 'Create local workspace', exact: true }).isVisible()) {
-    await ui.getByLabel('Local storage', { exact: true }).fill(workspace.path);
-    await ui.getByRole('button', { name: 'Open workspace', exact: true }).press('Enter');
-    await ui.getByRole('heading', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
+  const bootstrap = await send('workspace.open', {});
+  // Keep this scenario isolated from other browser checks sharing the same Vite process. The
+  // integration bridge only permits workspaces beneath its private temporary root, so create a
+  // unique sibling of its bootstrap workspace instead of reusing state from a prior scenario.
+  const workspace = await send('workspace.open', {
+    name: 'S29 owning Spot UI verification',
+    baseCurrency: 'USD',
+    path: join(dirname(bootstrap.path), `s29-${randomUUID().slice(0, 8)}`),
+  });
+  const workspaceId = workspace.workspaceId;
+  // workspace.open through the bridge creates the isolated database, but the React app keeps its
+  // current workspace until the user opens it through the workspace picker. Drive that public UI
+  // flow so later account, source, and Proposal panels render the same workspace used by IPC.
+  await ui.getByRole('button', { name: 'Workspace', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Create local workspace', exact: true }).waitFor({ state: 'visible' });
+  const localStorage = ui.getByLabel('Local storage', { exact: true });
+  await localStorage.fill(workspace.path);
+  assert.equal(await localStorage.evaluate(element => element.value), workspace.path,
+    'The picker contains the isolated workspace path');
+  await ui.getByRole('button', { name: 'Open workspace', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
+  assert.ok((await ui.locator('main').innerText()).includes(workspace.workspaceId),
+    'The workspace picker opened the same isolated workspace used by the test commands');
+  if (options.staleQuoteThresholdSeconds !== undefined) {
+    const risk = await send('risk.get_policy', { workspaceId });
+    if (risk.policy.staleQuoteThresholdSeconds !== options.staleQuoteThresholdSeconds) {
+      await send('risk.save_policy', {
+        workspaceId,
+        expectedStateVersion: risk.stateVersion,
+        policy: { ...risk.policy, staleQuoteThresholdSeconds: options.staleQuoteThresholdSeconds },
+      });
+    }
   }
   let account = (await send('account.list', { workspaceId })).accounts.find(row => row.label.startsWith('S29.8 external ') && row.connectionState === 'CONNECTED');
   if (!account) {
@@ -34,6 +73,35 @@ export async function checkSpotOwningAdmissionUI(tab, browser) {
     account = await send('provider.connect', { step: 'confirm', workspaceId, connectionId: tested.connectionId, expectedStateVersion: tested.stateVersion, acknowledgeUnverified: false });
   }
   assert.equal(account.health.arming, 'DISARMED');
+  const navigate = async name => {
+    let targets = await ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('button', { name, exact: true }).all();
+    let visible;
+    for (const target of targets) if (await target.isVisible()) { visible = target; break; }
+    if (!visible) {
+      await ui.getByText('More', { exact: true }).press('Enter');
+      await tab.getAXState({ emit: false });
+      targets = await ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('button', { name, exact: true }).all();
+      for (const target of targets) if (await target.isVisible()) { visible = target; break; }
+    }
+    assert.ok(visible, `${name} navigation is visible`);
+    await visible.press('Enter');
+    await tab.getAXState({ emit: false });
+  };
+  await navigate('Settings');
+  await ui.getByRole('button', { name: 'Data & Storage', exact: true }).press('Enter');
+  await ui.getByRole('button', { name: 'Save Binance market source', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Save Binance market source', exact: true }).press('Enter');
+  const sourceSaveNotice = 'Public market-source selection saved. No provider read was made.';
+  const noticeDeadline = Date.now() + 5000;
+  let settingsText = await ui.locator('main').innerText();
+  while (!settingsText.includes(sourceSaveNotice) && Date.now() < noticeDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    settingsText = await ui.locator('main').innerText();
+  }
+  assert.ok(settingsText.includes(sourceSaveNotice),
+    'The Settings action confirms that public source selection was saved without a provider read');
+  const marketSelection = await send('data.binance_market.connection', { workspaceId });
+  assert.equal(marketSelection.configured, true, 'The public market source is explicitly saved in the UI-owned workspace');
   const saved = await send('data.binance_rules.connection', { workspaceId });
   await send('data.binance_rules.configure', { workspaceId, connectionId: account.connectionId, instrumentId: 'crypto:BTC/USDT:spot', expectedStateVersion: saved.stateVersion });
   let capacityPanel, intervalsPanel;
@@ -44,17 +112,21 @@ export async function checkSpotOwningAdmissionUI(tab, browser) {
     await send('time.revalidate', { workspaceId });
     const source = await send('data.binance_rules.connection', { workspaceId });
     const refreshed = await send('data.binance_rules.refresh', { workspaceId, expectedStateVersion: source.stateVersion });
-    assert.equal(refreshed.status, 'AVAILABLE');
+    assert.equal(refreshed.status, 'AVAILABLE', JSON.stringify(refreshed));
     // Replacing the rule source retires both consumed observations, so each panel must first be
     // seen to have polled the new binding before its compare-and-set refresh can be offered.
     for (const panel of [capacityPanel, intervalsPanel]) {
-      if (panel) await panel.getByText(refreshed.evidence.materialVersion, { exact: false }).waitFor({ state: 'visible' });
+      if (panel) await waitForUIText(panel, refreshed.evidence.materialVersion);
     }
   };
   await refreshSource('COMPLETE_COVERAGE');
-  const navigate = ui.getByRole('navigation', { name: 'Primary navigation', exact: true }).getByRole('button', { name: 'Order Drafts', exact: true });
-  if (!await navigate.isVisible()) await ui.getByText('More', { exact: true }).press('Enter');
-  await navigate.press('Enter'); await tab.getAXState({ emit: false });
+  await navigate('Markets');
+  await ui.getByRole('button', { name: /^BTC\/USDT / }).press('Enter');
+  const marketQuote = ui.getByRole('region', { name: 'Hot quote subscription', exact: true });
+  await waitForUIText(marketQuote, 'STREAMING');
+  const warmMarket = await send('market.get', { workspaceId, instrumentId: 'crypto:BTC/USDT:spot', tier: 'HOT' });
+  assert.equal(warmMarket.status, 'AVAILABLE', 'The selected public Hot view obtains its own continuous quote lease');
+  await navigate('Order Drafts');
   await ui.getByRole('button', { name: 'New draft', exact: true }).press('Enter');
   await ui.getByRole('combobox', { name: 'Execution context', exact: true }).selectOption('BINANCE_LIVE');
   await ui.getByRole('combobox', { name: 'Account', exact: true }).selectOption(account.connectionId);
@@ -77,17 +149,25 @@ export async function checkSpotOwningAdmissionUI(tab, browser) {
   // read through their own public controls rather than through any renderer-supplied figure. Each
   // read is only offered once the panel has polled the binding it will refresh.
   const read = async (panel, button) => {
-    await panel.getByText('not observed · Read-only inputs · Execution qualification unavailable', { exact: true }).waitFor({ state: 'visible' });
+    await waitForUIText(panel, 'not observed · Read-only inputs · Execution qualification unavailable');
     await panel.getByRole('button', { name: button, exact: true }).press('Enter');
-    await panel.getByText('observed · Read-only inputs · Execution qualification unavailable', { exact: true }).waitFor({ state: 'visible' });
+    await waitForUIText(panel, 'observed · Read-only inputs · Execution qualification unavailable');
   };
   const readCapacity = () => read(capacityPanel, 'Refresh required capacity inputs');
   const readIntervals = () => read(intervalsPanel, 'Refresh account interval inputs');
   const evaluate = async () => {
+    const previousCaptures = await owning(ui).count();
     const again = ui.getByRole('button', { name: 'Evaluate again', exact: true });
     if (await again.count()) await again.press('Enter');
     else await ui.getByRole('button', { name: 'Evaluate risk', exact: true }).press('Enter');
-    await tab.getAXState({ emit: false });
+    const deadline = Date.now() + 10000;
+    let captures = await owning(ui).count();
+    while (captures <= previousCaptures && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      captures = await owning(ui).count();
+    }
+    assert.ok(captures > previousCaptures, 'The visible Evaluate action appends a new saved owning assessment');
+    await owning(ui).first().waitFor({ state: 'visible' });
   };
   await readCapacity();
   await readIntervals();
@@ -127,7 +207,7 @@ export async function checkSpotOwningAdmissionUI(tab, browser) {
       assert.equal(size.viewport, width); assert.ok(size.body <= width && size.panel <= size.client + 1, JSON.stringify(size)); widths.push(size);
     }
   } finally { await viewport.reset(); }
-  return { send, refreshSource, readCapacity, readIntervals, evaluate, workspaceId, proposalId, accountId: account.connectionId, admission, admissionText, widths };
+  return { send, refreshSource, readCapacity, readIntervals, evaluate, workspaceId, proposalId, accountId: account.connectionId, marketSelection, admission, admissionText, widths };
 }
 
 export async function checkSpotOwningBlockedUI(tab, browser, state) {

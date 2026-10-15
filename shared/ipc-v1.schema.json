@@ -463,6 +463,12 @@
     "spotCommissionInputs": {
       "$ref": "#/$defs/SpotCommissionInputs"
     },
+    "spotFeeMarketAcquire": {
+      "$ref": "#/$defs/SpotFeeMarketAcquire"
+    },
+    "spotFeeMarketProjection": {
+      "$ref": "#/$defs/SpotFeeMarketProjection"
+    },
     "spotOrderIntervalInputs": {
       "$ref": "#/$defs/SpotOrderIntervalInputs"
     },
@@ -631,6 +637,8 @@
     "spotProposalRules",
     "spotCapacityInputs",
     "spotCommissionInputs",
+    "spotFeeMarketAcquire",
+    "spotFeeMarketProjection",
     "spotOrderIntervalInputs",
     "riskDecisionQuery",
     "saveRiskPolicy",
@@ -1182,12 +1190,29 @@
         "aggregateId"
       ]
     },
+    "AlpacaCryptoLocation": {
+      "description": "Explicit Alpaca crypto data location. A failed or unsupported location never falls back.",
+      "type": "string",
+      "enum": [
+        "us",
+        "us-1",
+        "eu-1"
+      ]
+    },
     "AlpacaFeed": {
       "type": "string",
       "enum": [
         "iex",
         "sip",
         "delayed_sip"
+      ]
+    },
+    "AlpacaMarketDataPlan": {
+      "type": "string",
+      "enum": [
+        "BASIC",
+        "ALGO_TRADER_PLUS",
+        "UNKNOWN"
       ]
     },
     "AlpacaPaperCancelState": {
@@ -6292,6 +6317,17 @@
         "REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT"
       ]
     },
+    "ChargingCondition": {
+      "type": "string",
+      "enum": [
+        "DISCOUNT_DISABLED_CURRENT_FALLBACK",
+        "CONDITIONAL_BNB_INPUTS_REQUIRED",
+        "ZERO_BNB_CURRENT_FALLBACK",
+        "ZERO_DISCOUNTED_FEE_EXPRESSION",
+        "DISCOUNTED_BNB_CURRENT_ESTIMATE",
+        "INSUFFICIENT_BNB_CURRENT_FALLBACK"
+      ]
+    },
     "ChatgptLogin": {
       "type": "object",
       "properties": {
@@ -7809,6 +7845,24 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "assetCapacities": {
+          "description": "Per-asset balance capacity captured and validated in the same atomic Prepare transaction.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionReservationAssetCapacity"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "assetClaims": {
+          "description": "Additive for old reservation captures, which remain scalar-only when absent.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionReservationAssetClaim"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
         "attemptId": {
           "type": "string",
           "maxLength": 128,
@@ -7848,6 +7902,17 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "feeSettlementPlan": {
+          "description": "Immutable selected conditional-fee branch and received-asset allowance used by settlement.\nThis metadata is not an outgoing capacity claim; old scalar/vector captures omit it.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFundingPlanPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "instrumentId": {
           "type": "string",
@@ -7935,6 +8000,85 @@
         "stateVersion"
       ]
     },
+    "ExecutionReservationAssetCapacity": {
+      "description": "Atomic per-asset capacity recorded alongside the PLACE reservation vector.",
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "brokerAvailable": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "effectiveAvailable": {
+          "description": "Capacity before this attempt, after existing local reservations.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "existingReservations": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "remainingAfterReservation": {
+          "description": "Capacity remaining after this attempt's complete claims for this asset.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requestedAmount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "requestedAmount",
+        "brokerAvailable",
+        "existingReservations",
+        "effectiveAvailable",
+        "remainingAfterReservation"
+      ]
+    },
+    "ExecutionReservationAssetClaim": {
+      "description": "One native-asset allowance in an account-scoped PLACE reservation.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "purpose": {
+          "$ref": "#/$defs/ExecutionReservationClaimPurpose"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "amount",
+        "purpose"
+      ]
+    },
+    "ExecutionReservationClaimPurpose": {
+      "type": "string",
+      "enum": [
+        "PRINCIPAL",
+        "FEE"
+      ]
+    },
     "ExecutionReservationStatus": {
       "type": "string",
       "enum": [
@@ -7970,6 +8114,469 @@
         "schemaVersion",
         "ok",
         "error"
+      ]
+    },
+    "FeeBnbScenario": {
+      "type": "object",
+      "properties": {
+        "preRounding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeUnroundedFamilies"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/SpotFeeRateBasis"
+        },
+        "special": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "standard": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "tax": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "standard",
+        "tax",
+        "special",
+        "total"
+      ]
+    },
+    "FeeConversionReference": {
+      "description": "One exact purpose-bound price leg used only by the current BNB fee estimate.\nPrice and size remain ephemeral; the saved reference contains identity and exact consumed\namount only.",
+      "type": "object",
+      "properties": {
+        "bookUpdateId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "coverage": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "coverageAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "dataUseRights": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "firstReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fromAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "marketSnapshotId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialHash": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "pair": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "priceSide": {
+          "$ref": "#/$defs/FeePriceSide"
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "toAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pair",
+        "fromAsset",
+        "toAsset",
+        "priceSide",
+        "coverageAsset",
+        "coverage",
+        "marketSnapshotId",
+        "source",
+        "materialHash",
+        "sourceVersion",
+        "connectionGeneration",
+        "bookUpdateId",
+        "providerTimestamp",
+        "firstReceipt",
+        "dataUseRights"
+      ]
+    },
+    "FeeExactExpression": {
+      "type": "object",
+      "properties": {
+        "denominator": {
+          "type": "string",
+          "maxLength": 1234,
+          "minLength": 1,
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "numerator": {
+          "type": "string",
+          "maxLength": 1234,
+          "minLength": 1,
+          "pattern": "^(0|[1-9][0-9]*)$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ]
+    },
+    "FeeFamilyScenario": {
+      "type": "object",
+      "properties": {
+        "netReceived": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "preRounding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeUnroundedFamilies"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/SpotFeeRateBasis"
+        },
+        "special": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "standard": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "tax": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "standard",
+        "tax",
+        "special",
+        "total",
+        "netReceived"
+      ]
+    },
+    "FeeFundingDisposition": {
+      "type": "string",
+      "enum": [
+        "RECEIVED_ASSET_DEDUCTION",
+        "BNB_CURRENT_ESTIMATE",
+        "NO_CURRENT_FEE",
+        "CONDITIONAL_INPUTS_REQUIRED"
+      ]
+    },
+    "FeeFundingEvidence": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "capacityBindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "effectiveFree": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "firstReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "localClaims": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "originalDigest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked",
+        "localClaims",
+        "effectiveFree",
+        "collectionId",
+        "capacityBindingVersion",
+        "startedAt",
+        "firstReceipt",
+        "originalDigest"
+      ]
+    },
+    "FeeMarketMetadata": {
+      "type": "object",
+      "properties": {
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "marketStatus": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "originalDigest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerSymbol",
+        "baseAsset",
+        "quoteAsset",
+        "marketStatus",
+        "receivedAt",
+        "originalDigest"
+      ]
+    },
+    "FeeMarketReference": {
+      "description": "Immutable market identity/receipts, without persisting raw depth or quote prices.",
+      "type": "object",
+      "properties": {
+        "bookUpdateId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "dataUseRights": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "firstReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "marketSnapshotId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialHash": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "priceSide": {
+          "$ref": "#/$defs/FeePriceSide"
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "priceSide",
+        "marketSnapshotId",
+        "source",
+        "materialHash",
+        "sourceVersion",
+        "connectionGeneration",
+        "bookUpdateId",
+        "providerTimestamp",
+        "firstReceipt",
+        "dataUseRights"
+      ]
+    },
+    "FeeModelClass": {
+      "type": "string",
+      "enum": [
+        "CURRENT_ORDER_SCENARIO"
+      ]
+    },
+    "FeeModelMethod": {
+      "type": "string",
+      "enum": [
+        "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1"
+      ]
+    },
+    "FeeNativeClaimPreview": {
+      "description": "One backend-derived native claim shown with the current scenario. It is not an approval and\nnever comes from renderer-supplied amounts.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "amount"
+      ]
+    },
+    "FeePriceSide": {
+      "type": "string",
+      "enum": [
+        "BID",
+        "ASK"
+      ]
+    },
+    "FeeUnroundedFamilies": {
+      "type": "object",
+      "properties": {
+        "special": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "standard": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "tax": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "total": {
+          "$ref": "#/$defs/FeeExactExpression"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "standard",
+        "tax",
+        "special",
+        "total"
       ]
     },
     "FilterSpec": {
@@ -8260,6 +8867,7 @@
         "EXCHANGE_HALTS",
         "ACCOUNT_TRADABILITY",
         "FX_RATE_OBSERVATION",
+        "FX_DATA_USE_RIGHTS",
         "TRANSACTION_FX_QUALIFICATION",
         "BROKER_CONVERSION_COSTS",
         "MONETARY_INPUT_COMPLETENESS",
@@ -8315,10 +8923,32 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "cryptoLocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaCryptoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "expectedStateVersion": {
           "type": "string",
           "maxLength": 256,
           "minLength": 1
+        },
+        "sourceUseContext": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "workspaceId": {
           "type": "string",
@@ -8356,6 +8986,16 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "cryptoLocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaCryptoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "eligibleAccounts": {
           "type": "array",
@@ -8401,6 +9041,26 @@
           "type": "string",
           "maxLength": 64,
           "minLength": 1
+        },
+        "sourceUseAssessment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceUseContext": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "stateVersion": {
           "type": "string",
@@ -8551,6 +9211,23 @@
           "properties": {
             "binding": {
               "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "cryptoLocation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AlpacaCryptoLocation"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cryptoQuotes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FxCryptoQuote"
+              },
+              "maxItems": 1
             },
             "kind": {
               "type": "string",
@@ -8810,6 +9487,102 @@
         "BINANCE_SPOT_RULES"
       ]
     },
+    "FxCountrySupportConfirmation": {
+      "description": "User-reported provider UI facts used only as input to the local source-use policy.\nThese facts are not a provider permission or entitlement assertion.",
+      "type": "object",
+      "properties": {
+        "confirmedAt": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "confirmedJurisdiction": {
+          "type": "string",
+          "maxLength": 2,
+          "minLength": 2
+        },
+        "reference": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "confirmedJurisdiction",
+        "confirmedAt",
+        "reference"
+      ]
+    },
+    "FxCryptoQuote": {
+      "type": "object",
+      "properties": {
+        "askPrice": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "askSize": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bidPrice": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bidSize": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 8,
+          "minLength": 8
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "requestPath": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "responseSha256": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerSymbol",
+        "bidPrice",
+        "bidSize",
+        "askPrice",
+        "askSize",
+        "providerTimestamp",
+        "requestPath",
+        "responseSha256",
+        "receivedAt"
+      ]
+    },
+    "FxDeclaredUseScope": {
+      "type": "string",
+      "enum": [
+        "OWN_LOCAL_NONCOMMERCIAL",
+        "COMMERCIAL_OR_SHARED"
+      ]
+    },
     "FxFreshness": {
       "type": "string",
       "enum": [
@@ -8833,17 +9606,20 @@
         },
         "fromCurrency": {
           "type": "string",
-          "maxLength": 3,
+          "maxLength": 4,
           "minLength": 3
         },
         "mid": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "maxLength": 64,
           "minLength": 1
         },
         "providerPair": {
           "type": "string",
-          "maxLength": 6,
+          "maxLength": 7,
           "minLength": 6
         },
         "providerTimestamp": {
@@ -8853,7 +9629,7 @@
         },
         "toCurrency": {
           "type": "string",
-          "maxLength": 3,
+          "maxLength": 4,
           "minLength": 3
         }
       },
@@ -8864,7 +9640,6 @@
         "toCurrency",
         "bid",
         "ask",
-        "mid",
         "providerTimestamp"
       ]
     },
@@ -8920,6 +9695,13 @@
         "quality"
       ]
     },
+    "FxProviderDataset": {
+      "type": "string",
+      "enum": [
+        "FOREX_LATEST_RATES",
+        "CRYPTO_LATEST_QUOTES"
+      ]
+    },
     "FxQuality": {
       "type": "string",
       "enum": [
@@ -8927,6 +9709,13 @@
         "DEGRADED",
         "UNKNOWN",
         "UNAVAILABLE"
+      ]
+    },
+    "FxRawDataDestination": {
+      "type": "string",
+      "enum": [
+        "LOCAL_ONLY",
+        "EXTERNAL"
       ]
     },
     "FxRequirementNeed": {
@@ -9044,9 +9833,19 @@
         "need": {
           "$ref": "#/$defs/FxRequirementNeed"
         },
+        "providerDataset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxProviderDataset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "providerPair": {
           "type": "string",
-          "maxLength": 6,
+          "maxLength": 7,
           "minLength": 6
         },
         "purpose": {
@@ -9094,6 +9893,150 @@
       "required": [
         "workspaceId",
         "expectedStateVersion"
+      ]
+    },
+    "FxSourceUseAssessment": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FxSourceUsePolicyDocument"
+          },
+          "maxItems": 8
+        },
+        "policyVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/FxSourceUseEvidenceProvenance"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/FxSourceUseAssessmentStatus"
+        },
+        "supportedPurposes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "policyVersion",
+        "status",
+        "provenance",
+        "documents",
+        "supportedPurposes",
+        "reason"
+      ]
+    },
+    "FxSourceUseAssessmentStatus": {
+      "type": "string",
+      "enum": [
+        "UNRESOLVED",
+        "SUPPORTED_FOR_DECLARED_SCOPE",
+        "OUT_OF_PROFILE"
+      ]
+    },
+    "FxSourceUseContext": {
+      "type": "object",
+      "properties": {
+        "accountJurisdiction": {
+          "type": "string",
+          "maxLength": 2,
+          "minLength": 2
+        },
+        "agreementReviewedAt": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "countrySupportConfirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxCountrySupportConfirmation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "marketDataPlan": {
+          "$ref": "#/$defs/AlpacaMarketDataPlan"
+        },
+        "rawDataDestination": {
+          "$ref": "#/$defs/FxRawDataDestination"
+        },
+        "useScope": {
+          "$ref": "#/$defs/FxDeclaredUseScope"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "marketDataPlan",
+        "accountJurisdiction",
+        "agreementReviewedAt",
+        "useScope",
+        "rawDataDestination"
+      ]
+    },
+    "FxSourceUseEvidenceProvenance": {
+      "type": "string",
+      "enum": [
+        "NOT_RECORDED",
+        "USER_REPORTED_PROVIDER_UI",
+        "USER_REPORTED_PROVIDER_SUPPORT"
+      ]
+    },
+    "FxSourceUsePolicyDocument": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "title",
+        "url",
+        "sha256"
       ]
     },
     "GatewayAction": {
@@ -9865,6 +10808,14 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "initialAssetClaims": {
+          "description": "Immutable initial native claims for exactly-once per-asset settlement.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionReservationAssetClaim"
+          },
+          "maxItems": 16
         },
         "initialCommitment": {
           "type": "string",
@@ -13495,6 +14446,9 @@
           "$ref": "#/$defs/SpotCommissionInputs"
         },
         {
+          "$ref": "#/$defs/SpotFeeMarketProjection"
+        },
+        {
           "$ref": "#/$defs/SpotOrderIntervalInputs"
         },
         {
@@ -14583,7 +15537,8 @@
         "CANCELLATION_ORDER",
         "CANCELLATION_CAPABILITY",
         "SNAPSHOT_FRESHNESS",
-        "CURRENCY_CONVERSION"
+        "CURRENCY_CONVERSION",
+        "SPOT_FEE_FX"
       ]
     },
     "RiskCheckOutcome": {
@@ -14920,7 +15875,8 @@
         "INVALID_PROPOSAL_VALUE",
         "ORDER_NOT_CANCELABLE",
         "CANCELLATION_UNSUPPORTED",
-        "CURRENCY_CONVERSION_UNAVAILABLE"
+        "CURRENCY_CONVERSION_UNAVAILABLE",
+        "SPOT_FEE_FX_UNAVAILABLE"
       ]
     },
     "RiskDecisionStatus": {
@@ -16659,6 +17615,14 @@
             "minLength": 1
           },
           "maxItems": 16
+        },
+        "walletBalances": {
+          "description": "Original selected BASE/QUOTE/BNB rows from the same authenticated account read.\nMissing rows remain missing; older captures omit this additive projection.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCapacityBalance"
+          },
+          "maxItems": 3
         }
       },
       "additionalProperties": false,
@@ -17115,6 +18079,128 @@
         "STALE"
       ]
     },
+    "SpotCurrentFeeModel": {
+      "type": "object",
+      "properties": {
+        "bnbConversionReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeeConversionReference"
+          },
+          "maxItems": 2
+        },
+        "bnbFee": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeBnbScenario"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bnbFeeCandidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeeBnbScenario"
+          },
+          "maxItems": 2
+        },
+        "bnbFeeFailure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bnbFundingEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeFundingEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chargingCondition": {
+          "$ref": "#/$defs/ChargingCondition"
+        },
+        "class": {
+          "$ref": "#/$defs/FeeModelClass"
+        },
+        "discountedFeeIsExactlyZero": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "fallback": {
+          "$ref": "#/$defs/FeeFamilyScenario"
+        },
+        "fallbackCandidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeeFamilyScenario"
+          },
+          "maxItems": 2
+        },
+        "fundingPlanPreview": {
+          "description": "Backend-derived, current-branch plan preview. It is captured in the same financial digest.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFundingPlanPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "grossReceived": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 2
+        },
+        "marketReference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeMarketReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "$ref": "#/$defs/FeeModelMethod"
+        },
+        "receivedAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "class",
+        "receivedAsset",
+        "grossReceived",
+        "fallback",
+        "chargingCondition",
+        "limitations"
+      ]
+    },
     "SpotDeclaredCommission": {
       "type": "object",
       "properties": {
@@ -17198,12 +18284,12 @@
           "const": "SPOT_FEE_FX_EVIDENCE_MISMATCH"
         },
         {
-          "description": "No current declared commission observation is bound to the intent.",
+          "description": "No current exact-symbol commission observation is bound to the intent.",
           "type": "string",
           "const": "SPOT_FEE_EVIDENCE_UNAVAILABLE"
         },
         {
-          "description": "The venue does not declare the fee-charging asset, so the statement fails closed.",
+          "description": "No complete current conditional estimate qualifies while the fee asset is undeclared.",
           "type": "string",
           "const": "SPOT_FEE_CURRENCY_UNKNOWN"
         },
@@ -17230,7 +18316,7 @@
       ]
     },
     "SpotFeeFxStatement": {
-      "description": "One exact statement of the reviewed intent's owning fee and genuinely-required execution FX.\nIt is explicitly execution-unqualified: it carries no Arm, consent, dispatch or execution\nauthority even when fully qualified, and it is not a substitute for authenticated preflight.",
+      "description": "One exact statement of the reviewed intent's owning fee and genuinely-required FX.\nPrice-only policy valuation and funding/execution routes have separate qualification rules.\nThis statement carries no Arm, consent, dispatch or execution authority even when complete,\nand it is not a substitute for authenticated preflight.",
       "type": "object",
       "properties": {
         "accountId": {
@@ -17266,6 +18352,25 @@
           },
           "maxItems": 5
         },
+        "currentFeeModel": {
+          "description": "S29.11 current scenario; it does not qualify absent funding or required FX.\nAbsent on older persisted captures, whose source-only meaning is preserved.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCurrentFeeModel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currentFeeModelFailure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
         "declaredBuyerRate": {
           "type": [
             "string",
@@ -17275,7 +18380,7 @@
           "minLength": 1
         },
         "declaredMakerRate": {
-          "description": "The venue's declared rates, reported verbatim, never promoted into a hidden gate.",
+          "description": "Historical account-level comparison rates from older captures. New statements leave these\nabsent; exact-symbol terms are preserved by the bound SpotCommission evidence input.",
           "type": [
             "string",
             "null"
@@ -17336,6 +18441,7 @@
           "minLength": 71
         },
         "feeRateBasis": {
+          "description": "Historical account-level comparison basis, retained only when reading older captures.\nNew statements leave it absent; current fee modeling is bound to exact-symbol terms.",
           "anyOf": [
             {
               "$ref": "#/$defs/SpotFeeRateBasis"
@@ -17396,10 +18502,21 @@
           "items": {
             "$ref": "#/$defs/SpotRequiredRoute"
           },
-          "maxItems": 2
+          "maxItems": 3
         },
         "side": {
           "$ref": "#/$defs/OrderSide"
+        },
+        "walletFundingEvidence": {
+          "description": "Exact BASE/QUOTE/BNB wallet rows bound to the current account-read receipt.\nOlder captures omit this additive evidence; retirement never reuses prior rows.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotWalletFundingEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "workspaceBaseExpectedFee": {
           "type": [
@@ -17446,12 +18563,166 @@
         "routeEvidenceVersion"
       ]
     },
+    "SpotFeeMarketAcquire": {
+      "type": "object",
+      "properties": {
+        "expectedSourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedSourceVersion"
+      ]
+    },
+    "SpotFeeMarketProjection": {
+      "type": "object",
+      "properties": {
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeMarketMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1024,
+          "minLength": 1
+        },
+        "reconnectAttempt": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 3,
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "snapshot": {
+          "description": "Current/raw fee inputs are protected ephemeral reads, never saved risk history.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/HotQuoteStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "leaseId",
+        "generation",
+        "connectionGeneration",
+        "sourceVersion",
+        "sequence",
+        "reconnectAttempt",
+        "status",
+        "reason"
+      ]
+    },
     "SpotFeeRateBasis": {
-      "description": "The conservative declared basis this statement relies on; present whenever the venue declares\ncommission rates, even when no fee amount can be stated because the fee-charging asset is\nundeclared. It is always the **larger** of the declared maker and taker rates, compared as exact\ndecimals (never `f64`), without claiming an all-in fee amount.",
+      "description": "A maker/taker role label. Legacy `feeRateBasis` values on captured statements describe the\nhistorical account-comparison calculation; new owning statements leave that field absent.",
       "type": "string",
       "enum": [
         "MAKER",
         "TAKER"
+      ]
+    },
+    "SpotFundingPlanPreview": {
+      "description": "Review-bound preview of the native principal and the currently modeled fee branch.\nThe eventual reservation is still created only by explicit approval and atomic Prepare.",
+      "type": "object",
+      "properties": {
+        "currentFeeClaim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeNativeClaimPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fallbackFeeAmount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fallbackFeeAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "fallbackNetReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "feeDisposition": {
+          "$ref": "#/$defs/FeeFundingDisposition"
+        },
+        "principalClaim": {
+          "$ref": "#/$defs/FeeNativeClaimPreview"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "principalClaim",
+        "feeDisposition",
+        "fallbackFeeAsset",
+        "fallbackFeeAmount",
+        "fallbackNetReceipt"
       ]
     },
     "SpotMarketEnvironment": {
@@ -18338,7 +19609,7 @@
       ]
     },
     "SpotRequiredRoute": {
-      "description": "One genuinely-required execution FX route. A statement carries at most two of these.",
+      "description": "One genuinely-required, purpose-scoped FX leg. A statement carries at most three: two explicit\npolicy-valuation legs plus a separate funding leg. `QUALIFIED` applies only to `purpose` and\nnever means provider permission or execution authority.",
       "type": "object",
       "properties": {
         "conservativeCost": {
@@ -18363,12 +19634,12 @@
           "minLength": 1
         },
         "providerPair": {
-          "description": "Present only when a supported bounded producer pair exists for this route. Its length bound\nmirrors the delivered `FxRouteRequirement.providerPair` exactly (`min = 6, max = 6`).",
+          "description": "Present only when a supported bounded producer pair exists for this route. Its length bound\nmirrors `FxRouteRequirement.providerPair`, including the seven-character `USDTUSD` pair.",
           "type": [
             "string",
             "null"
           ],
-          "maxLength": 6,
+          "maxLength": 7,
           "minLength": 6
         },
         "providerQuality": {
@@ -18723,6 +19994,182 @@
         "workspaceId",
         "proposalId",
         "expectedStateVersion"
+      ]
+    },
+    "SpotWalletBalanceEvidence": {
+      "description": "One original account wallet row with active same-account claims for this asset applied once.",
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "effectiveFree": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "localClaims": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked",
+        "localClaims"
+      ]
+    },
+    "SpotWalletFundingEvidence": {
+      "description": "Proposal/account-bound exact BASE/QUOTE/BNB wallet coverage from one account-read receipt.\nMissing holdings remain missing. This is descriptive local evidence, not execution authority.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "accountReadStartedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotWalletBalanceEvidence"
+          },
+          "maxItems": 3
+        },
+        "capacityBindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "collectionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "firstReceipt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "missingAssets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1
+          },
+          "maxItems": 3
+        },
+        "originalDigest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requiredAssets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1
+          },
+          "maxItems": 3
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotWalletFundingStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "requiredAssets",
+        "missingAssets",
+        "balances",
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "sourceVersion",
+        "capacityBindingVersion"
+      ]
+    },
+    "SpotWalletFundingStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_OBSERVED",
+        "COMPLETE",
+        "INCOMPLETE",
+        "UNAVAILABLE",
+        "RETIRED"
       ]
     },
     "StrategyCancel": {

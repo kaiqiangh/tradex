@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "name": "Error",
+  "message": "Error: Playwright selector deadline exceeded\nlocator.waitFor(visible) timed out for selector internal:role=region[name=\"Current BNB fee source\"s] >> internal:text=\"STREAMING · Read-only fee inputs · Execution qualification unavailable\"s\nLocator diagnostics: {\"kind\":\"no_matches\",\"action\":\"waitFor\",\"locator\":\"internal:role=region[name=\\\"Current BNB fee source\\\"s] >> internal:text=\\\"STREAMING · Read-only fee inputs · Execution qualification unavailable\\\"s\",\"matchCount\":0,\"matches\":[],\"visibleCount\":0,\"truncated\":false}"
+}
