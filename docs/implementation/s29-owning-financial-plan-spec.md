@@ -153,6 +153,7 @@ These arithmetic cases establish decision/oracle preparation only. They do not r
 - [ ] AC12. Prepare/preflight enforce the actual authorization/funding boundary and reject changed or unavailable evidence without partial state or provider mutation.
 - [ ] AC13. Genuine public TDD plus positive/error/lifecycle/concurrency/settlement scenarios and actual current/captured/pre-arm responsive UI pass.
 - [ ] AC14. Paired normative contracts, complete checks, ordinary build/pin, serial independent reviews and frozen source/evidence/remote/tracker handoff pass; full parent/map/real/native/physical/release acceptance is not upgraded by this item alone.
+- [ ] AC15. The owning Spot `INTENT_POLICY` valuation is displayed in its exact provider pair, original numeric tokens and denomination, with provider/receipt timestamps and available sizes/status in current, captured and pre-Arm views. This path adds no EUR/other-currency conversion, historical FX, reciprocal or parity inference. RiskDecision/Prepare consume it only when the returned currency exactly matches workspace base; otherwise the typed valuation-currency blocker leaves no owning amount, approval authority or reservation. Separate purpose-bound FX routes and all source-use gates remain unchanged.
 
 ## Twenty-requirement handoff coverage
 
@@ -168,15 +169,15 @@ All entries remain pending implementation; this is a completeness index, not PAS
 | 6 Exact BASE/QUOTE/BNB funds | AC5 |
 | 7 Principal funds and once-only deductions | AC5, AC6 |
 | 8 Conditional claims and per-asset settlement | AC6, AC7 |
-| 9 Actual consumed purposes | AC9 |
+| 9 Actual consumed purposes | AC9, AC15 |
 | 10 Prefunding, no hidden operations | AC6 |
-| 11 Real asset/pair/path wire | AC8, AC9 |
+| 11 Real asset/pair/path wire | AC8, AC9, AC15 |
 | 12 Permitted-use and source entitlement | AC1 |
-| 13 Directional valuation/model/depth/cost | AC3, AC9 |
-| 14 Genuine positive producer/consumer | AC10 |
+| 13 Directional valuation/model/depth/cost | AC3, AC9, AC15 |
+| 14 Genuine positive producer/consumer | AC10, AC15 |
 | 15 Material versus immutable provenance | AC11 |
-| 16 Exact preflight and atomic refusal | AC12 |
-| 17 Immutable responsive disclosures | AC13 |
+| 16 Exact preflight and atomic refusal | AC12, AC15 |
+| 17 Immutable responsive disclosures | AC13, AC15 |
 | 18 Positive/fault/concurrency public TDD | AC13 |
 | 19 Checks/build/pin/serial reviews/handoff | AC14 |
 | 20 Independent whole-goal duties | AC14 |
