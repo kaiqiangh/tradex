@@ -1281,4 +1281,4 @@ Accounts surface 展示每个 Live open order 的 provider state、完整 provid
 
 ### 13.47 Saved Thread 生命周期（B2 #148）
 
-typed client 将 thread.archive/thread.restore 映射为 ThreadLifecycle→Thread。Thread 详情持有绑定当前展示版本的忙碌/错误生命周期操作。成功后通过现有 thread.updated 订阅更新权威详情，并使工作区 Thread 列表失效刷新；避免重复快照重载卸载已聚焦的生命周期控件。Archive Thread 与 Restore to active 相互改变时保留焦点。Turn 运行时禁用归档并说明原因；失败提供 Reload thread，不重放写入。ARCHIVED 详情保留准确元数据/上下文/时间线，用只读说明替代 composer，隐藏 Turn retry/save-as-artifact 控件。独立恢复仅改变生命周期；另行显式 Send 仍需通过当前 runtime/capability/金融门禁。1280/768/390 保持过期/错误恢复和状态可见，不由 renderer 创建状态、事件或权限。共享契约归 Backend §41.61/UI §14.44。
+typed client 将 thread.archive/thread.restore 映射为 ThreadLifecycle→Thread。Thread 详情持有绑定当前展示版本的忙碌/错误生命周期操作。成功后通过现有 thread.updated 订阅更新权威详情，并使工作区 Thread 列表失效刷新；避免重复快照重载卸载已聚焦的生命周期控件。Archive Thread 与 Restore to active 相互改变时保留焦点。Turn 运行时禁用归档并说明原因；失败提供 Reload thread，不重放写入。所选快照正在获取或订阅尚未建立当前 projection 时，禁用生命周期操作；就绪性仅是 UI 传输状态，绝非执行权限。ARCHIVED 详情保留准确元数据/上下文/时间线，用只读说明替代 composer，隐藏 Turn retry/save-as-artifact 控件。独立恢复仅改变生命周期；另行显式 Send 仍需通过当前 runtime/capability/金融门禁。1280/768/390 保持过期/错误恢复和状态可见，不由 renderer 创建状态、事件或权限。共享契约归 Backend §41.61/UI §14.44。

@@ -116,7 +116,15 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
     const rect = await restore.boundingBox();
     const geometry = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, scroll: document.documentElement.scrollWidth }));
     check(rect && rect.x >= 0 && rect.x + rect.width <= geometry.width + 1 && rect.y >= 0 && rect.y + rect.height <= geometry.height + 1 && geometry.scroll <= geometry.width, 'Saved controls reachable without overflow.');
-    if (width === 390) await detail.screenshot({ path: `docs/implementation/evidence/s33/b2-saved-${withTimeline ? 'timeline' : 'archive'}-390.png` });
+    const identity = detail.getByText(`Thread ${thread.threadId}`, { exact: true });
+    await identity.evaluate(element => element.scrollIntoView({ block: 'center' }));
+    const identityRect = await identity.boundingBox();
+    const headerBottom = await page.locator('.topbar').evaluate(element => element.getBoundingClientRect().bottom);
+    check(identityRect && identityRect.x >= 0 && identityRect.x + identityRect.width <= geometry.width + 1 && identityRect.y >= Math.max(0, headerBottom) && identityRect.y + identityRect.height <= geometry.height, 'Full Thread identity is reachable below sticky navigation.');
+    if (width === 390) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: `docs/implementation/evidence/s33/b2-saved-${withTimeline ? 'timeline' : 'archive'}-390.png`, fullPage: true });
+    }
     await restore.press('Enter');
     await action.waitFor({ state: 'visible' });
     await page.waitForFunction(() => document.activeElement?.textContent === 'Archive Thread');
@@ -124,7 +132,7 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
     check(active.status === 'ACTIVE' && stable(active) === stable(original), 'Restore preserves original identity/context/timeline.');
     const today = page.locator('.threads-list-card .thread-history-group').filter({ has: page.getByRole('heading', { name: 'Today', exact: true }) });
     await today.getByRole('button', { name: thread.title, exact: true }).waitFor({ state: 'visible' });
-    observations.push({ width, savedAfterReload: true, restoredToToday: true, focusPreserved: true, documentOverflow: false });
+    observations.push({ width, savedAfterReload: true, restoredToToday: true, focusPreserved: true, completeIdentityReachable: true, documentOverflow: false });
   }
   // Hold a real UI command while another public command wins its state version.
   let held;
