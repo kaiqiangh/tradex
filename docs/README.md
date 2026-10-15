@@ -50,6 +50,8 @@ S29.11 #135 remains OPEN. The FX source profile captures user-reported plan, jur
 
 The #146 local-use attestation slice is implemented and passed `RUST_TEST_THREADS=1 npm run check` plus the isolated browser flow for explicit confirmation, current/captured provenance, responsive layouts and unchanged transaction/approval gates. The fixtures were synthetic and local; no Alpaca request or provider entitlement was established. #146 acceptance is limited to this local user-attestation behavior; #135 and overall S29.11 remain OPEN.
 
+The #143/#144 raw local Spot valuation slice preserves the API-returned pair, exact decimal text, denomination and timestamps without EUR/other-currency conversion. A quote reaches monetary RiskDecision/Prepare only on exact currency-code match with the workspace base; mismatches remain visible and return the typed blocker without an owning amount. The local provider→Control Plane→UI and matching/mismatching currency paths passed in synthetic tests/browser fixtures; no real provider permission is claimed. #134, #135 and the full map remain OPEN.
+
 ## Chinese synchronized set
 
 [Chinese index](./zh/README.md) links all six English/Chinese document pairs: PRD, UI Spec, frontend/backend ARDs, Coverage Matrix, and QA Report. [Chinese prototype guide](./prototype/README_zh.md) accompanies the same fixture.

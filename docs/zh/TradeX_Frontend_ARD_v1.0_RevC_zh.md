@@ -1249,6 +1249,8 @@ BUY LIMIT应将Control Plane准确的 BASE 数量 × 不可变限价作为原生
 
 在每条必需货币路由显示`providerDataset`，让USDT→USD明确使用Alpaca crypto quote，USD/法币腿继续显示为独立forex要求。对当前或捕获的crypto quote，显示准确所选location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。该只读来源追溯展示使用设备内的`FinancialSourceConnection` IPC投影，不构成外部分发。React不得用原始字段推导算术、source-use rights、金融资格或权限，也不得将其转发至model/tool prompt、research或artifact export及其他外部consumer。标明它仅用于价格政策估值：size仅保留为来源记录，不是执行覆盖；不虚构mid或换算成本。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且USDT/USD的绑定quote bid和ask均处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可为价格估值资格化。没有当前匹配的来源绑定用户确认时，即使认证观察可用，`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`；匹配确认仅标记为“由用户确认”。交易资格仍独立并保持阻塞。即使当前证据过期，immutable pre-arm review仍保留原值；不得刷新或重算捕获值。界面保持键盘可用并在390/768/1280px响应式可用。Backend§41.53–41.54/UI§14.38适用；完整S29.11验收仍待完成。
 
+拥有方Spot本地估值面板通过Control Plane projection原样渲染provider返回币对、十进制文本、报价币种、size和时间。React不换算数据，也不通过浮点数格式化。它不会构造本位币/EUR等值、反向报价或额外FX腿。返回报价币种与workspace本位币不完全一致时，保留原始证据并显示Control Plane typed阻断；不伪造或显示货币风控金额。当前、捕获和pre-arm证据均原样保留来源币种quote。
+
 ## 13.41 Alpaca source-use context与评估（S29.11，验收待完成）
 
 在FX source设置中展示生成契约定义的计划、账户法域、协议复核日期、可选的逐国Alpaca Support确认国家/日期/reference、声明用途范围和原始数据去向字段。未保存事实时保持空白；重开后恢复已保存值。切换到其他账户时清空draft，直到用户录入所选账户事实。部分填写时禁用Save；清空全部字段会移除可选context；同一账户仅更改crypto location时保留context。Save仅保存选定source profile，不访问provider。

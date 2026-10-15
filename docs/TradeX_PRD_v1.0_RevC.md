@@ -1836,6 +1836,8 @@ A versioned local source-use policy may assess user-reported account plan, juris
 
 When the provider does not publish a supported-jurisdiction list and directs users to Support, the local policy may require a dated, referenced, user-reported confirmation for the exact account jurisdiction. This country-specific confirmation remains distinct from market-data rights and does not establish provider entitlement.
 
+For the local Spot `INTENT_POLICY` valuation path, retain the provider-returned pair, exact numeric values, quote denomination, sizes and timestamps as received. Showing a quote does not convert it to the workspace base currency or synthesize an EUR/other-currency value, FX leg, reciprocal or parity. The owning monetary RiskDecision/Prepare consumer may use the valuation only when its exact currency code matches the workspace base currency and every independent source-use, quote-freshness, account, fee, market, approval and authorization gate passes. On mismatch, keep the raw quote visible but return a typed valuation-currency blocker and do not derive a workspace-base amount or create approval authority/reservation. This rule is specific to the local policy-valuation path; cross-account portfolio normalization and explicitly required funding/execution FX remain separate contracts.
+
 ---
 
 # 35. Market Calendar and Corporate Actions

@@ -3287,6 +3287,8 @@ REST本身不生成当前费用quote。真实`U/u` diff event与snapshot衔接�
 
 该quote仅用于政策价格估值。保留的quote size不证明可执行深度、换算成本、资金或下游使用许可。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，其`INTENT_POLICY` route才可为该估值用途QUALIFIED；超出区间或未支持该用途则UNQUALIFIED。Provider quality仍为`UNQUALIFIED_FX_RATE`，任何结果都不构成执行资格。新鲜认证观察在没有§41.60中的单独匹配确认时可使`FX_RATE_OBSERVATION`可用，而`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`；存在匹配确认时也仅作为用户确认的本地用途显示为`VERIFIED`。`TRANSACTION_FX_QUALIFICATION`仍为`BLOCKED_EXTERNAL`。location、成功认证及source-use评估本身不能设置rights。实际source-use证据收集/评估及完整拥有方金融验收仍开放。
 
+对拥有方Spot `INTENT_POLICY`货币consumer，根据准确provider报价币种推导估值结果币种，并为展示/捕获保留原始quote。本地估值不得通过额外FX route、历史汇率、倒数或假设平价换算。只有route本身已资格化且结果币种代码与workspace本位币完全一致时，consumer才可向RiskDecision/Prepare提供本位币金额。币种不匹配时保留原始quote，但返回`VALUATION_CURRENCY_MISMATCH` / `SPOT_VALUATION_CURRENCY_MISMATCH`，不提供本位币预期支出、审批资格或reservation。本门禁与`INTENT_FUNDING`换汇和跨账户组合归一化独立；那些契约保持不变。
+
 ### 41.55 Alpaca source-use事实与有界本地评估（S29.11，验收待完成）
 
 `FinancialSourceConfigure.sourceUseContext`为可选、可空字段，且仅FX source接受。它记录`marketDataPlan`（`BASIC`、`ALGO_TRADER_PLUS`、`UNKNOWN`）、两字母`accountJurisdiction`、ISO格式`agreementReviewedAt`、`useScope`（`OWN_LOCAL_NONCOMMERCIAL`、`COMMERCIAL_OR_SHARED`）以及`rawDataDestination`（`LOCAL_ONLY`、`EXTERNAL`）。还可记录`countrySupportConfirmation`，含`confirmedJurisdiction`、ISO格式`confirmedAt`及有界的人类可读`reference`。校验国家代码和日期；协议复核与Support确认日期不得晚于今天，也不得早于固定policy复核日2026-10-11。将完整上下文持久化在source profile中，并纳入source binding/material，使配置变化退休当前observation。

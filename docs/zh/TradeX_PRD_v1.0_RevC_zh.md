@@ -1835,6 +1835,8 @@ TradeX 不应假定本地缓存市场数据即自动获得再分发权利。
 
 当provider未发布支持法域清单并指引用户联系Support时，本地policy可以要求用户报告带日期和reference、且对应准确账户法域的确认。逐国确认仍与市场数据权利分离，也不构成provider entitlement。
 
+对本地Spot `INTENT_POLICY`估值路径，按原样保留provider返回的币对、精确数值、报价币种、size和时间。展示quote不会将其换算到workspace本位币，也不会合成EUR/其他币种金额、FX腿、倒数或平价。只有估值的精确币种代码与workspace本位币一致，且独立source-use、quote新鲜度、账户、费用、市场、审批和授权门禁全部通过时，拥有方货币RiskDecision/Prepare consumer才可消费该估值。币种不匹配时仍展示原始quote，但返回typed估值币种阻断，不推导本位币金额，也不创建审批权限或reservation。本规则仅适用于本地政策估值路径；跨账户组合归一化和明确必需的资金/执行FX仍由独立契约定义。
+
 ---
 
 # 35. 市场日历与公司行为

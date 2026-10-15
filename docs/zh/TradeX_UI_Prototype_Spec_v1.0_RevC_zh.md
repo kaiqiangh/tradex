@@ -1083,6 +1083,8 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 
 在当前与捕获的Currency Evidence中区分USDT→USD crypto quote路由和方向性forex路由。显示配置的Alpaca crypto location、原始bid/ask价格与数量、provider时间、本地收取时间、准确request path及响应digest。说明quote size仅保留来源记录，不能证明可执行深度或换算成本；不显示合成mid。只有准确source的当前source-use评估在`supportedPurposes`中包含`POLICY_VALUATION`，且绑定quote的bid和ask都处于含边界的`0.99–1.01 USD/USDT`政策区间时，`INTENT_POLICY`才可仅为价格估值资格化；不能资格化资金执行。没有当前匹配的来源绑定用户确认时，即使认证观察可用，`FX_DATA_USE_RIGHTS`仍为`UNVERIFIED`；匹配确认仅标记为“由用户确认”。transaction qualification仍保持阻塞。当前证据过期后，捕获的pre-arm review仍保留准确quote/location且不刷新。验证键盘可用性及390/768/1280px溢出。Backend§41.54与Frontend§13.40适用；完整S29.11验收仍待完成。原型源码未改。
 
+对拥有方Spot货币审查，显示准确返回币种和币对；本地估值不得显示换算后的EUR/workspace本位币金额，也不得增加隐藏FX腿。只有其他条件均资格化且报价币种代码与workspace本位币完全一致时，才可进入货币RiskDecision/Prepare。币种不匹配时保留原始quote、显示typed阻断并使拥有方金额不可用；`USDT`与`USD`不同。本规则不改变独立的组合归一化或必需资金FX契约。
+
 ## 14.39 Alpaca source-use事实与本地policy结果（S29.11，验收待完成）
 
 在Settings → Data & Storage → Alpaca currency rates中增加键盘可操作的行情计划、账户法域、协议复核日期、可选的逐国Alpaca Support确认国家/日期/reference、声明用途范围和原始数据去向字段。没有已保存context时保持空白；重开恢复已保存值。切换账户会清空draft context；同一账户仅更改location时保留。context只填了一部分时禁用Save；允许清空全部字段。Save持久化账户、location和完整可选context，但不读取Alpaca。
