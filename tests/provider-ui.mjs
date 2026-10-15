@@ -74,6 +74,49 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     }
     throw new Error(`Button ${name} did not appear after workspace reload`);
   };
+  const assertSafePaperDialog = async dialog => {
+    assert.equal(await dialog.getByRole('button', { name: 'Keep reviewing', exact: true }).evaluate(element => element === document.activeElement), true);
+    assert.equal(await ui.locator('.app-shell').evaluate(element => element.inert), true);
+    const enabled = dialog.locator('button:not(:disabled)');
+    const count = await enabled.count();
+    assert.equal(count, 2);
+    await enabled.last().press('Tab');
+    assert.equal(await enabled.first().evaluate(element => element === document.activeElement), true);
+    await enabled.first().press('Shift+Tab');
+    assert.equal(await enabled.last().evaluate(element => element === document.activeElement), true);
+    await dialog.getByRole('button', { name: 'Keep reviewing', exact: true }).focus();
+  };
+  const retestSavedAccount = async (label, existingValue) => {
+    await (await waitForButton('Accounts')).press('Enter');
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+    const postReloadSource = ui.getByRole('combobox', { name: 'Connection source', exact: true });
+    await postReloadSource.selectOption(existingValue);
+    const postReloadDetail = ui.getByRole('region', { name: label, exact: true });
+    const beforePostReloadReuseVersion = await postReloadDetail.getAttribute('data-state-version');
+    assert.ok(beforePostReloadReuseVersion, 'The saved provider account should expose a state version after reload');
+    await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
+    const afterPostReloadReuseVersion = await waitForVersionChange(
+      ui,
+      postReloadDetail,
+      beforePostReloadReuseVersion,
+      'provider account reuse did not commit after reload',
+    );
+    const postReloadRefresh = ui.getByRole('button', { name: 'Refresh account', exact: true });
+    for (let attempt = 0; attempt < 600 && !(await postReloadRefresh.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
+    assert.equal(await postReloadRefresh.isEnabled(), true);
+    await postReloadRefresh.press('Enter');
+    await waitForVersionChange(
+      ui,
+      postReloadDetail,
+      afterPostReloadReuseVersion,
+      'provider credentials were not re-tested after reload',
+    );
+    const workspaceId = await ui.locator('.context .identity').innerText();
+    const revalidatedAccount = await sendIntegrationCommand('account.get', { workspaceId, connectionId: existingValue });
+    assert.equal(revalidatedAccount.data.health.credential, 'CONFIGURED');
+    assert.equal(revalidatedAccount.data.connectionState, 'CONNECTED');
+    return workspaceId;
+  };
   try {
     await viewport.set({ width: 1280, height: 900 });
     await tab.getAXState({ emit: false });
@@ -212,6 +255,12 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const dialog = ui.getByRole('dialog', { name: 'Confirm Alpaca Paper submission', exact: true });
       await dialog.waitFor({ state: 'visible' });
       assert.equal(await dialog.getAttribute('aria-modal'), 'true');
+      await assertSafePaperDialog(dialog);
+      await dialog.press('Escape');
+      assert.equal(await dialog.isVisible(), false);
+      assert.equal(await submit.evaluate(element => element === document.activeElement), true);
+      await submit.press('Enter');
+      await dialog.waitFor({ state: 'visible' });
       const review = await dialog.innerText();
       assert.match(review, /This sends the exact Proposal to Alpaca Paper simulation only/);
       assert.ok(review.includes(label));
@@ -223,7 +272,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.equal(await dialog.isVisible(), false, 'Review cancellation must not submit the order');
       await submit.press('Enter');
       await dialog.waitFor({ state: 'visible' });
-      for (const width of [768, 390]) {
+      for (const width of [1280, 768, 390]) {
         await viewport.set({ width, height: 900 });
         const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
         assert.ok(size.scroll <= size.width, `Alpaca confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
@@ -255,6 +304,11 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.equal(await ui.getByRole('button', { name: 'Submit Alpaca Paper order', exact: true }).count(), 0);
       observed.push('Reload restores the saved provider attempt and removes the submit action, preventing a second UI submission.');
 
+      await retestSavedAccount(label, existingValue);
+      alpacaConnectionStateVersion = await detail.getAttribute('data-state-version');
+      await (await waitForButton('Order Drafts')).press('Enter');
+      await ui.locator('.order-proposal-row').first().press('Enter');
+      observed.push('After reload, TradeX re-tests the Alpaca Paper credential before refreshing orders; the saved attempt remains immutable.');
       await ui.getByRole('button', { name: 'Refresh orders and fills', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Open orders (1)', exact: true }).waitFor({ state: 'visible' });
       await ui.getByText(/Current provider observations/).waitFor({ state: 'visible' });
@@ -264,6 +318,12 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.match(await providerOrder.innerText(), /Filled \/ remaining\s+0 \/ 1/);
       await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       const cancelDialog = ui.getByRole('dialog', { name: 'Confirm Alpaca Paper cancellation', exact: true });
+      await cancelDialog.waitFor({ state: 'visible' });
+      await assertSafePaperDialog(cancelDialog);
+      await cancelDialog.press('Escape');
+      assert.equal(await cancelDialog.isVisible(), false);
+      assert.equal(await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).evaluate(element => element === document.activeElement), true);
+      await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       await cancelDialog.waitFor({ state: 'visible' });
       await ui.getByText(/Provider read is stale/).waitFor({ state: 'visible' });
       const cancelFacts = await cancelDialog.innerText();
@@ -278,7 +338,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
 
       await providerOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       await cancelDialog.waitFor({ state: 'visible' });
-      for (const width of [768, 390]) {
+      for (const width of [1280, 768, 390]) {
         await viewport.set({ width, height: 900 });
         const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
         assert.ok(size.scroll <= size.width, `Alpaca cancel confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
@@ -428,34 +488,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.equal(await ui.getByRole('button', { name: 'Submit Trading 212 Demo order', exact: true }).count(), 0);
       observed.push('Reload reads the SQLite-backed Trading 212 Demo attempt and prevents a second UI submission.');
 
-      await (await waitForButton('Accounts')).press('Enter');
-      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
-      const postReloadSource = ui.getByRole('combobox', { name: 'Connection source', exact: true });
-      await postReloadSource.selectOption(existingValue);
-      const postReloadDetail = ui.getByRole('region', { name: label, exact: true });
-      const beforePostReloadReuseVersion = await postReloadDetail.getAttribute('data-state-version');
-      assert.ok(beforePostReloadReuseVersion, 'The saved Trading 212 Demo account should expose a state version after reload');
-      await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
-      const afterPostReloadReuseVersion = await waitForVersionChange(
-        ui,
-        postReloadDetail,
-        beforePostReloadReuseVersion,
-        'Trading 212 Demo account reuse did not commit after reload',
-      );
-      const postReloadRefresh = ui.getByRole('button', { name: 'Refresh account', exact: true });
-      for (let attempt = 0; attempt < 600 && !(await postReloadRefresh.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
-      assert.equal(await postReloadRefresh.isEnabled(), true);
-      await postReloadRefresh.press('Enter');
-      await waitForVersionChange(
-        ui,
-        postReloadDetail,
-        afterPostReloadReuseVersion,
-        'Trading 212 Demo credentials were not re-tested after reload',
-      );
-      const workspaceId = await ui.locator('.context .identity').innerText();
-      const revalidatedAccount = await sendIntegrationCommand('account.get', { workspaceId, connectionId: existingValue });
-      assert.equal(revalidatedAccount.data.health.credential, 'CONFIGURED');
-      assert.equal(revalidatedAccount.data.connectionState, 'CONNECTED');
+      const workspaceId = await retestSavedAccount(label, existingValue);
       observed.push('After reload, TradeX re-tests the Trading 212 Demo connection before refreshing provider orders.');
       const waitForTrading212Retry = async key => {
         const currentBook = await sendIntegrationCommand('trading212.demo.orders.get', { workspaceId, connectionId: existingValue });
@@ -1028,7 +1061,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const healthSize = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
       assert.ok(healthSize.scroll <= healthSize.width, `Account Health overflow at ${width}: ${JSON.stringify(healthSize)}`);
       if (selection === 'alpaca/PAPER') {
-        assert.match(await healthCard.innerText(), /Reconciliation\s+DEGRADED/);
+        assert.match(await healthCard.innerText(), /Reconciliation\s+STALE/);
+        assert.match(await healthCard.innerText(), /Authentication\s+UNVERIFIED/);
         assert.match(await healthCard.innerText(), /Private stream\s+DEGRADED/);
         assert.match(await healthCard.innerText(), /Last private stream event\s+\d/);
       } else {
@@ -1056,6 +1090,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.equal(await remove.isEnabled(), true);
     if (selection === 'bitget/LIVE') {
       assert.match(await ui.getByRole('alert').innerText(), /last trusted provider snapshot may be stale/i);
+    } else if (selection === 'alpaca/PAPER') {
+      assert.match(await ui.getByRole('alert').innerText(), /STREAM_DISCONNECTED/);
     } else {
       assert.equal(await ui.getByRole('alert').count(), 0);
     }

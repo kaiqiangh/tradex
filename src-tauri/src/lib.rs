@@ -8305,12 +8305,22 @@ impl ControlPlane {
                 instrument_id: proposal.fields.instrument_id.clone(),
                 tier: MarketTier::Census,
             };
-            let synthetic_demo_context = proposal.fields.environment
-                == protocol::ExecutionContext::Trading212Demo
-                && account.is_some_and(|account| {
-                    account.provider_id == "trading212" && account.environment == "DEMO"
-                });
-            if (live_provider_id(&proposal.fields.environment).is_some() || synthetic_demo_context)
+            let synthetic_simulation_context = account.is_some_and(|account| {
+                matches!(
+                    (
+                        &proposal.fields.environment,
+                        account.provider_id.as_str(),
+                        account.environment.as_str()
+                    ),
+                    (
+                        protocol::ExecutionContext::Trading212Demo,
+                        "trading212",
+                        "DEMO"
+                    ) | (protocol::ExecutionContext::AlpacaPaper, "alpaca", "PAPER")
+                )
+            });
+            if (live_provider_id(&proposal.fields.environment).is_some()
+                || synthetic_simulation_context)
                 && !(input.instrument_id.starts_with("crypto:")
                     && (financial_sources::spot_rules_selected_once(self)?
                         || binance_market::selected_once(self)?))
@@ -8353,7 +8363,7 @@ impl ControlPlane {
                 if let Some(snapshot) = &self.live_approval_fixture_snapshot {
                     detail.snapshot = Some(snapshot.clone());
                 }
-                if synthetic_demo_context && let Some(snapshot) = detail.snapshot.as_mut() {
+                if synthetic_simulation_context && let Some(snapshot) = detail.snapshot.as_mut() {
                     snapshot.provenance.venue = Some(proposal.fields.venue.clone());
                     snapshot.bid_size = Some("2".into());
                     snapshot.ask_size = Some("2".into());

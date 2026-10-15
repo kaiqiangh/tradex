@@ -316,3 +316,13 @@
 ### A3 独立串行审查
 
 Standards 复核 `3297d9f45b7971cee41f3cb383310d0e46172fbc...db7402d`，未发现问题。随后 Spec 指出缺少被动打开页面的命令断言，以及 A3 surface 证据时序不清。修正将命令游标移至 Accounts 导航前，在显式操作前断言 connect/refresh 均为零，并将旧记录标为先前被动检查。计入的 `2026-10-15T16:09:39.884Z` 重跑通过全部 15 项布局观察，外部请求、console/page errors 和被动 provider 操作均为零。独立 Spec 再审确认两项问题已关闭，源码及截图哈希均一致。此次仅测试/证据修正后，脚本语法、追踪和 diff 检查通过；上述全量检查对应未变化的产品/Rust 源码。A3 与完整 S33 仍按已注明的原生/provider/权限变体限制保持开放。
+
+## G2 Alpaca Paper — 2026-10-15
+
+固定起点：`c14ef067223e3d40ca828e497a821ac6f82649c6`。`tests/s33-alpaca-paper-ui.mjs::checkAlpacaPaperS33(page)` 在 `TRADEX_LIVE_APPROVAL_FIXTURE=1 npm run dev:browser` 的一次性 USD 工作区中复用公开 provider helper。显式开启的合成行情上下文现在仅在 integration/test 构建中覆盖准确的 Alpaca/PAPER 账户及环境；普通构建和真实来源门禁未变化。HTTP、凭据输入、私有流帧和行情/时间证据均为合成数据。浏览器 ARIA snapshot 不代表原生辅助功能或 VoiceOver。
+
+最终运行验证规范化 AAPL Proposal/账户/hash 复核、安全初始焦点、背景 inert、Tab/Shift+Tab 循环、Escape 关闭并返回焦点，以及显式确认前的 Enter 安全关闭。一次 fixture 提交得到 ACKNOWLEDGED，没有据此声称成交；重载恢复同一 attempt 并移除重复提交入口。重载后先明确重测已保存凭据，再刷新一次订单簿。撤单复核保留准确订单与成交/剩余数量；Escape/Enter 关闭不撤单，一次显式确认后才进入 CANCEL_PENDING。部分成交帧生成一笔 fill 和 `0.5 / 0.5` 剩余，重复和迟到帧不重复成交或回退状态。断流使订单簿陈旧；重载保留 private-stream DEGRADED，同时 authentication 为 UNVERIFIED、reconciliation 为 STALE。断开及本地清理禁用刷新，并保留规范 STREAM_DISCONNECTED 提示。
+
+提交和撤单弹窗共记录六项 1280/768/390 布局观察，逐一滚动按钮并确认可见范围。准确命令数量包括一次提交、一次撤单、三次订单复核、一次订单簿刷新、四次显式账户刷新和两次 connect。被动打开 Accounts 的 connect/refresh 均为零。命令白名单拒绝 Live/model/其他未授权操作；浏览器外部请求、console errors 和 page errors 均为零。[机器结果、准备失败记录与哈希](evidence/s33/g2-alpaca-paper-result.json)。390 px 分别保留身份及滚动后的操作：[提交](evidence/s33/g2-alpaca-submission-390.png)、[提交按钮](evidence/s33/g2-alpaca-submission-actions-390.png)、[撤单](evidence/s33/g2-alpaca-cancellation-390.png)、[撤单按钮](evidence/s33/g2-alpaca-cancellation-actions-390.png)。
+
+此项为 PASS_LIMITED 本地合成 UI 证据，不证明真实 Alpaca Paper 认证、订单、私有流、entitlement、完整终态/对账/错误变体、原生 VoiceOver 或完整 S17/S33 验收。G2 保持 IMPLEMENTED_UNVERIFIED；#141 继续开放。
