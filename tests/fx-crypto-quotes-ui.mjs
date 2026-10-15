@@ -358,9 +358,45 @@ export async function checkFxCryptoQuotesUI(tab, browser) {
   assert.equal(review.spotFeeFx.baseCurrency, 'USD');
   assert.ok(review.spotFeeFx.routes.every(route => route.fromCurrency !== 'EUR' && route.toCurrency !== 'EUR'), 'A matching-USD raw quote adds no EUR route or value');
   assert.equal((await send('account.get', { workspaceId, connectionId: spotAccount.connectionId })).health.arming, 'DISARMED');
+
+  // The public pre-Arm review must preserve the same proposal-scoped raw quote
+  // in its immutable captured evidence, not only in the current source panel.
+  await ui.getByRole('button', { name: 'Review Live approval', exact: true }).press('Enter');
+  const preArm = ui.getByRole('dialog', { name: 'Confirm Live arming', exact: true });
+  await preArm.waitFor({ state: 'visible' });
+  await tab.getAXState({ emit: false });
+  const capturedEvidence = preArm.getByRole('region', { name: 'Captured currency evidence', exact: true });
+  const capturedQuotePanel = capturedEvidence.getByRole('region', { name: 'USDT/USD crypto quote evidence', exact: true });
+  await capturedQuotePanel.waitFor({ state: 'visible' });
+  const capturedQuoteText = await capturedQuotePanel.innerText();
+  for (const value of [
+    'USDT/USD · eu-1', finalQuote.bidPrice, finalQuote.bidSize,
+    finalQuote.askPrice, finalQuote.askSize, finalQuote.providerTimestamp,
+    finalQuote.receivedAt, finalQuote.requestPath, finalQuote.responseSha256,
+  ]) assert.ok(capturedQuoteText.includes(value), `Captured pre-Arm UI omitted raw quote evidence: ${value}`);
+  assert.equal(await preArm.getByRole('button', { name: 'Arm this Live account', exact: true }).isEnabled(), false);
+  const capturedLayouts = [];
+  try {
+    for (const width of [1280, 768, 390]) {
+      await viewport.set({ width, height: 900 });
+      await tab.getAXState({ emit: false });
+      const size = await preArm.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { viewport: window.innerWidth, body: document.documentElement.scrollWidth, left: rect.left, right: rect.right };
+      });
+      assert.equal(size.viewport, width);
+      assert.ok(size.body <= width && size.left >= 0 && size.right <= width, JSON.stringify(size));
+      capturedLayouts.push(size);
+    }
+  } finally { await viewport.reset(); }
+  await preArm.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
+  await preArm.waitFor({ state: 'hidden' });
+  await tab.getAXState({ emit: false });
   return {
     quote: finalQuote,
     layouts,
+    capturedLayouts,
+    capturedPreArmQuote: true,
     route: {
       state: policyRoute.state,
       providerQuality: policyRoute.providerQuality,
