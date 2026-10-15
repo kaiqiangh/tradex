@@ -96,13 +96,21 @@ pub enum BinanceCommissionFixture {
     ZeroExpression,
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum BinancePermissionFixture {
+    #[default]
+    Safe,
+    Withdrawal,
+    InternalTransfer,
+}
+
 pub struct Http {
     // External response mode used only by disposable FX browser QA.
     pub fx_ui: bool,
     pub binance_rules_ui: bool,
     pub binance_capacity_ui: Cell<BinanceCapacityFixture>,
     pub binance_commission_ui: Cell<BinanceCommissionFixture>,
-    pub binance_withdrawal_permission: Cell<bool>,
+    pub binance_permission_ui: Cell<BinancePermissionFixture>,
     pub alpaca_quote_status: Cell<u16>,
     pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
     pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
@@ -167,7 +175,7 @@ impl Default for Http {
             binance_rules_ui: false,
             binance_capacity_ui: Cell::new(BinanceCapacityFixture::Normal),
             binance_commission_ui: Cell::new(BinanceCommissionFixture::Normal),
-            binance_withdrawal_permission: Cell::new(false),
+            binance_permission_ui: Cell::new(BinancePermissionFixture::Safe),
             alpaca_quote_status: Cell::new(200),
             alpaca_quote_body: RefCell::new(None),
             alpaca_condition_body: RefCell::new(None),
@@ -1284,7 +1292,7 @@ impl ProviderHttp for Http {
                 },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
-                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":self.binance_withdrawal_permission.get(),"enableInternalTransfer":false,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
+                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":self.binance_permission_ui.get()==BinancePermissionFixture::Withdrawal,"enableInternalTransfer":self.binance_permission_ui.get()==BinancePermissionFixture::InternalTransfer,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
                 },
                 _=>panic!("Unexpected Binance operation"),
             }).unwrap());

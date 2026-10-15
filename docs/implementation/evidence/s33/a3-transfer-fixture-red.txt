@@ -1,0 +1,17 @@
+AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_PAYLOAD_INVALID","message":"The request does not match the supported command schema.","remediationActions":[{"id":"retry_request","label":"Review and retry"}],"retryable":false}
+
+false !== true
+
+    at command (file:///Users/kai/Desktop/my-repo/tradex/tests/s33-permission-transfer-ui.mjs:25:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async checkTransferPermissionS33 (file:///Users/kai/Desktop/my-repo/tradex/tests/s33-permission-transfer-ui.mjs:54:3)
+    at async file:///private/tmp/run-tradex-transfer.mjs:6:44 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+Browser verification · isolated temporary workspace · provider responses are test fixtures
+Accounts

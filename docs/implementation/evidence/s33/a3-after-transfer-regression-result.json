@@ -1,0 +1,149 @@
+{
+  "status": "PASS_LIMITED",
+  "testedAt": "2026-10-15T18:10:55.119Z",
+  "workspaceId": "a01db9a8-9aa6-4e73-a847-455ad074ac64",
+  "observations": [
+    {
+      "providerId": "alpaca",
+      "environment": "PAPER",
+      "scope": "UNVERIFIED",
+      "state": "CONNECTED",
+      "arming": "NOT_APPLICABLE",
+      "acknowledged": true,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    },
+    {
+      "providerId": "trading212",
+      "environment": "LIVE",
+      "scope": "UNVERIFIED",
+      "state": "CONNECTED",
+      "arming": "DISARMED",
+      "acknowledged": true,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    },
+    {
+      "providerId": "binance",
+      "environment": "LIVE",
+      "scope": "VERIFIED",
+      "state": "CONNECTED",
+      "arming": "DISARMED",
+      "acknowledged": false,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    },
+    {
+      "providerId": "bitget",
+      "environment": "LIVE",
+      "scope": "VERIFIED",
+      "state": "CONNECTED",
+      "arming": "DISARMED",
+      "acknowledged": false,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    }
+  ],
+  "blockedLayouts": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "confirmationDisabled": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "confirmationDisabled": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "confirmationDisabled": true
+    }
+  ],
+  "passiveOpen": {
+    "providerConnects": 0,
+    "accountRefreshes": 0
+  },
+  "explicitFixtureConnections": 4,
+  "forbiddenCommands": 0,
+  "commandCounts": {
+    "account.activity": 1,
+    "account.get": 4,
+    "account.list": 26,
+    "account.refresh": 1,
+    "binance.live.permission.fixture": 2,
+    "domain.snapshot": 18,
+    "domain.subscribe": 18,
+    "paper.get": 2,
+    "provider.connect": 8,
+    "provider.list_definitions": 3,
+    "runtime.status": 2,
+    "thread.list": 1,
+    "trade.cancel_approval.list": 10,
+    "trade.execution.order_links": 10,
+    "workspace.open": 1
+  },
+  "externalRequests": 0,
+  "consoleErrors": [],
+  "applicationConsoleErrors": 0,
+  "pageErrors": 0,
+  "limitations": [
+    "Synthetic HTTP and secret entry only",
+    "Native secret window, native accessibility and other forbidden/unsupported permission variants remain unverified",
+    "No real provider entitlement or S33 completion"
+  ],
+  "originalScriptSha256": "c5d49d851117b72645531a52ac3ae640b4317cda2a1f3cbd63520b3965f5613b",
+  "adaptation": "Only screenshot destination redirected to /tmp/tradex-a3-transfer-regression; assertions and commands unchanged",
+  "executedScriptSha256": "80a1d0d3fbc4d486da687f2f1a8ba476a9e53630de04e204b8f548999202dd36",
+  "reviewBaseline": "57058e9f36804a01b817a3c703a199a5d2556ede",
+  "meaning": "Existing A3 schema/withdrawal/UNVERIFIED flow regression after replacing the fixture boolean with a typed Safe/Withdrawal/InternalTransfer scenario. No old screenshots overwritten."
+}

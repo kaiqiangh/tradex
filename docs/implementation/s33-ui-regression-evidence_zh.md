@@ -330,3 +330,13 @@ Standards 复核 `3297d9f45b7971cee41f3cb383310d0e46172fbc...db7402d`，未发�
 G2 在源码 `1ccb38f` 上的全量检查通过（35 项 Node、578 项 Rust 通过，39 项既有 ignored，零失败），Clippy 通过。普通桌面构建日志记录 `Finished release` 和 `Built application`；原进程句柄已不保留，当前无构建进程。随后发现整个被忽略的 `target/` 目录不存在，无法核对当前产物/哈希及交付 Gateway pin，未确认删除原因。脚本语法、受影响 Rust 格式、追踪和 diff 检查通过。[机器检查记录](evidence/s33/g2-checks-result.json)。共用的已保存账户重测 helper 也通过原 Trading 212 Demo fixture 流程，外部请求和浏览器错误为零（[有限共用 helper 回归](evidence/s33/g2-shared-g3-result.json)）；首次运行使用另一套 FX EUR 钱包 fixture，不计入结果。
 
 G2 对 `c14ef06...1ccb38f`（含证据补充 `6cae59d`）完成独立串行审查：**Standards 零问题；Spec 对已声明有限切片零可执行问题。** 审查确认普通构建不包含 fixture 路径，准确模拟账户/上下文匹配与显式 opt-in 保留，所记录键盘/私有流/重载断言符合 G2 与 PRD §42.2。完整终态及账户/仓位刷新链、其他失败变体、真实 provider/原生辅助功能和完整 S17/S33 仍开放。当前桌面产物/pin 缺失仍明确未验证，未提升整票验收项。
+
+## A3 内部转账权限响应 — 2026-10-15
+
+固定起点 `57058e9f36804a01b817a3c703a199a5d2556ede`。公开浏览器测试先因外部 fixture 选择器拒绝 INTERNAL_TRANSFER 而失败，未据此证明真实应用存在绕过（[fixture RED](evidence/s33/a3-transfer-fixture-red.txt)）。integration-only 选择器现使用类型化 Safe/Withdrawal/InternalTransfer 响应场景；只改变 HTTP 权限字节，不修改可信账户行或使用权限。普通构建不暴露该命令。
+
+最终本地运行时间为 `2026-10-15T18:04:59.420Z`：`transfer.internal` 被识别为 forbidden，UI 确认与 Arm 禁用；直接调用公开 confirm 返回 PROVIDER_PERMISSION_BLOCKED，账户版本、状态及 arming 不变。仅将 producer 改为 SAFE 仍不能确认；一次显式重测清除已保存 blocker 后，显式确认仍为 DISARMED。三种宽度均可访问补救说明且无文档溢出。命令白名单记录准确三次 connect（测试、被拒确认、成功确认）、一次账户刷新和两次 fixture 修改；无 Arm、审批、Prepare/订单、外部 HTTP 或浏览器错误。[结果及哈希](evidence/s33/a3-transfer-permission-result.json)、[390 px 阻止说明](evidence/s33/a3-internal-transfer-blocked-390.png)。
+
+原 A3 的四家 schema 和提款权限移除流程也于 `2026-10-15T18:10:55.119Z` 通过，断言未变化，仅将截图位置重定向到临时目录，保留旧证据（[回归](evidence/s33/a3-after-transfer-regression-result.json)）。仅使用合成 HTTP/凭据输入；universal transfer、其他不支持权限、原生凭据输入、VoiceOver 与真实 provider 仍开放。A3 保持 IN_PROGRESS，未完成完整 S33 验收。
+
+受影响检查通过：integration 二进制构建、`RUST_TEST_THREADS=1 cargo test --workspace permission`（6 项通过、1 项既有 ignored、零失败）、脚本语法、受影响 Rust 格式、追踪及 diff 检查。此次仅 fixture 改动未声称重跑全量测试；此前全量检查仍绑定源码 `1ccb38f`。

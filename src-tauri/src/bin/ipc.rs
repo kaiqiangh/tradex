@@ -304,12 +304,15 @@ fn main() -> io::Result<()> {
             if command == Some("binance.live.permission.fixture") {
                 // Change only the synthetic external key-permission response, never an account row.
                 let permission = match request["payload"]["scenario"].as_str() {
-                    Some("SAFE") => Some(false),
-                    Some("WITHDRAWAL") => Some(true),
+                    Some("SAFE") => Some(fixtures::BinancePermissionFixture::Safe),
+                    Some("WITHDRAWAL") => Some(fixtures::BinancePermissionFixture::Withdrawal),
+                    Some("INTERNAL_TRANSFER") => {
+                        Some(fixtures::BinancePermissionFixture::InternalTransfer)
+                    }
                     _ => None,
                 };
                 let reply = if let Some(permission) = permission.filter(|_| http.binance_rules_ui) {
-                    http.binance_withdrawal_permission.set(permission);
+                    http.binance_permission_ui.set(permission);
                     json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
                 } else {
                     json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
