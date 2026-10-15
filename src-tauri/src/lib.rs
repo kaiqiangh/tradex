@@ -4635,8 +4635,7 @@ impl ControlPlane {
             }
             "thread.archive" | "thread.restore" => {
                 let archived = request.command == "thread.archive";
-                let input: ThreadLifecycle = payload(request.payload)?;
-                self.set_thread_archived(input, archived)
+                self.set_thread_archived(request.payload, archived)
             }
             "turn.start" => {
                 let input: TurnStart = payload(request.payload)?;
@@ -6590,9 +6589,10 @@ impl ControlPlane {
 
     fn set_thread_archived(
         &mut self,
-        input: ThreadLifecycle,
+        input: Value,
         archived: bool,
     ) -> Result<(Value, Option<String>)> {
+        let input: ThreadLifecycle = payload(input)?;
         self.require_workspace(&input.workspace_id)?;
         validate_aggregate("thread", &input.thread_id)?;
         if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
