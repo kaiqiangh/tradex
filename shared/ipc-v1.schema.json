@@ -529,6 +529,9 @@
     "threadCreate": {
       "$ref": "#/$defs/ThreadCreate"
     },
+    "threadLifecycle": {
+      "$ref": "#/$defs/ThreadLifecycle"
+    },
     "threadQuery": {
       "$ref": "#/$defs/ThreadQuery"
     },
@@ -678,6 +681,7 @@
     "providerConnect",
     "threadCreate",
     "threadQuery",
+    "threadLifecycle",
     "turnStart",
     "turnCancel",
     "turnRetry",
@@ -21478,6 +21482,32 @@
         "status",
         "content",
         "startedAt"
+      ]
+    },
+    "ThreadLifecycle": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "expectedStateVersion"
       ]
     },
     "ThreadList": {

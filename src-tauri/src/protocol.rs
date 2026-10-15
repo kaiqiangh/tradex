@@ -503,6 +503,7 @@ pub struct IpcSchema {
     pub provider_connect: Connect,
     pub thread_create: ThreadCreate,
     pub thread_query: ThreadQuery,
+    pub thread_lifecycle: ThreadLifecycle,
     pub turn_start: TurnStart,
     pub turn_cancel: TurnCancel,
     pub turn_retry: TurnRetry,
@@ -6793,6 +6794,17 @@ pub struct ThreadQuery {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadLifecycle {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TurnStart {
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
@@ -7778,6 +7790,16 @@ impl TradeXError {
                 "select_account",
                 "Choose a matching account",
             ),
+            "THREAD_ARCHIVED" => (
+                "This Thread is archived. Restore it to active before sending or retrying a Turn.",
+                "restore_thread",
+                "Restore to active",
+            ),
+            "THREAD_STATUS_CONFLICT" => (
+                "This Thread is already in the requested lifecycle state. Reload its current status.",
+                "reload_snapshot",
+                "Reload thread",
+            ),
             "TURN_ALREADY_RUNNING" => (
                 "This Thread already has a running Turn.",
                 "wait_for_turn",
@@ -7990,6 +8012,8 @@ impl TradeXError {
                     | "APPROVAL_CONSUMED"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
+                    | "THREAD_ARCHIVED"
+                    | "THREAD_STATUS_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"
                     | "CLOCK_SKEW"
                     | "BACKTEST_RUN_NOT_FOUND"

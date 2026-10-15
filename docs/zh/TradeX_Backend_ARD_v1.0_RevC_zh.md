@@ -3645,3 +3645,9 @@ Control Plane 固定 provenance 为 `USER_ATTESTED_LOCAL_ONLY`、source 为 `OD-
 使用独立的 financial-capability status 类型：只有准确 attestation binding 仍匹配所选账户和已保存 source profile 时，`FX_DATA_USE_RIGHTS` 才能为 `VERIFIED`。该能力状态不改变通用 source connection status。`TransactionFxQualification` 始终为 `BLOCKED_EXTERNAL`；确认不能满足任何账户、行情新鲜度/币种、货币输入完整性、费用/资金、权限、风险、审批、Arm、Prepare、Gateway 或执行门禁。缺失、陈旧、不支持或不匹配时均 fail closed。来源配置/断开操作会使确认失效；远端账户身份或 source-use context 改变时，旧 binding 不再有效。
 
 当前 connection 与不可变 `FxReviewEvidence.source.sourceUseAssessment.localUseAttestation` 暴露相同 provenance 和绑定字段，包括确认时间。捕获历史不会刷新或重绑它。最高公开 React → typed IPC → 隔离 SQLite 集成边界验证明确成功、缺少确认、陈旧 state version、profile/account/location 变化、context 拒绝、重开持久化、当前/捕获展示、外部及金融门禁保持不变，以及无 provider/model/export/金融副作用。Provider、vault 和 time fixture 不证明 provider entitlement。
+
+### 41.61 本地 Thread 归档/恢复契约（B2 #148）
+
+`thread.archive` 与 `thread.restore` 使用现有 v1 envelope 及严格 `ThreadLifecycle {workspaceId, threadId, expectedStateVersion}` payload，ID 长度 1–128，必填版本长度 1–256；拒绝未知字段。返回权威 Thread 及其 stateVersion。写入前验证活动工作区、规范 aggregate 身份、版本、源状态及没有 RUNNING Turn。ACTIVE→ARCHIVED 与 ARCHIVED→ACTIVE 各自将 projection 和恰好一条现有 `thread.updated` outbox 事件原子提交。目标状态已存在返回 `THREAD_STATUS_CONFLICT`；归档 Thread 启动/重试返回 `THREAD_ARCHIVED`（均属 STATE_STALE 类别，带重新加载/恢复指引）。版本不符使用 STATE_VERSION_CONFLICT；运行中拒绝使用 TURN_ALREADY_RUNNING。拒绝或事务失败不改变 projection 和事件游标。
+
+除 status、updatedAt、stateVersion 外保留全部 Thread 字段，包括 codexThreadId、不可变 Turn 快照/items/provider attempts 和默认值/context refs。不引入迁移、上游归档、provider/model 调用、金融权限变更、保留清理或 Artifact 删除。同步与 RuntimeSupervisor 异步 start/retry 在派发/生成任务前共享状态门禁。在 Control Plane 锁下，归档先成功则阻止 Turn 启动；Turn 先持久化 RUNNING 则阻止归档。绝不创建带新 RUNNING Turn 的 ARCHIVED Thread。reload/reopen/snapshot/replay/subscription 展示相同状态；查看归档不续期审批，也不绕过后续 Send/金融门禁。

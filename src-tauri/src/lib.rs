@@ -69,8 +69,8 @@ use protocol::{
     OpenWorkspace, PaperOrderSubmit, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result,
     RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure,
     StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategyRunState,
-    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
-    ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
+    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadLifecycle, ThreadModel,
+    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
     Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderAttemptState,
     Trading212DemoOrderBook, Trading212DemoOrderBookAction, Trading212DemoOrderBookQuery,
     Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh,
@@ -4633,6 +4633,11 @@ impl ControlPlane {
                 let input: ThreadCreate = payload(request.payload)?;
                 self.create_thread(input)
             }
+            "thread.archive" | "thread.restore" => {
+                let archived = request.command == "thread.archive";
+                let input: ThreadLifecycle = payload(request.payload)?;
+                self.set_thread_archived(input, archived)
+            }
             "turn.start" => {
                 let input: TurnStart = payload(request.payload)?;
                 self.start_turn(input, runtime_access)
@@ -6583,6 +6588,49 @@ impl ControlPlane {
         Ok((json!(thread), Some(version)))
     }
 
+    fn set_thread_archived(
+        &mut self,
+        input: ThreadLifecycle,
+        archived: bool,
+    ) -> Result<(Value, Option<String>)> {
+        self.require_workspace(&input.workspace_id)?;
+        validate_aggregate("thread", &input.thread_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let mut thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        if thread.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let status = if archived {
+            protocol::ThreadStatus::Archived
+        } else {
+            protocol::ThreadStatus::Active
+        };
+        if thread.status == status {
+            return Err(TradeXError::new("THREAD_STATUS_CONFLICT"));
+        }
+        if thread
+            .turns
+            .iter()
+            .any(|turn| turn.status == protocol::TurnStatus::Running)
+        {
+            return Err(TradeXError::new("TURN_ALREADY_RUNNING"));
+        }
+        thread.status = status;
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(thread, "thread.updated")?;
+        let DomainProjection::Thread(thread) = &event.payload else {
+            unreachable!()
+        };
+        let result = (json!(thread), Some(thread.state_version.clone()));
+        self.publish(&event);
+        Ok(result)
+    }
+
     fn begin_turn(&mut self, input: TurnStart) -> Result<(PreparedTurn, Thread)> {
         self.require_workspace(&input.workspace_id)?;
         if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
@@ -6597,6 +6645,9 @@ impl ControlPlane {
         let existing = self.store.as_ref().unwrap().thread(&input.thread_id)?;
         if existing.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if existing.status == protocol::ThreadStatus::Archived {
+            return Err(TradeXError::new("THREAD_ARCHIVED"));
         }
         if existing
             .turns
@@ -6778,6 +6829,9 @@ impl ControlPlane {
         let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
         if thread.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if thread.status == protocol::ThreadStatus::Archived {
+            return Err(TradeXError::new("THREAD_ARCHIVED"));
         }
         if thread
             .turns

@@ -1,4 +1,4 @@
-import type { SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxLocalUseAttestationCommand, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
+import type { ThreadLifecycle, SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxLocalUseAttestationCommand, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { subscribeBrowserEvents } from './browserEvents.ts';
 import { describeCanonicalRecovery } from './errorRecovery.ts';
@@ -88,6 +88,8 @@ interface Inputs {
   'thread.list': WorkspaceQuery;
   'thread.get': ThreadQuery;
   'thread.create': ThreadCreate;
+  'thread.archive': ThreadLifecycle;
+  'thread.restore': ThreadLifecycle;
   'turn.start': TurnStart;
   'turn.cancel': TurnCancel;
   'turn.retry': TurnRetry;
@@ -263,6 +265,8 @@ interface Outputs {
   'thread.list': ThreadList;
   'thread.get': Thread;
   'thread.create': Thread;
+  'thread.archive': Thread;
+  'thread.restore': Thread;
   'turn.start': Thread;
   'turn.cancel': Thread;
   'turn.retry': Thread;
@@ -438,6 +442,8 @@ const definitions = {
   'thread.list': ['WorkspaceQuery', 'ThreadList'],
   'thread.get': ['ThreadQuery', 'Thread'],
   'thread.create': ['ThreadCreate', 'Thread'],
+  'thread.archive': ['ThreadLifecycle', 'Thread'],
+  'thread.restore': ['ThreadLifecycle', 'Thread'],
   'turn.start': ['TurnStart', 'Thread'],
   'turn.cancel': ['TurnCancel', 'Thread'],
   'turn.retry': ['TurnRetry', 'Thread'],

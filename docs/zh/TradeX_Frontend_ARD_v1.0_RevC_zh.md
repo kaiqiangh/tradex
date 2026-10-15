@@ -1278,3 +1278,7 @@ Accounts surface 展示每个 Live open order 的 provider state、完整 provid
 ### 13.46 仅本地政策估值的来源绑定用户确认（#146）
 
 只有用户勾选明确的本地用途确认框并单独点击确认操作后，Settings 才可对未更改且已保存、符合条件的 Alpaca Paper source 调用 `data.fx.attest_local_use`。仅发送 `workspaceId`、当前 `expectedStateVersion` 和 `confirmLocalPolicyValuationOnly: true`；React 不发送 rights 状态、provenance、provider 账户 ID 或 binding hash。profile 未保存、所选账户不符合条件，或已保存范围为共享/商业/外部用途时禁用操作。Control Plane 返回的 `FX_DATA_USE_RIGHTS=VERIFIED` 必须显示为“由你确认”，并与 provider entitlement 和 source-use 评估清楚区分；准确 provider/source/account/dataset/location/purpose/destination/time/provenance 均从 Control Plane 投影渲染。Currency review 使用同一投影，捕获的 review 不可变地保留它。保存/更改 profile 会使先前确认失效。Renderer 不读取 provider、不推导估值算术，也不把原始数据转发到模型、工具、导出或外部 consumer。交易 FX 以及全部费用/资金/交易/审批/Arm/Prepare/Gateway 门禁仍独立。共享契约见Backend§41.60/UI§14.43；完整S29.11验收仍待完成。
+
+### 13.47 Saved Thread 生命周期（B2 #148）
+
+typed client 将 thread.archive/thread.restore 映射为 ThreadLifecycle→Thread。Thread 详情持有绑定当前展示版本的忙碌/错误生命周期操作。成功后通过现有 thread.updated 订阅更新权威详情，并使工作区 Thread 列表失效刷新；避免重复快照重载卸载已聚焦的生命周期控件。Archive Thread 与 Restore to active 相互改变时保留焦点。Turn 运行时禁用归档并说明原因；失败提供 Reload thread，不重放写入。ARCHIVED 详情保留准确元数据/上下文/时间线，用只读说明替代 composer，隐藏 Turn retry/save-as-artifact 控件。独立恢复仅改变生命周期；另行显式 Send 仍需通过当前 runtime/capability/金融门禁。1280/768/390 保持过期/错误恢复和状态可见，不由 renderer 创建状态、事件或权限。共享契约归 Backend §41.61/UI §14.44。

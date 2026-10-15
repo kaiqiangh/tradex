@@ -1110,3 +1110,9 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 在 Settings → Data & Storage → Alpaca currency rates 中，仅对已保存、当前选中且仍符合条件的 Alpaca Paper 账户及未更改的 source profile 提供明确的本地用途确认。必须先由用户勾选默认未选中的确认框，再单独点击“记录我的本地用途确认”。说明这只记录用户本人针对准确 provider 账户、dataset/location 及 `LOCAL_ONLY` 去向进行本地、非商业 `POLICY_VALUATION` 的声明；不构成 Alpaca 条款的独立验证，也不允许共享、商业用途、model/tool 传输、导出、交易 FX、费用/资金、交易、审批、Arm、Prepare 或执行。profile 未保存、所选账户不符合条件，或已保存上下文声明共享/商业或外部用途时，禁用该操作。
 
 记录后显示“由你确认”、`USER_ATTESTED_LOCAL_ONLY` provenance、source/provider、远端账户、dataset profile、所选 crypto location、用途、去向和确认时间。当前 source 改变或过期后，捕获的 currency/risk review 仍须保留同一绑定事实和限制。保存已更改的 profile 会使旧确认失效；不得将其静默转移到其他账户或 location。source-use policy 评估和 provider entitlement 声明必须分开。不得新增 provider 读取、外部请求、model/tool 传输、导出或金融动作。键盘可用，并在390/768/1280px无溢出。行为契约见Backend§41.60和Frontend§13.46；原型代码保持不变，完整S29.11验收仍待完成。
+
+## 14.44 Saved Thread 归档与显式恢复（B2 #148）
+
+Thread 详情对 ACTIVE 提供 Archive Thread，对 ARCHIVED 提供 Restore to active。Turn 为 RUNNING 时禁用归档，说明等待或显式取消；正常 Turn 取消仍独立保留。归档成功将准确 ID 从 Today/Earlier 移到 Saved；恢复回到按本地日期划分的活动分组。生命周期控件标签改变时保留键盘焦点。展示忙碌、失败/过期说明及显式 Reload thread 恢复入口，不暗中重试写入。
+
+选择 Saved 展示准确身份、已存模式/执行上下文/账户/模型、规范上下文 ID 及原时间线/来源。显示“Archived Thread · read only”；此视图不显示 composer、Turn retry 或 save-as-artifact 写操作。已有衍生 Artifact 仍可在其他位置查看。除 status/updatedAt/stateVersion 外，归档/恢复保留全部 Thread 字段，包括 codexThreadId；不调用上游会话归档/删除。恢复不发送 Turn，也不复活审批/Arm/新鲜度/预留权限。验证显式键盘操作、无隐式金融审批、状态/竞争拒绝及 1280/768/390 可达性和无溢出。浏览器证据不证明原生 VoiceOver 或完整 S33。原型代码保持不变。

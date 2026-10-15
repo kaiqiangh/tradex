@@ -1602,6 +1602,7 @@ export interface IpcSchema {
   strategyVersion: StrategyVersion;
   subscribe: Subscribe;
   threadCreate: ThreadCreate;
+  threadLifecycle: ThreadLifecycle;
   threadQuery: ThreadQuery;
   timeStatus: TimeStatus;
   tradeRecord: TradeRecord;
@@ -10132,6 +10133,15 @@ export interface ThreadCreate {
   linkedContexts: ThreadContextRef[];
   model?: ThreadModel | null;
   title: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadLifecycle".
+ */
+export interface ThreadLifecycle {
+  expectedStateVersion: string;
+  threadId: string;
   workspaceId: string;
 }
 /**

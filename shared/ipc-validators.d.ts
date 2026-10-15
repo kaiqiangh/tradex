@@ -517,6 +517,7 @@ declare const validators: {
   ThreadContextRef: (value: unknown) => boolean;
   ThreadCreate: (value: unknown) => boolean;
   ThreadItem: (value: unknown) => boolean;
+  ThreadLifecycle: (value: unknown) => boolean;
   ThreadList: (value: unknown) => boolean;
   ThreadModel: (value: unknown) => boolean;
   ThreadProviderAttempt: (value: unknown) => boolean;

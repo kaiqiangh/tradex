@@ -698,6 +698,10 @@ Requirements:
 - resuming a thread never restores a previously consumed or expired live execution approval;
 - users can create a new thread without losing prior thread state.
 
+### Saved Thread lifecycle (B2 #148)
+
+Archive Thread moves an ACTIVE Thread into Saved (ARCHIVED). A running Turn prevents archiving with a visible reason. Selecting Saved restores viewing context only; the archived Thread's own identity, upstream conversation reference, defaults, linked contexts and timeline remain intact and read-only. Restore to active is a separate explicit local action, followed by a separate Send to continue. Archive/restore never deletes the upstream conversation or derived Artifacts, starts/cancels work, grants data rights, renews financial approval, changes account arming, or releases reservations. Backend version/status guards apply even when renderer controls are bypassed. Invalid/stale transitions leave history unchanged. UI §14.44 and Backend §41.61 define this contract; native/full S33 acceptance remains separate.
+
 ## 11.5 Context, Account, Agent Mode, and Model Pickers
 
 The composer controls are interactive product primitives, not decorative labels.
