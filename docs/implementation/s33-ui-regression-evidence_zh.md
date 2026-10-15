@@ -328,3 +328,5 @@ Standards 复核 `3297d9f45b7971cee41f3cb383310d0e46172fbc...db7402d`，未发�
 此项为 PASS_LIMITED 本地合成 UI 证据，不证明真实 Alpaca Paper 认证、订单、私有流、entitlement、完整终态/对账/错误变体、原生 VoiceOver 或完整 S17/S33 验收。G2 保持 IMPLEMENTED_UNVERIFIED；#141 继续开放。
 
 G2 在源码 `1ccb38f` 上的全量检查通过（35 项 Node、578 项 Rust 通过，39 项既有 ignored，零失败），Clippy 通过。普通桌面构建日志记录 `Finished release` 和 `Built application`；原进程句柄已不保留，当前无构建进程。随后发现整个被忽略的 `target/` 目录不存在，无法核对当前产物/哈希及交付 Gateway pin，未确认删除原因。脚本语法、受影响 Rust 格式、追踪和 diff 检查通过。[机器检查记录](evidence/s33/g2-checks-result.json)。共用的已保存账户重测 helper 也通过原 Trading 212 Demo fixture 流程，外部请求和浏览器错误为零（[有限共用 helper 回归](evidence/s33/g2-shared-g3-result.json)）；首次运行使用另一套 FX EUR 钱包 fixture，不计入结果。
+
+G2 对 `c14ef06...1ccb38f`（含证据补充 `6cae59d`）完成独立串行审查：**Standards 零问题；Spec 对已声明有限切片零可执行问题。** 审查确认普通构建不包含 fixture 路径，准确模拟账户/上下文匹配与显式 opt-in 保留，所记录键盘/私有流/重载断言符合 G2 与 PRD §42.2。完整终态及账户/仓位刷新链、其他失败变体、真实 provider/原生辅助功能和完整 S17/S33 仍开放。当前桌面产物/pin 缺失仍明确未验证，未提升整票验收项。
