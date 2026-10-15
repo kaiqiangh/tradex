@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "1ccb38fe7ddf4a883c21c0dcf8862c185e502b70",
+  "reviewBaseline": "c14ef067223e3d40ca828e497a821ac6f82649c6",
+  "recordedAt": "2026-10-15T17:48:15.474810+00:00",
+  "fullCheck": {
+    "command": "RUST_TEST_THREADS=1 npm run check",
+    "exitCode": 0,
+    "nodePassed": 35,
+    "rustPassed": 578,
+    "rustFailed": 0,
+    "rustIgnored": 39,
+    "rustTargets": 35,
+    "traceability": "203 requirements / 70 screens / 13 QA / 23 baseline files",
+    "secretScan": "PASS"
+  },
+  "clippy": {
+    "command": "cargo clippy --workspace --all-targets",
+    "exitCode": 0
+  },
+  "desktopBuild": {
+    "command": "npm run desktop:build",
+    "result": "Build log confirms Finished release and Built application at target/release/tradex",
+    "exitCode": null,
+    "exitObservation": "Original PTY handle is no longer retained and no build process remains. At follow-up, target/ no longer exists, so delivered artifact and Gateway pin hashes cannot be inspected. No deletion cause is established.",
+    "currentArtifacts": "MISSING",
+    "gatewayPinVerification": "NOT_VERIFIED",
+    "launched": false
+  },
+  "affectedScriptSyntax": "PASS",
+  "affectedRustfmt": "PASS (skip_children=true)",
+  "traceabilityContractAndStatuses": "Unchanged across all 83 surface/QA rows; only G2 evidence appended",
+  "warningBoundary": "Existing Vite chunk-size, Rust fixture and Clippy warnings retained; ignored tests are not passes. No native UI, VoiceOver, real-provider or full S33 acceptance."
+}

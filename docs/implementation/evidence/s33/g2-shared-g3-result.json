@@ -1,0 +1,27 @@
+{
+  "workspaceId": "1f7b892e-e46c-426c-b78b-ca2277736d38",
+  "trading212Demo": [
+    "Schema-driven setup has no renderer secret inputs; explicit acknowledgement of unverified permission scope precedes confirmation; exact decimal account/order values are displayed.",
+    "Saved connection survives UI reload; account refresh and workspace subscriptions coexist without cross-aggregate errors.",
+    "Trading 212 Demo order book loads a pre-existing external partial order with its currency and an external completed order; an immediate history refresh renders its retry time and retains the trusted row.",
+    "Trading 212 Demo requires a separate exact-proposal confirmation, visibly disables extended hours, persists acknowledgement without claiming a fill, and restores proposal focus.",
+    "Reload reads the SQLite-backed Trading 212 Demo attempt and prevents a second UI submission.",
+    "After reload, TradeX re-tests the Trading 212 Demo connection before refreshing provider orders.",
+    "Trading 212 Demo cancellation requires fresh exact-order review and explicit confirmation; dismissal sends no request, acceptance stays pending provider truth, and the dialog fits 768px and 390px.",
+    "Reload restores the exact TradeX order identity; known-order refresh preserves cumulative partial fills, and the order-book card fits 768px and 390px layouts.",
+    "Account controls, permission limitations and separate health dimensions remain reachable at 768px.",
+    "Account controls, permission limitations and separate health dimensions remain reachable at 390px.",
+    "Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled."
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "externalRequests": [],
+  "status": "PASS_LIMITED",
+  "recordedAt": "2026-10-15T16:33:56.372388+00:00",
+  "sourceCommit": "1ccb38fe7ddf4a883c21c0dcf8862c185e502b70",
+  "helper": "tests/provider-ui.mjs::checkProviderUI(tab, browser, trading212/DEMO)",
+  "helperSha256": "0e8977596b1de2d06245921c96e4fd84dd3a728c0cf0fbcf5e0971afd823610a",
+  "scope": "Local synthetic regression for shared saved-account re-test helper; no additional G3 acceptance promotion",
+  "environment": "Integration Vite, memory vault/HTTP fixtures, synthetic Live-approval market fixture, FX HTTP fixture disabled to retain default GBP wallet",
+  "preparationFailure": "The first run used fx_ui, which intentionally supplies an EUR wallet, while the existing helper expects literal 200.34 GBP. The final run used the original default fixture environment; application currency behavior and the literal oracle were unchanged."
+}
