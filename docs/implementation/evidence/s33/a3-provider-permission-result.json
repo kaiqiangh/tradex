@@ -1,0 +1,158 @@
+{
+  "status": "PASS_LIMITED",
+  "testedAt": "2026-10-15T15:51:17.392Z",
+  "workspaceId": "a12a6224-0ef7-4403-860e-be7fbb4487ac",
+  "observations": [
+    {
+      "providerId": "alpaca",
+      "environment": "PAPER",
+      "scope": "UNVERIFIED",
+      "state": "CONNECTED",
+      "arming": "NOT_APPLICABLE",
+      "acknowledged": true,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    },
+    {
+      "providerId": "trading212",
+      "environment": "LIVE",
+      "scope": "UNVERIFIED",
+      "state": "CONNECTED",
+      "arming": "DISARMED",
+      "acknowledged": true,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    },
+    {
+      "providerId": "binance",
+      "environment": "LIVE",
+      "scope": "VERIFIED",
+      "state": "CONNECTED",
+      "arming": "DISARMED",
+      "acknowledged": false,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    },
+    {
+      "providerId": "bitget",
+      "environment": "LIVE",
+      "scope": "VERIFIED",
+      "state": "CONNECTED",
+      "arming": "DISARMED",
+      "acknowledged": false,
+      "layouts": [
+        {
+          "width": 1280,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 768,
+          "noHorizontalOverflow": true
+        },
+        {
+          "width": 390,
+          "noHorizontalOverflow": true
+        }
+      ]
+    }
+  ],
+  "blockedLayouts": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "confirmationDisabled": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "confirmationDisabled": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "confirmationDisabled": true
+    }
+  ],
+  "explicitFixtureConnections": 4,
+  "forbiddenCommands": 0,
+  "commandCounts": {
+    "account.get": 4,
+    "account.list": 25,
+    "account.refresh": 1,
+    "binance.live.permission.fixture": 2,
+    "domain.snapshot": 18,
+    "domain.subscribe": 17,
+    "paper.get": 1,
+    "provider.connect": 8,
+    "provider.list_definitions": 2,
+    "runtime.status": 2,
+    "thread.list": 1,
+    "trade.cancel_approval.list": 10,
+    "trade.execution.order_links": 10,
+    "workspace.open": 1
+  },
+  "externalRequests": 0,
+  "consoleErrors": [],
+  "applicationConsoleErrors": 0,
+  "pageErrors": 0,
+  "limitations": [
+    "Synthetic HTTP and secret entry only",
+    "Native secret window, native accessibility and other forbidden/unsupported permission variants remain unverified",
+    "No real provider entitlement or S33 completion"
+  ],
+  "reviewBaseline": "3297d9f45b7971cee41f3cb383310d0e46172fbc",
+  "preparationAttempts": [
+    "Initial directory command incorrectly included workspaceId; fixed to EmptyPayload before the counted pass.",
+    "Initial Paper assertion incorrectly expected DISARMED; fixed to NOT_APPLICABLE.",
+    "The first command guard rejected read-only trade.execution.order_links; this local query is now explicitly allowed.",
+    "An earlier run recorded a local resource 403 without a response URL. An expired workspace path from a replaced harness was suspected, not proven; subsequent startup resets storage before React loads.",
+    "An earlier run recorded a local resource 404 without a response URL. The final script retains console locations and classifies only an explicit favicon 404 separately; the counted final run had no console errors.",
+    "One locator scroll awaited stability across a React replacement and detached; synchronous DOM scrolling now avoids retaining that transient element."
+  ],
+  "sourceAndArtifactSha256": {
+    "tests/s33-provider-permission-review-playwright.js": "84ceda1a559c67a6ac432cfdd81c0f22ddb8039e9a6d72d1ff2c334842c1ed6b",
+    "src-tauri/src/bin/ipc.rs": "fb74f442a1f4bca98e89137bb1042791782ed61cf95a08d35f558ebfcd8fb0ba",
+    "src-tauri/tests/support/provider_fixtures.rs": "1d3dd34b9972ccc207a08ed563bb58687bf00123b143e19411c984cc52cdc6ed",
+    "docs/implementation/evidence/s33/a3-alpaca-permission-390.png": "a5995ff51d22b90fdb73df9d1cc999890b0045afc7827633a8490e0109d83c1f",
+    "docs/implementation/evidence/s33/a3-binance-permission-390.png": "8fd097636e3f68e780d1f2969c22669213db6d71dcbf85bc79816d4ce21f0a83",
+    "docs/implementation/evidence/s33/a3-bitget-permission-390.png": "55ceaeb759db54eae83340f888fc1081774c0b49870494837555f433c561b77b",
+    "docs/implementation/evidence/s33/a3-forbidden-permission-390.png": "0b38bb65ba86035c3ddc509c3a837a59e659733aac9f95dce0aff7b9dcbcb0e0",
+    "docs/implementation/evidence/s33/a3-trading212-permission-390.png": "4a3bb0235d4cc67fd5427728e1c63819234574d20abe254a9d6d807d8b7d950e"
+  }
+}

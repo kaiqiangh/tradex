@@ -301,6 +301,25 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.permission.fixture") {
+                // Change only the synthetic external key-permission response, never an account row.
+                let permission = match request["payload"]["scenario"].as_str() {
+                    Some("SAFE") => Some(false),
+                    Some("WITHDRAWAL") => Some(true),
+                    _ => None,
+                };
+                let reply = if let Some(permission) = permission.filter(|_| http.binance_rules_ui) {
+                    http.binance_withdrawal_permission.set(permission);
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.live.commission.fixture") {
                 // Only the external HTTP producer changes; this never sets Control Plane evidence.
                 let mode = match request["payload"]["scenario"].as_str() {
