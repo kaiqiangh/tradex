@@ -1,0 +1,74 @@
+{
+  "status": "PASS_LIMITED",
+  "testedAt": "2026-10-15T18:04:59.420Z",
+  "workspaceId": "33cf53cf-5613-4546-961a-a141ec96015d",
+  "scenario": "INTERNAL_TRANSFER",
+  "layouts": [
+    {
+      "width": 1280,
+      "blockerReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "width": 768,
+      "blockerReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "width": 390,
+      "blockerReachable": true,
+      "noDocumentOverflow": true
+    }
+  ],
+  "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+  "rejectedConfirmationPreservedState": true,
+  "producerChangeRequiresExplicitRetest": true,
+  "finalArming": "DISARMED",
+  "commandCounts": {
+    "account.activity": 1,
+    "account.get": 2,
+    "account.list": 8,
+    "account.refresh": 1,
+    "binance.live.permission.fixture": 2,
+    "domain.snapshot": 6,
+    "domain.subscribe": 6,
+    "paper.get": 1,
+    "provider.connect": 3,
+    "provider.list_definitions": 1,
+    "trade.cancel_approval.list": 3,
+    "trade.execution.order_links": 3
+  },
+  "externalRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic HTTP and secret entry only",
+    "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+  ],
+  "reviewBaseline": "57058e9f36804a01b817a3c703a199a5d2556ede",
+  "red": {
+    "stage": "External permission fixture selection",
+    "observedError": "IPC_PAYLOAD_INVALID",
+    "meaning": "The fixture did not support INTERNAL_TRANSFER; this was a fixture coverage gap, not a demonstrated application permission bypass.",
+    "sameTestScript": true
+  },
+  "sourceAndArtifactSha256": {
+    "src-tauri/src/bin/ipc.rs": "2866604ce4bdb5d9542ca82386b03398a40c45ee8f8d394b882f3e758575dbd8",
+    "src-tauri/tests/support/provider_fixtures.rs": "6cdea3e5b6edbfe3a2f82710dc412e7882fee91977fa763e707af3d94f6d5e98",
+    "tests/s33-permission-transfer-ui.mjs": "3453bf6a3169cacf7ab317c7dbf2be98e0281046d8fcb33f968b6e431e0d129c",
+    "docs/implementation/evidence/s33/a3-internal-transfer-blocked-390.png": "1c780ffa4176e264d700b2d3dd1963e9488d7645df0309475d31eae6f8a0ad4e"
+  },
+  "checks": {
+    "rustCommand": "RUST_TEST_THREADS=1 cargo test --workspace permission",
+    "rustExitCode": 0,
+    "rustPassed": 6,
+    "rustFailed": 0,
+    "rustIgnored": 1,
+    "completedTargets": 34,
+    "browserBuild": "PASS integration binaries",
+    "scriptSyntax": "PASS",
+    "affectedRustfmt": "PASS skip_children=true",
+    "traceability": "203 requirements / 70 screens / 13 QA / 23 baseline files",
+    "fullSuite": "Not rerun for this test-fixture-only slice; prior full source check is pinned separately at 1ccb38f, not claimed as a current full-suite run."
+  }
+}

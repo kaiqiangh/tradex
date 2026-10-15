@@ -1,0 +1,31 @@
+TradeX S29.11 AC6 — conditional fee branch and settlement binding
+Date: 2026-10-15
+State: supporting implementation evidence only; AC6 remains unchecked and #135 remains OPEN.
+
+Decision implemented
+The user approved allowing a complete, current, account/Proposal-bound conditional fee estimate to qualify the fee/FX review when every independent gate passes. The actual fill asset and amount remain unknown until broker settlement. The chosen branch is immutable for settlement: BNB-current-estimate records only its outgoing BNB claim; received-asset deduction records its fallback asset/amount as non-outgoing allowance; a zero-fee branch admits no positive fee. Unmodeled assets/branches, missing fee truth and excess debit remain reconciliation failures. No source-use status or other RevC gate was promoted.
+
+Implementation
+- A complete current fee model plus complete bound BASE/QUOTE/BNB wallet evidence now yields a conditional fee estimate without fabricating `feeCurrency` or `expectedFee`. Required FX/source, wallet, market, risk and permission checks remain separate.
+- Prepare stores the approval-bound `SpotFundingPlanPreview` on the reservation alongside the outgoing claims. The schema keeps old reservations backward-compatible and public Prepare rejects renderer-supplied fee plans.
+- Settlement validates the saved fee disposition, principal identity, outgoing claim and received-asset fallback allowance before applying broker-reported fees. A changed fee asset/branch or excess cumulative amount fails closed.
+- UI copy names `ACTUAL_FEE_ASSET_PENDING`, the no-guarantee limitation and reconciliation behavior.
+
+Automated verification
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib spot_fee_fx::tests -- --nocapture` — 14 passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib settlement_ -- --nocapture` — 7 passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --features integration-test --test binance_rules owning -- --nocapture --test-threads=1` — 16 passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --features integration-test --test binance_rules intent_policy -- --nocapture` — 2 passed after updating assertions to distinguish a passing owning fee/FX check from an unavailable overall Live decision.
+- Focused public unavailable-Prepare and complete-fee-model scenarios each passed (1/1).
+- `cargo test --manifest-path src-tauri/Cargo.toml --workspace` — 541 passed, 39 existing ignored, 0 failed across workspace targets; this includes the full 281-test library suite, all 123 `binance_rules` scenarios and 41 `financial_sources` scenarios. Test-fixture dead-code warnings remain.
+- `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`, `npm run schema:check`, `npm run typecheck` and `node --check tests/spot-bnb-fee-estimate-ui.mjs` passed.
+- `npm run build` passed; Vite reports the existing 5,781 kB JavaScript chunk warning. `npm run test:unit` passed 27/27.
+
+Browser verification
+The full `checkSpotDiscountedBnbEstimateUI` flow passed in a disposable React/Rust/SQLite integration workspace using fixture-only external providers. It exercised the conditional statement, captured history and pre-Arm view at 1280/768/390 widths with no horizontal overflow. The synthetic Support context is explicitly excluded from acceptance; `FX_DATA_USE_RIGHTS` remains `UNVERIFIED`, the approval is ineligible, the account stays `DISARMED`, Arm stays disabled, and no Prepare/Arm/dispatch/order occurred. There were no application console errors/warnings; one known local favicon 404 remains. The saved report is `ac6-conditional-fee-ui-report-20261015.json`; screenshots are in the temporary report directory recorded there.
+
+Harness corrections
+The first positive-branch UI run exposed stale expectations for the newly allowed `SPOT_FEE_FX=PASS`, omitted optional `bindingBlocker`, and updated UI copy. These were test-contract corrections, not production failures. A transient fixture refresh returned `UNAVAILABLE`; a fresh fixture-server rerun passed. The final test helper includes the refresh response in failure output.
+
+Remaining limits
+Actual source-use basis collection was skipped by the user, so AC1 remains unresolved and no synthetic report is acceptance evidence. AC5 remains waived but unchecked/unaccepted. Positive owning Spot multi-asset public Prepare, actual settlement lifecycle, AC6 acceptance, and subsequent AC7 remain unproven; do not check or close #135. No real provider/account was accessed and no commit, merge or PR was created.

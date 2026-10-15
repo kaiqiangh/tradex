@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.10s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'documented_price_and_asset_exponents_remain_original_bounded_integers' (8842395) panicked at src-tauri/tests/binance_rules.rs:597:9:
+assertion `left == right` failed: Documented exponent must be typed: {"fields":[{"disabled":true,"name":"minPrice","value":{"type":"DECIMAL","value":"0"}},{"disabled":false,"name":"maxPrice","value":{"type":"DECIMAL","value":"999999"}},{"disabled":false,"name":"tickSize","value":{"type":"DECIMAL","value":"0.01"}}],"knownSchema":false,"origin":"EXCHANGE_INFO","ruleType":"PRICE_FILTER","scope":"SYMBOL","unsupportedFields":["priceExponent"]}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... FAILED
+
+failures:
+
+failures:
+    documented_price_and_asset_exponents_remain_original_bounded_integers
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `--test binance_rules`

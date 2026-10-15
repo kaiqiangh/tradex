@@ -1,0 +1,33 @@
+S29.8 — the three consumed slices re-run unchanged against their own harnesses
+
+This slice touches the shared external-producer fixture seam, so the delivered S29.5 capacity,
+S29.6 interval and S29.7 rule harnesses were re-run unmodified to show nothing they assert was
+weakened. Each harness owns a distinct Binance Live account label and only one such account can
+be connected per environment, so each ran against its own freshly started server, exactly as
+each was delivered.
+
+Server (per slice): TRADEX_SOURCE_ONLY_FIXTURE=1 TRADEX_BINANCE_RULE_HTTP_FIXTURE=1 \
+                    TRADEX_LIVE_APPROVAL_FIXTURE=1 npm run dev:browser
+Observed at 2026-10-09T22:49Z.
+
+  === capacity  (S29.5) ===  { "passed": true, "failure": null }   exit=0
+  === intervals (S29.6) ===  { "passed": true, "failure": null }   exit=0
+  === rules     (S29.7) ===  { "passed": true, "failure": null }   exit=0
+
+Console errors: none in any of the three. Prototype code unchanged.
+
+S29.5 — current and captured capacity inputs stay observed with the documented non-atomic and
+execution-unqualified framing, the partial list leg is still reported, the malformed and delayed
+reads still retire the previous observation without renewing the captured one, and the pre-arm
+arm button is still disabled with no refresh control inside the capture.
+
+S29.6 — the huge original counters are still rendered, the fault and pending paths still retire
+the old observation without touching the capture, and the pre-arm capture still shows the
+original counter facts with the counter timestamp stated as absent.
+
+S29.7 — the rejected rule still replaces the current source without renewing the captured
+decision, the captured bounds remain stripped of prices and retained as digests, the partial,
+snapshot and explicit-null price-range states all still hold, and no positive financial authority
+was seeded and no provider order write happened.
+
+Archived reports: consumed-capacity.json, consumed-intervals.json, consumed-rules.json.

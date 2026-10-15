@@ -1,0 +1,5 @@
+2026-10-03 CUA Chrome, real Rust integration bridge, temporary workspace
+Settings > Data & Storage after implementation:
+companySourceCount: 1
+brokerSourceCount: 1
+Read access and all independent blockers remain explicit. No renderer credential fields.

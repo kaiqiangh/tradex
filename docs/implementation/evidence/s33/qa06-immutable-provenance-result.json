@@ -1,0 +1,73 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "B4/B9/I3",
+  "qa": "QA-06",
+  "originalTurn": {
+    "mode": "RESEARCH",
+    "executionContext": "NONE_READ_ONLY",
+    "model": {
+      "modelId": "gpt-5.6-sol",
+      "provider": "CHATGPT"
+    },
+    "accountId": "local-paper:7466b23c-f772-47b2-86b9-758b089882c6",
+    "contextRefs": 1
+  },
+  "nextTurnSelection": {
+    "mode": "BACKTEST",
+    "modelProvider": "DEEPSEEK",
+    "accountPreserved": true
+  },
+  "artifactProvenanceUnchanged": true,
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "providerAndFinancialCommands": 0,
+  "turnStarts": [
+    {
+      "sequence": 305,
+      "command": "turn.start"
+    }
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "boundary": "One disposable Rust-backed local workspace with synthetic ChatGPT/DeepSeek routes, Research result, and Local Paper account; no real model/provider integration or provider credentials.",
+  "limitations": [
+    "DeepSeek execution, provider-attempt fallback/degradation, and resuming a different Thread are unverified.",
+    "This bounded QA-06 path does not complete S04/S12, the 70-screen inventory, native VoiceOver, or overall S33 acceptance."
+  ],
+  "capturedAt": "2026-10-14T16:11:34Z",
+  "rerunNote": "Fresh QA-06/B9 rerun on isolated Rust-backed port 1425 after rebuilding the integration-test IPC binary. One synthetic Turn completed; its frozen snapshot and Artifact provenance remained unchanged after selecting DeepSeek and Backtest for the next Turn. No real model/provider endpoint was contacted.",
+  "screenshots": {
+    "turnProvenance390": {
+      "path": "b9-turn-provenance-390.png",
+      "sha256": "e74d4b5fa1cf19ef796bd06ea2ee90fcc3090f68bbfd47b3bc009ffd489b6364"
+    },
+    "immutableProvenance390": {
+      "path": "qa06-immutable-provenance-390.png",
+      "sha256": "0ffebb24ce82225a85b044c53dc6289ff31f530f7a05e806daf9786c2712c641"
+    }
+  },
+  "sourceTestDigest": {
+    "files": 108,
+    "sha256": "13e95836477f49f221823bd2fb0825cc04d3723d46dda341a5ffb2aa0883397f"
+  },
+  "test": {
+    "path": "tests/s33-qa06-immutable-turn-provenance-playwright.js",
+    "sha256": "59acebe6d4834828093b9dfaaa7a637f1be457329f6241dbd75bd30c66b79070"
+  },
+  "providerAttempts": {
+    "count": 1,
+    "renderedInOrder": true,
+    "entries": [
+      {
+        "ordinal": 1,
+        "provider": "CHATGPT",
+        "modelId": "gpt-5.6-sol",
+        "outcome": "SUCCEEDED"
+      }
+    ],
+    "limitation": "Only the single synthetic successful attempt was present; multi-attempt fallback/degradation remains unverified."
+  }
+}

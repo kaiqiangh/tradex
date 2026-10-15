@@ -1,0 +1,206 @@
+{
+  "recordedAt": "2026-10-10T14:30:44.098326+01:00",
+  "planningBaseline": "cb5c69a25552797e8e71d36f125a863af0565d44",
+  "implementation": "NOT_STARTED",
+  "nativeHierarchy": "121→132→133",
+  "completedDependencies": [
+    123,
+    131
+  ],
+  "openBlockers": 0,
+  "publishedSpec": 132,
+  "singleImplementationTicket": 133,
+  "acceptedSeam": "actual React→typed Rust Control Plane→disposable SQLite/outbox→external vault/HTTP",
+  "standingAuthorization": "Same public producer seam and single-ticket serial granularity already confirmed; no repeated quiz. Real financial actions remain separate and require human final action.",
+  "storiesPerLanguage": 16,
+  "acPerLanguage": 8,
+  "scope": "source declaration/conditional charging branches only; monetary fee qualification and required USDT/BNB execution FX remain mandatory later owning work",
+  "primarySourcesChecked": "2026-10-10",
+  "primarySources": [
+    "https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/rest-api.md",
+    "https://raw.githubusercontent.com/binance/binance-spot-api-docs/master/faqs/commission_faq.md"
+  ],
+  "issues": {
+    "121": {
+      "number": 121,
+      "title": "[Spec] 验证 Binance Spot Live 可信执行（S29）",
+      "state": "open",
+      "html_url": "https://github.com/kaiqiangh/tradex/issues/121",
+      "labels": [
+        {
+          "id": 12078521811,
+          "node_id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "url": "https://api.github.com/repos/kaiqiangh/tradex/labels/ready-for-agent",
+          "name": "ready-for-agent",
+          "color": "0E8A16",
+          "default": false,
+          "description": "Specified and ready for agent execution",
+          "archived_at": null,
+          "archived_by": null
+        },
+        {
+          "id": 12078521896,
+          "node_id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "url": "https://api.github.com/repos/kaiqiangh/tradex/labels/wayfinder:task",
+          "name": "wayfinder:task",
+          "color": "1D76DB",
+          "default": false,
+          "description": "Work resolving a Wayfinder decision",
+          "archived_at": null,
+          "archived_by": null
+        }
+      ],
+      "assignees": [
+        {
+          "login": "kaiqiangh",
+          "id": 9014062,
+          "node_id": "MDQ6VXNlcjkwMTQwNjI=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/9014062?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/kaiqiangh",
+          "html_url": "https://github.com/kaiqiangh",
+          "followers_url": "https://api.github.com/users/kaiqiangh/followers",
+          "following_url": "https://api.github.com/users/kaiqiangh/following{/other_user}",
+          "gists_url": "https://api.github.com/users/kaiqiangh/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/kaiqiangh/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/kaiqiangh/subscriptions",
+          "organizations_url": "https://api.github.com/users/kaiqiangh/orgs",
+          "repos_url": "https://api.github.com/users/kaiqiangh/repos",
+          "events_url": "https://api.github.com/users/kaiqiangh/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/kaiqiangh/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        }
+      ],
+      "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "total_blocked_by": 0,
+        "blocking": 0,
+        "total_blocking": 0
+      }
+    },
+    "132": {
+      "number": 132,
+      "title": "[Spec] 精确 Binance Spot 标的佣金来源与条件扣费证据（S29.10）",
+      "state": "open",
+      "html_url": "https://github.com/kaiqiangh/tradex/issues/132",
+      "labels": [
+        {
+          "id": 12078521811,
+          "node_id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "url": "https://api.github.com/repos/kaiqiangh/tradex/labels/ready-for-agent",
+          "name": "ready-for-agent",
+          "color": "0E8A16",
+          "default": false,
+          "description": "Specified and ready for agent execution",
+          "archived_at": null,
+          "archived_by": null
+        },
+        {
+          "id": 12078521896,
+          "node_id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "url": "https://api.github.com/repos/kaiqiangh/tradex/labels/wayfinder:task",
+          "name": "wayfinder:task",
+          "color": "1D76DB",
+          "default": false,
+          "description": "Work resolving a Wayfinder decision",
+          "archived_at": null,
+          "archived_by": null
+        }
+      ],
+      "assignees": [
+        {
+          "login": "kaiqiangh",
+          "id": 9014062,
+          "node_id": "MDQ6VXNlcjkwMTQwNjI=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/9014062?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/kaiqiangh",
+          "html_url": "https://github.com/kaiqiangh",
+          "followers_url": "https://api.github.com/users/kaiqiangh/followers",
+          "following_url": "https://api.github.com/users/kaiqiangh/following{/other_user}",
+          "gists_url": "https://api.github.com/users/kaiqiangh/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/kaiqiangh/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/kaiqiangh/subscriptions",
+          "organizations_url": "https://api.github.com/users/kaiqiangh/orgs",
+          "repos_url": "https://api.github.com/users/kaiqiangh/repos",
+          "events_url": "https://api.github.com/users/kaiqiangh/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/kaiqiangh/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        }
+      ],
+      "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "total_blocked_by": 0,
+        "blocking": 0,
+        "total_blocking": 0
+      }
+    },
+    "133": {
+      "number": 133,
+      "title": "[S29.10] 读取并绑定精确标的佣金与条件扣费证据",
+      "state": "open",
+      "html_url": "https://github.com/kaiqiangh/tradex/issues/133",
+      "labels": [
+        {
+          "id": 12078521811,
+          "node_id": "LA_kwDOUOX8L88AAAACz--d0w",
+          "url": "https://api.github.com/repos/kaiqiangh/tradex/labels/ready-for-agent",
+          "name": "ready-for-agent",
+          "color": "0E8A16",
+          "default": false,
+          "description": "Specified and ready for agent execution",
+          "archived_at": null,
+          "archived_by": null
+        },
+        {
+          "id": 12078521896,
+          "node_id": "LA_kwDOUOX8L88AAAACz--eKA",
+          "url": "https://api.github.com/repos/kaiqiangh/tradex/labels/wayfinder:task",
+          "name": "wayfinder:task",
+          "color": "1D76DB",
+          "default": false,
+          "description": "Work resolving a Wayfinder decision",
+          "archived_at": null,
+          "archived_by": null
+        }
+      ],
+      "assignees": [
+        {
+          "login": "kaiqiangh",
+          "id": 9014062,
+          "node_id": "MDQ6VXNlcjkwMTQwNjI=",
+          "avatar_url": "https://avatars.githubusercontent.com/u/9014062?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/kaiqiangh",
+          "html_url": "https://github.com/kaiqiangh",
+          "followers_url": "https://api.github.com/users/kaiqiangh/followers",
+          "following_url": "https://api.github.com/users/kaiqiangh/following{/other_user}",
+          "gists_url": "https://api.github.com/users/kaiqiangh/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/kaiqiangh/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/kaiqiangh/subscriptions",
+          "organizations_url": "https://api.github.com/users/kaiqiangh/orgs",
+          "repos_url": "https://api.github.com/users/kaiqiangh/repos",
+          "events_url": "https://api.github.com/users/kaiqiangh/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/kaiqiangh/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        }
+      ],
+      "issue_dependencies_summary": {
+        "blocked_by": 0,
+        "total_blocked_by": 2,
+        "blocking": 0,
+        "total_blocking": 0
+      }
+    }
+  },
+  "noFinancialActions": true,
+  "prototypeChanged": false,
+  "requirementStatusesChanged": false,
+  "mainChanged": false
+}

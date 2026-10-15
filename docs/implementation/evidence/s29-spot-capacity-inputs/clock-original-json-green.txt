@@ -1,0 +1,34 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.95s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+
+running 1 test
+test capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins ... FAILED
+
+failures:
+
+failures:
+    capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 67 filtered out; finished in 0.12s
+
+
+thread 'capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins' (11213819) panicked at src-tauri/tests/binance_rules.rs:1965:5:
+Invalid clock responses must stop before private HTTP
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins' (11213775) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins ... FAILED
+
+failures:
+
+failures:
+    capacity_public_clock_original_json_is_bounded_and_duplicate_times_are_not_last_wins
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 67 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -1,0 +1,186 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "QA-04",
+  "boundary": "Per-case Rust-backed integration Vite process on isolated loopback port 1425; disposable workspaces; synthetic accounts/market/time fixtures only.",
+  "sourceTestDigest": "e8595a80733a36a16d7820e995ded8c0d38b08c66aa9c001cbc5e5b6a9218d91",
+  "browserScenarios": [
+    {
+      "name": "untrusted-time",
+      "source": "tests/s33-untrusted-time-approval-playwright.js",
+      "result": "PASS",
+      "timeConfidence": "CLOCK_UNCERTAIN",
+      "armingReasonCode": "CLOCK_SKEW",
+      "armEnabled": false,
+      "persistedApprovals": 0,
+      "prepareActions": 0,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "externalHttpRequests": 0,
+      "browserErrors": 0
+    },
+    {
+      "name": "market-order-hard-block",
+      "source": "tests/s33-market-order-approval-playwright.js",
+      "result": "PASS_LIMITED",
+      "instrument": "crypto:BTC/USDT:spot",
+      "expectedSpend": "500.01 USDT",
+      "maximumAuthorizedSpend": "500 USDT",
+      "hardBlock": "MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED",
+      "approvalEnabled": false,
+      "approvals": 0,
+      "mutations": 0,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "externalRequests": 0
+    },
+    {
+      "name": "market-refresh-invalidation",
+      "source": "tests/s33-market-refresh-invalidates-approval-playwright.js",
+      "result": "PASS_LIMITED",
+      "refreshStatus": "REFRESHED",
+      "oldProposal": "INVALIDATED",
+      "oldApproval": "INVALIDATED",
+      "invalidationReason": "RISK_DECISION_CHANGED",
+      "replacementProposal": "NEEDS_APPROVAL",
+      "marketSnapshotTransition": [
+        "synthetic-live-approval-v1",
+        "synthetic-live-approval-v2"
+      ],
+      "replacementApprovals": 1,
+      "prepareActionsAfterRefresh": 0,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "workspaceReopened": true,
+      "forbiddenCommands": 0,
+      "externalHttpRequests": 0,
+      "browserErrors": 0
+    },
+    {
+      "name": "policy-change-invalidation",
+      "source": "tests/s33-risk-policy-invalidation-playwright.js",
+      "result": "PASS_LIMITED",
+      "scope": "WORKSPACE",
+      "policyVersions": [
+        3,
+        4
+      ],
+      "weakened": true,
+      "affectedAccounts": 3,
+      "affectedLiveAccountsDisarmed": 2,
+      "invalidatedProposals": 2,
+      "priorApprovalsInvalidated": true,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "forbiddenCommands": 0,
+      "externalHttpRequests": 0,
+      "browserErrors": 0
+    },
+    {
+      "name": "missing-fx-dispatch-block",
+      "source": "tests/s33-risk-decision-submit-blocks-playwright.js",
+      "result": "PASS_LIMITED",
+      "riskPaths": [
+        "REJECTED",
+        "UNAVAILABLE",
+        "Live Prepare RISK_EVIDENCE_UNAVAILABLE"
+      ],
+      "liveApprovalAfterMissingFx": "ISSUED",
+      "preparation": null,
+      "simulatorOrders": 0,
+      "simulatorFills": 0,
+      "gatewayPosts": 0,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "providerCommands": 0,
+      "gatewayCommands": 0,
+      "externalHttpRequests": 0,
+      "browserErrors": 0
+    },
+    {
+      "name": "trusted-expiry-before-dispatch",
+      "source": "tests/s33-live-approval-expiry-playwright.js",
+      "result": "PASS",
+      "unusedApproval": "EXPIRED",
+      "unusedReservationDisposition": "NONE",
+      "reservedAttempt": "INVALIDATED",
+      "reservedApproval": "CONSUMED",
+      "reservation": "RELEASED",
+      "releasedAmount": "500 USD",
+      "sameKeyReplayPreservedAttempt": true,
+      "workspaceReopened": true,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "reservedFixturePreparations": 2,
+      "directPrepareCommands": 0,
+      "fakeGatewayRequestsAdded": 0,
+      "forbiddenCommands": 0,
+      "externalHttpRequests": 0,
+      "browserErrors": 0
+    },
+    {
+      "name": "trusted-expiry-after-submission",
+      "source": "tests/s33-live-order-submission-monitoring-playwright.js",
+      "result": "PASS_LIMITED",
+      "attempt": "ACCEPTED",
+      "approvalAuthorityExpired": true,
+      "expiryReservationDisposition": "RETAINED",
+      "reservation": {
+        "amount": "50",
+        "unit": "USD",
+        "status": "ACTIVE"
+      },
+      "expiryPreservesAttemptAndReservation": true,
+      "fakeGatewayPosts": 1,
+      "providerMutations": 0,
+      "externalRequests": 0,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ]
+    }
+  ],
+  "focusedRustRegressions": [
+    {
+      "test": "live_approval_rejects_disarmed_untrusted_time_and_stale_market",
+      "passed": 1
+    },
+    {
+      "test": "acknowledged_unverified_permissions_remain_blocked_for_live_arming",
+      "passed": 1
+    },
+    {
+      "test": "blocked_calendar_keeps_market_state_unknown_and_gate_fail_closed",
+      "passed": 1
+    },
+    {
+      "test": "approval_ttl_after_dispatch_keeps_submitted_states_and_capacity",
+      "passed": 1
+    }
+  ],
+  "limits": [
+    "CLOSED/HALTED admission was checked by Rust regression only in this run; no dedicated browser market-session fixture was used.",
+    "Forbidden/unverified permission refusal was checked at the Rust arming gate; provider credentials/endpoints were not used.",
+    "Physical clock faults, real-provider behavior, native VoiceOver, and full S08/S21/S22/QA-04 acceptance remain open.",
+    "F3 post-submission case intentionally sends exactly one request to the local fake Gateway; it is not a provider request."
+  ],
+  "capturedAt": "2026-10-14T12:13:18.105082Z"
+}

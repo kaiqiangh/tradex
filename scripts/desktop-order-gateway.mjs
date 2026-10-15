@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, rename } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 
@@ -36,6 +36,10 @@ if (action === 'browser') {
     ...process.env,
     TRADEX_ORDER_GATEWAY_SHA256: sha256,
     TRADEX_INTEGRATION_ORDER_GATEWAY: '1',
+    TRADEX_FX_HTTP_FIXTURE: '1',
+    TRADEX_BINANCE_RULE_HTTP_FIXTURE: '1',
+    TRADEX_QUOTE_STREAM_FIXTURE: '1',
+    TRADEX_BINANCE_MARKET_STREAM_FIXTURE: '1',
   });
 } else {
   const tauri = join(root, 'node_modules', '.bin', 'tauri');
@@ -43,4 +47,12 @@ if (action === 'browser') {
     ? ['dev', '--features', 'desktop']
     : ['build', '--features', 'desktop', '--no-bundle'];
   run(tauri, tauriArgs, { ...process.env, TRADEX_ORDER_GATEWAY_SHA256: sha256 });
+  if (action === 'build') {
+    // Tauri's build compiles all binaries with desktop features and may replace
+    // the Gateway whose exact bytes were pinned before that build. Restore the
+    // pinned executable atomically so the delivered pair uses the same bytes.
+    const stagedGatewayPath = `${gatewayPath}.pinned`;
+    await writeFile(stagedGatewayPath, gatewayBytes, { mode: 0o755 });
+    await rename(stagedGatewayPath, gatewayPath);
+  }
 }

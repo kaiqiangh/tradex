@@ -1,0 +1,43 @@
+S29.8 — exact public-surface incompatibility observed after the Rust GREEN
+
+Observed 2026-10-09T22:27Z on the real React surface against the real Rust dispatcher.
+
+  The application and runtime are incompatible. Update them together before continuing.
+
+Cause, and why no Rust test could see it.
+
+src/projection.ts decode() validates every command response against the generated Ajv
+validator for that command before any component reads it:
+
+  const validate = validators[definition];
+  if (!validate || !validate(value)) throw new Error('IPC_SCHEMA_INCOMPATIBLE');
+
+risk.evaluate_proposal decodes the response as `RiskDecision`, which now carries the new
+`spotOwning` statement. `RiskDecision` is generated from the Rust struct annotations, and the
+owning statement declared its two bound evidence versions as:
+
+  #[schemars(length(min = 64, max = 64))]
+  pub binding_version: String,
+
+while the value this contract emits is `sha256:` followed by 64 hex characters — 71 characters,
+exactly like the `proposal_hash` field it sits beside. The generated JSON Schema, the generated
+TypeScript and the generated Ajv validators therefore all declared a 64-character string for a
+71-character value, and the validator rejected the payload.
+
+`npm run schema:check` passed throughout, and so did `cargo test`: the generated artifacts do
+agree with the Rust annotations, and the annotations agree with each other — the disagreement
+was between the declared length and the value the contract actually produces. Only decoding a
+real response through the generated validator observes that, which is what the browser replay
+does.
+
+Fix: declare both bound versions at the length they are emitted with, in the same way
+`proposal_hash` already did.
+
+  #[schemars(length(min = 71, max = 71))]
+  pub binding_version: String,
+  #[schemars(length(min = 71, max = 71))]
+  pub state_version: String,
+
+Re-observed after the fix: the same run decodes the statement and renders it (see ui-green.txt
+and ui-admission-region-1280.png). The lesson is recorded as an implementation decision in
+docs/implementation/s29-owning-place-qualification-spec.md.

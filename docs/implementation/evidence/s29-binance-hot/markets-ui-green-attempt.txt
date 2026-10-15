@@ -1,0 +1,8 @@
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(visible)
+
+    at navigate (/Users/kai/Desktop/my-repo/tradex/tests/binance-markets-hot-ui.mjs:25:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Module.checkBinanceMarketsHotUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-markets-hot-ui.mjs:78:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_138.mjs:32:76

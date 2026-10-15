@@ -1,0 +1,4 @@
+2026-10-03 public UI workflow, current Rust integration bridge, normal UNVERIFIED/DISARMED account.
+Review Live approval correctly opens Confirm Live arming with a disabled Arm control.
+Company source AVAILABLE with26 known events, but pre-arm financial evidence region count=0 (expected1).
+Original UI test assumed the armed-account dialog; visible state revealed the actual missing pre-arm context.

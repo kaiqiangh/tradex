@@ -1,0 +1,614 @@
+{
+  "result": "PASS",
+  "capturedAt": "2026-10-14T14:32:30.745Z",
+  "test": {
+    "path": "tests/s33-passive-pages-playwright.js",
+    "sha256": "d6c883e763bcdecba1d220bc4b1d338bd7666c3c8cff75373167e357ac17b711"
+  },
+  "workspace": "2457f319-33f7-40c9-bf59-a9ff06412425",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "primaryDestinations": 9,
+  "settingsSections": 6,
+  "surfaceObservations": 45,
+  "observations": [
+    {
+      "destination": "+ New Thread",
+      "width": 1280,
+      "commands": 0
+    },
+    {
+      "destination": "Threads",
+      "width": 1280,
+      "commands": 4
+    },
+    {
+      "destination": "Markets",
+      "width": 1280,
+      "commands": 1
+    },
+    {
+      "destination": "Watchlists",
+      "width": 1280,
+      "commands": 1
+    },
+    {
+      "destination": "Order Drafts",
+      "width": 1280,
+      "commands": 4
+    },
+    {
+      "destination": "Accounts",
+      "width": 1280,
+      "commands": 5
+    },
+    {
+      "destination": "Strategies",
+      "width": 1280,
+      "commands": 2
+    },
+    {
+      "destination": "Artifacts",
+      "width": 1280,
+      "commands": 1
+    },
+    {
+      "destination": "Settings",
+      "width": 1280,
+      "commands": 8
+    },
+    {
+      "destination": "Settings → Providers & Models",
+      "width": 1280,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → Risk & Limits",
+      "width": 1280,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → Data & Storage",
+      "width": 1280,
+      "commands": 9
+    },
+    {
+      "destination": "Settings → Account Health",
+      "width": 1280,
+      "commands": 2
+    },
+    {
+      "destination": "Settings → Appearance",
+      "width": 1280,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → About",
+      "width": 1280,
+      "commands": 0
+    },
+    {
+      "destination": "+ New Thread",
+      "width": 768,
+      "commands": 3
+    },
+    {
+      "destination": "Threads",
+      "width": 768,
+      "commands": 4
+    },
+    {
+      "destination": "Markets",
+      "width": 768,
+      "commands": 1
+    },
+    {
+      "destination": "Watchlists",
+      "width": 768,
+      "commands": 1
+    },
+    {
+      "destination": "Order Drafts",
+      "width": 768,
+      "commands": 4
+    },
+    {
+      "destination": "Accounts",
+      "width": 768,
+      "commands": 5
+    },
+    {
+      "destination": "Strategies",
+      "width": 768,
+      "commands": 2
+    },
+    {
+      "destination": "Artifacts",
+      "width": 768,
+      "commands": 1
+    },
+    {
+      "destination": "Settings",
+      "width": 768,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → Providers & Models",
+      "width": 768,
+      "commands": 8
+    },
+    {
+      "destination": "Settings → Risk & Limits",
+      "width": 768,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → Data & Storage",
+      "width": 768,
+      "commands": 9
+    },
+    {
+      "destination": "Settings → Account Health",
+      "width": 768,
+      "commands": 2
+    },
+    {
+      "destination": "Settings → Appearance",
+      "width": 768,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → About",
+      "width": 768,
+      "commands": 0
+    },
+    {
+      "destination": "+ New Thread",
+      "width": 390,
+      "commands": 3
+    },
+    {
+      "destination": "Threads",
+      "width": 390,
+      "commands": 4
+    },
+    {
+      "destination": "Markets",
+      "width": 390,
+      "commands": 1
+    },
+    {
+      "destination": "Watchlists",
+      "width": 390,
+      "commands": 1
+    },
+    {
+      "destination": "Order Drafts",
+      "width": 390,
+      "commands": 4
+    },
+    {
+      "destination": "Accounts",
+      "width": 390,
+      "commands": 5
+    },
+    {
+      "destination": "Strategies",
+      "width": 390,
+      "commands": 2
+    },
+    {
+      "destination": "Artifacts",
+      "width": 390,
+      "commands": 1
+    },
+    {
+      "destination": "Settings",
+      "width": 390,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → Providers & Models",
+      "width": 390,
+      "commands": 8
+    },
+    {
+      "destination": "Settings → Risk & Limits",
+      "width": 390,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → Data & Storage",
+      "width": 390,
+      "commands": 9
+    },
+    {
+      "destination": "Settings → Account Health",
+      "width": 390,
+      "commands": 2
+    },
+    {
+      "destination": "Settings → Appearance",
+      "width": 390,
+      "commands": 0
+    },
+    {
+      "destination": "Settings → About",
+      "width": 390,
+      "commands": 0
+    }
+  ],
+  "documentOverflowAssertions": "PASS for all 60 onboarding and route/Settings observations at 1280/768/390.",
+  "forbiddenProviderModelDataMarketFinancialCommands": 0,
+  "externalHttpRequests": 0,
+  "console": {
+    "initialOpen": {
+      "errors": 1,
+      "detail": "Local /favicon.ico returned 404 before the test run."
+    },
+    "postRunSnapshot": {
+      "pageErrors": 0,
+      "consoleErrors": 0,
+      "warnings": "not instrumented by this test",
+      "localFavicon404": 0,
+      "capturedAt": "2026-10-14T14:32:30.745Z"
+    }
+  },
+  "limitations": [
+    "A1 checks the three required fields and responsive geometry; it does not verify every onboarding state or native VoiceOver.",
+    "A2, A4, A5, and A6 were checked at 1280/768/390; A3 credential, connection, and permission actions remain unactivated and IN_PROGRESS.",
+    "A1–A6 onboarding plus the 45 primary/Settings observations passed with no document overflow and zero external HTTP requests.",
+    "A5 saves the safe defaults once in a disposable workspace; broader risk-policy validation and S21/S33 acceptance remain open.",
+    "A6 uses an integration-test-only synthetic DeepSeek route and gateway to exercise the Ready summary/completion flow; it does not prove a real model route or provider readiness.",
+    "No OAuth, Keychain credential setup, gateway process action, route probe, model inference, real provider, or financial operation was used.",
+    "Console and page errors were zero in the instrumented run; console warnings were not instrumented. A prior browser launch reported only a local /favicon.ico 404.",
+    "The 45 route/Settings checks assert headings, document width, and blocked command names; they do not verify every page state or VoiceOver output.",
+    "The 70-screen inventory, native VoiceOver, remaining QA cases, real provider integrations, and full S33 acceptance remain open."
+  ],
+  "a1WorkspaceForm": {
+    "screenId": "A1",
+    "fields": [
+      {
+        "role": "textbox",
+        "name": "Workspace name"
+      },
+      {
+        "role": "combobox",
+        "name": "Base currency"
+      },
+      {
+        "role": "textbox",
+        "name": "Local storage"
+      }
+    ],
+    "observations": [
+      {
+        "width": 1280,
+        "fieldsVisible": 3,
+        "fieldsInViewport": true,
+        "documentOverflow": false
+      },
+      {
+        "width": 768,
+        "fieldsVisible": 3,
+        "fieldsInViewport": true,
+        "documentOverflow": false
+      },
+      {
+        "width": 390,
+        "fieldsVisible": 3,
+        "fieldsInViewport": true,
+        "documentOverflow": false
+      }
+    ],
+    "screenshot": {
+      "path": "docs/implementation/evidence/s33/workspace-onboarding-390.png",
+      "sha256": "940801e3548754dc1c3f277dd968030609e0378b6968162162891249e81cea65"
+    }
+  },
+  "onboardingObservations": 3,
+  "totalObservations": 60,
+  "a2ProvidersOnboarding": {
+    "screenId": "A2",
+    "fields": [
+      {
+        "role": "combobox",
+        "name": "Connection source"
+      },
+      {
+        "role": "combobox",
+        "name": "Provider / environment"
+      },
+      {
+        "role": "textbox",
+        "name": "Connection label"
+      }
+    ],
+    "observations": [
+      {
+        "width": 1280,
+        "fieldsVisible": 3,
+        "fieldsInViewport": true,
+        "connectActionVisible": true,
+        "connectActionEnabled": true,
+        "connectActionActivated": false,
+        "disclosureVisible": true,
+        "documentOverflow": false,
+        "forbiddenCommands": 0
+      },
+      {
+        "width": 768,
+        "fieldsVisible": 3,
+        "fieldsInViewport": true,
+        "connectActionVisible": true,
+        "connectActionEnabled": true,
+        "connectActionActivated": false,
+        "disclosureVisible": true,
+        "documentOverflow": false,
+        "forbiddenCommands": 0
+      },
+      {
+        "width": 390,
+        "fieldsVisible": 3,
+        "fieldsInViewport": true,
+        "connectActionVisible": true,
+        "connectActionEnabled": true,
+        "connectActionActivated": false,
+        "disclosureVisible": true,
+        "documentOverflow": false,
+        "forbiddenCommands": 0
+      }
+    ],
+    "renderStabilityAssertionMs": 400,
+    "screenshot": {
+      "path": "docs/implementation/evidence/s33/provider-onboarding-390.png",
+      "sha256": "61f9b09680faa5b4340540995522c270fcf7897793dbb32f9e3f31936cea1948"
+    },
+    "scope": "Local synthetic UI only; no provider action was activated, no provider truth was asserted, and external HTTP was instrumented with zero requests.",
+    "observedAt": "2026-10-14T14:32:30.745Z"
+  },
+  "providerOnboardingObservations": 3,
+  "modelOnboardingObservations": 3,
+  "a4ModelOnboarding": {
+    "screenId": "A4",
+    "cards": [
+      "CLIProxyAPI → ChatGPT",
+      "CLIProxyAPI → DeepSeek"
+    ],
+    "observations": [
+      {
+        "width": 1280,
+        "chatgptCardVisible": true,
+        "deepseekCardVisible": true,
+        "fallbackOff": true,
+        "keyStorageDisclosureVisible": true,
+        "documentOverflow": false,
+        "forbiddenCommands": 0
+      },
+      {
+        "width": 768,
+        "chatgptCardVisible": true,
+        "deepseekCardVisible": true,
+        "fallbackOff": true,
+        "keyStorageDisclosureVisible": true,
+        "documentOverflow": false,
+        "forbiddenCommands": 0
+      },
+      {
+        "width": 390,
+        "chatgptCardVisible": true,
+        "deepseekCardVisible": true,
+        "fallbackOff": true,
+        "keyStorageDisclosureVisible": true,
+        "documentOverflow": false,
+        "forbiddenCommands": 0
+      }
+    ],
+    "actionsActivated": {
+      "gateway": false,
+      "chatgptOAuth": false,
+      "deepseekKeyConfiguration": false,
+      "routeVerification": false,
+      "defaultRouteChange": false,
+      "fallbackChange": false
+    },
+    "screenshot": {
+      "path": "docs/implementation/evidence/s33/model-onboarding-390.png",
+      "sha256": "d34ac214c83e06cd5979ebbd99fae7005461e58557df2d165152f23ed55ca74a"
+    },
+    "scope": "The A4 observations are passive and synthetic; after them, only integration-test fixtures seeded a route/gateway for A5/A6 progression. No OAuth, key configuration, route probe, inference, provider call, or external HTTP occurred.",
+    "renderStabilityAssertionMs": 400,
+    "observedAt": "2026-10-14T14:32:30.745Z"
+  },
+  "riskDefaultsObservations": [
+    {
+      "width": 1280,
+      "optionalLimitsUnset": true,
+      "staleQuoteThresholdSeconds": 3,
+      "marketOrdersEnabled": false,
+      "liveInactivityTimeoutMinutes": 20,
+      "hardRulesReadOnly": true,
+      "documentOverflow": false
+    },
+    {
+      "width": 768,
+      "optionalLimitsUnset": true,
+      "staleQuoteThresholdSeconds": 3,
+      "marketOrdersEnabled": false,
+      "liveInactivityTimeoutMinutes": 20,
+      "hardRulesReadOnly": true,
+      "documentOverflow": false
+    },
+    {
+      "width": 390,
+      "optionalLimitsUnset": true,
+      "staleQuoteThresholdSeconds": 3,
+      "marketOrdersEnabled": false,
+      "liveInactivityTimeoutMinutes": 20,
+      "hardRulesReadOnly": true,
+      "documentOverflow": false
+    }
+  ],
+  "readyObservations": [
+    {
+      "width": 1280,
+      "workspaceAndCurrency": true,
+      "localPaperOnly": true,
+      "noExternalProvider": true,
+      "syntheticRouteDisclosedInEvidence": true,
+      "fallbackOff": true,
+      "liveAccountsDisarmed": true,
+      "agentRuntimeUnavailable": true,
+      "documentOverflow": false
+    },
+    {
+      "width": 768,
+      "workspaceAndCurrency": true,
+      "localPaperOnly": true,
+      "noExternalProvider": true,
+      "syntheticRouteDisclosedInEvidence": true,
+      "fallbackOff": true,
+      "liveAccountsDisarmed": true,
+      "agentRuntimeUnavailable": true,
+      "documentOverflow": false
+    },
+    {
+      "width": 390,
+      "workspaceAndCurrency": true,
+      "localPaperOnly": true,
+      "noExternalProvider": true,
+      "syntheticRouteDisclosedInEvidence": true,
+      "fallbackOff": true,
+      "liveAccountsDisarmed": true,
+      "agentRuntimeUnavailable": true,
+      "documentOverflow": false
+    }
+  ],
+  "a5RiskDefaults": {
+    "screenId": "A5",
+    "fields": [
+      "Maximum order notional (USD)",
+      "Maximum single-instrument exposure (%)",
+      "Maximum daily traded notional (USD)",
+      "Maximum daily realized loss (USD)",
+      "Stale quote threshold (seconds)",
+      "Allow market orders",
+      "Live inactivity timeout (minutes)"
+    ],
+    "observations": [
+      {
+        "width": 1280,
+        "optionalLimitsUnset": true,
+        "staleQuoteThresholdSeconds": 3,
+        "marketOrdersEnabled": false,
+        "liveInactivityTimeoutMinutes": 20,
+        "hardRulesReadOnly": true,
+        "documentOverflow": false
+      },
+      {
+        "width": 768,
+        "optionalLimitsUnset": true,
+        "staleQuoteThresholdSeconds": 3,
+        "marketOrdersEnabled": false,
+        "liveInactivityTimeoutMinutes": 20,
+        "hardRulesReadOnly": true,
+        "documentOverflow": false
+      },
+      {
+        "width": 390,
+        "optionalLimitsUnset": true,
+        "staleQuoteThresholdSeconds": 3,
+        "marketOrdersEnabled": false,
+        "liveInactivityTimeoutMinutes": 20,
+        "hardRulesReadOnly": true,
+        "documentOverflow": false
+      }
+    ],
+    "persistedDefaults": {
+      "maxOrderNotional": null,
+      "maxSingleInstrumentExposurePercent": null,
+      "maxDailyTradedNotional": null,
+      "maxDailyRealizedLoss": null,
+      "staleQuoteThresholdSeconds": 3,
+      "marketOrdersEnabled": false,
+      "liveInactivityTimeoutMinutes": 20,
+      "riskSaveCount": 1
+    },
+    "saveActivated": true,
+    "screenshot": {
+      "path": "docs/implementation/evidence/s33/risk-defaults-390.png",
+      "sha256": "28d25fcaca241b1863d27458d64acb8ba2fbed8ab513a174e91f0683f4e57994"
+    },
+    "scope": "One explicit local risk.save_policy in the disposable synthetic workspace; saved policy reread and matched the displayed safe defaults. No provider or financial operation occurred."
+  },
+  "a6Ready": {
+    "screenId": "A6",
+    "observations": [
+      {
+        "width": 1280,
+        "workspaceAndCurrency": true,
+        "localPaperOnly": true,
+        "noExternalProvider": true,
+        "syntheticRouteDisclosedInEvidence": true,
+        "fallbackOff": true,
+        "liveAccountsDisarmed": true,
+        "agentRuntimeUnavailable": true,
+        "documentOverflow": false
+      },
+      {
+        "width": 768,
+        "workspaceAndCurrency": true,
+        "localPaperOnly": true,
+        "noExternalProvider": true,
+        "syntheticRouteDisclosedInEvidence": true,
+        "fallbackOff": true,
+        "liveAccountsDisarmed": true,
+        "agentRuntimeUnavailable": true,
+        "documentOverflow": false
+      },
+      {
+        "width": 390,
+        "workspaceAndCurrency": true,
+        "localPaperOnly": true,
+        "noExternalProvider": true,
+        "syntheticRouteDisclosedInEvidence": true,
+        "fallbackOff": true,
+        "liveAccountsDisarmed": true,
+        "agentRuntimeUnavailable": true,
+        "documentOverflow": false
+      }
+    ],
+    "summary": {
+      "workspaceAndBaseCurrency": true,
+      "providers": "Built-in TradeX Local Paper only; no external provider connected.",
+      "modelRoute": "Synthetic DeepSeek deepseek-v4-flash route seeded by integration-test fixture.",
+      "automaticFallback": "OFF",
+      "liveAccounts": "All DISARMED",
+      "agentRuntime": "Unavailable; Codex thread runtime is not available in this build."
+    },
+    "syntheticFixtureCommands": [
+      "model.route.fixture",
+      "model.gateway.fixture"
+    ],
+    "defaultRouteSelectedThroughUi": true,
+    "completionActivatedThroughUi": true,
+    "screenshot": {
+      "path": "docs/implementation/evidence/s33/ready-onboarding-390.png",
+      "sha256": "bd3bd2b6ef6e52172febe1d8cc058381bcc3926f699e7e24140e70ff6cb1bee2"
+    },
+    "scope": "Synthetic model route and RUNNING gateway are integration-test fixtures only; no sidecar, OAuth, credential, route verification, inference, provider request, or external HTTP was used."
+  },
+  "intentionalLocalSetupCommands": [
+    "model.route.fixture",
+    "model.gateway.fixture",
+    "model.set_default (UI selection of the synthetic route)",
+    "risk.save_policy (one explicit A5 save)",
+    "risk.get_policy (read-back verification)",
+    "onboarding.complete (UI completion)"
+  ],
+  "externalHttpInstrumentation": "Browser request events; zero non-loopback HTTP origins.",
+  "forbiddenCommandCheckScope": "Zero forbidden commands occurred during passive screen observation windows. The separately listed integration-test fixtures, one local model.set_default UI selection, and one local risk.save_policy were intentional synthetic onboarding setup actions."
+}

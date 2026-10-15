@@ -16,7 +16,9 @@
     "schema:generate": "node scripts/ipc-schema.mjs",
     "schema:check": "node scripts/ipc-schema.mjs --check",
     "test:unit": "node --test tests/*.test.ts",
-    "check": "npm run schema:check && npm run build && npm run test:unit && cargo test --workspace && python3 scripts/check_requirements.py"
+    "test:binance-hot": "node scripts/test-binance-hot.mjs",
+    "check:logs": "node scripts/check-log-secrets.mjs",
+    "check": "npm run schema:check && npm run build && npm run test:unit && cargo test --workspace && npm run check:logs && python3 scripts/check_requirements.py"
   },
   "dependencies": {
     "@tanstack/react-query": "5.102.8",

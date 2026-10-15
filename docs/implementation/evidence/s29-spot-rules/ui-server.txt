@@ -1,0 +1,7 @@
+npm notice run tradex@0.1.0 dev
+npm notice run vite --host 127.0.0.1 --mode integration --port 1423
+
+  VITE v8.2.2   integration   ready in 113 ms
+
+  ➜  Local:   http://127.0.0.1:1423/
+11:25:10 PM [vite] (client) hmr update /src/Markets.tsx

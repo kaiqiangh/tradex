@@ -1,0 +1,7 @@
+AssertionError [ERR_ASSERTION]: The visible canonical Spot detail must own a real Hot lease instead of reading an unowned cached detail
+
+0 !== 1
+
+    at Module.checkBinanceMarketsHotUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-markets-hot-ui.mjs:51:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_137.mjs:31:279

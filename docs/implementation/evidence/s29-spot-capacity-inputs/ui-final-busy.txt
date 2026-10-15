@@ -1,0 +1,22 @@
+Current Proposal Spot capacity inputs
+
+not observed · Read-only inputs · Execution qualification unavailable
+
+Current observations for the saved, unchanged Proposal. Refresh reads only its required account inputs. These inputs cannot approve an order. Rights, quotes, permissions, fees, FX, funding, arming and immediate preflight need their own checks.
+
+Proposal
+proposal:02f5afe1-a3bc-4dd8-b752-a4364c628fa7 · sha256:8aaf2f0fa9c35a0b87b31ca680d732e703b4bf80ae0701af5691855936446f66
+Exact account
+75e1d79c-8e6c-456c-8a18-bf8309a2462b
+Instrument / units
+crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. USDT is not USD.
+Rule source / material
+BINANCE_SPOT_RULES:bfa3c95a-8c67-4ec5-8f73-5e100fa70107:1 · f6eef47ed0ecfffc2e2bea14fe6cbd9579aac6809bd31f81a5a2b923b7c908c6
+Required reads
+open orders account · base balances · open order lists
+
+No current capacity observation is available. A missing observation cannot be treated as zero orders or zero balances.
+
+Reading required capacity inputs…
+
+This authenticated read uses your existing account connection. It does not arm, approve, reserve or send an order.

@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.61s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it ... FAILED
+
+failures:
+
+---- metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it stdout ----
+
+thread 'metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it' (2426473) panicked at src-tauri/tests/financial_sources.rs:863:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity.","capabilityStatuses":[{"capability":"BROKER_ACCOUNT_IDENTITY","reason":"The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity.","status":"AVAILABLE"},{"capability":"BROKER_INSTRUMENT_METADATA","reason":"The selected account identity and instrument metadata have been read. Ten-minute metadata does not establish current account tradability, exchange halts or canonical security identity.","status":"AVAILABLE"},{"capability":"EXCHANGE_HALTS","reason":"Static exchange schedules do not supply current exchange halt evidence.","status":"BLOCKED_EXTERNAL"},{"capability":"ACCOUNT_TRADABILITY","reason":"Instrument directory membership and quantity caps do not establish current unrestricted account tradability.","status":"BLOCKED_EXTERNAL"}],"configured":true,"connectionId":"4ec1b862-48d1-4d06-b1a7-72b6dcdfc007","eligibleAccounts":[{"connectionId":"4ec1b862-48d1-4d06-b1a7-72b6dcdfc007","displayName":"Read-only source"}],"environment":"LIVE","evidence":{"accountCurrency":"GBP","binding":{"accountVersion":"4ec1b862-48d1-4d06-b1a7-72b6dcdfc007:3","bindingVersion":"804e46a4040bc977b68c9402bf05da38a615fdd7a3f7696e860345b1bffe53ed","connectionId":"4ec1b862-48d1-4d06-b1a7-72b6dcdfc007","sourceVersion":"BROKER_INSTRUMENTS:ff2ed597-1089-44ad-840e-7ea31ceeb137:1"},"instruments":[{"canonicalSecurityIdentity":"UNVERIFIED","currency":"USD","displayName":"Apple","exchangeName":"NASDAQ","instrumentId":"equity:US:AAPL","isin":"US0378331005","providerSymbol":"AAPL_US_EQ","scheduleEvents":[{"date":"2026-10-05T13:30:00Z","eventType":"OPEN"}],"workingScheduleId":101},{"canonicalSecurityIdentity":"UNVERIFIED","currency":"USD","displayName":"Microsoft","exchangeName":"NASDAQ","instrumentId":"equity:US:MSFT","isin":"US5949181045","providerSymbol":"MSFT_US_EQ","scheduleEvents":[{"date":"2026-10-05T13:30:00Z","eventType":"OPEN"}],"workingScheduleId":101}],"kind":"BROKER_INSTRUMENTS","materialVersion":"864238170f0a1afc9b3b241592c9c6eae55a0952723fd0e9587dcdf9493cff75","observedAt":"2026-10-03T07:56:48.903Z","providerQuality":"TEN_MINUTE_METADATA"},"kind":"BROKER_INSTRUMENTS","observedAt":"2026-10-03T07:56:48.903Z","stateVersion":"BROKER_INSTRUMENTS:ff2ed597-1089-44ad-840e-7ea31ceeb137:1","status":"AVAILABLE","workspaceId":"ff2ed597-1089-44ad-840e-7ea31ceeb137"},"ok":true,"requestId":"broker-quota","schemaVersion":1}
+  left: String("AVAILABLE")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    metadata_quota_is_shared_by_remote_account_and_selection_cannot_reset_it
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 5.25s
+
+error: test failed, to rerun pass `--test financial_sources`

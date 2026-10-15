@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-01T08:54:31.634241+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "scope": "Uncommitted #116 read-only pre-Arm public UI; disposable SQLite, normally connected UNVERIFIED/DISARMED fake T212, actual Alpaca adapter quote bytes",
+  "checks": {
+    "typecheckSchemaJSSyntaxDiff": "PASS",
+    "quoteMaterialDigestLibraryRegression": "1 passed",
+    "publicUI": "4 observations; 390/768/1280px no overflow/errors"
+  },
+  "red": "Existing public Arm dialog exposed no Quote evidence before arming region; earlier harness selector mismatch is separately documented",
+  "limits": [
+    "No Arm, issued approval, Prepare, dispatch or broker mutation",
+    "Approval-confirmation dialog and financial-positive acceptance remain unverified",
+    "Hosted actual stream tick remains unverified; final full suite/native build and serial review pending; #116 and all parents open"
+  ],
+  "sha256": {
+    "src/OrderDrafts.tsx": "fe3ed57393febc09cd2325abf38451260337bdaed7100b753901bdbe20af8f8f",
+    "tests/quote-source-ui.mjs": "0e87d403bf2f5bc3284f5d17eed1e3114f60e960df22f45e252d210e120d4664",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "100efa85818952d0bc8b4caa04b23d3ce71c4affe3158b1f16e9532c93f666ec",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "8f65ee14170e9b0bfabb237d7f70a8ec7b3f6c31cb622e709659d32c42f59b24",
+    "docs/implementation/evidence/s28-source-progress/prearm-ui-red.txt": "9674520bf882b2d473ed4ebc7f2d3a67253875ca5d9d42b9ab3c229a305bbbcc",
+    "docs/implementation/evidence/s28-source-progress/prearm-ui.png": "bbb776d51f978f664aa0b33c353aa3591ef0bf21ec08053f17f4e4a6fa983970",
+    "docs/implementation/evidence/s28-source-progress/prearm-ui.json": "010858a092a2c9fd1844921e5c7c57832b0c3d46292ef96ab6df84aa5112232f",
+    "docs/implementation/evidence/s28-source-progress/prearm-unavailable.png": "f40b9a9edf093700643c93d744c57afb06ba16ac5906667da2bf7d808c52d581",
+    "docs/implementation/evidence/s28-source-progress/prearm-unavailable.json": "9f8a4911535dc284b192b2d6ff9041b488ae20861fd50e292fae3d86f623243e"
+  }
+}

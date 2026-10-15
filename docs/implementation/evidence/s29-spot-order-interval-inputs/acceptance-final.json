@@ -1,0 +1,108 @@
+{
+  "sourceCommit": "5d7c597617d7596e7a1d0cdf8665d5c01a6bc677",
+  "criteria": [
+    {
+      "id": "AC1",
+      "purpose": "Immutable context/CAS/ownership/no renderer authority or implicit collection",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "verify-owner-cas.txt",
+        "green-local-get.txt",
+        "green-no-private-purpose.txt",
+        "ordinary-rust-review-final.txt"
+      ]
+    },
+    {
+      "id": "AC2",
+      "purpose": "Fixed signed routes/original UID/weights/shared waits/vault deadline/no control lock or mutation",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "green-explicit-read.txt",
+        "verify-auth-identity-recovery.txt",
+        "verify-vault-deadline.txt",
+        "green-provider-wait.txt",
+        "ordinary-rust-review-final.txt"
+      ]
+    },
+    {
+      "id": "AC3",
+      "purpose": "Actual definitions and counter coverage/original integer precision/bounds/scope",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "green-unique-bounds.txt",
+        "green-coverage.txt",
+        "green-integer-duration.txt",
+        "green-definition-scope.txt",
+        "verify-packet-slot-bounds.txt",
+        "verify-eth-scope.txt",
+        "ordinary-rust-review-final.txt"
+      ]
+    },
+    {
+      "id": "AC4",
+      "purpose": "Separate account quota/time uncertainty/no manufactured reset or admission",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "green-rollover.txt",
+        "green-explicit-read.txt",
+        "ui-review-final-current.json",
+        "ordinary-rust-review-final.txt"
+      ]
+    },
+    {
+      "id": "AC5",
+      "purpose": "Pending/failure/binding/newer ownership/authentication/late/reopen retirement",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "verify-owner-cas.txt",
+        "verify-newer-owner.txt",
+        "verify-vault-deadline.txt",
+        "verify-auth-identity-recovery.txt",
+        "ui-review-final-fault.json",
+        "ui-review-final-pending.json",
+        "ordinary-rust-review-final.txt"
+      ]
+    },
+    {
+      "id": "AC6",
+      "purpose": "Actual current/captured/prearm UI/keyboard and three widths/immutable bounded history",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "green-capture.txt",
+        "ui-review-final-report.json",
+        "ui-review-final-current.json",
+        "ui-review-final-prearm.json"
+      ]
+    },
+    {
+      "id": "AC7",
+      "purpose": "Always unavailable qualification/separate financial gates/exact cancellation regression",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "ordinary-rust-review-final.txt",
+        "gateway-review-final.txt",
+        "ui-review-final-prearm.json"
+      ]
+    },
+    {
+      "id": "AC8",
+      "purpose": "Genuine public RED/GREEN/final checks/build/UI/serial review/source delivery",
+      "status": "VERIFIED_SOURCE",
+      "evidence": [
+        "tdd-checkpoint.json",
+        "checks-review-final.json",
+        "desktop-build-review-final-inputs.json",
+        "ui-review-final-build-inputs.json",
+        "ui-review-final-report.json",
+        "code-review-final.md",
+        "delivery-before-handoff.json"
+      ]
+    }
+  ],
+  "remaining": "NONE for this source ticket; full-parent gates remain OPEN",
+  "fullParentMapAcceptance": "OPEN",
+  "closedAt": "2026-10-09T19:12:44Z",
+  "resolution": "https://github.com/kaiqiangh/tradex/issues/127#issuecomment-6087556222",
+  "deliveryFinal": "delivery-final.json",
+  "evidenceDeliveryCommit": "22646b32064bb7cf6a25fc04053b6c4ab26e1922"
+}

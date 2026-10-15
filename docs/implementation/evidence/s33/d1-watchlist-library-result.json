@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "screenId": "D1",
+  "title": "Watchlist Library",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T17:46:35Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 113,
+    "sha256": "04432221c418da15f37aebb491135420d823d6f2bb97440817c527db17c3e8de"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "No new D1 helper; UI assertions and responsive measurements were performed directly in CUA",
+    "interaction": "Opened Watchlists from primary navigation, then activated the selected library row with Enter; the canonical row remained selected."
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "pageHeading": "Watchlists",
+    "libraryHeading": "Watchlists",
+    "libraryCount": 1,
+    "savedLists": [
+      {
+        "name": "C4 core equities",
+        "memberCount": 1,
+        "accessibleName": "C4 core equities 1 instrument eb5465d7-c686-476d-add6-10b6660ae271",
+        "canonicalWatchlistIdPresent": true,
+        "selectionState": "aria-pressed=true",
+        "nativeControl": "button[type=button]"
+      }
+    ],
+    "keyboardEnterActivation": "PASS; row remained selected",
+    "responsive": [
+      {
+        "width": 1280,
+        "documentClientWidth": 1265,
+        "documentScrollWidth": 1265,
+        "horizontalOverflow": false,
+        "libraryVisible": true,
+        "rowVisible": true,
+        "rowWithinViewport": true,
+        "rowWidth": 153
+      },
+      {
+        "width": 768,
+        "documentClientWidth": 753,
+        "documentScrollWidth": 753,
+        "horizontalOverflow": false,
+        "libraryVisible": true,
+        "rowVisible": true,
+        "rowWithinViewport": true,
+        "rowWidth": 162
+      },
+      {
+        "width": 390,
+        "documentClientWidth": 375,
+        "documentScrollWidth": 375,
+        "horizontalOverflow": false,
+        "libraryVisible": true,
+        "rowVisible": true,
+        "rowWithinViewport": true,
+        "rowWidth": 305
+      }
+    ],
+    "financialOrProviderMutation": false
+  },
+  "commandLog": {
+    "cursorStart": 3630,
+    "cursorEnd": 3895,
+    "commandCount": 265,
+    "counts": {
+      "account.activity": 2,
+      "data.source.connection": 121,
+      "market.catalog": 1,
+      "market.get": 121,
+      "runtime.status": 19,
+      "watchlist.list": 1
+    },
+    "forbiddenProviderModelFinancialTradeOrderGateway": 0,
+    "note": "The delta includes passive local polling; the page loaded the authoritative watchlist.list projection and no watchlist mutation ran."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "The disposable workspace exposed one saved list, so selection among multiple library rows was not exercised.",
+    "The empty-library state and D2/D3/D4 mutations were not exercised in this D1 slice; those are separate screen-inventory items.",
+    "The direct CUA replay did not instrument external HTTP or page errors; no real provider or market source was configured.",
+    "Native VoiceOver, cross-window synchronization, and full S07/S33 acceptance remain open."
+  ]
+}

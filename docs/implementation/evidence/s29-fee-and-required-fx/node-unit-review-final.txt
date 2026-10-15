@@ -1,0 +1,27 @@
+✔ eight subscriptions share one SSE, survive a sibling close, and recover after disconnect (1.471916ms)
+✔ Live attempt status never describes acknowledgement as a fill or cancellation (0.48ms)
+✔ Live attempt status only claims no dispatch with persisted stop evidence (0.100875ms)
+✔ the UI applies only contiguous supported events and ignores exact duplicates (6.63375ms)
+✔ workspace snapshots accept the current storage schema version (0.154458ms)
+✔ generated result schema rejects false success, mixed envelopes and foreign payloads (11.050458ms)
+✔ research venue schema keeps unavailable values nullable and rejects numeric zero (0.418709ms)
+✔ Bitget Spot order schema accepts external origins and plan trigger states (0.550792ms)
+✔ research payload schema rejects unbounded scenarios, artifact refs and venue rows (0.9125ms)
+✔ model projection accepts both provider event types and rejects foreign aggregates (0.484375ms)
+✔ thread projection preserves identity and contiguous event ordering (0.30275ms)
+✔ account projection applies durable Live arming transitions (0.245125ms)
+✔ Live settlement events preserve the exact attempt and reservation binding (0.487875ms)
+✔ Alpaca Paper attempts use their own aggregate identity and preserve order bindings (0.668459ms)
+✔ Trading 212 Demo attempts replay by attempt identity without inventing a client order ID (0.476834ms)
+✔ Trading 212 Demo order books replay exact cumulative observations under Demo account identity (0.769583ms)
+✔ managed Hot quote replies pass the public envelope and reject foreign lease fields (1.101ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 155.981042
+npm notice run tradex@0.1.0 test:unit
+npm notice run node --test tests/*.test.ts

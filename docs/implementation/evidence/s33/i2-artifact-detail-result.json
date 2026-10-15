@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "screenId": "I2",
+  "title": "Artifact Detail",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/Artifacts.tsx": "6faa3511db6ecc11f7b20feab888ed3426072ea97db09b8eab90dd4f624bdc06",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-artifact-detail-screen-playwright.js": "53416d1822147895a998394a2a7e6d95c441de69420f3bdef171507428854916",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-artifact-detail-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "84e540b3-4114-43ab-865f-fd83daf74ef9",
+  "artifactId": "e066b4fa-745d-442c-9f10-30baedf0870b",
+  "contentHash": "sha256:c5c44847285dfa967e4db8ba57f05566ba8219607a2f89a75d50f309952b60fb",
+  "sourceItemId": "research-fb5012ae928b11fbc6c29535",
+  "fixtureBoundary": "One explicitly saved synthetic completed Research Item in a local disposable workspace",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "assertions": {
+    "explicitKeyboardSelectionRequired": true,
+    "savedTypedResearchContentVisible": true,
+    "researchKindAndVersionVisible": true,
+    "fullContentHashTimestampAndSourceItemVisible": true,
+    "longIdentitiesWrapWithoutTruncation": true,
+    "noHorizontalOverflow": true
+  },
+  "commandCounts": {
+    "totalAllowlistedLocalCommands": 25,
+    "artifact.get": 2,
+    "artifact.export": 0,
+    "unexpectedCommands": 0,
+    "externalHttpRequests": 0
+  },
+  "screenshots": [
+    "artifact-detail-390.png"
+  ],
+  "scopeLimits": [
+    "The saved Research Item is synthetic; no real provider or model service was used.",
+    "The Export JSON control was not activated; no artifact export was performed.",
+    "I2 is local S33 evidence and does not complete S12 production acceptance, the remaining screen inventory, S33, or issue #141."
+  ]
+}

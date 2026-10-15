@@ -1,0 +1,34 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.46s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved ... FAILED
+
+failures:
+
+failures:
+    capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 47 filtered out; finished in 0.12s
+
+
+thread 'capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved' (11043466) panicked at src-tauri/tests/binance_rules.rs:547:5:
+Partial quantity ambiguity disappeared: {"data":{"accountId":"8c28f918-454d-48ea-99bb-8d4c3763567f","baseAsset":"BTC","bindingVersion":"sha256:28bbbd04648ff0c14f7845b49c34bbe9724da74bf03bd07808318b488cc20571","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":{"asset":"BTC","free":"0.10000000","locked":"0.02000000"},"collectionId":"4cef3e44-351f-4895-96bd-cf1eb11e7299","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":null,"accountOpenOrders":"1","classificationsComplete":true,"listCoverageComplete":null,"missingListLegs":null,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":null,"symbolOpenOrders":"1"},"position":{"assetExposureComplete":true,"selectedSymbolOpenBuyExecutedQuantity":"0.02","selectedSymbolOpenBuyOriginalQuantity":"0.1"},"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"c6712818a24d8db9f1987cfc32f0aae8f53d50bdb51bbd03764e569754825b90","kind":"ACCOUNT","latestProviderUpdateTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T07:56:06.825Z","startedAt":"2026-10-09T07:56:06.821Z"},{"digest":"f70b126029960d17ab98f09647c9c75304d7cb31e7a2814cf3aa98a0746344e5","kind":"OPEN_ORDERS_ACCOUNT","latestProviderUpdateTimeMs":"1700000000000","oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T07:56:06.83Z","startedAt":"2026-10-09T07:56:06.826Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:d3baa9b31a4972ed06ffe2e7081c66c0f703e7ac55653abdfdbea6cc1a8829d4","proposalId":"proposal:0eca5c4f-e837-4a9c-a664-c556de88aa17","purposes":["OPEN_ORDERS_ACCOUNT","BASE_BALANCES"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"53d9da686da34281718fefc7a0dc47c24adaa205acec83c533486d8a7ef89dbd","sourceVersion":"BINANCE_SPOT_RULES:89c8f705-a8af-47a4-b438-01d4ecdcc7c2:1","stateVersion":"sha256:f8881abd779fd0b78b33983128d68060fbbde5fc9bb1971667c32e59db7ade66","status":"OBSERVED","workspaceId":"89c8f705-a8af-47a4-b438-01d4ecdcc7c2"},"ok":true,"requestId":"capacity-partial","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved' (11043464) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved ... FAILED
+
+failures:
+
+failures:
+    capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 47 filtered out; finished in 0.36s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

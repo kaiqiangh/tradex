@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test identity_currency_refresh_does_not_request_a_key_or_external_rate ... FAILED
+
+failures:
+
+---- identity_currency_refresh_does_not_request_a_key_or_external_rate stdout ----
+
+thread 'identity_currency_refresh_does_not_request_a_key_or_external_rate' (5360681) panicked at src-tauri/tests/financial_sources.rs:2979:5:
+assertion `left == right` failed: Same-currency inputs must not request Keychain authentication: {"data":{"availabilityReason":"The selected saved key is unavailable. Resolve its account connection before refreshing this source.","capabilityStatuses":[{"capability":"FX_RATE_OBSERVATION","reason":"The selected saved key is unavailable. Resolve its account connection before refreshing this source.","status":"UNAVAILABLE"},{"capability":"TRANSACTION_FX_QUALIFICATION","reason":"An authenticated rate response does not establish transaction-grade entitlement, feed quality or permitted financial use.","status":"BLOCKED_EXTERNAL"},{"capability":"BROKER_CONVERSION_COSTS","reason":"Third-party rates do not establish the selected broker's executable funding conversion or fees.","status":"BLOCKED_EXTERNAL"},{"capability":"MONETARY_INPUT_COMPLETENESS","reason":"Currency rates cannot establish complete account monetary inputs.","status":"UNVERIFIED"}],"configured":true,"connectionId":"1d307dc7-5440-47eb-a23f-f438fd0c2179","eligibleAccounts":[{"connectionId":"1d307dc7-5440-47eb-a23f-f438fd0c2179","displayName":"Read-only source"}],"environment":"PAPER","fxRequirements":{"baseCurrency":"USD","materialVersion":"890d51e5f34d189ee645e7d145777e719a962a54464c220103b53d3fca2230e9","requirements":[{"accountVersion":"1d307dc7-5440-47eb-a23f-f438fd0c2179:3","connectionId":"1d307dc7-5440-47eb-a23f-f438fd0c2179","fromCurrency":"USD","need":"IDENTITY","purpose":"ACCOUNT_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"local-paper:66ffe90d-b57f-4637-ad3c-f11b9cb2e482:1","connectionId":"local-paper:66ffe90d-b57f-4637-ad3c-f11b9cb2e482","fromCurrency":"USD","need":"IDENTITY","purpose":"ACCOUNT_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"1d307dc7-5440-47eb-a23f-f438fd0c2179:3","connectionId":"1d307dc7-5440-47eb-a23f-f438fd0c2179","fromCurrency":"USD","need":"IDENTITY","purpose":"ORDER_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"1d307dc7-5440-47eb-a23f-f438fd0c2179:3","connectionId":"1d307dc7-5440-47eb-a23f-f438fd0c2179","fromCurrency":"USD","need":"IDENTITY","purpose":"POSITION_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"}],"workspaceId":"66ffe90d-b57f-4637-ad3c-f11b9cb2e482"},"kind":"FX","stateVersion":"FX:66ffe90d-b57f-4637-ad3c-f11b9cb2e482:1","status":"UNAVAILABLE","workspaceId":"66ffe90d-b57f-4637-ad3c-f11b9cb2e482"},"ok":true,"requestId":"identity-fx","schemaVersion":1}
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    identity_currency_refresh_does_not_request_a_key_or_external_rate
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

@@ -1,0 +1,69 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 30 tests
+test current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding ... ok
+test collected_constraints_name_the_unresolved_per_order_obligations ... ok
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... ok
+test base_market_notional_requests_its_required_reference_and_keeps_base_units ... ok
+test authentication_reflections_are_rejected_before_typed_projection ... ok
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+test clock_revalidation_and_reopen_retire_active_rule_evidence ... ok
+test empty_collected_constraints_cannot_qualify_an_ordinary_spot_proposal ... ok
+test explicit_null_reference_uses_only_matching_average_interval ... ok
+test future_reference_time_is_not_accepted_as_a_new_receipt ... ok
+test explicit_required_reference_read_qualifies_only_its_bound_percentage_rule ... ok
+test immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations ... ok
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+test mixed_reference_intervals_qualify_only_their_own_rules ... ok
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+test public_reference_ip_ban_retires_price_and_honors_shared_cooldown ... ok
+
+thread 'permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification' (10750135) panicked at src-tauri/tests/binance_rules.rs:1278:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"Provider read quota is unavailable. Wait for the permitted endpoint window before refreshing the selected account.","capabilityStatuses":[{"capability":"SPOT_RULE_COLLECTION","reason":"Provider read quota is unavailable. Wait for the permitted endpoint window before refreshing the selected account.","status":"UNAVAILABLE"},{"capability":"SPOT_ACCOUNT_ADMISSION","reason":"Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.","status":"UNAVAILABLE"},{"capability":"SPOT_EXECUTION_QUALIFICATION","reason":"Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.","status":"UNVERIFIED"},{"capability":"SPOT_DATA_USE_RIGHTS","reason":"Provider access does not establish this user's data licence or regional trading eligibility.","status":"UNVERIFIED"}],"configured":true,"connectionId":"35a1bfc6-e6bf-4668-8416-cf85ee56c700","eligibleAccounts":[{"connectionId":"35a1bfc6-e6bf-4668-8416-cf85ee56c700","displayName":"Collect rules"}],"environment":"LIVE","evidence":{"accountCanTrade":true,"accountPermissions":["SPOT"],"accountRequiresSelfTradePrevention":null,"accountType":"SPOT","admissionBlockers":[],"allowedSelfTradePreventionModes":["NONE"],"baseAsset":"BTC","baseAssetPrecision":8,"binding":{"accountVersion":"35a1bfc6-e6bf-4668-8416-cf85ee56c700:3","bindingVersion":"b56f1a97645e3ffaa953f07ebd5fa3e50b1d2fc337ab0183f9b45fd2222ac633","connectionId":"35a1bfc6-e6bf-4668-8416-cf85ee56c700","sourceVersion":"BINANCE_SPOT_RULES:1503599c-d719-43e6-95f4-5d8ff31a2c6f:1"},"constraints":[{"fields":[{"disabled":true,"name":"minPrice","value":{"type":"DECIMAL","value":"0"}},{"disabled":false,"name":"maxPrice","value":{"type":"DECIMAL","value":"999999"}},{"disabled":false,"name":"tickSize","value":{"type":"DECIMAL","value":"0.01"}}],"knownSchema":true,"origin":"EXCHANGE_INFO","ruleType":"PRICE_FILTER","scope":"SYMBOL","unsupportedFields":[]},{"fields":[{"disabled":false,"name":"minQty","value":{"type":"DECIMAL","value":"0.000001"}},{"disabled":false,"name":"maxQty","value":{"type":"DECIMAL","value":"100"}},{"disabled":false,"name":"stepSize","value":{"type":"DECIMAL","value":"0.000001"}}],"knownSchema":true,"origin":"EXCHANGE_INFO","ruleType":"LOT_SIZE","scope":"SYMBOL","unsupportedFields":[]},{"fields":[{"disabled":false,"name":"bidLimitMultUp","value":{"type":"DECIMAL","value":"1.0001"}},{"disabled":false,"name":"bidLimitMultDown","value":{"type":"DECIMAL","value":"0.9999"}},{"disabled":false,"name":"askLimitMultUp","value":{"type":"DECIMAL","value":"1.0001"}},{"disabled":false,"name":"askLimitMultDown","value":{"type":"DECIMAL","value":"0.9999"}}],"knownSchema":true,"origin":"EXECUTION_RULES","ruleType":"PRICE_RANGE","scope":"EXECUTION","unsupportedFields":[]},{"fields":[{"disabled":false,"name":"maxNumOrders","value":{"type":"INTEGER","value":"1000"}}],"knownSchema":true,"origin":"ACCOUNT_FILTERS","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE","unsupportedFields":[]},{"fields":[{"disabled":false,"name":"minNotional","value":{"type":"DECIMAL","value":"5"}},{"disabled":false,"name":"applyToMarket","value":{"type":"BOOLEAN","value":true}},{"disabled":false,"name":"avgPriceMins","value":{"type":"INTEGER","value":"5"}}],"knownSchema":true,"origin":"ACCOUNT_FILTERS","ruleType":"MIN_NOTIONAL","scope":"SYMBOL","unsupportedFields":[]},{"fields":[{"disabled":false,"name":"asset","value":{"type":"ASSET","value":"BTC"}},{"disabled":false,"name":"limit","value":{"type":"DECIMAL","value":"0.25"}}],"knownSchema":true,"origin":"ACCOUNT_FILTERS","ruleType":"MAX_ASSET","scope":"ASSET","unsupportedFields":[]}],"defaultSelfTradePreventionMode":"NONE","instrumentId":"crypto:BTC/USDT:spot","keyPermissions":{"acknowledged":false,"detected":["account.read","positions.read","orders.read","read","spot-and-margin.trade"],"forbidden":[],"ipAllowList":null,"ipAllowListStatus":"RESTRICTED","scope":"VERIFIED","unsupported":[]},"kind":"BINANCE_SPOT_RULES","materialVersion":"f7091f9783e81bb22b7140b1c49d9cfe05e12ebb8d4657b3eee375c8b8d8b35a","observedAt":"2026-10-09T04:32:44.968Z","orderFormFlags":{"allowTrailingStop":null,"amendAllowed":null,"cancelReplaceAllowed":null,"icebergAllowed":null,"ocoAllowed":null,"opoAllowed":null,"otoAllowed":null,"pegInstructionsAllowed":null},"orderTypes":["LIMIT","MARKET"],"permissionSets":[["SPOT","MARGIN"]],"permissionSetsSatisfied":true,"providerClockSample":"2026-10-09T04:32:44.968Z","providerObservedAt":null,"providerQuality":"READ_ONLY_SPOT_RULES","providerSymbol":"BTCUSDT","quoteAsset":"USDT","quoteAssetPrecision":8,"quoteOrderQtyMarketAllowed":true,"remoteAccountId":"9007199254741013","reportedSymbolStatus":"TRADING","spotTradingAllowed":true,"symbolStatus":"TRADING","tradingStatus":{"apiTradingLocked":false,"observedAt":"2026-10-09T04:32:44.97Z","plannedRecoveryAt":null,"providerUpdatedAt":"2019-01-16T09:21:11.725Z","systemStatus":"NORMAL"},"unresolvedObligations":["PROPOSAL_SPECIFIC_RULE_VALIDATION_REQUIRED","QUOTE_DEPTH_AND_RIGHTS_REQUIRED","PRICE_TICK_AND_BOUND_VALIDATION_REQUIRED","BASE_QUANTITY_GRID_VALIDATION_REQUIRED","BOOK_REFERENCE_PRICE_RANGE_VALIDATION_REQUIRED","CURRENT_ACCOUNT_EXCHANGE_ORDER_COUNTS_REQUIRED","NOTIONAL_AND_MARKET_REFERENCE_VALIDATION_REQUIRED","EXACT_ORDER_ASSET_AMOUNT_VALIDATION_REQUIRED","ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ORDER_FORM_FLAGS_UNOBSERVED","ADVANCED_ORDER_FORMS_UNSUPPORTED"]},"instrumentId":"crypto:BTC/USDT:spot","kind":"BINANCE_SPOT_RULES","observedAt":"2026-10-09T04:32:44.968Z","stateVersion":"BINANCE_SPOT_RULES:1503599c-d719-43e6-95f4-5d8ff31a2c6f:1","status":"UNAVAILABLE","workspaceId":"1503599c-d719-43e6-95f4-5d8ff31a2c6f"},"ok":true,"requestId":"read-rules","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... FAILED
+
+thread 'original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms' (10750132) panicked at src-tauri/tests/binance_rules.rs:1632:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... FAILED
+test quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity ... ok
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+
+thread 'refused_reference_read_retires_previous_price_and_never_calls_average_fallback' (10750247) panicked at src-tauri/tests/binance_rules.rs:264:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+test refused_reference_read_retires_previous_price_and_never_calls_average_fallback ... FAILED
+
+thread 'rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64' (10750252) panicked at src-tauri/tests/binance_rules.rs:1503:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"Provider read quota is unavailable. Wait for the permitted endpoint window before refreshing the selected account.","capabilityStatuses":[{"capability":"SPOT_RULE_COLLECTION","reason":"Provider read quota is unavailable. Wait for the permitted endpoint window before refreshing the selected account.","status":"UNAVAILABLE"},{"capability":"SPOT_ACCOUNT_ADMISSION","reason":"Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.","status":"UNVERIFIED"},{"capability":"SPOT_EXECUTION_QUALIFICATION","reason":"Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.","status":"UNVERIFIED"},{"capability":"SPOT_DATA_USE_RIGHTS","reason":"Provider access does not establish this user's data licence or regional trading eligibility.","status":"UNVERIFIED"}],"configured":true,"connectionId":"4668ffc5-a3d1-428c-9cea-e2cf66d679c0","eligibleAccounts":[{"connectionId":"4668ffc5-a3d1-428c-9cea-e2cf66d679c0","displayName":"Collect rules"}],"environment":"LIVE","instrumentId":"crypto:BTC/USDT:spot","kind":"BINANCE_SPOT_RULES","stateVersion":"BINANCE_SPOT_RULES:9aa07fd5-ced3-4b67-9945-1549d5cbcb12:1","status":"UNAVAILABLE","workspaceId":"9aa07fd5-ced3-4b67-9945-1549d5cbcb12"},"ok":true,"requestId":"read-rules","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+test rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64 ... FAILED
+
+thread 'unpopulated_permission_sets_never_grant_account_admission' (10750256) panicked at src-tauri/tests/binance_rules.rs:1533:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"Provider read quota is unavailable. Wait for the permitted endpoint window before refreshing the selected account.","capabilityStatuses":[{"capability":"SPOT_RULE_COLLECTION","reason":"Provider read quota is unavailable. Wait for the permitted endpoint window before refreshing the selected account.","status":"UNAVAILABLE"},{"capability":"SPOT_ACCOUNT_ADMISSION","reason":"Current account/symbol admission is one check; it is not per-Proposal execution-rule qualification.","status":"UNVERIFIED"},{"capability":"SPOT_EXECUTION_QUALIFICATION","reason":"Collected metadata is not per-Proposal rule qualification or immediate Gateway preflight.","status":"UNVERIFIED"},{"capability":"SPOT_DATA_USE_RIGHTS","reason":"Provider access does not establish this user's data licence or regional trading eligibility.","status":"UNVERIFIED"}],"configured":true,"connectionId":"d29dee26-ede8-44ef-9d12-986ec0a16e34","eligibleAccounts":[{"connectionId":"d29dee26-ede8-44ef-9d12-986ec0a16e34","displayName":"Collect rules"}],"environment":"LIVE","instrumentId":"crypto:BTC/USDT:spot","kind":"BINANCE_SPOT_RULES","stateVersion":"BINANCE_SPOT_RULES:276bfb89-53bd-438d-b7cf-48268ecf0aed:1","status":"UNAVAILABLE","workspaceId":"276bfb89-53bd-438d-b7cf-48268ecf0aed"},"ok":true,"requestId":"read-rules","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+test unpopulated_permission_sets_never_grant_account_admission ... FAILED
+
+thread 'unsupported_provider_order_form_rejects_the_unchanged_proposal' (10750258) panicked at src-tauri/tests/binance_rules.rs:243:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+test unsupported_provider_order_form_rejects_the_unchanged_proposal ... FAILED
+
+thread 'zero_interval_uses_original_last_trade_time_only_after_explicit_null' (10750264) panicked at src-tauri/tests/binance_rules.rs:497:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+test zero_interval_uses_original_last_trade_time_only_after_explicit_null ... FAILED
+test identical_reference_cannot_renew_first_receipt_or_financial_freshness ... ok
+test reference_deadline_retires_prior_input_without_blocking_control_plane_reads ... ok

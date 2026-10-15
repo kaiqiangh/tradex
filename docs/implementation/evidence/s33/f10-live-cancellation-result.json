@@ -1,0 +1,59 @@
+{
+  "captured_at": "2026-10-14T07:57:20Z",
+  "branch": "dev",
+  "head_sha": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "acceptance": "PASS_LIMITED",
+  "test_environment": {
+    "harness": "TRADEX_LIVE_APPROVAL_FIXTURE=1 npm run dev:browser",
+    "workspace": "disposable local synthetic workspace",
+    "provider_responses": "in-process Binance test fixtures",
+    "real_provider_endpoints": 0,
+    "browser_external_http_requests": 0,
+    "browser_external_resources": 0,
+    "javascript_page_errors": 0,
+    "console_errors": 1,
+    "console_error": "The isolated Vite harness returned 404 for its local /favicon.ico; React DevTools emitted an informational entry."
+  },
+  "safe_dismissal": {
+    "script": "tests/s33-cancel-enter-playwright.js",
+    "result": "PASS",
+    "broker_order_id": "BTCUSDT:9007199254740995",
+    "initial_focus": "Close without a decision",
+    "native_modal": true,
+    "focusable_control_count": 4,
+    "tab_and_shift_tab_trap": true,
+    "escape_restores_trigger_focus": true,
+    "safe_enter_restores_trigger_focus": true,
+    "approvals_after_escape": 0,
+    "rejections_after_escape": 0,
+    "approvals_after_enter": 0,
+    "rejections_after_enter": 0,
+    "forbidden_post_dismissal_commands": 0,
+    "responsive_viewports_px": [1280, 768, 390],
+    "actions_reachable_at_768_and_390": true,
+    "screenshot": "live-cancel-dialog-390.png"
+  },
+  "reconciliation_gate": {
+    "script": "tests/s33-live-cancel-arming-gate-playwright.js",
+    "result": "PASS_LIMITED",
+    "broker_order_id": "BTCUSDT:9007199254740995",
+    "review_identity_and_quantity_exact": true,
+    "review_reopened_with_new_intent_id_and_same_semantic_hash": true,
+    "responsive_viewports_px": [1280, 768, 390],
+    "dialog_geometry_px": {
+      "1280": { "left": 290, "right": 990, "document_scroll_width": 1280 },
+      "768": { "left": 34, "right": 734, "document_scroll_width": 768 },
+      "390": { "left": 16, "right": 374, "document_scroll_width": 390 }
+    },
+    "account_arming_after_refresh": "DISARMED",
+    "risk_decision_after_refresh": "UNAVAILABLE",
+    "explicit_arm_attempts": 1,
+    "arm_block_reason": "RECONCILIATION_REQUIRED",
+    "approve_control_disabled": true,
+    "persisted_approvals": 0,
+    "persisted_rejections": 0,
+    "prepare_or_gateway_commands": 0,
+    "screenshots": ["live-cancel-review-blocked-390.png", "live-cancel-arming-blocked-390.png"]
+  },
+  "scope_limit": "The exact Binance Live review and safety block are verified, but this fixture does not configure private-stream reconciliation and cannot establish eligible Arm, approval, Prepare, CANCEL_PENDING, terminal cancellation, or fill-race acceptance. F10 remains IN_PROGRESS."
+}

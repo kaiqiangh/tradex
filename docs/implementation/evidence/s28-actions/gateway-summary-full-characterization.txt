@@ -1,0 +1,96 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running tests/order_gateway.rs (target/debug/deps/order_gateway-0d98c4b21dec228b)
+
+running 23 tests
+test local_provider_tests::real_child_does_not_contact_provider_after_expired_grant_is_rejected ... ok
+
+thread 'local_provider_tests::real_child_preserves_exact_live_sell_and_limit_request_fields' (3633906) panicked at src-tauri/tests/order_gateway.rs:1081:13:
+assertion `left == right` failed
+  left: Some("PROVIDER_RATE_LIMITED")
+ right: None
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test local_provider_tests::real_child_preserves_exact_live_sell_and_limit_request_fields ... FAILED
+test launches_the_pinned_gateway_over_a_private_session_and_stops_it ... ok
+test local_provider_tests::real_child_rejects_a_different_live_account_before_reading_or_mutating_the_order ... ok
+test local_provider_tests::real_child_fails_closed_on_binance_account_mismatch_and_unsupported_order ... ok
+
+thread '<unnamed>' (3633908) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread '<unnamed>' (3633910) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread 'local_provider_tests::real_child_keeps_a_lost_place_response_unknown_after_exactly_one_post' (3633903) panicked at src-tauri/tests/order_gateway.rs:1607:25:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+thread 'local_provider_tests::real_child_keeps_cancel_rejection_and_lost_acknowledgement_distinct' (3633904) panicked at src-tauri/tests/order_gateway.rs:1744:29:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+test local_provider_tests::real_child_keeps_a_lost_place_response_unknown_after_exactly_one_post ... FAILED
+test local_provider_tests::real_child_keeps_cancel_rejection_and_lost_acknowledgement_distinct ... FAILED
+
+thread '<unnamed>' (3633913) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread 'local_provider_tests::real_child_sends_one_exact_live_place_to_the_loopback_fake_provider' (3634709) panicked at src-tauri/tests/order_gateway.rs:958:9:
+assertion `left == right` failed: approved bounded market intent must pass pre-dispatch
+  left: Some("PROVIDER_RATE_LIMITED")
+ right: None
+test local_provider_tests::real_child_sends_one_exact_live_place_to_the_loopback_fake_provider ... FAILED
+test local_provider_tests::real_child_sends_one_signed_exact_binance_spot_live_cancel ... ok
+test local_provider_tests::real_child_sends_one_signed_exact_bitget_classic_spot_live_cancel ... ok
+test local_provider_tests::bitget_cancel_rejection_and_lost_response_are_terminal_without_replay_after_restart ... ok
+test local_provider_tests::real_child_result_persistence_failure_cannot_replay_the_provider_post ... ok
+
+thread '<unnamed>' (3634110) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread 'local_provider_tests::real_child_records_place_rejection_after_exactly_one_post' (3634109) panicked at src-tauri/tests/order_gateway.rs:1548:25:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+test local_provider_tests::real_child_records_place_rejection_after_exactly_one_post ... FAILED
+test rejects_a_gateway_that_does_not_echo_the_current_session_credential ... ok
+test rejects_a_gateway_with_an_incompatible_protocol_version ... ok
+test local_provider_tests::real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement ... ok
+test rejects_an_oversized_handshake_frame_before_reading_its_body ... ok
+test refuses_to_launch_an_executable_that_does_not_match_its_pin ... ok
+test local_provider_tests::real_child_preserves_binance_cancel_rejection_and_unknown_without_replay ... ok
+
+thread '<unnamed>' (3634710) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+test local_provider_tests::real_child_rejects_unbounded_or_invalid_live_market_intents_before_provider_io ... ok
+
+thread '<unnamed>' (3634837) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread 'local_provider_tests::real_child_shares_429_cooldown_without_replaying_the_mutation' (3634836) panicked at src-tauri/tests/order_gateway.rs:1578:25:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+test local_provider_tests::real_child_shares_429_cooldown_without_replaying_the_mutation ... FAILED
+
+thread '<unnamed>' (3634842) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread 'local_provider_tests::real_child_stops_before_submitting_for_changed_terminal_or_malformed_orders' (3634841) panicked at src-tauri/tests/order_gateway.rs:1496:29:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+test local_provider_tests::real_child_stops_before_submitting_for_changed_terminal_or_malformed_orders ... FAILED
+
+thread '<unnamed>' (3634857) panicked at src-tauri/tests/order_gateway.rs:166:39:
+fake provider accept failed: Resource temporarily unavailable (os error 35)
+
+thread 'local_provider_tests::real_child_treats_a_mismatched_place_identity_as_unknown_without_retry' (3634856) panicked at src-tauri/tests/order_gateway.rs:1687:25:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+test local_provider_tests::real_child_treats_a_mismatched_place_identity_as_unknown_without_retry ... FAILED
+
+failures:
+
+failures:
+    local_provider_tests::real_child_keeps_a_lost_place_response_unknown_after_exactly_one_post
+    local_provider_tests::real_child_keeps_cancel_rejection_and_lost_acknowledgement_distinct
+    local_provider_tests::real_child_preserves_exact_live_sell_and_limit_request_fields
+    local_provider_tests::real_child_records_place_rejection_after_exactly_one_post
+    local_provider_tests::real_child_sends_one_exact_live_place_to_the_loopback_fake_provider
+    local_provider_tests::real_child_shares_429_cooldown_without_replaying_the_mutation
+    local_provider_tests::real_child_stops_before_submitting_for_changed_terminal_or_malformed_orders
+    local_provider_tests::real_child_treats_a_mismatched_place_identity_as_unknown_without_retry
+
+test result: FAILED. 15 passed; 8 failed; 0 ignored; 0 measured; 0 filtered out; finished in 36.25s
+
+error: test failed, to rerun pass `--test order_gateway`

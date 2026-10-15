@@ -1,0 +1,131 @@
+{
+  "121": {
+    "number": 121,
+    "id": 5748359838,
+    "title": "[Spec] \u9a8c\u8bc1 Binance Spot Live \u53ef\u4fe1\u6267\u884c\uff08S29\uff09",
+    "state": "open",
+    "issue_dependencies_summary": {
+      "blocked_by": 0,
+      "total_blocked_by": 0,
+      "blocking": 0,
+      "total_blocking": 0
+    },
+    "parent_issue_url": "https://api.github.com/repos/kaiqiangh/tradex/issues/1",
+    "children": [
+      {
+        "number": 122,
+        "state": "closed",
+        "title": "[S29.1] \u6838\u9a8c Binance Live \u8d26\u6237\u4ea4\u6613\u72b6\u6001"
+      },
+      {
+        "number": 123,
+        "state": "closed",
+        "title": "[S29.2] \u8bfb\u53d6 Binance Live \u7cbe\u786e Spot \u89c4\u5219\u4e0e\u8d26\u6237\u51c6\u5165\u8bc1\u636e"
+      },
+      {
+        "number": 124,
+        "state": "closed",
+        "title": "[S29.3] \u63d0\u4f9b Binance Spot Hot \u62a5\u4ef7\u4e0e\u8fde\u7eed\u6df1\u5ea6\u6765\u6e90"
+      },
+      {
+        "number": 125,
+        "state": "closed",
+        "title": "[S29.4] \u6838\u9a8c Proposal \u9759\u6001 Spot \u89c4\u5219\u4e0e\u6240\u9700\u53c2\u8003\u8f93\u5165"
+      },
+      {
+        "number": 126,
+        "state": "closed",
+        "title": "[S29.5] \u63d0\u4f9b Binance \u7cbe\u786e\u8d26\u6237\u5f00\u653e\u8ba2\u5355\u4e0e\u5bb9\u91cf\u8f93\u5165"
+      },
+      {
+        "number": 127,
+        "state": "closed",
+        "title": "[S29.6] \u63d0\u4f9b Binance \u7cbe\u786e\u8d26\u6237\u65f6\u6bb5\u8ba2\u5355\u989d\u5ea6\u8f93\u5165"
+      },
+      {
+        "number": 129,
+        "state": "closed",
+        "title": "[S29.8] \u4ee5\u7cbe\u786e\u5bb9\u91cf\u4e0e\u65f6\u6bb5\u989d\u5ea6\u5c65\u884c Spot Live PLACE \u62e5\u6709\u65b9\u8d44\u683c"
+      },
+      {
+        "number": 130,
+        "state": "closed",
+        "title": "[Spec] \u62e5\u6709\u65b9 Spot \u8d39\u7528\u9648\u8ff0\u4e0e\u771f\u6b63\u6240\u9700\u6267\u884c FX\uff08S29.9\uff09"
+      },
+      {
+        "number": 132,
+        "state": "open",
+        "title": "[Spec] \u7cbe\u786e Binance Spot \u6807\u7684\u4f63\u91d1\u6765\u6e90\u4e0e\u6761\u4ef6\u6263\u8d39\u8bc1\u636e\uff08S29.10\uff09"
+      }
+    ]
+  },
+  "132": {
+    "number": 132,
+    "id": 5791622117,
+    "title": "[Spec] \u7cbe\u786e Binance Spot \u6807\u7684\u4f63\u91d1\u6765\u6e90\u4e0e\u6761\u4ef6\u6263\u8d39\u8bc1\u636e\uff08S29.10\uff09",
+    "state": "open",
+    "issue_dependencies_summary": {
+      "blocked_by": 0,
+      "total_blocked_by": 0,
+      "blocking": 0,
+      "total_blocking": 0
+    },
+    "parent_issue_url": "https://api.github.com/repos/kaiqiangh/tradex/issues/121",
+    "children": [
+      {
+        "number": 133,
+        "state": "open",
+        "title": "[S29.10] \u8bfb\u53d6\u5e76\u7ed1\u5b9a\u7cbe\u786e\u6807\u7684\u4f63\u91d1\u4e0e\u6761\u4ef6\u6263\u8d39\u8bc1\u636e"
+      }
+    ]
+  },
+  "133": {
+    "number": 133,
+    "id": 5791626701,
+    "title": "[S29.10] \u8bfb\u53d6\u5e76\u7ed1\u5b9a\u7cbe\u786e\u6807\u7684\u4f63\u91d1\u4e0e\u6761\u4ef6\u6263\u8d39\u8bc1\u636e",
+    "state": "open",
+    "issue_dependencies_summary": {
+      "blocked_by": 0,
+      "total_blocked_by": 2,
+      "blocking": 0,
+      "total_blocking": 0
+    },
+    "parent_issue_url": "https://api.github.com/repos/kaiqiangh/tradex/issues/132",
+    "dependencies": [
+      {
+        "number": 123,
+        "state": "closed"
+      },
+      {
+        "number": 131,
+        "state": "closed"
+      }
+    ]
+  },
+  "123": {
+    "number": 123,
+    "id": 5751635117,
+    "title": "[S29.2] \u8bfb\u53d6 Binance Live \u7cbe\u786e Spot \u89c4\u5219\u4e0e\u8d26\u6237\u51c6\u5165\u8bc1\u636e",
+    "state": "closed",
+    "issue_dependencies_summary": {
+      "blocked_by": 0,
+      "total_blocked_by": 0,
+      "blocking": 1,
+      "total_blocking": 3
+    },
+    "parent_issue_url": "https://api.github.com/repos/kaiqiangh/tradex/issues/121"
+  },
+  "131": {
+    "number": 131,
+    "id": 5785853640,
+    "title": "[S29.9] \u4ea4\u4ed8\u62e5\u6709\u65b9\u8d39\u7528\u9648\u8ff0\u4e0e\u771f\u6b63\u6240\u9700\u6267\u884c FX \u5e76\u58f0\u660e\u53ef\u8fbe\u6027",
+    "state": "closed",
+    "issue_dependencies_summary": {
+      "blocked_by": 0,
+      "total_blocked_by": 1,
+      "blocking": 1,
+      "total_blocking": 1
+    },
+    "parent_issue_url": "https://api.github.com/repos/kaiqiangh/tradex/issues/130"
+  }
+}

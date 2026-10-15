@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.01s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority ... FAILED
+
+failures:
+
+---- exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority stdout ----
+
+thread 'exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority' (9699413) panicked at src-tauri/tests/binance_market_hot.rs:1495:5:
+assertion `left == right` failed: Actual exact-account Spot admission must not demand a fictional equity calendar: {"checkId":"MARKET_SESSION","outcome":"UNAVAILABLE","reason":"A current authoritative market calendar is unavailable.","reasonCode":"CALENDAR_UNAVAILABLE"}
+  left: String("UNAVAILABLE")
+ right: "PASS"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.48s
+
+error: test failed, to rerun pass `--test binance_market_hot`

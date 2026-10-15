@@ -1,0 +1,87 @@
+{
+  "ticket": "#135",
+  "acceptance_criterion": "AC13 partial UI evidence only",
+  "observed_on": "2026-10-12",
+  "recorded_at_utc": "2026-10-12T09:15:20Z",
+  "capture_time_precision": "The browser run did not retain its exact start time; this is the evidence recording time.",
+  "repository": {
+    "branch": "dev",
+    "head": "015f4ba19b0dcba138d2a48fafb42b6323821e83",
+    "worktree": "dirty; this receipt does not claim a committed or frozen delivery"
+  },
+  "environment": {
+    "application": "TradeX React UI connected to the Rust IPC Control Plane",
+    "route": "/__integration",
+    "origin": "http://127.0.0.1:1428/",
+    "provider": "loopback synthetic fixture only; no real provider or account was accessed",
+    "workspace_id": "1a11fb54-9455-4412-980a-98587ba4b0f2",
+    "synthetic_account_id": "be0982c2-04b7-4b36-9e48-2bb66c5a78ce",
+    "synthetic_account_label": "Binance LIVE fixture"
+  },
+  "proposal": {
+    "id": "proposal:89973aab-7405-44cc-986c-940e7ff85fb5",
+    "hash": "sha256:f0346afd0956a7c6d95b7410b3546458423c75034a1d223c242dbadd7790f2ef",
+    "rules_material_hash": "540924b702a24bb31230d7251383526cf05320814e91f9a4ef23fafd12187399"
+  },
+  "observations": {
+    "account_refresh": {
+      "status": "CONNECTED",
+      "authentication": "VALID",
+      "connection": "ONLINE",
+      "credential": "CONFIGURED",
+      "arming": "DISARMED"
+    },
+    "capacity_and_order_interval": "The actual UI rendered observed, read-only inputs, and execution qualification unavailable; required purposes included open orders account, base balances, and open order lists.",
+    "commission_fixture": {
+      "scenario": "CHANGED",
+      "model": "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1",
+      "standard_btc": "0.0000000005",
+      "tax_btc": "0.00000000232",
+      "special_btc": "0.00005",
+      "total_btc": "0.00005000282",
+      "net_btc": "0.00094999718",
+      "discount": "DISCOUNT_DISABLED_CURRENT_FALLBACK",
+      "future_fee_asset_guarantee": "not asserted; fee currency remained UNKNOWN"
+    },
+    "risk_and_required_fx": {
+      "risk_approval_eligible": false,
+      "blocking_route": "USDT to USD, price-only purpose",
+      "proposal_scoped_quote": "unavailable",
+      "wallet_evidence": "RETIRED after freshness expiry; BTC, USDT, and BNB rows were unavailable, so this was not valid AC5 INCOMPLETE coverage"
+    },
+    "pre_arm": {
+      "captured_financial_region_visible": true,
+      "arm_button_enabled": false,
+      "commission_binding": "The later pre-arm snapshot did not bind the exact commission observation, so no fee was presented there; the snapshot remained unavailable.",
+      "user_action": "Keep reviewing; dialog closed without arming",
+      "final_account_arming": "DISARMED"
+    },
+    "responsive_widths": [
+      {"viewport_px": 1280, "body_px": 1280, "panel_px": 390, "panel_client_px": 390, "horizontal_overflow": false},
+      {"viewport_px": 768, "body_px": 768, "panel_px": 422, "panel_client_px": 422, "horizontal_overflow": false},
+      {"viewport_px": 390, "body_px": 390, "panel_px": 268, "panel_client_px": 268, "horizontal_overflow": false}
+    ],
+    "console": {
+      "warnings": 0,
+      "runtime_errors": 0,
+      "known_404": "The temporary Vite app requested a missing /favicon.ico."
+    }
+  },
+  "financial_actions": {
+    "arm": false,
+    "consent": false,
+    "prepare": false,
+    "gateway_dispatch": false,
+    "order": false
+  },
+  "disposition": {
+    "result": "partial responsive and fail-closed UI evidence",
+    "AC13_accepted": false,
+    "ticket_closed": false,
+    "reason": "This run did not complete a genuine positive owning-plan to Prepare/Gateway path; the required USDT to USD route was unavailable, wallet rows had retired, and the later pre-arm snapshot lacked a bound commission observation. No AC checkbox is changed."
+  },
+  "artifacts": {
+    "screenshot": "not retained",
+    "temporary_workspace": "isolated fixture database was removed after the test"
+  }
+}

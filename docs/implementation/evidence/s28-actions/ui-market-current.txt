@@ -1,0 +1,224 @@
+Financial prerequisite evidence
+Known company events
+
+available · Authenticated known events are current as a bounded process-date query only. Complete prospective action coverage and historical adjustment remain unsupported.
+
+Saved account
+2cb6cb25-1817-4235-8b02-f9bbc3f5ca85
+First receipt
+2026-10-03T09:56:52.684Z
+known actions
+available · Authenticated known events are current as a bounded process-date query only. Complete prospective action coverage and historical adjustment remain unsupported.
+action query completion
+available · Pagination exhaustion applies only to the returned processing-date query, not prospective event completeness.
+complete action coverage
+blocked external · The provider documents processing delays and no immediate-announcement completeness guarantee. An empty query cannot certify no pending action or complete delisting coverage.
+historical adjustment
+unverified · Known events do not prove historical prices were adjusted; actual history provenance is still required.
+Provider quality
+Delayed process-date query. A recent receipt does not improve provider quality.
+Provider observation time
+Not supplied
+Account / source version
+2cb6cb25-1817-4235-8b02-f9bbc3f5ca85:17 · CORPORATE_ACTIONS:0d50e221-3ccf-4c0a-9d3a-fe6c28801447:10
+Material version
+a13d1bec1958432165694b1f35972347fd375ed1791f596edafe967d9d2a6c0f
+
+Requested process dates: 2026-09-03 – 2026-11-02. Query exhausted all returned pages; complete action coverage and historical adjustment remain unavailable.
+
+26 known events in this query. Dates retain the provider’s date-only precision.
+
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0200
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0201
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0202
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0203
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0204
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0205
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0206
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0207
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0208
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0209
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0210
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0211
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0212
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0213
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0214
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0215
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0216
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0217
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0218
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0219
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0220
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0221
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0222
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0223
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Cash Dividend · Returned Fields Complete
+Process date 2026-10-03 · equity:US:AAPL
+Event 5bf09d38-114c-4db7-84b0-b07f25ff0224
+ex date: 2026-10-03
+subject security: AAPL · ISIN US0378331005 · CUSIP 037833100
+rate: 0.1234567890123456789
+Currency Not supplied · Special false · Foreign false
+Previous events
+Event page 1 of 2
+Next events
+Account instrument metadata
+
+blocked external · Select an eligible saved account for this read-only source.
+
+Saved account
+None selected
+First receipt
+Not checked
+broker account identity
+blocked external · Select an eligible saved account for this read-only source.
+broker instrument metadata
+blocked external · Select an eligible saved account for this read-only source.
+exchange halts
+blocked external · Static exchange schedules do not supply current exchange halt evidence.
+account tradability
+blocked external · Instrument directory membership and quantity caps do not establish current unrestricted account tradability.

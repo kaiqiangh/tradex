@@ -1,0 +1,14 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0596]: cannot borrow `control.time` as mutable, as it is behind a `&` reference
+   --> src-tauri/src/financial_sources.rs:229:15
+    |
+229 |     let now = control.time.status(workspace)?;
+    |               ^^^^^^^^^^^^ `control` is a `&` reference, so it cannot be borrowed as mutable
+    |
+help: consider changing this to be a mutable reference
+    |
+217 |     control: &mut ControlPlane,
+    |               +++
+
+For more information about this error, try `rustc --explain E0596`.
+error: could not compile `tradex` (lib) due to 1 previous error

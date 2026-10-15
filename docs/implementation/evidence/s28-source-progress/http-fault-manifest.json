@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-10-01T09:00:19.476506+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "scope": "Regression coverage at actual loopback HTTP/TCP WebSocket provider boundary; no runtime feature change or financial authority seeding",
+  "checks": [
+    "HTTP 401/403/429 preserve identity but retire freshness and sanitize private errors; same selected feed recovery changes consent material",
+    "Actual Retry-After 1s cooldown prevents early next request; fixed GET paths and unlocked Control Plane",
+    "Stream 404 auth timeout and 405 symbol limit terminal with zero reconnects",
+    "Stream 407 bounded three reconnects same feed; error bodies absent from public projection",
+    "Repeated actual stream event preserves first receipt/snapshot; older or equal-time material conflict terminal and retained old quote stale"
+  ],
+  "limits": [
+    "Targeted regression coverage, not a missing-feature RED claim",
+    "Initial new HTTP test compilation needed an explicit Option<Instant>; corrected before runtime checks",
+    "Final suite/build/serial reviews remain pending; hosted stream tick and financial acceptance unverified"
+  ],
+  "sha256": {
+    "src-tauri/tests/data_sources.rs": "58fb47ca4e921a27001e2b0164d41764332a6d0e8b64001f79455d9648788bb5",
+    "src-tauri/tests/quote_hot.rs": "79b51e574d0961569c6663cd2470ac84b17404e216594781b67af0fa4097b39d",
+    "docs/implementation/evidence/s28-source-progress/http-fault-check.txt": "a71f8bd62d63b7cf94db0498abe568f3f611fda27f9609d7d4824478e056b6df"
+  }
+}

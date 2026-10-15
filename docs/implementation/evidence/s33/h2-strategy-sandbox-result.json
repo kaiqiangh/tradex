@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "screenId": "H2",
+  "title": "Editable Strategy Sandbox",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/Strategies.tsx": "860ef833dd5154359c19c714f945ca4c925d42020844e356d645aa10210f2f01",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/protocol.rs": "18e3335350d1ce01394aa04387d77622e49890cb630be93b07a09ed12c7613f9",
+    "src-tauri/src/strategy.rs": "87425fe9872a01c15eaec6ac99208f6ff242c2f4aa2246daf1ecbbe9255cef65",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "src-tauri/tests/strategy.rs": "3bf94d006333b687ebbf0eddc78067c50559c4924301c6558f3c5a22cd8b8a26",
+    "shared/ipc-types.ts": "ccecc2e584901924b14c373743e75e3b7c4247617a6e76b38d9c8413800bc228",
+    "shared/ipc-v1.schema.json": "68f33aa65e1533c3665ec1b220a8b05dc53d288cd52a3ef9678c5b7711169769",
+    "shared/ipc-validators.js": "6dc402c173671c865ec33486d3bdb1564f85b658ff39f609aeaf023a929b97ef",
+    "tests/s33-strategy-sandbox-playwright.js": "b6526770d976d247cee9acaf4115331d957ec4069e2b193a317345726eaee0d0",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-strategy-sandbox-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "c6aa4ebc-4afa-4b6e-8c87-8348acddc303",
+  "fixtureBoundary": "TRADEX_STRATEGY_FIXTURE=1; local synthetic strategy responses only",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "scenarios": {
+    "parameterValidation": {
+      "blankNameRejected": true,
+      "duplicateTrimmedNameRejected": true,
+      "accessibleErrorAndInvalidState": true,
+      "enterKeyboardSave": true
+    },
+    "immutableVersions": {
+      "saved": [
+        "v1 window=20",
+        "v2 window=50"
+      ],
+      "historicalReselectionRestoresValues": true
+    },
+    "signalOnlySuccess": {
+      "direction": "HOLD",
+      "selectedVersionAndHashVisible": true,
+      "requestHashAndParametersVisible": true,
+      "canonicalInstrumentContextPersisted": true,
+      "tradeActionAvailable": false,
+      "successfulRetryDisabled": true,
+      "concisePoliteStatus": true
+    },
+    "failureRetry": {
+      "typedFailureAndRemediationVisible": true,
+      "newRunId": true,
+      "requestHashPreserved": true,
+      "effectiveParametersPreserved": true
+    },
+    "cancel": {
+      "terminalState": "CANCELLED",
+      "keyboardFocusReturnsToRetry": true
+    },
+    "noHorizontalOverflow": true
+  },
+  "commandCounts": {
+    "strategy.save_version": 2,
+    "strategy.run": 4,
+    "strategy.cancel": 1,
+    "strategy.get_run": 9,
+    "directStrategyRunReads": 4,
+    "providerFinancialCommands": 0,
+    "backtestCommands": 0,
+    "externalHttpRequests": 0,
+    "consoleErrors": 0,
+    "pageErrors": 0
+  },
+  "focusedRustTests": {
+    "command": "cargo test --workspace --test strategy",
+    "passed": 4,
+    "failed": 0,
+    "cases": [
+      "strategy_versions_are_immutable_workspace_scoped_and_hash_checked",
+      "strategy_run_fails_closed_for_tampered_hash_dataset_and_untrusted_time",
+      "strategy_runs_freeze_canonical_instrument_context_and_retry_exact_inputs",
+      "persisted_strategy_runs_reject_tampering_and_reconcile_active_rows"
+    ]
+  },
+  "otherChecks": {
+    "npmRunTypecheck": "PASS",
+    "npmRunSchemaCheck": "PASS",
+    "nodeCheckBrowserScenario": "PASS",
+    "cargoFmtAllCheck": "PASS"
+  },
+  "screenshots": [
+    "strategy-sandbox-390.png"
+  ],
+  "scopeLimits": [
+    "Strategy executions used only the explicitly labelled local integration fixture; this is not production Python/runtime or real historical-data acceptance.",
+    "This H2 scenario did not exercise Research or Backtest context entry end-to-end; S14 runtime acceptance remains open.",
+    "The local H2 screen result does not complete the 70-screen inventory, native VoiceOver review, S33, or issue #141."
+  ]
+}

@@ -1,0 +1,1 @@
+Public configured-source -> actual Hot quote -> normal T212 connection -> Live proposal -> DISARMED Arm confirmation: expected one read-only quote evidence region; observed 0. Earlier harness selector mismatch was corrected using the observed combobox role.

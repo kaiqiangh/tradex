@@ -1,0 +1,59 @@
+{
+  "verifiedAt": "2026-10-10T14:58:20.471147+00:00",
+  "verifiedDelivery": "3d507c0d79c8a35fa0106382c0dce4c3e5eee80e",
+  "issues": {
+    "133": {
+      "title": "[S29.10] 读取并绑定精确标的佣金与条件扣费证据",
+      "state": "CLOSED",
+      "url": "https://github.com/kaiqiangh/tradex/issues/133",
+      "checkedAC": 8,
+      "uncheckedAC": 0,
+      "bodySha256": "a3642f45fa69988b5974627b5836a654d98b368f83773e959e2f9512a1f250f3",
+      "labels": [
+        "ready-for-agent",
+        "wayfinder:task"
+      ]
+    },
+    "132": {
+      "title": "[Spec] 精确 Binance Spot 标的佣金来源与条件扣费证据（S29.10）",
+      "state": "CLOSED",
+      "url": "https://github.com/kaiqiangh/tradex/issues/132",
+      "checkedAC": 8,
+      "uncheckedAC": 0,
+      "bodySha256": "51ff219a686fd577a91e59dbd5a39587a836138f177f5e944226c995e660cce0",
+      "labels": [
+        "ready-for-agent",
+        "wayfinder:task"
+      ]
+    },
+    "121": {
+      "title": "[Spec] 验证 Binance Spot Live 可信执行（S29）",
+      "state": "OPEN",
+      "url": "https://github.com/kaiqiangh/tradex/issues/121",
+      "checkedAC": 0,
+      "uncheckedAC": 0,
+      "bodySha256": "6f938e47dcabf4a60b4ad04c6ce05965504e7a48cfd9fd6e287c8ff5fe5b98e5",
+      "labels": [
+        "ready-for-agent",
+        "wayfinder:task"
+      ]
+    },
+    "1": {
+      "title": "[Wayfinder] 完整构建 TradeX v1.0 RevC",
+      "state": "OPEN",
+      "url": "https://github.com/kaiqiangh/tradex/issues/1",
+      "checkedAC": 0,
+      "uncheckedAC": 0,
+      "bodySha256": "d03c917a9637c7085f91316b9230cf4f77d4c40a40db2e5158fc851c1678e78d",
+      "labels": [
+        "ready-for-agent",
+        "wayfinder:map"
+      ]
+    }
+  },
+  "resolutions": {
+    "133": "https://github.com/kaiqiangh/tradex/issues/133#issuecomment-6098801386",
+    "132": "https://github.com/kaiqiangh/tradex/issues/132#issuecomment-6098802377"
+  },
+  "scope": "Current source prerequisite only; full financial/native/physical/full-map release untouched"
+}

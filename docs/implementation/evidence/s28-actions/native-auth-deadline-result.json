@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-03T17:00:42.891Z",
+  "startedAt": "2026-10-03T16:58:34.714Z",
+  "observationElapsedSeconds": 128.176,
+  "workingStillShown": false,
+  "sourceUnavailable": true,
+  "sanitizedDeadlineReasonShown": true,
+  "refreshActionReenabled": true,
+  "privateValuesArchived": false,
+  "companyReceiptStillNotChecked": true,
+  "companyEvidenceUnavailable": true,
+  "companyWorkingStillShown": false,
+  "measurementLimit": "Terminal state observed at128seconds; precise60second bound proved at public Rust/fake-vault seam, not timed natively",
+  "afterHumanAuthentication": {
+    "observedAt": "2026-10-03T17:05:01.296Z",
+    "sourceStillUnavailable": true,
+    "receiptStillNotChecked": true,
+    "latePublicationAbsent": true
+  }
+}

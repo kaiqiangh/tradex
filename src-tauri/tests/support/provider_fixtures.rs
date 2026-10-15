@@ -17,7 +17,7 @@ use tradex::{
 pub const KEY: &str = "S02-FAKE-KEY-594791453";
 pub const SECRET: &str = "S02-FAKE-SECRET-704556921";
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Vault {
     pub present: RefCell<HashSet<String>>,
     pub fail_remove: Cell<bool>,
@@ -49,7 +49,78 @@ pub fn credentials() -> Result<Credentials> {
     Credentials::new(vec![KEY.into(), SECRET.into()])
 }
 
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum BinanceCapacityFixture {
+    #[default]
+    Normal,
+    BaseLists,
+    Malformed,
+    Delayed,
+    /// A completely covered account inventory: exactly one fully classified open order and no
+    /// order lists, so the venue's own coverage flags leave no unknown coverage to refuse.
+    CompleteCoverage,
+    /// The same completely covered inventory with the declared ORDERS/HOUR counter already at
+    /// its declared limit, so the venue's own window would admit no further order.
+    OrderRateExhausted,
+    FeeDeclared,
+    FeeChanged,
+}
+
+impl BinanceCapacityFixture {
+    /// The scenarios whose account inventory is deliberately partial: an unresolved list leg, an
+    /// order row the venue's own classification cannot account for, or a delayed read.
+    fn partial_inventory(self) -> bool {
+        matches!(self, Self::BaseLists | Self::Malformed | Self::Delayed)
+    }
+    fn covered_inventory(self) -> bool {
+        matches!(
+            self,
+            Self::CompleteCoverage
+                | Self::OrderRateExhausted
+                | Self::FeeDeclared
+                | Self::FeeChanged
+        )
+    }
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum BinanceCommissionFixture {
+    #[default]
+    Normal,
+    Changed,
+    Incomplete,
+    Extensions,
+    ZeroBnb,
+    TinyBnb,
+    BnbSufficient,
+    ZeroExpression,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum BinancePermissionFixture {
+    #[default]
+    Safe,
+    Withdrawal,
+    InternalTransfer,
+    UniversalTransfer,
+    ReadingDisabled,
+    FixTrade,
+    PortfolioMargin,
+    Options,
+    Futures,
+    Margin,
+}
+
 pub struct Http {
+    // External response mode used only by disposable FX browser QA.
+    pub fx_ui: bool,
+    pub binance_rules_ui: bool,
+    pub binance_capacity_ui: Cell<BinanceCapacityFixture>,
+    pub binance_commission_ui: Cell<BinanceCommissionFixture>,
+    pub binance_permission_ui: Cell<BinancePermissionFixture>,
+    pub alpaca_quote_status: Cell<u16>,
+    pub alpaca_quote_body: RefCell<Option<Vec<u8>>>,
+    pub alpaca_condition_body: RefCell<Option<Vec<u8>>>,
     pub fail: Cell<bool>,
     pub identity: String,
     pub calls: RefCell<Vec<String>>,
@@ -98,12 +169,23 @@ pub struct Http {
     pub binance_uid: Cell<u64>,
     pub binance_hide_order_lookup: Cell<bool>,
     pub binance_exchange_info: RefCell<Option<Value>>,
+    pub binance_system_status: RefCell<Option<Value>>,
+    pub binance_api_trading_status: RefCell<Option<Value>>,
     pub binance_reference_price: RefCell<Option<Value>>,
     pub binance_reference_price_status: Cell<Option<u16>>,
+    pub binance_execution_rules: RefCell<Option<Value>>,
 }
 impl Default for Http {
     fn default() -> Self {
         Self {
+            fx_ui: false,
+            binance_rules_ui: false,
+            binance_capacity_ui: Cell::new(BinanceCapacityFixture::Normal),
+            binance_commission_ui: Cell::new(BinanceCommissionFixture::Normal),
+            binance_permission_ui: Cell::new(BinancePermissionFixture::Safe),
+            alpaca_quote_status: Cell::new(200),
+            alpaca_quote_body: RefCell::new(None),
+            alpaca_condition_body: RefCell::new(None),
             fail: Cell::new(false),
             identity: "81161e77-bafd-44bb-b2a0-60b9055e3cd4".into(),
             calls: RefCell::new(vec![]),
@@ -163,8 +245,11 @@ impl Default for Http {
             binance_uid: Cell::new(9007199254740993),
             binance_hide_order_lookup: Cell::new(false),
             binance_exchange_info: RefCell::new(None),
+            binance_system_status: RefCell::new(None),
+            binance_api_trading_status: RefCell::new(None),
             binance_reference_price: RefCell::new(None),
             binance_reference_price_status: Cell::new(None),
+            binance_execution_rules: RefCell::new(None),
         }
     }
 }
@@ -172,11 +257,11 @@ impl Default for Http {
 impl Http {
     #[cfg(feature = "integration-test")]
     #[allow(dead_code)]
-    pub fn seed_trading212_live_cancel_order(&self) {
-        let order_id = "9007199254740996";
+    pub fn seed_trading212_live_cancel_order(&self, order_id: u64) {
+        let order_id_text = order_id.to_string();
         let order = |status: &str, filled_quantity: f64, filled_value: f64| {
             json!({
-                "id":9007199254740996u64,
+                "id":order_id,
                 "ticker":"MSFT_US_EQ",
                 "strategy":"QUANTITY",
                 "side":"BUY",
@@ -195,7 +280,30 @@ impl Http {
         *self.trading212_order_list.borrow_mut() = Some(vec![partial.clone()]);
         self.trading212_order_details
             .borrow_mut()
-            .insert(order_id.into(), partial);
+            .insert(order_id_text, partial);
+    }
+
+    #[cfg(feature = "integration-test")]
+    #[allow(dead_code)]
+    pub fn seed_trading212_live_place_partial_order(&self) {
+        self.trading212_order_details.borrow_mut().insert(
+            "901".into(),
+            json!({
+                "id":901,
+                "ticker":"AAPL_US_EQ",
+                "strategy":"QUANTITY",
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"GOOD_TILL_CANCEL",
+                "status":"PARTIALLY_FILLED",
+                "currency":"USD",
+                "quantity":0.008,
+                "filledQuantity":0.004,
+                "filledValue":200,
+                "limitPrice":50000,
+                "createdAt":"2026-10-11T10:00:00Z"
+            }),
+        );
     }
 
     #[cfg(feature = "integration-test")]
@@ -310,13 +418,159 @@ impl ProviderHttp for Http {
         headers: reqwest::header::HeaderMap,
         body: Option<&Value>,
     ) -> Result<ProviderHttpResponse> {
+        if endpoint == ProviderEndpoint::AlpacaMarketData {
+            if method != ProviderHttpMethod::Get || body.is_some() {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            if self.fx_ui && path.starts_with("/v1beta3/crypto/") {
+                if !matches!(
+                    path,
+                    "/v1beta3/crypto/us/latest/quotes?symbols=USDT%2FUSD"
+                        | "/v1beta3/crypto/us-1/latest/quotes?symbols=USDT%2FUSD"
+                        | "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD"
+                ) {
+                    return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+                }
+                assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+                assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+                assert!(!headers.contains_key("authorization"));
+                self.calls.borrow_mut().push(path.into());
+                let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap();
+                let body = self.alpaca_quote_body.borrow().clone().unwrap_or_else(|| {
+                    format!(r#"{{"quotes":{{"USDT/USD":{{"bp":0.9999,"bs":12.345678901,"ap":1.0001,"as":23.456789012,"t":"{t}"}}}}}}"#).into_bytes()
+                });
+                return Ok(ProviderHttpResponse { status: 200, body });
+            }
+            if self.fx_ui && path.starts_with("/v1beta1/forex/latest/rates?") {
+                let pairs = match path {
+                    "/v1beta1/forex/latest/rates?currency_pairs=EURUSD" => vec!["EURUSD"],
+                    "/v1beta1/forex/latest/rates?currency_pairs=USDEUR" => vec!["USDEUR"],
+                    "/v1beta1/forex/latest/rates?currency_pairs=EURUSD,USDEUR" => {
+                        vec!["EURUSD", "USDEUR"]
+                    }
+                    _ => return Err(TradeXError::new("PROVIDER_UNSUPPORTED")),
+                };
+                assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+                assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+                assert!(!headers.contains_key("authorization"));
+                self.calls.borrow_mut().push(path.into());
+                // UI scenario: an actual third read is denied by the external HTTP fixture.
+                // It changes no stored source, account or financial authority.
+                if self
+                    .calls
+                    .borrow()
+                    .iter()
+                    .filter(|read| read.starts_with("/v1beta1/forex/latest/rates?"))
+                    .count()
+                    % 3
+                    == 0
+                {
+                    return Ok(ProviderHttpResponse {
+                        status: 403,
+                        body: b"access unavailable".to_vec(),
+                    });
+                }
+                let t = (time::OffsetDateTime::now_utc() - time::Duration::seconds(1))
+                    .format(&time::format_description::well_known::Rfc3339)
+                    .unwrap();
+                let rows = pairs.into_iter().map(|pair| {
+                    let prices = if pair == "EURUSD" { "\"bp\":1.01234567890123456789012345678901234567890123456789012345678901,\"ap\":1.11234567891123456789112345678911234567891123456789112345678901,\"mp\":1.07" }
+                        else { "\"bp\":0.88,\"ap\":0.99,\"mp\":0.93" };
+                    format!("\"{pair}\":{{{prices},\"t\":\"{t}\"}}")
+                }).collect::<Vec<_>>().join(",");
+                return Ok(ProviderHttpResponse {
+                    status: 200,
+                    body: format!("{{\"rates\":{{{rows}}}}}").into_bytes(),
+                });
+            }
+            if let Some(query) = path.strip_prefix("/v1/corporate-actions?") {
+                assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+                assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+                assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+                self.calls
+                    .borrow_mut()
+                    .push(format!("{}{path}", endpoint.base_url()));
+                let start = query
+                    .split('&')
+                    .find_map(|part| part.strip_prefix("start="))
+                    .unwrap();
+                let format =
+                    time::format_description::parse_borrowed::<2>("[year]-[month]-[day]").unwrap();
+                let today = time::Date::parse(start, &format).unwrap() + time::Duration::days(30);
+                let second = query
+                    .split('&')
+                    .any(|part| part == "page_token=ui-next-page");
+                // Official-shaped external response only, including more than one UI page.
+                let rows = (if second { 20..26 } else { 0..20 }).map(|index| json!({
+                    "id":format!("5bf09d38-114c-4db7-84b0-b07f25ff{:04}", index + 200),
+                    "symbol":"AAPL","cusip":"037833100","isin":"US0378331005",
+                    "process_date":today.to_string(),"ex_date":if index == 25 { None } else { Some(today.to_string()) },
+                    "rate":"0.1234567890123456789","special":false,"foreign":false
+                })).collect::<Vec<_>>();
+                return Ok(ProviderHttpResponse { status: 200, body: serde_json::to_vec(&json!({"corporate_actions":{"cash_dividends":rows},"next_page_token":if second { None } else { Some("ui-next-page") }})).unwrap() });
+            }
+            assert_eq!(headers["APCA-API-KEY-ID"], KEY);
+            assert_eq!(headers["APCA-API-SECRET-KEY"], SECRET);
+            assert!(headers["APCA-API-KEY-ID"].is_sensitive());
+            assert!(headers["APCA-API-SECRET-KEY"].is_sensitive());
+            assert_eq!(headers.len(), 2);
+            let metadata = match path {
+                "/v2/stocks/meta/exchanges" => {
+                    Some(br#"{"P":"NYSE Arca","Q":"Nasdaq"}"#.as_slice())
+                }
+                "/v2/stocks/meta/conditions/quote?tape=C" => Some(
+                    br#"{"R":"Regular Two Sided Open","Y":"No Offer No Bid One Sided Open"}"#
+                        .as_slice(),
+                ),
+                _ => None,
+            };
+            if metadata.is_none()
+                && !["iex", "sip", "delayed_sip"].iter().any(|feed| {
+                    path == format!(
+                        "/v2/stocks/quotes/latest?symbols=AAPL&feed={feed}&currency=USD"
+                    )
+                })
+            {
+                return Err(TradeXError::new("PROVIDER_UNSUPPORTED"));
+            }
+            self.calls
+                .borrow_mut()
+                .push(format!("{}{path}", endpoint.base_url()));
+            if let Some(body) = metadata {
+                return Ok(ProviderHttpResponse {
+                    status: 200,
+                    body: if path == "/v2/stocks/meta/conditions/quote?tape=C" {
+                        self.alpaca_condition_body
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(|| body.to_vec())
+                    } else {
+                        body.to_vec()
+                    },
+                });
+            }
+            if let Some(body) = self.alpaca_quote_body.borrow().as_ref() {
+                return Ok(ProviderHttpResponse {
+                    status: self.alpaca_quote_status.get(),
+                    body: body.clone(),
+                });
+            }
+            return Ok(ProviderHttpResponse {status:200,body:br#"{"quotes":{"AAPL":{"t":"2026-09-30T14:10:00.123456789Z","bx":"P","bp":250.1234567890123456789,"bs":205,"ax":"Q","ap":250.2234567890123456789,"as":310,"c":["R"],"z":"C"}}}"#.to_vec()});
+        }
         if matches!(
             endpoint,
             ProviderEndpoint::BitgetDemo | ProviderEndpoint::BitgetLive
         ) {
             return self.bitget.request(endpoint, method, path, headers, body);
         }
-        if endpoint == ProviderEndpoint::Trading212Demo {
+        if matches!(
+            endpoint,
+            ProviderEndpoint::Trading212Demo | ProviderEndpoint::Trading212Live
+        ) {
             assert_eq!(
                 headers["Authorization"],
                 "Basic UzAyLUZBS0UtS0VZLTU5NDc5MTQ1MzpTMDItRkFLRS1TRUNSRVQtNzA0NTU2OTIx"
@@ -337,10 +591,11 @@ impl ProviderHttp for Http {
                         .map(|body| ProviderHttpResponse { status, body })
                 }
                 (ProviderHttpMethod::Post, path, Some(request))
-                    if matches!(
-                        path,
-                        "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
-                    ) =>
+                    if endpoint == ProviderEndpoint::Trading212Demo
+                        && matches!(
+                            path,
+                            "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
+                        ) =>
                 {
                     self.calls
                         .borrow_mut()
@@ -403,13 +658,14 @@ impl ProviderHttp for Http {
                     })
                 }
                 (ProviderHttpMethod::Delete, path, None)
-                    if path
-                        .strip_prefix("/api/v0/equity/orders/")
-                        .is_some_and(|id| {
-                            !id.is_empty()
-                                && id.bytes().all(|byte| byte.is_ascii_digit())
-                                && id.parse::<i64>().is_ok_and(|id| id > 0)
-                        }) =>
+                    if endpoint == ProviderEndpoint::Trading212Demo
+                        && path
+                            .strip_prefix("/api/v0/equity/orders/")
+                            .is_some_and(|id| {
+                                !id.is_empty()
+                                    && id.bytes().all(|byte| byte.is_ascii_digit())
+                                    && id.parse::<i64>().is_ok_and(|id| id > 0)
+                            }) =>
                 {
                     self.calls
                         .borrow_mut()
@@ -814,9 +1070,60 @@ impl ProviderHttp for Http {
             self.calls
                 .borrow_mut()
                 .push(format!("{}{path}", endpoint.base_url()));
+            if path == "/sapi/v1/system/status" {
+                assert_eq!(endpoint, tradex::provider_io::ProviderEndpoint::BinanceLive);
+                assert!(headers.is_empty());
+                return Ok(serde_json::to_vec(
+                    &self
+                        .binance_system_status
+                        .borrow()
+                        .clone()
+                        .unwrap_or_else(|| json!({"status":0,"msg":"normal"})),
+                )
+                .unwrap());
+            }
             if path == "/api/v3/time" {
                 assert!(headers.is_empty());
+                if self.binance_rules_ui {
+                    return Ok(serde_json::to_vec(&json!({"serverTime":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})).unwrap());
+                }
                 return Ok(br#"{"serverTime":1788849600000}"#.to_vec());
+            }
+            if self.binance_rules_ui && endpoint == ProviderEndpoint::BinanceLive {
+                if let Some(symbol) = path.strip_prefix("/api/v3/referencePrice?symbol=") {
+                    assert!(headers.is_empty());
+                    if let Some(body) = self.binance_reference_price.borrow().clone() {
+                        let mut body = body;
+                        if let Some(object) = body.as_object_mut() {
+                            object
+                                .entry("symbol".to_owned())
+                                .or_insert_with(|| json!(symbol));
+                        }
+                        return Ok(serde_json::to_vec(&body).unwrap());
+                    }
+                    return Ok(serde_json::to_vec(&json!({"symbol":symbol,"referencePrice":"60000.00000000","timestamp":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64})).unwrap());
+                }
+                if let Some(symbol) = path
+                    .strip_prefix("/api/v3/exchangeInfo?symbol=")
+                    .and_then(|s| s.strip_suffix("&showPermissionSets=true"))
+                {
+                    assert!(headers.is_empty());
+                    return Ok(serde_json::to_vec(
+                        &self
+                            .binance_exchange_info
+                            .borrow()
+                            .clone()
+                            .unwrap_or_else(|| binance_spot_exchange_info(symbol)),
+                    )
+                    .unwrap());
+                }
+                if let Some(symbol) = path.strip_prefix("/api/v3/executionRules?symbol=") {
+                    assert!(headers.is_empty());
+                    if let Some(body) = self.binance_execution_rules.borrow().clone() {
+                        return Ok(serde_json::to_vec(&body).unwrap());
+                    }
+                    return Ok(serde_json::to_vec(&json!({"symbolRules":[{"symbol":symbol,"rules":[{"ruleType":"PRICE_RANGE","bidLimitMultUp":"1.0001","bidLimitMultDown":"0.9999","askLimitMultUp":"1.0001","askLimitMultDown":"0.9999"}]}]})).unwrap());
+                }
             }
             if path == "/api/v3/exchangeInfo?symbol=BTCUSDT" {
                 assert!(headers.is_empty());
@@ -851,7 +1158,13 @@ impl ProviderHttp for Http {
                 .unwrap()
                 .parse::<u64>()
                 .unwrap();
-            assert!((1788849600000..1788849660000).contains(&timestamp));
+            if self.binance_rules_ui {
+                let now =
+                    (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000) as u64;
+                assert!(timestamp.abs_diff(now) <= 5000);
+            } else {
+                assert!((1788849600000..1788849660000).contains(&timestamp));
+            }
             let param = |name: &str| {
                 params
                     .split('&')
@@ -861,7 +1174,84 @@ impl ProviderHttp for Http {
                 return Err(TradeXError::new("PROVIDER_RATE_LIMITED"));
             }
             return Ok(serde_json::to_vec(&match route {
-                "/api/v3/account"=>json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]}),
+                "/api/v3/account"=>{
+                    let mut value=json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]});
+                    if self.binance_rules_ui && matches!(self.binance_capacity_ui.get(), BinanceCapacityFixture::FeeDeclared | BinanceCapacityFixture::FeeChanged) {
+                        let maker = if self.binance_capacity_ui.get() == BinanceCapacityFixture::FeeChanged { "0.0020" } else { "0.0010" };
+                        value["commissionRates"] = json!({"maker":maker,"taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
+                    }
+                    if self.binance_rules_ui && self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
+                        if self.binance_capacity_ui.get()==BinanceCapacityFixture::Delayed { std::thread::sleep(std::time::Duration::from_millis(1500)); }
+                        value["balances"].as_array_mut().unwrap().extend([json!({"asset":"BTC","free":"0.10000000","locked":"0.02000000"}),json!({"asset":"ETH","free":"1.00000000","locked":"0.00000000"})]);
+                    }
+                    if self.binance_rules_ui && matches!(self.binance_commission_ui.get(), BinanceCommissionFixture::ZeroBnb | BinanceCommissionFixture::TinyBnb | BinanceCommissionFixture::BnbSufficient) {
+                        let (free,locked) = match self.binance_commission_ui.get() {
+                            BinanceCommissionFixture::ZeroBnb => ("0.00000000","2.00000000"),
+                            BinanceCommissionFixture::TinyBnb => ("0.000000000000000000001","0"),
+                            BinanceCommissionFixture::BnbSufficient => ("1.00000000","0.00000000"),
+                            _ => unreachable!(),
+                        };
+                        value["balances"].as_array_mut().unwrap().push(json!({"asset":"BNB","free":free,"locked":locked}));
+                    }
+                    value
+                },
+                "/api/v3/account/commission" if self.binance_rules_ui => {
+                    let mut value=json!({"symbol":param("symbol").unwrap(),
+                        "standardCommission":{"maker":"0.00000010","taker":"0.00000020","buyer":"0.00000030","seller":"0.00000040"},
+                        "taxCommission":{"maker":"0.00000112","taker":"0.00000114","buyer":"0.00000118","seller":"0.00000116"},
+                        "specialCommission":{"maker":"0.01000000","taker":"0.02000000","buyer":"0.03000000","seller":"0.04000000"},
+                        "discount":{"enabledForAccount":true,"enabledForSymbol":true,"discountAsset":"BNB","discount":"0.75000000"}});
+                    match self.binance_commission_ui.get() {
+                        BinanceCommissionFixture::Normal=>(),
+                        BinanceCommissionFixture::Changed=>{value["standardCommission"]["maker"]=json!("0.00000025");value["discount"]["enabledForSymbol"]=json!(false);},
+                        BinanceCommissionFixture::Incomplete=>{value["taxCommission"].as_object_mut().unwrap().remove("seller");},
+                        BinanceCommissionFixture::Extensions=>{value["specialCommission"]["futureActiveFee"]=json!("0.1");},
+                        BinanceCommissionFixture::ZeroBnb | BinanceCommissionFixture::TinyBnb | BinanceCommissionFixture::BnbSufficient => (),
+                        BinanceCommissionFixture::ZeroExpression=>{
+                            value["taxCommission"]=json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                            value["specialCommission"]=json!({"maker":"0","taker":"0","buyer":"0","seller":"0"});
+                            value["discount"]["discount"]=json!("0");
+                        },
+                    }
+                    value
+                },
+                "/api/v3/rateLimit/order" if self.binance_rules_ui => {
+                    assert!(params.starts_with("timestamp=") && !params.contains("symbol="));
+                    let mut rows=json!([{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50,"count":0},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64,"count":9007199254740993u64}]);
+                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::OrderRateExhausted { rows[0]["count"]=json!(50); }
+                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { rows[0]["count"]=json!("0"); }
+                    rows
+                },
+                "/api/v3/openOrders" if self.binance_rules_ui => {
+                    let mut rows = self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders);
+                    for row in &mut rows {
+                        let object = row.as_object_mut().unwrap();
+                        object.entry("orderListId").or_insert(json!(-1));
+                        object.entry("isWorking").or_insert(json!(true));
+                        object.entry("icebergQty").or_insert(json!("0.00000000"));
+                        object.entry("stopPrice").or_insert(json!("0.00000000"));
+                    }
+                    if let Some(symbol) = param("symbol") { rows.retain(|row| row["symbol"] == symbol); }
+                    // A fully covered inventory contains only the one classified reference order:
+                    // no partially filled foreign order leaves an unresolved quantity obligation.
+                    if self.binance_capacity_ui.get().covered_inventory() {
+                        rows.retain(|row| row["symbol"]=="BTCUSDT" && row["status"]=="NEW");
+                    }
+                    if self.binance_capacity_ui.get().partial_inventory() {
+                        if let Some(row)=rows.iter_mut().find(|row| row["symbol"]=="BTCUSDT") {
+                            row["orderListId"]=json!(9007199254740997u64);
+                            if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { row["side"]=json!(1); }
+                        }
+                    }
+                    json!(rows)
+                },
+                "/api/v3/openOrderList" if self.binance_rules_ui => {
+                    if self.binance_capacity_ui.get().partial_inventory() {
+                        json!([{"orderListId":9007199254740997u64,"contingencyType":"OTO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"fixture-capacity-list","transactionTime":1788849500000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":9007199254740995u64,"clientOrderId":"fixture-open-btc"},{"symbol":"BTCUSDT","orderId":9007199254740998u64,"clientOrderId":"fixture-pending-btc"}]}])
+                    } else {
+                        json!([])
+                    }
+                },
                 "/api/v3/openOrders"=>json!(self.binance_open_orders.borrow().clone().unwrap_or_else(default_binance_open_orders)),
                 "/api/v3/allOrders" => {
                     let symbol = param("symbol").unwrap_or_default();
@@ -894,9 +1284,22 @@ impl ProviderHttp for Http {
                             .cloned().unwrap_or(Value::Null)
                     }
                 },
+                "/sapi/v1/account/apiTradingStatus"=>{
+                    assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
+                    self.binance_api_trading_status.borrow().clone().unwrap_or_else(|| json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64,"triggerCondition":{"GCR":150,"IFER":150,"UFR":300}}}))
+                },
+                "/api/v3/myFilters" if self.binance_rules_ui => {
+                    assert!(matches!(param("symbol"), Some("BTCUSDT" | "ETHUSDT")));
+                    let mut value=json!({"exchangeFilters":[{"filterType":"EXCHANGE_MAX_NUM_ORDERS","maxNumOrders":1000}],"symbolFilters":[{"filterType":"MIN_NOTIONAL","minNotional":"5.00000000","applyToMarket":true,"avgPriceMins":5}],"assetFilters":[{"filterType":"MAX_ASSET","asset":if param("symbol") == Some("BTCUSDT") {"BTC"} else {"ETH"},"limit":"0.25000000"}]});
+                    if self.binance_capacity_ui.get()!=BinanceCapacityFixture::Normal {
+                        value["exchangeFilters"].as_array_mut().unwrap().push(json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":20}));
+                        value["symbolFilters"].as_array_mut().unwrap().push(json!({"filterType":"MAX_POSITION","maxPosition":"1.00000000"}));
+                    }
+                    value
+                },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
-                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":false,"enableInternalTransfer":false,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
+                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":self.binance_permission_ui.get()!=BinancePermissionFixture::ReadingDisabled,"enableWithdrawals":self.binance_permission_ui.get()==BinancePermissionFixture::Withdrawal,"enableInternalTransfer":self.binance_permission_ui.get()==BinancePermissionFixture::InternalTransfer,"enableMargin":self.binance_permission_ui.get()==BinancePermissionFixture::Margin,"enableFutures":self.binance_permission_ui.get()==BinancePermissionFixture::Futures,"permitsUniversalTransfer":self.binance_permission_ui.get()==BinancePermissionFixture::UniversalTransfer,"enableVanillaOptions":self.binance_permission_ui.get()==BinancePermissionFixture::Options,"enableFixApiTrade":self.binance_permission_ui.get()==BinancePermissionFixture::FixTrade,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":self.binance_permission_ui.get()==BinancePermissionFixture::PortfolioMargin})
                 },
                 _=>panic!("Unexpected Binance operation"),
             }).unwrap());
@@ -959,9 +1362,20 @@ impl ProviderHttp for Http {
                 "/api/v0/equity/account/summary" => {
                     let mut summary: Value = serde_json::from_slice(br#"{"id":9007199254740993,"currency":"GBP","cash":{"availableToTrade":1000.1234567890123456789,"reservedForOrders":20.50,"inPies":3.2},"totalValue":1300.25}"#).unwrap();
                     summary["id"] = json!(self.trading212_identity.get());
+                    if self.fx_ui { summary["currency"] = json!("EUR"); }
                     serde_json::to_vec(&summary).unwrap()
                 }
-                "/api/v0/equity/positions" => br#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#.to_vec(),
+                "/api/v0/equity/positions" => {
+                    let body = r#"[{"instrument":{"ticker":"AAPL_US_EQ","currency":"USD"},"quantity":1.2e-7,"averagePricePaid":150.25,"walletImpact":{"currency":"GBP","currentValue":200.34}}]"#;
+                    if self.fx_ui { body.replace("GBP", "EUR").into_bytes() } else { body.as_bytes().to_vec() }
+                },
+                "/api/v0/equity/metadata/instruments" => serde_json::to_vec(&json!([
+                    {"ticker":"AAPL_US_EQ","type":"STOCK","isin":"US0378331005","currencyCode":"USD","name":"Apple","shortName":"Apple","workingScheduleId":101,"maxOpenQuantity":0,"extendedHours":false},
+                    {"ticker":"MSFT_US_EQ","type":"STOCK","isin":"US5949181045","currencyCode":"USD","name":"Microsoft","shortName":"Microsoft","workingScheduleId":101,"maxOpenQuantity":10,"extendedHours":true}
+                ])).unwrap(),
+                "/api/v0/equity/metadata/exchanges" => serde_json::to_vec(&json!([
+                    {"id":1,"name":"NASDAQ","workingSchedules":[{"id":101,"timeEvents":[{"date":"2026-10-05T13:30:00Z","type":"OPEN"},{"date":"2026-10-05T20:00:00Z","type":"CLOSE"}]}]}
+                ])).unwrap(),
                 "/api/v0/equity/orders" => br#"[{"id":9007199254740995,"ticker":"MSFT_US_EQ","strategy":"VALUE","side":"BUY","status":"PARTIALLY_FILLED","currency":"GBP","value":10.50,"filledValue":1.23}]"#.to_vec(),
                 _ => panic!("Unexpected Trading 212 operation"),
             });
@@ -972,6 +1386,21 @@ impl ProviderHttp for Http {
         self.calls.borrow_mut().push(path.into());
         if self.fail.get() {
             return Err(TradeXError::new("PROVIDER_UNAVAILABLE"));
+        }
+        if let Some(query) = path.strip_prefix("/v3/calendar/XNAS?start=") {
+            let (start, end) = query.split_once("&end=").unwrap();
+            let end = end.strip_suffix("&timezone=UTC").unwrap();
+            let format =
+                time::format_description::parse_borrowed::<2>("[year]-[month]-[day]").unwrap();
+            let start = time::Date::parse(start, &format).unwrap();
+            let end = time::Date::parse(end, &format).unwrap();
+            assert_eq!(end - start, time::Duration::days(15));
+            // External provider JSON only: production still derives sessions from returned UTC bounds.
+            let calendar = (0..=15).map(|offset| start + time::Duration::days(offset))
+                .filter(|date| !matches!(date.weekday(), time::Weekday::Saturday | time::Weekday::Sunday))
+                .map(|date| json!({"date":date.to_string(),"core_start":format!("{date}T13:30:00Z"),"core_end":format!("{date}T20:00:00Z"),"pre_start":format!("{date}T08:00:00Z"),"pre_end":format!("{date}T13:30:00Z"),"post_start":format!("{date}T20:00:00Z"),"post_end":format!("{date}T23:59:00Z")}))
+                .collect::<Vec<_>>();
+            return Ok(serde_json::to_vec(&json!({"market":{"mic":"XNAS","acronym":"NASDAQ","name":"NASDAQ","timezone":"America/New_York"},"calendar":calendar})).unwrap());
         }
         let response = match path {
             "/v2/account" => {
@@ -991,4 +1420,10 @@ impl ProviderHttp for Http {
 
 pub fn default_binance_exchange_info() -> Value {
     json!({"symbols":[{"symbol":"BTCUSDT","status":"TRADING","baseAsset":"BTC","quoteAsset":"USDT","filters":[{"filterType":"PRICE_FILTER","minPrice":"0.01","maxPrice":"1000000","tickSize":"0.01"},{"filterType":"LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"MARKET_LOT_SIZE","minQty":"0.00001","maxQty":"9000","stepSize":"0.00001"},{"filterType":"NOTIONAL","minNotional":"5","maxNotional":"0","applyMinToMarket":true,"applyMaxToMarket":false,"avgPriceMins":5}]}]})
+}
+
+// External HTTP response fixture only: no Control Plane snapshot or financial authority.
+pub fn binance_spot_exchange_info(symbol: &str) -> Value {
+    let base = if symbol == "ETHUSDT" { "ETH" } else { "BTC" };
+    json!({"rateLimits":[{"rateLimitType":"REQUEST_WEIGHT","interval":"MINUTE","intervalNum":1,"limit":6000},{"rateLimitType":"ORDERS","interval":"HOUR","intervalNum":1,"limit":50},{"rateLimitType":"ORDERS","interval":"DAY","intervalNum":1,"limit":9223372036854775807i64}],"exchangeFilters":[],"symbols":[{"symbol":symbol,"status":"TRADING","baseAsset":base,"quoteAsset":"USDT","baseAssetPrecision":8,"quoteAssetPrecision":8,"isSpotTradingAllowed":true,"quoteOrderQtyMarketAllowed":true,"orderTypes":["LIMIT","MARKET"],"icebergAllowed":true,"ocoAllowed":true,"otoAllowed":true,"opoAllowed":false,"allowTrailingStop":false,"cancelReplaceAllowed":true,"amendAllowed":false,"pegInstructionsAllowed":true,"defaultSelfTradePreventionMode":"NONE","allowedSelfTradePreventionModes":["NONE"],"permissionSets":[["SPOT","MARGIN"]],"filters":[{"filterType":"PRICE_FILTER","minPrice":"0.00000000","maxPrice":"999999.00000000","tickSize":"0.01000000"},{"filterType":"LOT_SIZE","minQty":"0.00000100","maxQty":"100.00000000","stepSize":"0.00000100"}]}]})
 }

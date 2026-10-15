@@ -1,0 +1,50 @@
+[
+  {
+    "bodyWidth": 1280,
+    "dialog": [
+      {
+        "clientWidth": 638,
+        "scrollWidth": 638
+      }
+    ],
+    "panels": [
+      {
+        "clientWidth": 608,
+        "scrollWidth": 608
+      }
+    ],
+    "viewport": 1280
+  },
+  {
+    "bodyWidth": 768,
+    "dialog": [
+      {
+        "clientWidth": 638,
+        "scrollWidth": 638
+      }
+    ],
+    "panels": [
+      {
+        "clientWidth": 608,
+        "scrollWidth": 608
+      }
+    ],
+    "viewport": 768
+  },
+  {
+    "bodyWidth": 390,
+    "dialog": [
+      {
+        "clientWidth": 356,
+        "scrollWidth": 356
+      }
+    ],
+    "panels": [
+      {
+        "clientWidth": 326,
+        "scrollWidth": 326
+      }
+    ],
+    "viewport": 390
+  }
+]

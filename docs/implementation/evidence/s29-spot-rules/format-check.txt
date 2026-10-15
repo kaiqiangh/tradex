@@ -1,0 +1,466 @@
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/src/financial_sources/binance_rules.rs:291:
+                     disabled,
+                 });
+             }
+-
+         }
+         for (minimum, maximum) in [
+-            ("minPrice", "maxPrice"), ("minQty", "maxQty"),
+-            ("minNotional", "maxNotional"), ("multiplierDown", "multiplierUp"),
+-            ("bidMultiplierDown", "bidMultiplierUp"), ("askMultiplierDown", "askMultiplierUp"),
+-            ("bidLimitMultDown", "bidLimitMultUp"), ("askLimitMultDown", "askLimitMultUp"),
++            ("minPrice", "maxPrice"),
++            ("minQty", "maxQty"),
++            ("minNotional", "maxNotional"),
++            ("multiplierDown", "multiplierUp"),
++            ("bidMultiplierDown", "bidMultiplierUp"),
++            ("askMultiplierDown", "askMultiplierUp"),
++            ("bidLimitMultDown", "bidLimitMultUp"),
++            ("askLimitMultDown", "askLimitMultUp"),
+             ("minTrailingAboveDelta", "maxTrailingAboveDelta"),
+             ("minTrailingBelowDelta", "maxTrailingBelowDelta"),
+         ] {
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/src/financial_sources/binance_rules.rs:304:
+-            let numeric = |name: &str| fields.iter().find(|f| f.name == name && !f.disabled).and_then(|f| match &f.value {
+-                SpotRuleValue::Decimal(v) | SpotRuleValue::Integer(v) => Some(v.as_str()), _ => None,
+-            });
++            let numeric = |name: &str| {
++                fields
++                    .iter()
++                    .find(|f| f.name == name && !f.disabled)
++                    .and_then(|f| match &f.value {
++                        SpotRuleValue::Decimal(v) | SpotRuleValue::Integer(v) => Some(v.as_str()),
++                        _ => None,
++                    })
++            };
+             if let (Some(min), Some(max)) = (numeric(minimum), numeric(maximum)) {
+                 if crate::provider_io::decimal_cmp(min, max)? == std::cmp::Ordering::Greater {
+                     return Err(invalid());
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/src/financial_sources.rs:691:
+ }
+ 
+ pub(crate) fn spot_rules_selected_once(control: &ControlPlane) -> Result<bool> {
+-    Ok(control.store.as_ref().ok_or_else(invalid)?.financial_source(FinancialSourceKind::BinanceSpotRules)?.generation > 0)
++    Ok(control
++        .store
++        .as_ref()
++        .ok_or_else(invalid)?
++        .financial_source(FinancialSourceKind::BinanceSpotRules)?
++        .generation
++        > 0)
+ }
+ 
+ pub(crate) fn project(
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/src/financial_sources.rs:699:
+     detail: &mut crate::protocol::MarketDetail,
+ ) -> Result<()> {
+     if detail.instrument.instrument_id.starts_with("crypto:") {
+-        let source = connection(control, &detail.workspace_id, FinancialSourceKind::BinanceSpotRules)?;
++        let source = connection(
++            control,
++            &detail.workspace_id,
++            FinancialSourceKind::BinanceSpotRules,
++        )?;
+         if source.instrument_id.as_deref() == Some(detail.instrument.instrument_id.as_str()) {
+             detail.spot_rule_evidence = Some(source);
+         }
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/src/lib.rs:7655:
+                 .calendar_source()?
+                 .connection_id
+                 .is_some();
+-        let financial_selected =
+-            (input.instrument_id.starts_with("equity:") && financial_sources::selected_once(self)?)
+-                || (input.instrument_id.starts_with("crypto:") && financial_sources::spot_rules_selected_once(self)?);
++        let financial_selected = (input.instrument_id.starts_with("equity:")
++            && financial_sources::selected_once(self)?)
++            || (input.instrument_id.starts_with("crypto:")
++                && financial_sources::spot_rules_selected_once(self)?);
+         let mut detail = market::detail_with_fixture(
+             &input,
+             source,
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/src/risk.rs:2136:
+         && (!synthetic_contract || market.is_some_and(|m| m.spot_rule_evidence.is_some()));
+     if ordinary_binance_rules {
+         let admitted = market.zip(account).and_then(|(market, account)| {
+-            market.spot_rule_evidence.as_ref().filter(|source| {
+-                source.status == crate::protocol::DataSourceStatus::Available
+-                    && source.connection_id.as_deref() == Some(account.connection_id.as_str())
+-                    && source.instrument_id.as_deref() == Some(proposal.fields.instrument_id.as_str())
+-            }).and_then(|source| match &source.evidence {
+-                Some(crate::protocol::FinancialSourceEvidence::BinanceSpotRules(e))
+-                    if e.binding.account_version == account.state_version
+-                        && e.binding.connection_id == account.connection_id
+-                        && e.binding.source_version == source.state_version
+-                        && e.instrument_id == proposal.fields.instrument_id
+-                        && e.remote_account_id == account.data.as_ref()?.remote_account_id => Some(e),
+-                _ => None,
+-            })
++            market
++                .spot_rule_evidence
++                .as_ref()
++                .filter(|source| {
++                    source.status == crate::protocol::DataSourceStatus::Available
++                        && source.connection_id.as_deref() == Some(account.connection_id.as_str())
++                        && source.instrument_id.as_deref()
++                            == Some(proposal.fields.instrument_id.as_str())
++                })
++                .and_then(|source| match &source.evidence {
++                    Some(crate::protocol::FinancialSourceEvidence::BinanceSpotRules(e))
++                        if e.binding.account_version == account.state_version
++                            && e.binding.connection_id == account.connection_id
++                            && e.binding.source_version == source.state_version
++                            && e.instrument_id == proposal.fields.instrument_id
++                            && e.remote_account_id == account.data.as_ref()?.remote_account_id =>
++                    {
++                        Some(e)
++                    }
++                    _ => None,
++                })
+         });
+         instrument_state_status = if admitted.is_some_and(|e| !e.admission_blockers.is_empty()) {
+-            (RiskCheckOutcome::Reject, if admitted.is_some_and(|e| e.symbol_status == crate::protocol::BinanceSpotSymbolStatus::Halt) {
+-                RiskDecisionReasonCode::MarketHalted
+-            } else { RiskDecisionReasonCode::InstrumentRulesUnavailable })
++            (
++                RiskCheckOutcome::Reject,
++                if admitted.is_some_and(|e| {
++                    e.symbol_status == crate::protocol::BinanceSpotSymbolStatus::Halt
++                }) {
++                    RiskDecisionReasonCode::MarketHalted
++                } else {
++                    RiskDecisionReasonCode::InstrumentRulesUnavailable
++                },
++            )
+         } else {
+-            (RiskCheckOutcome::Unavailable, RiskDecisionReasonCode::InstrumentRulesUnavailable)
++            (
++                RiskCheckOutcome::Unavailable,
++                RiskDecisionReasonCode::InstrumentRulesUnavailable,
++            )
+         };
+     }
+     push!(
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:171:
+             }
+             _ => return Err(tradex::protocol::TradeXError::new("PROVIDER_UNSUPPORTED")),
+         };
+-        if let Some(edit) = self.edit.get() { edit(route, &mut body); }
++        if let Some(edit) = self.edit.get() {
++            edit(route, &mut body);
++        }
+         if let Some((target, bytes)) = self.raw.borrow().as_ref() {
+-            if target == route { return Ok(bytes.clone()); }
++            if target == route {
++                return Ok(bytes.clone());
++            }
+         }
+         Ok(serde_json::to_vec(&body).unwrap())
+     }
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:192:
+     let evidence = &read["data"]["evidence"];
+     assert_eq!(evidence["kind"], "BINANCE_SPOT_RULES");
+     assert_eq!(evidence["providerQuality"], "READ_ONLY_SPOT_RULES");
+-    assert_eq!(evidence["remoteAccountId"], account["data"]["remoteAccountId"]);
++    assert_eq!(
++        evidence["remoteAccountId"],
++        account["data"]["remoteAccountId"]
++    );
+     assert_eq!(evidence["instrumentId"], "crypto:BTC/USDT:spot");
+     assert_eq!(evidence["providerSymbol"], "BTCUSDT");
+     assert_eq!(evidence["baseAsset"], "BTC");
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:235:
+         market["data"]["snapshot"].is_null(),
+         "Rule reads cannot manufacture a quote: {market}"
+     );
+-    assert_eq!(market["data"]["spotRuleEvidence"]["evidence"]["providerSymbol"], "BTCUSDT", "Markets must expose the real exact-symbol rule evidence: {market}");
+-    let other = command(&mut control, "market.get", json!({"workspaceId":workspace,"instrumentId":"crypto:ETH/USDT:spot","tier":"WARM"}));
+-    assert!(other["data"]["spotRuleEvidence"].is_null(), "BTC rules must not qualify ETH: {other}");
++    assert_eq!(
++        market["data"]["spotRuleEvidence"]["evidence"]["providerSymbol"], "BTCUSDT",
++        "Markets must expose the real exact-symbol rule evidence: {market}"
++    );
++    let other = command(
++        &mut control,
++        "market.get",
++        json!({"workspaceId":workspace,"instrumentId":"crypto:ETH/USDT:spot","tier":"WARM"}),
++    );
++    assert!(
++        other["data"]["spotRuleEvidence"].is_null(),
++        "BTC rules must not qualify ETH: {other}"
++    );
+     for path in [
+         "/api/v3/account?",
+         "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true",
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:264:
+ }
+ impl RuleRig {
+     fn new() -> Self {
+-    let folder = tempfile::tempdir().unwrap();
+-    let mut control = ControlPlane::new(folder.path().into());
+-    let workspace =
+-        command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
+-    let vault = fixtures::Vault::default();
+-    let http = fixtures::Http::default();
+-    static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(9007199254740993);
+-    http.binance_uid.set(NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+-    let request = json!({"requestId":"collect-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":workspace,"providerId":"binance","environment":"LIVE","label":"Collect rules"}});
+-    let job = control
+-        .prepare_provider_for(&request, "main")
+-        .unwrap()
+-        .unwrap();
+-    let observed = job.run(
+-        &vault,
+-        |_| fixtures::credentials(),
+-        &http,
+-        || control.provider_job_current(&job),
+-    );
+-    let tested = control.complete_provider(&job, observed);
+-    assert_eq!(tested["ok"], true, "{tested}");
+-    let account = command(&mut control,"provider.connect",json!({"step":"confirm","workspaceId":workspace,"connectionId":tested["data"]["connectionId"],"expectedStateVersion":tested["data"]["stateVersion"],"acknowledgeUnverified":false}))["data"].clone();
+-    let source = command(
+-        &mut control,
+-        "data.binance_rules.connection",
+-        json!({"workspaceId":workspace}),
+-    );
+-    let saved = command(
+-        &mut control,
+-        "data.binance_rules.configure",
+-        json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"],"instrumentId":"crypto:BTC/USDT:spot"}),
+-    );
+-    assert_eq!(saved["ok"], true, "{saved}");
+-    assert_eq!(
+-        command(
++        let folder = tempfile::tempdir().unwrap();
++        let mut control = ControlPlane::new(folder.path().into());
++        let workspace =
++            command(&mut control, "workspace.open", json!({}))["data"]["workspaceId"].clone();
++        let vault = fixtures::Vault::default();
++        let http = fixtures::Http::default();
++        static NEXT_UID: std::sync::atomic::AtomicU64 =
++            std::sync::atomic::AtomicU64::new(9007199254740993);
++        http.binance_uid
++            .set(NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
++        let request = json!({"requestId":"collect-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":workspace,"providerId":"binance","environment":"LIVE","label":"Collect rules"}});
++        let job = control
++            .prepare_provider_for(&request, "main")
++            .unwrap()
++            .unwrap();
++        let observed = job.run(
++            &vault,
++            |_| fixtures::credentials(),
++            &http,
++            || control.provider_job_current(&job),
++        );
++        let tested = control.complete_provider(&job, observed);
++        assert_eq!(tested["ok"], true, "{tested}");
++        let account = command(&mut control,"provider.connect",json!({"step":"confirm","workspaceId":workspace,"connectionId":tested["data"]["connectionId"],"expectedStateVersion":tested["data"]["stateVersion"],"acknowledgeUnverified":false}))["data"].clone();
++        let source = command(
+             &mut control,
+-            "time.revalidate",
+-            json!({"workspaceId":workspace})
+-        )["data"]["confidence"],
+-        "TRUSTED"
+-    );
+-    let control = std::sync::Arc::new(std::sync::Mutex::new(control));
+-        Self { _folder: folder, control, workspace, account, vault }
++            "data.binance_rules.connection",
++            json!({"workspaceId":workspace}),
++        );
++        let saved = command(
++            &mut control,
++            "data.binance_rules.configure",
++            json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"],"connectionId":account["connectionId"],"instrumentId":"crypto:BTC/USDT:spot"}),
++        );
++        assert_eq!(saved["ok"], true, "{saved}");
++        assert_eq!(
++            command(
++                &mut control,
++                "time.revalidate",
++                json!({"workspaceId":workspace})
++            )["data"]["confidence"],
++            "TRUSTED"
++        );
++        let control = std::sync::Arc::new(std::sync::Mutex::new(control));
++        Self {
++            _folder: folder,
++            control,
++            workspace,
++            account,
++            vault,
++        }
+     }
+     fn decision(&self) -> Value {
+         let mut control = self.control.lock().unwrap();
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:313:
+-        let draft = command(&mut control, "trade.save_draft", json!({"workspaceId":self.workspace,"fields":{"accountId":self.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}}));
++        let draft = command(
++            &mut control,
++            "trade.save_draft",
++            json!({"workspaceId":self.workspace,"fields":{"accountId":self.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}}),
++        );
+         assert_eq!(draft["ok"], true, "{draft}");
+-        let proposal = command(&mut control, "trade.generate_proposal", json!({"workspaceId":self.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}));
++        let proposal = command(
++            &mut control,
++            "trade.generate_proposal",
++            json!({"workspaceId":self.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
++        );
+         assert_eq!(proposal["ok"], true, "{proposal}");
+-        let decision = command(&mut control, "risk.evaluate_proposal", json!({"workspaceId":self.workspace,"proposalId":proposal["data"]["proposalId"]}));
++        let decision = command(
++            &mut control,
++            "risk.evaluate_proposal",
++            json!({"workspaceId":self.workspace,"proposalId":proposal["data"]["proposalId"]}),
++        );
+         assert_eq!(decision["ok"], true, "{decision}");
+         decision["data"].clone()
+     }
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:321:
+     fn refresh(&self, external: &RuleHttp) -> Value {
+-        external.uid.set(self.account["data"]["remoteAccountId"].as_str().unwrap().parse().unwrap());
+-        let saved = command(&mut self.control.lock().unwrap(), "data.binance_rules.connection", json!({"workspaceId":self.workspace}));
+-        tradex::financial_sources::execute_refresh(&self.control, &json!({"requestId":"read-rules","schemaVersion":1,"command":"data.binance_rules.refresh","payload":{"workspaceId":self.workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}), "main", &self.vault, external)
++        external.uid.set(
++            self.account["data"]["remoteAccountId"]
++                .as_str()
++                .unwrap()
++                .parse()
++                .unwrap(),
++        );
++        let saved = command(
++            &mut self.control.lock().unwrap(),
++            "data.binance_rules.connection",
++            json!({"workspaceId":self.workspace}),
++        );
++        tradex::financial_sources::execute_refresh(
++            &self.control,
++            &json!({"requestId":"read-rules","schemaVersion":1,"command":"data.binance_rules.refresh","payload":{"workspaceId":self.workspace,"expectedStateVersion":saved["data"]["stateVersion"]}}),
++            "main",
++            &self.vault,
++            external,
++        )
+     }
+ }
+ 
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:328:
+-
+ #[test]
+ fn malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation() {
+     let rig = RuleRig::new();
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:338:
+         }
+     }));
+     let failed = rig.refresh(&external);
+-    assert_eq!(failed["data"]["status"], "UNAVAILABLE", "Inverted quantity limits must fail closed: {failed}");
++    assert_eq!(
++        failed["data"]["status"], "UNAVAILABLE",
++        "Inverted quantity limits must fail closed: {failed}"
++    );
+     assert_eq!(failed["data"]["evidence"], good["data"]["evidence"]);
+     assert_eq!(failed["data"]["observedAt"], good["data"]["observedAt"]);
+     external.edit.set(None);
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:345:
+     let recovered = rig.refresh(&external);
+     assert_eq!(recovered["data"]["status"], "AVAILABLE", "{recovered}");
+-    let account = command(&mut rig.control.lock().unwrap(), "account.get", json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]}));
++    let account = command(
++        &mut rig.control.lock().unwrap(),
++        "account.get",
++        json!({"workspaceId":rig.workspace,"connectionId":rig.account["connectionId"]}),
++    );
+     assert_eq!(account["data"]["health"]["arming"], "DISARMED");
+ }
+ 
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:351:
+ fn rule_check(decision: &Value) -> &Value {
+-    decision["checks"].as_array().unwrap().iter().find(|c| c["checkId"] == "INSTRUMENT_RULES").unwrap()
++    decision["checks"]
++        .as_array()
++        .unwrap()
++        .iter()
++        .find(|c| c["checkId"] == "INSTRUMENT_RULES")
++        .unwrap()
+ }
+ #[test]
+ fn actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution() {
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:356:
+     let rig = RuleRig::new();
+     let external = RuleHttp::default();
+-    external.edit.set(Some(|route, body| if route == "/api/v3/exchangeInfo" { body["symbols"][0]["status"] = json!("HALT"); }));
++    external.edit.set(Some(|route, body| {
++        if route == "/api/v3/exchangeInfo" {
++            body["symbols"][0]["status"] = json!("HALT");
++        }
++    }));
+     let read = rig.refresh(&external);
+     assert_eq!(read["data"]["status"], "AVAILABLE", "{read}");
+-    assert_eq!(read["data"]["evidence"]["admissionBlockers"], json!(["SYMBOL_NOT_TRADING"]));
++    assert_eq!(
++        read["data"]["evidence"]["admissionBlockers"],
++        json!(["SYMBOL_NOT_TRADING"])
++    );
+     let halted = rig.decision();
+-    assert_eq!(rule_check(&halted)["outcome"], "REJECT", "Actual HALT must reach Trade's protected decision: {halted}");
++    assert_eq!(
++        rule_check(&halted)["outcome"],
++        "REJECT",
++        "Actual HALT must reach Trade's protected decision: {halted}"
++    );
+     external.edit.set(None);
+     let normal = rig.refresh(&external);
+     assert_eq!(normal["data"]["status"], "AVAILABLE", "{normal}");
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:367:
+     let recovered = rig.decision();
+-    assert_eq!(rule_check(&recovered)["outcome"], "UNAVAILABLE", "Normal metadata is not complete per-Proposal qualification: {recovered}");
++    assert_eq!(
++        rule_check(&recovered)["outcome"],
++        "UNAVAILABLE",
++        "Normal metadata is not complete per-Proposal qualification: {recovered}"
++    );
+     assert_ne!(recovered["status"], "ALLOWED");
+ }
+ 
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:397:
+ fn permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification() {
+     let rig = RuleRig::new();
+     let external = RuleHttp::default();
+-    external.edit.set(Some(|route, body| if route == "/api/v3/exchangeInfo" {
+-        body["symbols"][0]["permissionSets"] = json!([["SPOT","MARGIN"],["MARGIN"]]);
++    external.edit.set(Some(|route, body| {
++        if route == "/api/v3/exchangeInfo" {
++            body["symbols"][0]["permissionSets"] = json!([["SPOT", "MARGIN"], ["MARGIN"]]);
++        }
+     }));
+     let unmet = rig.refresh(&external);
+     assert_eq!(unmet["data"]["status"], "AVAILABLE", "{unmet}");
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:406:
+     assert_eq!(rule_check(&rig.decision())["outcome"], "REJECT");
+     external.edit.set(None);
+     let accepted = rig.refresh(&external);
+-    assert_eq!(accepted["data"]["evidence"]["permissionSetsSatisfied"], true, "OR permits SPOT without MARGIN: {accepted}");
++    assert_eq!(
++        accepted["data"]["evidence"]["permissionSetsSatisfied"], true,
++        "OR permits SPOT without MARGIN: {accepted}"
++    );
+     assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
+-    external.edit.set(Some(|route, body| if route == "/api/v3/executionRules" {
+-        body["symbolRules"][0]["rules"] = json!([{"ruleType":"FUTURE_ACTIVE_RULE","limit":"1"}]);
++    external.edit.set(Some(|route, body| {
++        if route == "/api/v3/executionRules" {
++            body["symbolRules"][0]["rules"] =
++                json!([{"ruleType":"FUTURE_ACTIVE_RULE","limit":"1"}]);
++        }
+     }));
+     let unknown = rig.refresh(&external);
+     assert_eq!(unknown["data"]["status"], "AVAILABLE", "{unknown}");
+Diff in /Users/kai/Desktop/my-repo/tradex/src-tauri/tests/binance_rules.rs:416:
+-    assert!(unknown["data"]["evidence"]["unresolvedObligations"].as_array().unwrap().contains(&json!("UNSUPPORTED_ACTIVE_CONSTRAINT_SCHEMA")));
++    assert!(
++        unknown["data"]["evidence"]["unresolvedObligations"]
++            .as_array()
++            .unwrap()
++            .contains(&json!("UNSUPPORTED_ACTIVE_CONSTRAINT_SCHEMA"))
++    );
+     assert_eq!(rule_check(&rig.decision())["outcome"], "UNAVAILABLE");
+ }
+ 

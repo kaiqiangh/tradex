@@ -1,0 +1,111 @@
+{
+  "capturedAt": "2026-10-04T09:06:35.390121+00:00",
+  "ticket": 120,
+  "state": "IMPLEMENTATION_VERIFIED_PENDING_SERIAL_REVIEW",
+  "reviewBaseline": "d7ea48d1e5a5c2a5f95cc3937b02aa0202bc53d4",
+  "branch": "dev",
+  "uncommitted": true,
+  "sourceSha256": {
+    "docs/FILE_MANIFEST.md": "5edc6db293cae460eaf42e1d4e0fd429f672c3600319b13e2dd2340337f555d7",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "5ad90eb49a210476867fbdbb85e59212acc38c9e28d89ff58ffc0cadb47d9820",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "17e39f3286e4c3991ff3ae279be8c8a10da1bd9569cc04e44e375d4bae2f9cf6",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "e9b3d9fa9c4b401ea9025b6bd51b4058303e27c6b1f4abdbfa27e87b5ce8879b",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "baad3384d7fb0591459692c5d5468bf6b2e4c0d422b90e9348d93c1f98c70a9d",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "6fbb3c7199259982f3388b332bc4740450d6915ce7fd59dbd9032cfb1c6767a6",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "2bb10cbf45e23ce0f0a20868c9295bea227958ff00c3d420b241bbb11f308dc5",
+    "shared/ipc-types.ts": "e942bca24d195264dc9cb10d4fba7b64a118372a0c5c6134f3b6c5cf79200940",
+    "shared/ipc-v1.schema.json": "d58578f3fa3a282fb1af1c3d066f402731f785d81b3d4ee4ce3b44f86a1ac292",
+    "shared/ipc-validators.d.ts": "2e86105810118f8444ce306ee6ac3e7dd4efdee7f7424f3ca5d6b165d34929bf",
+    "shared/ipc-validators.js": "50250f47ac0ecf7070603e370af0b82d4044e3d344248c34503fad8f1fd87c11",
+    "src-tauri/src/bin/ipc.rs": "c16f56ce062363beb91b758b865280096e659b4c31f3d45abd6c897580e56822",
+    "src-tauri/src/financial_sources.rs": "95903ee98c3fe498a1eae077dc6f9e428d25c80fc97ff3497deaa031cf4747aa",
+    "src-tauri/src/lib.rs": "4c0846a96156a02dae7d0bed884c8ea13b511a0539d754772f581ada48e16ccb",
+    "src-tauri/src/main.rs": "ef08c297c6564765372dc48b18e03e22ff245dfbea82a1b95471e363f745e4e5",
+    "src-tauri/src/protocol.rs": "c9fedc79d61443734b745c636570d9e5416c4f42b277c99bce037fa347031c6a",
+    "src-tauri/src/provider_io.rs": "d2e00608ce545d2639d72b3c19d04b973211441bc8b7b095bd6ca3131d6ec54d",
+    "src-tauri/src/risk.rs": "7c20dc68a0276f5e5278089131cbb17d70c253fbe65f76d9fe5c35996cfd86cc",
+    "src-tauri/src/storage.rs": "2d5e78837e40ffa2703e41ac219386b5f97c5f23a2387931f3a1f985bd3348f7",
+    "src-tauri/tests/financial_sources.rs": "2714329fc80e895acf3b69aec8d2f9a90ac888e9cb6f16ec45507a9547e68689",
+    "src-tauri/tests/support/provider_fixtures.rs": "c69b3a18f4a46dca6d929b579cace59d243a8100341cf8f2617610b2fd813ac4",
+    "src-tauri/tests/support/provider_http.rs": "0149189f7e732b3baf9e3195442baced6e1141321eb1d10f82f440884097a519",
+    "src-tauri/tests/support/provider_https.py": "5dba4bed51888ef18a425e9ca327fea5124eaef57556bf582dc14cd038a169f5",
+    "src-tauri/tests/watchlists.rs": "97cc9efbdd0c0b4cbb0caa5156382f62b018ba4b0d58ebffc6c799d4ff412a32",
+    "src-tauri/tests/workspace.rs": "9a0f7897571f01e24b61b45dcc5f6fe8c99312f9532098fa7212fd09505a8236",
+    "src/DataSources.tsx": "081ebc3a104c8993c8eff8e2607ea65488b40177df22d37d5d6c566f000921c0",
+    "src/FinancialEvidencePanel.tsx": "211a698f57694c08e352f48abf072eadd2a75d846a9f90891cde3301864e2c60",
+    "src/FinancialSourceSettings.tsx": "0cb2a5ec0dcf000a8a3b0f816b16885cc56fe03de5db291b5190c3e7de9f321a",
+    "src/OrderDrafts.tsx": "b2ed720f9838b8987c02668166287a13430454ac0a704e75add2a19923bf1a03",
+    "src/Portfolio.tsx": "7c96a13325e64221e31e65a227247f2b3506f1cbb3052d7e6af13797da7ba501",
+    "src/client.ts": "b55b025b904707cb3295eccb3de6ce07c673d753a0d37230f59be98e0d0e265d",
+    "tests/projection.test.ts": "6642739264a239140840fe93583cf5d33ff7f36f6f8247060d83ee9a7cb094db",
+    "tests/fx-sources-ui.mjs": "bc2393776daf0b24374faef8ef3af875b9edbede27ebda14de43b307db4aa2eb"
+  },
+  "completed": [
+    "public FX selection and metadata reopen",
+    "actual currency requirements and immutable proposal routes",
+    "precision-preserving fixed GET producer",
+    "no key/provider read without a supported required external route",
+    "immutable risk/approval context and unavailable conversion guard",
+    "legacy portfolio fixture shield including disconnect",
+    "public malformed input and provider-time rejection",
+    "public source/account/workspace/clock/sequence late-result rejection",
+    "schema34 source preservation through schema35",
+    "dual provider/receipt age and metadata-only reopen",
+    "real TLS fixed GET/body/timeout/no-redirect boundary",
+    "source401/403/429 and actual Retry-After handling",
+    "paired English Chinese backend frontend UI contracts",
+    "actual Spot BUY quote-asset funding unit without portfolio currency inference",
+    "SELL excludes BUY funding conversion while retaining actual policy/portfolio routes",
+    "workspace storage migration regressions8pass"
+  ],
+  "pending": [
+    "caller-assertion rejection coverage and final operation-scope audit",
+    "public UI real Rust390/768/1280 keyboard errors reload and expiry",
+    "ordinary desktop build and saved-key FX hosted current/expired or exact denial evidence",
+    "final source freshness/operation-scope audit",
+    "appropriate full checks and integration/gateway verification at implementation end",
+    "serial independent Standards then Spec reviews",
+    "scoped commit normal dev push exact source/evidence receipt before ticket closure"
+  ],
+  "parentIssuesRemainOpen": [
+    117,
+    116,
+    115,
+    113,
+    1
+  ],
+  "notClaimed": [
+    "transaction-grade FX",
+    "exact broker conversion costs",
+    "complete monetary data",
+    "positive financial execution acceptance",
+    "CI",
+    "ordinary native FX read",
+    "full-suite verification",
+    "independent review or commit/push"
+  ],
+  "validation": {
+    "npmCheck": {
+      "status": "PASS",
+      "nodePassed": 17,
+      "rustPassed": 385,
+      "rustIgnored": 39
+    },
+    "integrationCheck": {
+      "status": "PASS",
+      "rustPassed": 424,
+      "rustIgnored": 39
+    },
+    "gatewayCheck": {
+      "status": "PASS",
+      "passed": 23
+    },
+    "nativeBuild": "PASS ordinary release and compiled Gateway pin",
+    "browserUI": "PASS real Rust and external HTTP/vault fixtures; Settings and captured review at390/768/1280; no console errors/warnings",
+    "nativeFXHosted": "Ordinary saved-key reread returned explicit PROVIDER_PERMISSION_BLOCKED source classification; no rate/receipt/quality promotion",
+    "review": "Standards then Spec pending",
+    "delivery": "UNCOMMITTED AND UNPUSHED",
+    "browserMaxDecimal": "PASS64character exact bid/ask;390/768/1280source and captured review; no console issues",
+    "subsequentChanges": "External UI HTTP fixture and browser scenario only; production build inputs unchanged"
+  }
+}

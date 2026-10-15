@@ -1,0 +1,7 @@
+{
+  "stage": "Ordinary build before independent review; compiled, not native/provider financial acceptance",
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "desktopSha256": "ad0add2c8411a2ad37298fac4a642be9d5c3ee583e3c515120cda0cb14d1c628",
+  "gatewaySha256": "b5ce719ee48842285eb43fc9da66431b5ed58c56d2db1a4d0b7703fc3047e50b",
+  "logSha256": "909052e470ba9d1f3b9c782d001f75cdd6b70d7d4b7bb4b6e87cb8beaa8b8226"
+}

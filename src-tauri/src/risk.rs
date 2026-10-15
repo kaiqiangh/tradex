@@ -774,16 +774,22 @@ pub enum RiskCheckId {
     DailyRealizedLoss,
     OpenOrderCount,
     ReservedCapital,
+    ReservedCapacity,
     MarketOrder,
     MarketOrderSlippage,
     PriceDeviation,
     QuoteFreshness,
+    MarketDataUse,
     MarketSession,
     InstrumentRules,
+    CorporateActionCoverage,
+    HistoricalAdjustment,
     LiveInactivity,
     CancellationOrder,
     CancellationCapability,
     SnapshotFreshness,
+    CurrencyConversion,
+    SpotFeeFx,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -798,6 +804,7 @@ pub enum RiskDecisionReasonCode {
     EvidenceMissing,
     EvidenceStale,
     EvidenceUntrusted,
+    DataUseRightsUnverified,
     AccountUnavailable,
     AccountMismatch,
     AccountUnhealthy,
@@ -810,8 +817,12 @@ pub enum RiskDecisionReasonCode {
     MarketClosed,
     MarketHalted,
     InstrumentRulesUnavailable,
+    InstrumentRulesRejected,
+    CorporateActionCoverageUnavailable,
+    HistoricalAdjustmentUnavailable,
     CounterUnavailable,
     ReservationUnavailable,
+    ReservedCapacity,
     CalendarUnavailable,
     ClockUncertain,
     NotApplicable,
@@ -819,6 +830,9 @@ pub enum RiskDecisionReasonCode {
     InvalidProposalValue,
     OrderNotCancelable,
     CancellationUnsupported,
+    CurrencyConversionUnavailable,
+    ValuationCurrencyMismatch,
+    SpotFeeFxUnavailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -833,6 +847,11 @@ pub enum RiskDecisionInputKind {
     DailyCounters,
     Reservations,
     InstrumentRules,
+    CurrencyRates,
+    SpotCapacity,
+    SpotOrderIntervals,
+    SpotFeeFx,
+    SpotCommission,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -846,7 +865,7 @@ pub struct RiskCheckResult {
 }
 
 impl RiskDecisionStatus {
-    fn from_checks(checks: &[RiskCheckResult]) -> Self {
+    pub(crate) fn from_checks(checks: &[RiskCheckResult]) -> Self {
         if checks
             .iter()
             .any(|check| check.outcome == RiskCheckOutcome::Reject)
@@ -904,6 +923,18 @@ pub struct RiskDecision {
     pub state_version: String,
     pub inputs: Vec<RiskDecisionInputReference>,
     pub checks: Vec<RiskCheckResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_rules: Option<crate::spot_proposal_rules::SpotProposalRules>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_capacity: Option<crate::spot_capacity::SpotCapacityInputs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_order_intervals: Option<crate::spot_order_intervals::SpotOrderIntervalInputs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_owning: Option<crate::spot_owning::SpotOwningQualification>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_fee_fx: Option<crate::spot_fee_fx::SpotFeeFxStatement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_commission: Option<crate::spot_commission::SpotCommissionInputs>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1055,11 +1086,56 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
             object.remove("monotonicMs");
             object.remove("observedAt");
         }
+        RiskDecisionInputKind::SpotCommission => {
+            // Keep collection identity and receipts in captured evidence without treating a fresh
+            // read of unchanged terms as new financial material.
+            object.remove("stateVersion");
+            if let Some(observation) = object.get_mut("observation").and_then(Value::as_object_mut)
+            {
+                observation.remove("collectionId");
+                observation.remove("reads");
+            }
+        }
+        RiskDecisionInputKind::SpotFeeFx => {
+            // Preserve the exact account-read provenance in each immutable statement, but do not
+            // make an unchanged wallet require renewed consent just because it was reread.
+            if let Some(wallet) = object
+                .get_mut("walletFundingEvidence")
+                .and_then(Value::as_object_mut)
+            {
+                for key in [
+                    "collectionId",
+                    "accountReadStartedAt",
+                    "firstReceipt",
+                    "originalDigest",
+                ] {
+                    wallet.remove(key);
+                }
+            }
+            if let Some(funding) = object
+                .get_mut("currentFeeModel")
+                .and_then(Value::as_object_mut)
+                .and_then(|model| model.get_mut("bnbFundingEvidence"))
+                .and_then(Value::as_object_mut)
+            {
+                for key in [
+                    "collectionId",
+                    "startedAt",
+                    "firstReceipt",
+                    "originalDigest",
+                ] {
+                    funding.remove(key);
+                }
+            }
+        }
         RiskDecisionInputKind::Account
         | RiskDecisionInputKind::Calendar
         | RiskDecisionInputKind::DailyCounters
         | RiskDecisionInputKind::Reservations
-        | RiskDecisionInputKind::InstrumentRules => {}
+        | RiskDecisionInputKind::InstrumentRules
+        | RiskDecisionInputKind::CurrencyRates
+        | RiskDecisionInputKind::SpotCapacity
+        | RiskDecisionInputKind::SpotOrderIntervals => {}
     }
 }
 
@@ -1098,10 +1174,13 @@ pub(crate) fn evaluate(
     policy_state: Option<&RiskPolicyState>,
     account: Option<&crate::providers::AccountConnection>,
     portfolio: Option<&crate::protocol::PortfolioSnapshot>,
+    owning_spot_required: bool,
+    owning_workspace_base_notional: Option<&str>,
     market: Option<&crate::protocol::MarketDetail>,
     time_status: &crate::protocol::TimeStatus,
     inputs: Vec<RiskDecisionInputReference>,
     existing_reserved_capital: Option<&str>,
+    capacity_projection: Option<&crate::protocol::CapacityProjection>,
     evaluated_at: String,
 ) -> RiskDecision {
     use crate::protocol::{ExecutionContext, MarketSession, OrderSide, OrderType, TimeConfidence};
@@ -1262,7 +1341,8 @@ pub(crate) fn evaluate(
         },
     );
     let account_healthy = account.is_some_and(|account| {
-        account.connection_state == crate::providers::ConnectionState::Connected
+        account.binance_trading_state_is_current(&time_status.wall_clock)
+            && account.connection_state == crate::providers::ConnectionState::Connected
             && matches!(account.health.connection.as_str(), "ONLINE" | "CONNECTED")
             && matches!(
                 account.health.authentication.as_str(),
@@ -1288,7 +1368,7 @@ pub(crate) fn evaluate(
         if account_healthy {
             "The saved account connection and authentication are healthy."
         } else {
-            "The saved account is disconnected or its health is unverified."
+            "The saved account is disconnected or required health/trading-state evidence is unavailable, restricted or stale."
         },
     );
     let live_context = matches!(
@@ -1536,7 +1616,14 @@ pub(crate) fn evaluate(
         },
     );
 
-    let notional = proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock);
+    // A selected owning Live Spot gate must use only the Proposal-bound, purpose-qualified
+    // valuation from its owning statement. If that route is unavailable, do not fall back to the
+    // portfolio's historical comparison FX projection. Other contexts retain the existing path.
+    let notional = if owning_spot_required {
+        owning_workspace_base_notional.map(str::to_owned)
+    } else {
+        proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock)
+    };
     limit!(
         RiskCheckId::OrderNotional,
         notional.as_deref(),
@@ -1767,7 +1854,7 @@ pub(crate) fn evaluate(
     );
     let reserved_limit = policy.and_then(|policy| policy.max_reserved_capital.as_deref());
     let projected_reserved_capital = existing_reserved_capital
-        .zip(proposal_notional_in_base(proposal, portfolio, &time_status.wall_clock).as_deref())
+        .zip(notional.as_deref())
         .and_then(|(reserved, proposed)| crate::portfolio::decimal_add(reserved, proposed).ok());
     let (reserved_outcome, reserved_reason, reserved_message) = match reserved_limit {
         None => (
@@ -1811,6 +1898,79 @@ pub(crate) fn evaluate(
         reserved_message,
     );
 
+    let (capacity_outcome, capacity_reason, capacity_message) =
+        if !matches!(
+            proposal.fields.environment,
+            ExecutionContext::Trading212Live
+                | ExecutionContext::BinanceLive
+                | ExecutionContext::BitgetLive
+        ) {
+            (
+                RiskCheckOutcome::Pass,
+                RiskDecisionReasonCode::NotApplicable,
+                "Live reservation capacity is not applicable to this execution context.".to_owned(),
+            )
+        } else {
+            match capacity_projection {
+                Some(projection)
+                    if projection.freshness == crate::protocol::CapacityFreshness::Current =>
+                {
+                    match (
+                        projection.requested_amount.as_deref(),
+                        projection.effective_available.as_deref(),
+                    ) {
+                        (Some(requested), Some(available)) => {
+                            match crate::provider_io::decimal_cmp(requested, available) {
+                                Ok(Ordering::Greater) => (
+                                    RiskCheckOutcome::Reject,
+                                    RiskDecisionReasonCode::ReservedCapacity,
+                                    format!(
+                                        "Requested capacity {requested} {} exceeds effective available capacity {available} after existing TradeX reservations.",
+                                        projection.unit
+                                    ),
+                                ),
+                                Ok(_) => (
+                                    RiskCheckOutcome::Pass,
+                                    RiskDecisionReasonCode::WithinLimit,
+                                    "The requested amount is within current provider capacity after existing TradeX reservations.".to_owned(),
+                                ),
+                                Err(_) => (
+                                    RiskCheckOutcome::Unavailable,
+                                    RiskDecisionReasonCode::ReservationUnavailable,
+                                    "Current capacity amounts could not be compared exactly.".to_owned(),
+                                ),
+                            }
+                        }
+                        _ => (
+                            RiskCheckOutcome::Unavailable,
+                            RiskDecisionReasonCode::ReservationUnavailable,
+                            "Current capacity evidence is missing the requested or effective amount.".to_owned(),
+                        ),
+                    }
+                }
+                Some(projection) => (
+                    RiskCheckOutcome::Unavailable,
+                    if projection.freshness == crate::protocol::CapacityFreshness::Stale {
+                        RiskDecisionReasonCode::EvidenceStale
+                    } else {
+                        RiskDecisionReasonCode::EvidenceMissing
+                    },
+                    "Current provider capacity and reservation evidence is unavailable.".to_owned(),
+                ),
+                None => (
+                    RiskCheckOutcome::Unavailable,
+                    RiskDecisionReasonCode::EvidenceMissing,
+                    "Current provider capacity and reservation evidence is unavailable.".to_owned(),
+                ),
+            }
+        };
+    push!(
+        RiskCheckId::ReservedCapacity,
+        capacity_outcome,
+        capacity_reason,
+        capacity_message,
+    );
+
     let market_order = proposal.fields.order_type == OrderType::Market;
     let local_simulation = proposal.fields.environment == ExecutionContext::LocalPaper;
     let market_orders_enabled = policy.is_some_and(|policy| policy.market_orders_enabled);
@@ -1851,10 +2011,25 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::MarketOrderDisabled,
         )
     } else {
-        (
-            RiskCheckOutcome::Unavailable,
-            RiskDecisionReasonCode::ExecutionQuoteUnavailable,
-        )
+        match market_order_slippage(proposal, market, time_status, stale_quote_threshold).and_then(
+            |(numerator, denominator)| {
+                crate::provider_io::decimal_cmp(
+                    &numerator,
+                    &crate::portfolio::decimal_mul(slippage_limit.unwrap(), &denominator).ok()?,
+                )
+                .ok()
+            },
+        ) {
+            Some(Ordering::Greater) => (
+                RiskCheckOutcome::Reject,
+                RiskDecisionReasonCode::LimitExceeded,
+            ),
+            Some(_) => (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit),
+            None => (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::ExecutionQuoteUnavailable,
+            ),
+        }
     };
     push!(
         RiskCheckId::MarketOrderSlippage,
@@ -1866,6 +2041,10 @@ pub(crate) fn evaluate(
             "Market orders are disabled by policy."
         } else if local_simulation && market_order {
             "The local simulator validates its quote and slippage at submission."
+        } else if reason == RiskDecisionReasonCode::WithinLimit {
+            "The displayed-depth slippage estimate is within the configured limit."
+        } else if reason == RiskDecisionReasonCode::LimitExceeded {
+            "The displayed-depth slippage estimate exceeds the configured limit."
         } else {
             "Market-order slippage is not applicable to this proposal."
         },
@@ -1875,6 +2054,15 @@ pub(crate) fn evaluate(
         (
             RiskCheckOutcome::Pass,
             RiskDecisionReasonCode::NotApplicable,
+        )
+    } else if market.is_some_and(|market| {
+        market.snapshot.as_ref().is_some_and(|snapshot| {
+            snapshot.provenance.alpaca.is_some() || snapshot.provenance.binance.is_some()
+        }) && !execution_quote_matches(proposal, market)
+    }) {
+        (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::EvidenceUntrusted,
         )
     } else {
         market_freshness(market, time_status, stale_quote_threshold)
@@ -1902,11 +2090,89 @@ pub(crate) fn evaluate(
             _ => "A required current market quote is unavailable.",
         },
     );
+    let requires_public_spot_rights = !local_simulation
+        && market.is_some_and(|m| m.source_id.as_deref() == Some(crate::binance_market::SOURCE_ID));
+    push!(
+        RiskCheckId::MarketDataUse,
+        if requires_public_spot_rights {
+            RiskCheckOutcome::Unavailable
+        } else {
+            RiskCheckOutcome::Pass
+        },
+        if requires_public_spot_rights {
+            RiskDecisionReasonCode::DataUseRightsUnverified
+        } else {
+            RiskDecisionReasonCode::NotApplicable
+        },
+        if requires_public_spot_rights {
+            "Public Spot technical collection establishes no user-specific financial-use, retention, redistribution, commercial or regional permission. Those data-use rights remain UNVERIFIED."
+        } else {
+            "The ordinary public Spot financial data-use gate is not applicable to this source/context."
+        },
+    );
+    // Preserve only the existing, explicitly identified contract-test producer. Ordinary builds
+    // cannot create it, and selecting a production financial source shields it at the producer.
+    let synthetic_contract = cfg!(any(test, feature = "integration-test"))
+        && market.is_some_and(|market| {
+            market.financial_evidence.is_none()
+                && market
+                    .instrument_state
+                    .as_ref()
+                    .is_some_and(|state| state.source == "SYNTHETIC_INTEGRATION_FIXTURE")
+        });
+    let ordinary_binance_rules = !local_simulation
+        && proposal.fields.environment == crate::protocol::ExecutionContext::BinanceLive
+        && (!synthetic_contract || market.is_some_and(|m| m.spot_rule_evidence.is_some()));
+    let admitted = market.zip(account).and_then(|(market, account)| {
+        market
+            .spot_rule_evidence
+            .as_ref()
+            .filter(|source| {
+                source.status == crate::protocol::DataSourceStatus::Available
+                    && source.connection_id.as_deref() == Some(account.connection_id.as_str())
+                    && source.instrument_id.as_deref()
+                        == Some(proposal.fields.instrument_id.as_str())
+            })
+            .and_then(|source| match &source.evidence {
+                Some(crate::protocol::FinancialSourceEvidence::BinanceSpotRules(e))
+                    if e.binding.account_version == account.state_version
+                        && e.binding.connection_id == account.connection_id
+                        && e.binding.source_version == source.state_version
+                        && e.instrument_id == proposal.fields.instrument_id
+                        && e.remote_account_id == account.data.as_ref()?.remote_account_id =>
+                {
+                    Some(e)
+                }
+                _ => None,
+            })
+    });
     let (outcome, reason) = if local_simulation {
         (
             RiskCheckOutcome::Pass,
             RiskDecisionReasonCode::NotApplicable,
         )
+    } else if ordinary_binance_rules {
+        match admitted {
+            Some(e) if e.admission_blockers.is_empty() => {
+                (RiskCheckOutcome::Pass, RiskDecisionReasonCode::WithinLimit)
+            }
+            Some(e) => (
+                RiskCheckOutcome::Reject,
+                if matches!(
+                    e.symbol_status,
+                    crate::protocol::BinanceSpotSymbolStatus::Halt
+                        | crate::protocol::BinanceSpotSymbolStatus::Break
+                ) {
+                    RiskDecisionReasonCode::MarketHalted
+                } else {
+                    RiskDecisionReasonCode::InstrumentRulesUnavailable
+                },
+            ),
+            None => (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::InstrumentRulesUnavailable,
+            ),
+        }
     } else {
         market
             .filter(|market| {
@@ -1944,15 +2210,25 @@ pub(crate) fn evaluate(
         RiskCheckId::MarketSession,
         outcome,
         reason,
-        match reason {
-            RiskDecisionReasonCode::MarketClosed => {
-                "The authoritative market calendar reports a closed session."
+        if ordinary_binance_rules {
+            match admitted {
+                Some(e) if e.admission_blockers.is_empty() =>
+                    "Current exact-account/symbol Spot venue admission is satisfied. This establishes no equity calendar, complete order rules, data-use rights or execution authority.".to_string(),
+                Some(e) => format!("Current exact-account/symbol Spot venue admission is rejected: {}. Complete order rules and execution authority remain separate.", e.admission_blockers.join(", ")),
+                None => "Current exact-account/symbol Spot venue admission is unavailable. An equity calendar cannot supply this evidence.".to_string(),
             }
-            RiskDecisionReasonCode::MarketHalted => {
-                "The authoritative market state reports a halt or suspension."
+        } else {
+            match reason {
+                RiskDecisionReasonCode::MarketClosed => {
+                    "The authoritative market calendar reports a closed session."
+                }
+                RiskDecisionReasonCode::MarketHalted => {
+                    "The authoritative market state reports a halt or suspension."
+                }
+                RiskDecisionReasonCode::WithinLimit => "The market session is open.",
+                _ => "A current authoritative market calendar is unavailable.",
             }
-            RiskDecisionReasonCode::WithinLimit => "The market session is open.",
-            _ => "A current authoritative market calendar is unavailable.",
+            .to_string()
         },
     );
     let deviation = match (
@@ -1990,19 +2266,76 @@ pub(crate) fn evaluate(
             "Price deviation percent",
         );
     }
+    let external_equity = !local_simulation && proposal.fields.instrument_id.starts_with("equity:");
+    let financial_required = external_equity && !synthetic_contract;
+    for (check_id, reason_code, reason) in [
+        (
+            RiskCheckId::CorporateActionCoverage,
+            RiskDecisionReasonCode::CorporateActionCoverageUnavailable,
+            "Complete current corporate-action coverage is unavailable. A completed processing-date query, including an empty result, does not establish it.",
+        ),
+        (
+            RiskCheckId::HistoricalAdjustment,
+            RiskDecisionReasonCode::HistoricalAdjustmentUnavailable,
+            "Historical price adjustment provenance is unavailable. Reading known company events does not establish historical adjustment.",
+        ),
+    ] {
+        push!(
+            check_id,
+            if financial_required {
+                RiskCheckOutcome::Unavailable
+            } else {
+                RiskCheckOutcome::Pass
+            },
+            if financial_required {
+                reason_code
+            } else {
+                RiskDecisionReasonCode::NotApplicable
+            },
+            if financial_required {
+                reason
+            } else if synthetic_contract {
+                "Synthetic contract test only: this prerequisite is not production financial evidence."
+            } else {
+                "This corporate-action prerequisite applies to external equity placement, not this execution context."
+            }
+        );
+    }
+    let exact_instrument_binding = !external_equity || synthetic_contract || market.zip(account).is_some_and(|(market, account)| {
+        market.financial_evidence.as_ref().is_some_and(|context| {
+            let source = &context.broker_instruments;
+            source.status == crate::protocol::DataSourceStatus::Available
+                && source.connection_id.as_deref() == Some(account.connection_id.as_str())
+                && source.capability_statuses.iter().any(|capability| {
+                    capability.capability == crate::protocol::FinancialEvidenceCapability::AccountTradability
+                        && capability.status
+                            == crate::protocol::FinancialEvidenceCapabilityStatus::Available
+                })
+                && matches!(&source.evidence,
+                    Some(crate::protocol::FinancialSourceEvidence::BrokerInstruments(evidence))
+                        if evidence.binding.connection_id == account.connection_id
+                            && evidence.binding.account_version == account.state_version
+                            && evidence.binding.source_version == source.state_version
+                            && evidence.instruments.iter().any(|instrument| {
+                                instrument.instrument_id == proposal.fields.instrument_id
+                                    && instrument.canonical_security_identity == crate::protocol::DataSourceStatus::Available
+                            }))
+        })
+    });
     let instrument_state = market.and_then(|market| market.instrument_state.as_ref());
     let provider_mapping = market.and_then(|market| {
         market.instrument.providers.iter().find(|mapping| {
             account.is_some_and(|account| mapping.provider_id == account.provider_id)
         })
     });
-    let instrument_state_status = match (instrument_state, provider_mapping, market, account) {
+    let mut instrument_state_status = match (instrument_state, provider_mapping, market, account) {
         (_, _, _, _) if local_simulation => (
             RiskCheckOutcome::Pass,
             RiskDecisionReasonCode::NotApplicable,
         ),
         (Some(state), Some(mapping), Some(market), Some(account))
-            if state.status == crate::protocol::InstrumentTradingStatus::Tradable
+            if exact_instrument_binding
+                && state.status == crate::protocol::InstrumentTradingStatus::Tradable
                 && state.provider_id == account.provider_id
                 && state.provider_symbol == mapping.provider_symbol
                 && state.venue == proposal.fields.venue
@@ -2024,6 +2357,27 @@ pub(crate) fn evaluate(
             RiskDecisionReasonCode::InstrumentRulesUnavailable,
         ),
     };
+    // Collected ordinary Spot metadata can reject admission; it never supplies
+    // the reference prices, dynamic bounds or per-Proposal execution qualification.
+    if ordinary_binance_rules {
+        instrument_state_status = if admitted.is_some_and(|e| !e.admission_blockers.is_empty()) {
+            (
+                RiskCheckOutcome::Reject,
+                if admitted.is_some_and(|e| {
+                    e.symbol_status == crate::protocol::BinanceSpotSymbolStatus::Halt
+                }) {
+                    RiskDecisionReasonCode::MarketHalted
+                } else {
+                    RiskDecisionReasonCode::InstrumentRulesUnavailable
+                },
+            )
+        } else {
+            (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::InstrumentRulesUnavailable,
+            )
+        };
+    }
     push!(
         RiskCheckId::InstrumentRules,
         instrument_state_status.0,
@@ -2034,6 +2388,10 @@ pub(crate) fn evaluate(
             "A current provider instrument-tradability observation matches this account and venue."
         } else if instrument_state_status.1 == RiskDecisionReasonCode::MarketHalted {
             "The provider reports that this instrument is halted."
+        } else if ordinary_binance_rules && instrument_state_status.0 == RiskCheckOutcome::Reject {
+            "Current exact-account Spot metadata rejects admission. These checks apply to new orders; exact cancellation remains independent."
+        } else if ordinary_binance_rules {
+            "Complete per-Proposal Spot rule qualification is unavailable. Collected metadata cannot supply references, dynamic bounds, quotes or data rights."
         } else {
             "A current provider instrument-tradability observation is unavailable or mismatched."
         },
@@ -2061,6 +2419,12 @@ pub(crate) fn evaluate(
         state_version: String::new(),
         inputs,
         checks,
+        spot_rules: None,
+        spot_capacity: None,
+        spot_order_intervals: None,
+        spot_owning: None,
+        spot_fee_fx: None,
+        spot_commission: None,
     }
 }
 
@@ -2227,7 +2591,250 @@ fn price_deviation(limit_price: &str, last_price: &str) -> Option<String> {
     .ok()
 }
 
-fn market_freshness(
+/// Exact numerator/denominator for adverse top price versus the current midpoint.
+/// Missing or insufficient displayed depth is unavailable; no deeper fill is inferred.
+pub(crate) fn market_order_slippage(
+    proposal: &crate::protocol::OrderProposal,
+    market: Option<&crate::protocol::MarketDetail>,
+    time_status: &crate::protocol::TimeStatus,
+    maximum_age_seconds: u64,
+) -> Option<(String, String)> {
+    use crate::protocol::{OrderQuantityType, OrderSide, OrderType};
+    use std::cmp::Ordering;
+    if proposal.fields.order_type != OrderType::Market
+        || market_freshness(market, time_status, maximum_age_seconds).0 != RiskCheckOutcome::Pass
+    {
+        return None;
+    }
+    let market = market?;
+    let snapshot = market.snapshot.as_ref()?;
+    for (value, maximum) in [
+        (snapshot.provenance.market_snapshot_id.as_str(), 128),
+        (snapshot.provenance.source.as_str(), 32),
+    ] {
+        if value.trim().is_empty() || value.len() > maximum || value.chars().any(char::is_control) {
+            return None;
+        }
+    }
+    if !execution_quote_matches(proposal, market) {
+        return None;
+    }
+    let bid = snapshot.bid.as_deref()?;
+    let ask = snapshot.ask.as_deref()?;
+    let size = match proposal.fields.side {
+        OrderSide::Buy => snapshot.ask_size.as_deref()?,
+        OrderSide::Sell => snapshot.bid_size.as_deref()?,
+    };
+    let quantity = proposal.fields.quantity.value.as_str();
+    for value in [bid, ask, size, quantity] {
+        if value.len() > 64
+            || crate::provider_io::decimal_cmp(
+                &crate::provider_io::decimal(&Value::String(value.into())).ok()?,
+                "0",
+            )
+            .ok()?
+                != Ordering::Greater
+        {
+            return None;
+        }
+    }
+    // BUY quoteOrderQty is in QUOTE; compare with exact ask * displayed BASE
+    // size. Never truncate a derived BASE quantity before the coverage check.
+    let covered = match proposal.fields.quantity.r#type {
+        OrderQuantityType::Base => size.to_owned(),
+        OrderQuantityType::Quote
+            if proposal.fields.side == OrderSide::Buy && snapshot.provenance.binance.is_some() =>
+        {
+            crate::portfolio::decimal_mul(ask, size).ok()?
+        }
+        _ => return None,
+    };
+    if crate::provider_io::decimal_cmp(bid, ask).ok()? == Ordering::Greater
+        || crate::provider_io::decimal_cmp(quantity, &covered).ok()? == Ordering::Greater
+    {
+        return None;
+    }
+    let spread = crate::provider_io::decimal_subtract(ask, bid).ok()?;
+    Some((
+        crate::portfolio::decimal_mul("100", &spread).ok()?,
+        crate::portfolio::decimal_add(ask, bid).ok()?,
+    ))
+}
+
+pub(crate) fn execution_quote_matches(
+    proposal: &crate::protocol::OrderProposal,
+    market: &crate::protocol::MarketDetail,
+) -> bool {
+    let Some(snapshot) = market.snapshot.as_ref() else {
+        return false;
+    };
+    if market.workspace_id != proposal.workspace_id
+        || market.instrument.instrument_id != proposal.fields.instrument_id
+        || snapshot.instrument_id != proposal.fields.instrument_id
+    {
+        return false;
+    }
+    if let Some(evidence) = snapshot.provenance.alpaca.as_ref() {
+        verified_sip_quote(market, snapshot) && proposal.fields.venue == evidence.listing_venue
+    } else if snapshot.provenance.binance.is_some() {
+        verified_binance_quote(market, snapshot)
+            && proposal.fields.venue == "BINANCE"
+            && proposal.fields.environment == crate::protocol::ExecutionContext::BinanceLive
+    } else {
+        snapshot.provenance.venue.as_deref() == Some(proposal.fields.venue.as_str())
+    }
+}
+
+/// The producer's AVAILABLE projection already enforces current runtime ownership
+/// and monotonic age. Consumers additionally qualify exact canonical provenance;
+/// quote collection does not establish permitted use or execution authority.
+fn verified_binance_quote(
+    market: &crate::protocol::MarketDetail,
+    snapshot: &crate::protocol::MarketSnapshot,
+) -> bool {
+    use crate::protocol::{AssetClass, QuoteDepthUnit, SpotDepthCoverage, SpotMarketEnvironment};
+    use std::cmp::Ordering;
+    let Some(e) = snapshot.provenance.binance.as_ref() else {
+        return false;
+    };
+    let (base, symbol) = match market.instrument.instrument_id.as_str() {
+        "crypto:BTC/USDT:spot" => ("BTC", "BTCUSDT"),
+        "crypto:ETH/USDT:spot" => ("ETH", "ETHUSDT"),
+        _ => return false,
+    };
+    let positive = |value: &str| {
+        value.len() <= 64
+            && crate::provider_io::decimal_cmp(value, "0").ok() == Some(Ordering::Greater)
+    };
+    let version_prefix = format!("binance-market:{}:", market.workspace_id);
+    let event_time = e.provider_event_time_ms.parse::<i64>().ok();
+    let provider_time = time::OffsetDateTime::parse(
+        &snapshot.provenance.provider_timestamp,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .ok();
+    market.source_id.as_deref() == Some(crate::binance_market::SOURCE_ID)
+        && market.instrument.asset_class == AssetClass::CryptoSpot
+        && market.instrument.currency == "USDT"
+        && market.instrument.base.as_deref() == Some(base)
+        && market.instrument.quote.as_deref() == Some("USDT")
+        && market
+            .instrument
+            .providers
+            .iter()
+            .any(|p| p.provider_id == "binance" && p.provider_symbol == symbol)
+        && snapshot.instrument_id == market.instrument.instrument_id
+        && snapshot.provenance.source == crate::binance_market::SOURCE_ID
+        && snapshot.provenance.venue.as_deref() == Some("BINANCE")
+        && snapshot.provenance.alpaca.is_none()
+        && snapshot.last_price.is_none()
+        && e.workspace_id == market.workspace_id
+        && e.environment == SpotMarketEnvironment::Ordinary
+        && e.provider_symbol == symbol
+        && e.base_asset == base
+        && e.quote_asset == "USDT"
+        && e.depth_unit == QuoteDepthUnit::Base
+        && e.depth_coverage == SpotDepthCoverage::KnownPriceBands
+        && [
+            &e.session_id,
+            &e.time_generation,
+            &e.lease_id,
+            &e.connection_generation,
+        ]
+        .iter()
+        .all(|id| uuid::Uuid::parse_str(id).is_ok())
+        && e.source_version
+            .strip_prefix(&version_prefix)
+            .and_then(|n| n.parse::<u64>().ok())
+            .is_some_and(|n| (1..=crate::protocol::MAX_SEQUENCE).contains(&n))
+        && e.book_update_id.parse::<i64>().is_ok_and(|n| n > 0)
+        && event_time.is_some_and(|n| {
+            n > 0
+                && provider_time
+                    .is_some_and(|p| p.unix_timestamp_nanos() == i128::from(n) * 1_000_000)
+        })
+        && e.material_hash.len() == 64
+        && e.material_hash
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && (1..=5000).contains(&e.known_bid_levels)
+        && (1..=5000).contains(&e.known_ask_levels)
+        && e.bids.len() == (e.known_bid_levels as usize).min(20)
+        && e.asks.len() == (e.known_ask_levels as usize).min(20)
+        && e.bids
+            .iter()
+            .chain(&e.asks)
+            .all(|l| positive(&l.price) && positive(&l.quantity))
+        && e.bids.first().is_some_and(|l| {
+            Some(l.price.as_str()) == snapshot.bid.as_deref()
+                && Some(l.quantity.as_str()) == snapshot.bid_size.as_deref()
+        })
+        && e.asks.first().is_some_and(|l| {
+            Some(l.price.as_str()) == snapshot.ask.as_deref()
+                && Some(l.quantity.as_str()) == snapshot.ask_size.as_deref()
+        })
+        && snapshot
+            .bid
+            .as_deref()
+            .zip(snapshot.ask.as_deref())
+            .is_some_and(|(bid, ask)| {
+                crate::provider_io::decimal_cmp(bid, ask).is_ok_and(|o| o != Ordering::Greater)
+            })
+}
+
+fn verified_sip_quote(
+    market: &crate::protocol::MarketDetail,
+    snapshot: &crate::protocol::MarketSnapshot,
+) -> bool {
+    use crate::protocol::{AlpacaFeed, AssetClass, QuoteCoverage, QuoteDepthUnit};
+    use std::cmp::Ordering;
+    let Some(evidence) = snapshot.provenance.alpaca.as_ref() else {
+        return false;
+    };
+    let positive = |value: Option<&str>| {
+        value.is_some_and(|value| {
+            value.len() <= 64
+                && crate::provider_io::decimal_cmp(value, "0").ok() == Some(Ordering::Greater)
+        })
+    };
+    market.instrument.asset_class == AssetClass::Equity
+        && matches!(
+            market.instrument.instrument_id.as_str(),
+            "equity:US:AAPL" | "equity:US:MSFT"
+        )
+        && market.instrument.currency == "USD"
+        && market.instrument.exchange.as_deref() == Some(evidence.listing_venue.as_str())
+        && evidence.listing_venue == "XNAS"
+        && market.instrument.providers.iter().any(|mapping| {
+            mapping.provider_id == "alpaca" && mapping.provider_symbol == evidence.provider_symbol
+        })
+        && snapshot.instrument_id == market.instrument.instrument_id
+        && snapshot.provenance.source == "OD-001"
+        && snapshot.provenance.venue.as_deref() == Some("US_SIP")
+        && evidence.feed == AlpacaFeed::Sip
+        && evidence.coverage == QuoteCoverage::UsSip
+        && evidence.tape == "C"
+        && evidence.regular_conditions
+        && !evidence.conditions.is_empty()
+        && evidence.conditions.len() <= 16
+        && evidence
+            .conditions
+            .iter()
+            .all(|condition| condition.code == "R" && condition.name == "Regular Two Sided Open")
+        && evidence.depth_unit == QuoteDepthUnit::Base
+        && positive(snapshot.bid.as_deref())
+        && positive(snapshot.ask.as_deref())
+        && snapshot
+            .bid
+            .as_deref()
+            .zip(snapshot.ask.as_deref())
+            .is_some_and(|(bid, ask)| {
+                crate::provider_io::decimal_cmp(bid, ask)
+                    .is_ok_and(|order| order != Ordering::Greater)
+            })
+}
+
+pub(crate) fn market_freshness(
     market: Option<&crate::protocol::MarketDetail>,
     time_status: &crate::protocol::TimeStatus,
     maximum_age_seconds: u64,
@@ -2261,7 +2868,13 @@ fn market_freshness(
     };
     if snapshot.provenance.entitlement != MarketEntitlement::Realtime
         || snapshot.provenance.freshness != MarketFreshness::Healthy
-        || snapshot.last_price.is_none()
+        || if snapshot.provenance.alpaca.is_some() {
+            !verified_sip_quote(market, snapshot)
+        } else if snapshot.provenance.binance.is_some() {
+            !verified_binance_quote(market, snapshot)
+        } else {
+            snapshot.last_price.is_none()
+        }
     {
         return (
             RiskCheckOutcome::Unavailable,
@@ -2537,6 +3150,64 @@ mod tests {
             portfolio_digest(&portfolio_a),
             portfolio_digest(&portfolio_b)
         );
+    }
+
+    #[test]
+    fn spot_fee_fx_input_digest_ignores_wallet_read_receipts_but_binds_balances_and_claims() {
+        let statement = serde_json::json!({
+            "outcome": "PASS",
+            "walletFundingEvidence": {
+                "status": "COMPLETE",
+                "requiredAssets": ["BTC", "USDT", "BNB"],
+                "missingAssets": [],
+                "balances": [{
+                    "asset": "USDT", "free": "500", "locked": "300",
+                    "localClaims": "20", "effectiveFree": "480"
+                }],
+                "workspaceId": "workspace", "proposalId": "proposal",
+                "proposalHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                "accountId": "account", "sourceVersion": "source-v1",
+                "ruleMaterialVersion": "rules-v1", "capacityBindingVersion": "binding-v1",
+                "collectionId": "collection-1", "accountReadStartedAt": "start-1",
+                "firstReceipt": "receipt-1", "originalDigest": "digest-1"
+            },
+            "currentFeeModel": {
+                "bnbFundingEvidence": {
+                    "asset": "BNB", "free": "1", "locked": "0", "localClaims": "0",
+                    "effectiveFree": "1", "collectionId": "collection-1",
+                    "capacityBindingVersion": "binding-v1", "startedAt": "start-1",
+                    "firstReceipt": "receipt-1", "originalDigest": "digest-1"
+                }
+            }
+        });
+        let digest = |value: &Value| {
+            input_reference(
+                RiskDecisionInputKind::SpotFeeFx,
+                "proposal".into(),
+                None,
+                value,
+            )
+            .unwrap()
+            .digest
+        };
+
+        let original_digest = digest(&statement);
+        let mut reread = statement.clone();
+        reread["walletFundingEvidence"]["collectionId"] = "collection-2".into();
+        reread["walletFundingEvidence"]["accountReadStartedAt"] = "start-2".into();
+        reread["walletFundingEvidence"]["firstReceipt"] = "receipt-2".into();
+        reread["walletFundingEvidence"]["originalDigest"] = "digest-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["collectionId"] = "collection-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["startedAt"] = "start-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["firstReceipt"] = "receipt-2".into();
+        reread["currentFeeModel"]["bnbFundingEvidence"]["originalDigest"] = "digest-2".into();
+        assert_eq!(original_digest, digest(&reread));
+
+        reread["walletFundingEvidence"]["balances"][0]["free"] = "499".into();
+        assert_ne!(original_digest, digest(&reread));
+        reread["walletFundingEvidence"]["balances"][0]["free"] = "500".into();
+        reread["walletFundingEvidence"]["balances"][0]["localClaims"] = "21".into();
+        assert_ne!(original_digest, digest(&reread));
     }
 
     #[test]

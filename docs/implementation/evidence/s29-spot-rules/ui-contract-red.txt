@@ -1,0 +1,1 @@
+Public React→Rust workspace.open returned storageSchemaVersion 36. Generated Workspace validator rejected /storageSchemaVersion: maximum <= 35. Actual UI showed “The application and runtime are incompatible. Update them together before continuing.” This is an actual runtime incompatibility, not provider failure; source collection Rust tests alone did not detect it.

@@ -12,7 +12,7 @@ use crate::{
         ResolutionEvidenceOutcome, ResolutionEvidenceRefresh, Result, TimeInForce, TradeXError,
         Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrder,
         Trading212DemoOrderAttempt, Trading212DemoOrderAttemptState, Trading212DemoOrderBook,
-        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin,
+        Trading212DemoOrderBookStatus, Trading212DemoOrderOrigin, WorkspaceArchiveCredentialStatus,
     },
     providers::*,
 };
@@ -30,7 +30,9 @@ use std::{
 use zeroize::Zeroizing;
 
 #[path = "binance.rs"]
-mod binance;
+pub(crate) mod binance;
+#[path = "binance_read_budget.rs"]
+pub(crate) mod binance_read_budget;
 #[path = "bitget.rs"]
 mod bitget;
 #[path = "trading212.rs"]
@@ -260,7 +262,29 @@ pub trait CredentialVault {
     fn remove(&self, reference: &str) -> Result<()>;
 }
 
+#[derive(Clone, Copy)]
 pub struct NativeVault;
+
+impl NativeVault {
+    pub fn check_reference(&self, reference: &str) -> WorkspaceArchiveCredentialStatus {
+        #[cfg(target_os = "macos")]
+        {
+            match security_framework::passwords::get_generic_password(SERVICE, reference) {
+                Ok(bytes) => {
+                    drop(Zeroizing::new(bytes));
+                    WorkspaceArchiveCredentialStatus::PresentUnverified
+                }
+                Err(error) if error.code() == -25300 => WorkspaceArchiveCredentialStatus::Missing,
+                Err(_) => WorkspaceArchiveCredentialStatus::Unavailable,
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = reference;
+            WorkspaceArchiveCredentialStatus::Unavailable
+        }
+    }
+}
 
 #[cfg(target_os = "macos")]
 impl CredentialVault for NativeVault {
@@ -292,6 +316,7 @@ impl CredentialVault for NativeVault {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProviderEndpoint {
     AlpacaPaper,
+    AlpacaMarketData,
     Trading212Demo,
     Trading212Live,
     BinanceTestnet,
@@ -302,7 +327,7 @@ pub enum ProviderEndpoint {
 impl ProviderEndpoint {
     fn scheduler_provider(self) -> &'static str {
         match self {
-            Self::AlpacaPaper => "alpaca",
+            Self::AlpacaPaper | Self::AlpacaMarketData => "alpaca",
             Self::Trading212Demo | Self::Trading212Live => "trading212",
             Self::BinanceTestnet | Self::BinanceLive => "binance",
             Self::BitgetDemo | Self::BitgetLive => "bitget",
@@ -312,6 +337,7 @@ impl ProviderEndpoint {
     pub fn base_url(self) -> &'static str {
         match self {
             Self::AlpacaPaper => "https://paper-api.alpaca.markets",
+            Self::AlpacaMarketData => "https://data.alpaca.markets",
             Self::Trading212Demo => "https://demo.trading212.com",
             Self::Trading212Live => "https://live.trading212.com",
             Self::BinanceTestnet => "https://testnet.binance.vision",
@@ -328,6 +354,12 @@ impl ProviderEndpoint {
     fn allows(self, path: &str) -> bool {
         match self {
             Self::AlpacaPaper => allowed_path(path),
+            Self::AlpacaMarketData => {
+                crate::quote_source::allowed_latest_path(path)
+                    || crate::financial_sources::allowed_actions_path(path)
+                    || crate::financial_sources::allowed_fx_path(path)
+                    || crate::financial_sources::allowed_fx_crypto_path(path)
+            }
             Self::BitgetDemo => bitget::allows(path),
             Self::BitgetLive => {
                 bitget::allows(path)
@@ -350,6 +382,8 @@ impl ProviderEndpoint {
                     "/api/v0/equity/account/summary"
                         | "/api/v0/equity/positions"
                         | "/api/v0/equity/orders"
+                        | "/api/v0/equity/metadata/instruments"
+                        | "/api/v0/equity/metadata/exchanges"
                 ) || valid_t212_order_detail_path(path)
                     || valid_t212_history_path(path)
             }
@@ -973,6 +1007,14 @@ pub fn p1_provider_http<'a, H: ProviderHttp>(
     account_id: &'a str,
 ) -> impl ProviderHttp + 'a {
     prioritized_provider_http(inner, current, account_id, ProviderPriority::P1)
+}
+
+pub(crate) fn p3_provider_http<'a, H: ProviderHttp>(
+    inner: &'a H,
+    current: &'a dyn Fn() -> bool,
+    account_id: &'a str,
+) -> impl ProviderHttp + 'a {
+    prioritized_provider_http(inner, current, account_id, ProviderPriority::P3)
 }
 
 fn prioritized_provider_http<'a, H: ProviderHttp>(
@@ -1678,7 +1720,7 @@ fn body_ticker_for_live_proposal(proposal: &OrderProposal) -> Result<String> {
 }
 
 pub struct BrokerHttp {
-    client: std::cell::OnceCell<Result<Client>>,
+    client: OnceLock<Result<Client>>,
     #[cfg(feature = "integration-test")]
     local_test_base_url: Option<String>,
 }
@@ -1713,7 +1755,7 @@ impl BrokerHttp {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
         Ok(Self {
-            client: std::cell::OnceCell::new(),
+            client: OnceLock::new(),
             local_test_base_url: Some(base_url.trim_end_matches('/').to_owned()),
         })
     }
@@ -1730,12 +1772,15 @@ impl BrokerHttp {
     }
 
     fn url(&self, endpoint: ProviderEndpoint, path: &str) -> String {
-        let base = if matches!(
-            endpoint,
-            ProviderEndpoint::Trading212Live
-                | ProviderEndpoint::BinanceLive
-                | ProviderEndpoint::BitgetLive
-        ) {
+        let base = if (endpoint == ProviderEndpoint::AlpacaPaper
+            && crate::calendar_source::allowed_path(path))
+            || matches!(
+                endpoint,
+                ProviderEndpoint::Trading212Live
+                    | ProviderEndpoint::AlpacaMarketData
+                    | ProviderEndpoint::BinanceLive
+                    | ProviderEndpoint::BitgetLive
+            ) {
             self.local_test_base_url()
                 .unwrap_or_else(|| endpoint.base_url())
         } else {
@@ -1748,7 +1793,7 @@ impl BrokerHttp {
 impl Default for BrokerHttp {
     fn default() -> Self {
         Self {
-            client: std::cell::OnceCell::new(),
+            client: OnceLock::new(),
             #[cfg(feature = "integration-test")]
             local_test_base_url: None,
         }
@@ -1843,9 +1888,22 @@ impl ProviderHttp for BrokerHttp {
         let response = request
             .send()
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
+        let response_limit = match (endpoint, path) {
+            (ProviderEndpoint::Trading212Live, "/api/v0/equity/metadata/instruments") => {
+                8 * 1024 * 1024
+            }
+            (ProviderEndpoint::AlpacaMarketData, path)
+                if crate::financial_sources::allowed_actions_path(path)
+                    || crate::financial_sources::allowed_fx_path(path)
+                    || crate::financial_sources::allowed_fx_crypto_path(path) =>
+            {
+                512 * 1024
+            }
+            _ => MAX_RESPONSE,
+        };
         if response
             .content_length()
-            .is_some_and(|length| length > MAX_RESPONSE)
+            .is_some_and(|length| length > response_limit)
         {
             return Err(invalid());
         }
@@ -1856,10 +1914,10 @@ impl ProviderHttp for BrokerHttp {
         }
         let mut bytes = Vec::new();
         response
-            .take(MAX_RESPONSE + 1)
+            .take(response_limit + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| TradeXError::new("PROVIDER_UNAVAILABLE"))?;
-        if bytes.len() as u64 > MAX_RESPONSE {
+        if bytes.len() as u64 > response_limit {
             return Err(invalid());
         }
         Ok((
@@ -1965,6 +2023,7 @@ pub(crate) struct LiveOrderObservation {
 }
 
 pub(crate) struct Observation {
+    pub binance_trading_status: Option<crate::providers::BinanceTradingStatus>,
     pub data: AccountData,
     pub permissions: PermissionReview,
     pub live_order_settlements: Vec<LiveOrderObservation>,
@@ -2200,7 +2259,21 @@ impl ProviderJob {
                 if !current() {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
-                let bytes = http.get(endpoint, path, auth.clone())?;
+                let bytes = if endpoint == ProviderEndpoint::Trading212Live
+                    && path == "/api/v0/equity/account/summary"
+                {
+                    let response = read_live_summary(
+                        &http,
+                        self.account
+                            .data
+                            .as_ref()
+                            .map(|data| data.remote_account_id.as_str()),
+                        auth.clone(),
+                    )?;
+                    classify_get_response(endpoint, response.status, response.body)?
+                } else {
+                    http.get(endpoint, path, auth.clone())?
+                };
                 if bytes.len() as u64 > MAX_RESPONSE {
                     return Err(invalid());
                 }
@@ -2781,13 +2854,24 @@ impl ProviderJob {
                 if !current() {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
-                let response = http.request(
-                    ProviderEndpoint::Trading212Live,
-                    ProviderHttpMethod::Get,
-                    path,
-                    auth.clone(),
-                    None,
-                )?;
+                let response = if path == "/api/v0/equity/account/summary" {
+                    read_live_summary(
+                        http,
+                        self.account
+                            .data
+                            .as_ref()
+                            .map(|data| data.remote_account_id.as_str()),
+                        auth.clone(),
+                    )?
+                } else {
+                    http.request(
+                        ProviderEndpoint::Trading212Live,
+                        ProviderHttpMethod::Get,
+                        path,
+                        auth.clone(),
+                        None,
+                    )?
+                };
                 if response.status != 200 {
                     return Err(trading212_order_read_error(
                         response.status,
@@ -5020,6 +5104,50 @@ fn incomplete() -> TradeXError {
     TradeXError::new("PROVIDER_RESPONSE_INCOMPLETE")
 }
 
+fn read_live_summary(
+    http: &impl ProviderHttp,
+    remote: Option<&str>,
+    headers: HeaderMap,
+) -> Result<ProviderHttpResponse> {
+    let mut reservation = remote
+        .map(crate::financial_sources::reserve_tracked_summary)
+        .transpose()?;
+    let outcome = http.request_with_rate_limit(
+        ProviderEndpoint::Trading212Live,
+        ProviderHttpMethod::Get,
+        "/api/v0/equity/account/summary",
+        headers,
+        None,
+    );
+    if let Some(reservation) = reservation.as_mut() {
+        let (status, limit) = outcome
+            .as_ref()
+            .map(|(response, limit)| (response.status, limit.as_ref()))
+            .unwrap_or((0, None));
+        reservation.complete("/api/v0/equity/account/summary", status, limit)?;
+    }
+    outcome.map(|(response, _)| response)
+}
+
+pub(crate) fn trading212_source_headers(credentials: &Credentials) -> Result<HeaderMap> {
+    let values = credentials.values()?;
+    if values.len() != 2 {
+        return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+    }
+    use base64::Engine;
+    let auth = Zeroizing::new(format!("{}:{}", values[0], values[1]));
+    let encoded = Zeroizing::new(format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD.encode(auth.as_bytes())
+    ));
+    let mut header =
+        HeaderValue::from_str(&encoded).map_err(|_| TradeXError::new("CREDENTIAL_UNAVAILABLE"))?;
+    header.set_sensitive(true);
+    let mut headers = HeaderMap::new();
+    headers.insert("Authorization", header);
+    Ok(headers)
+}
+
 pub(crate) fn alpaca_headers(values: &[String]) -> Result<HeaderMap> {
     if values.len() != 2 {
         return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
@@ -5217,9 +5345,21 @@ fn trading212_order_request(
     ) || fields.environment != environment
         || fields.account_id.as_deref() != Some(connection_id)
         || fields.quantity.r#type != OrderQuantityType::Base
-        || fields.maximum_spend.is_some()
+        || (fields.maximum_spend.is_some()
+            && (environment != ExecutionContext::Trading212Live
+                || fields.order_type != OrderType::Market))
     {
         return Err(TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"));
+    }
+    if environment == ExecutionContext::Trading212Live && fields.order_type == OrderType::Market {
+        let maximum = fields
+            .maximum_spend
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("ORDER_PROPOSAL_NOT_ELIGIBLE"))?;
+        let maximum = decimal(&Value::String(maximum.clone()))?;
+        if decimal_cmp(&maximum, "0")? != std::cmp::Ordering::Greater {
+            return Err(TradeXError::new("ORDER_AMOUNT_INVALID"));
+        }
     }
     let instrument = market::instruments()
         .into_iter()
@@ -5668,6 +5808,9 @@ pub(super) fn decimal_cmp(left: &str, right: &str) -> Result<std::cmp::Ordering>
 }
 
 fn allowed_path(path: &str) -> bool {
+    if crate::calendar_source::allowed_path(path) {
+        return true;
+    }
     if matches!(
         path,
         "/v2/account"
@@ -5748,7 +5891,7 @@ fn invalid() -> TradeXError {
     TradeXError::new("PROVIDER_RESPONSE_INVALID")
 }
 
-fn contains_secret(value: &Value, secrets: &[String]) -> bool {
+pub(crate) fn contains_secret(value: &Value, secrets: &[String]) -> bool {
     let contains = |text: &str| secrets.iter().any(|secret| text.contains(secret));
     match value {
         Value::String(text) => contains(text),
@@ -6398,6 +6541,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 quantity,
                 notional,
                 filled_quantity: Some(decimal(&o["filled_qty"])?),
+                remaining_quantity: None,
                 filled_value: None,
                 currency: Some(currency.clone()),
                 status,
@@ -6414,6 +6558,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
         ..PermissionReview::default()
     };
     Ok(Observation {
+        binance_trading_status: None,
         data: AccountData {
             remote_account_id,
             account_type: "ALPACA_PAPER".into(),

@@ -1,0 +1,20 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `workspace` is never read
+   --> src-tauri/tests/binance_market_hot.rs:243:5
+    |
+238 | struct HotView {
+    |        ------- field in this struct
+...
+243 |     workspace: Value,
+    |     ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "binance_market_hot") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.21s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.32s

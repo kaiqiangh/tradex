@@ -1,0 +1,113 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.66s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-1740cd553d5aeb1f)
+
+running 15 tests
+test owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visible ... 
+running 1 test
+test owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visible ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.14s
+
+ok
+test owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider_read ... 
+running 1 test
+test owning_fee_fx_captured_history_survives_refresh_and_reopen_without_a_provider_read ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.19s
+
+ok
+test owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate ... 
+running 1 test
+test owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.35s
+
+ok
+test owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority ... 
+running 1 test
+test owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.18s
+
+ok
+test owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact ... 
+running 1 test
+test owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.15s
+
+ok
+test owning_fee_fx_gate_refuses_approval_and_leaves_no_partial_state ... 
+running 1 test
+test owning_fee_fx_gate_refuses_approval_and_leaves_no_partial_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.17s
+
+ok
+test owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation ... 
+running 1 test
+test owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.15s
+
+ok
+test owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers ... 
+running 1 test
+test owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.12s
+
+ok
+test owning_fee_fx_stays_visible_when_capacity_evidence_is_absent ... 
+running 1 test
+test owning_fee_fx_stays_visible_when_capacity_evidence_is_absent ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.09s
+
+ok
+test owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate ... 
+running 1 test
+test owning_fee_model_known_zero_discounted_expression_requires_no_bnb_funds_or_rate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.12s
+
+ok
+test owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof ... 
+running 1 test
+test owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.21s
+
+ok
+test owning_fee_model_preserves_tiny_positive_bnb_instead_of_inventing_zero_fallback ... 
+running 1 test
+test owning_fee_model_preserves_tiny_positive_bnb_instead_of_inventing_zero_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.14s
+
+ok
+test owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion ... 
+running 1 test
+test owning_fee_model_proven_zero_available_bnb_uses_current_fallback_without_conversion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.15s
+
+ok
+test owning_fee_model_selects_complete_role_after_outward_family_rounding ... 
+running 1 test
+test owning_fee_model_selects_complete_role_after_outward_family_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.12s
+
+ok
+test owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx ... 
+running 1 test
+test owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 117 filtered out; finished in 0.15s
+
+ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 103 filtered out; finished in 6.13s
+

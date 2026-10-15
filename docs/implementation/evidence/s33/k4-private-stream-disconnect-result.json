@@ -1,0 +1,84 @@
+{
+  "result": "PASS_LIMITED",
+  "screenIds": [
+    "J5",
+    "K4"
+  ],
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:36:13.788Z",
+  "workspace": "643d111e-1fa0-4ca7-a62e-75a0e721109d",
+  "fixture": "synthetic local private-stream disconnect; no provider request",
+  "test": "tests/s33-private-stream-disconnect-playwright.js",
+  "testSha256": "37e54ae2a3e7fdfa6e99e34ffad66b8f26ccdd30aadb7f8ed6613cb807a57efe",
+  "health": {
+    "connection": "ONLINE",
+    "authentication": "VALID",
+    "credential": "CONFIGURED",
+    "privateStream": "DEGRADED",
+    "reconciliation": "DEGRADED",
+    "executionEligibility": "BLOCKED",
+    "arming": "DISARMED"
+  },
+  "recoveryAction": "Reload state",
+  "responsive": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "liveArmDisabled": true,
+      "accountHealthDimensionsVisible": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "liveArmDisabled": true,
+      "accountHealthDimensionsVisible": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "liveArmDisabled": true,
+      "accountHealthDimensionsVisible": true
+    }
+  ],
+  "commands": [
+    "account.private_stream_disconnect.fixture.seed",
+    "account.activity",
+    "provider.list_definitions",
+    "domain.snapshot",
+    "account.list",
+    "paper.get",
+    "domain.subscribe",
+    "domain.snapshot",
+    "domain.subscribe",
+    "trade.cancel_approval.list",
+    "provider.list_definitions",
+    "domain.snapshot",
+    "account.list",
+    "paper.get",
+    "runtime.status",
+    "time.status",
+    "domain.subscribe"
+  ],
+  "unexpectedCommands": [],
+  "forbiddenCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "armActivated": false,
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/private-stream-disconnect-390.png",
+      "sha256": "449ee86f9acc5aff7d7140db4ab1330bae1274459deee4c769322626bc550982"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/private-stream-health-390.png",
+      "sha256": "73e20f2ad2b333d9e9f0ec96e4c949d2598dbe9d3255f740ae3e2f888e4ba278"
+    }
+  ],
+  "limits": [
+    "Synthetic local projection only; not a real provider stream-loss/reconnect or provider reconciliation test.",
+    "Reopened K2 synthetic account state is independent; its CURRENT privateStream seed is not used as K4 evidence."
+  ],
+  "overallSurfaceStatus": "IN_PROGRESS"
+}

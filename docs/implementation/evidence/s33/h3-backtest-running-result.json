@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "screenId": "H3",
+  "title": "Backtest Running",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "workspaceFileSha256": {
+    "src/BacktestRunPanel.tsx": "f130799f979b13c63c89c31ed016c5243e512cbd8f3e1281653d1aea0a64ae2c",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/backtest.rs": "33565402a1da282aabc159ba5d58a791937ed953a341c5e61deab34588bc0840",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-backtest-running-screen-playwright.js": "ba6553ca24c0188687da3c61c3442214206c569aff4bedfe894270185e96e245",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-backtest-running-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "e81a2e50-c911-4544-8796-550a27fb94dc",
+  "runId": "f839a4b2-f6f7-4f95-98d8-8c200fd20a3b",
+  "fixtureBoundary": "TRADEX_BACKTEST_FIXTURE=1; synthetic local backtest only",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "observations": {
+    "runningStatusVisible": true,
+    "politeLiveRegion": true,
+    "exactRunIdVisible": true,
+    "frozenConfigurationVisible": true,
+    "cancelEnabled": true,
+    "indeterminateProgressNoNumericEstimate": true,
+    "reducedMotionStopsAnimation": true,
+    "noHorizontalOverflow": true
+  },
+  "commandCounts": {
+    "backtest.run": 1,
+    "backtest.cancel": 0,
+    "strategy.run": 0,
+    "providerFinancialCommands": 0,
+    "externalHttpRequests": 0
+  },
+  "screenshots": [
+    "backtest-running-390.png"
+  ],
+  "scopeLimits": [
+    "This run leaves Cancel untouched; the running-to-cancelled transition is covered by existing S15 evidence.",
+    "The synthetic fixture is not real historical-data or production runtime acceptance.",
+    "H3 is one local S33 screen slice and does not complete the remaining screen inventory, S33, or issue #141."
+  ]
+}

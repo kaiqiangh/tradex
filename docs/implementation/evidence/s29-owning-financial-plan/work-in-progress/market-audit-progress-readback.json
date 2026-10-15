@@ -1,0 +1,32 @@
+{
+  "base": "308747ad19e5f0fc1ba4e0b3b54b062250e317f0",
+  "requirementCount": 203,
+  "onlySourceLinePointersChanged": true,
+  "requirementStatusesUnchanged": true,
+  "prototypeChanged": false,
+  "completeFinancialAcceptance": false,
+  "schemaCheck": "PASS: Rust / JSON Schema / TypeScript agree",
+  "schemaToolExitCode": 0,
+  "owningFeeCurrentRegressionPassed": 15,
+  "marketQuoteCurrentRegressionPassed": 5,
+  "hotBeforeAuditRegressionPassed": 54,
+  "hotBeforeAuditIsFinalTicketCheck": false,
+  "newPublicBehaviors": 11,
+  "latestQuoteUIWidths": [
+    1280,
+    768,
+    390
+  ],
+  "latestQuoteUIPassed": true,
+  "latestQuoteUIConsole": [],
+  "issueProgressComment": "https://github.com/kaiqiangh/tradex/issues/135#issuecomment-6103893393",
+  "issuesOpen": 10,
+  "owningAcceptanceUnchecked": 14,
+  "owningAcceptanceChecked": 0,
+  "committed": false,
+  "independentReviewsRun": false,
+  "ordinaryDesktopPinVerified": false,
+  "ownedTemporaryTabClosed": true,
+  "ownedPort1432Stopped": true,
+  "branch": "dev"
+}

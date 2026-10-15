@@ -1,0 +1,997 @@
+COMMAND: cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::result_large_err
+
+    Checking tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error: this `if` statement can be collapsed
+   --> src-tauri/src/financial_sources/binance_rules.rs:284:9
+    |
+284 | /         if let Some(name) = exponent {
+285 | |             if let Some(raw) = map.remove(name) {
+286 | |                 let n: u32 = serde_json::from_str(raw.get()).map_err(|_| invalid())?;
+287 | |                 if n > 64 {
+...   |
+296 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+    = note: `-D clippy::collapsible-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+    |
+284 ~         if let Some(name) = exponent
+285 ~             && let Some(raw) = map.remove(name) {
+286 |                 let n: u32 = serde_json::from_str(raw.get()).map_err(|_| invalid())?;
+...
+294 |                 });
+295 ~             }
+    |
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/financial_sources/binance_rules.rs:318:13
+    |
+318 | /             if let (Some(min), Some(max)) = (numeric(minimum), numeric(maximum)) {
+319 | |                 if crate::provider_io::decimal_cmp(min, max)? == std::cmp::Ordering::Greater {
+320 | |                     return Err(invalid());
+321 | |                 }
+322 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+318 ~             if let (Some(min), Some(max)) = (numeric(minimum), numeric(maximum))
+319 ~                 && crate::provider_io::decimal_cmp(min, max)? == std::cmp::Ordering::Greater {
+320 |                     return Err(invalid());
+321 ~                 }
+    |
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/financial_sources/binance_rules.rs:640:9
+    |
+640 | / ...   if rule.rule_type == "MAX_ASSET" && rule.fields.iter().any(|f| matches!(&f.value, SpotRuleValue::Asset(asset) if asset != b...
+641 | | ...       if !obligations.iter().any(|item| item == "NON_CANONICAL_ASSET_CONSTRAINT_UNQUALIFIED") { obligations.push("NON_CANONIC...
+642 | | ...   }
+    | |_______^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+640 ~         if rule.rule_type == "MAX_ASSET" && rule.fields.iter().any(|f| matches!(&f.value, SpotRuleValue::Asset(asset) if asset != base && asset != "USDT"))
+641 ~             && !obligations.iter().any(|item| item == "NON_CANONICAL_ASSET_CONSTRAINT_UNQUALIFIED") { obligations.push("NON_CANONICAL_ASSET_CONSTRAINT_UNQUALIFIED".into()); }
+    |
+
+error: this `impl` can be derived
+   --> src-tauri/src/financial_sources.rs:492:1
+    |
+492 | / impl Default for SavedFinancialSource {
+493 | |     fn default() -> Self {
+494 | |         Self {
+495 | |             generation: 0,
+...   |
+502 | | }
+    | |_^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#derivable_impls
+    = note: `-D clippy::derivable-impls` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::derivable_impls)]`
+help: replace the manual implementation with a derive attribute
+    |
+482 + #[derive(Default)]
+483 | pub(crate) struct SavedFinancialSource {
+    |
+
+error: this `if` statement can be collapsed
+    --> src-tauri/src/financial_sources.rs:1084:5
+     |
+1084 | /     if let Some(id) = selected.as_ref() {
+1085 | |         if !kind.eligible(&store.account(id)?) {
+1086 | |             return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+1087 | |         }
+1088 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+1084 ~     if let Some(id) = selected.as_ref()
+1085 ~         && !kind.eligible(&store.account(id)?) {
+1086 |             return Err(TradeXError::new("CREDENTIAL_UNAVAILABLE"));
+1087 ~         }
+     |
+
+error: large size difference between variants
+   --> src-tauri/src/protocol.rs:164:1
+    |
+164 | / pub enum ReplyData {
+165 | |     Workspace(Workspace),
+166 | |     Snapshot(Snapshot),
+167 | |     Runtime(RuntimeStatus),
+...   |
+192 | |     BinanceMarketSourceConnection(BinanceMarketSourceConnection),
+    | |     ------------------------------------------------------------ the second-largest variant contains at least 472 bytes
+193 | |     CalendarConnection(CalendarConnection),
+194 | |     FinancialSourceConnection(FinancialSourceConnection),
+    | |     ---------------------------------------------------- the largest variant contains at least 1512 bytes
+...   |
+247 | |     BacktestComparison(Box<BacktestComparison>),
+248 | | }
+    | |_^ the entire enum is at least 1512 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#large_enum_variant
+    = note: `-D clippy::large-enum-variant` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::large_enum_variant)]`
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+194 -     FinancialSourceConnection(FinancialSourceConnection),
+194 +     FinancialSourceConnection(Box<FinancialSourceConnection>),
+    |
+
+error: large size difference between variants
+   --> src-tauri/src/protocol.rs:271:1
+    |
+271 | / pub enum ResultEnvelope {
+272 | |     Success(Box<SuccessEnvelope>),
+    | |     ----------------------------- the second-largest variant contains at least 8 bytes
+273 | |     Failure(FailureEnvelope),
+    | |     ------------------------ the largest variant contains at least 504 bytes
+274 | | }
+    | |_^ the entire enum is at least 504 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#large_enum_variant
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+273 -     Failure(FailureEnvelope),
+273 +     Failure(Box<FailureEnvelope>),
+    |
+
+error: large size difference between variants
+    --> src-tauri/src/protocol.rs:2350:1
+     |
+2350 | / pub enum FinancialSourceEvidence {
+2351 | |     CorporateActions(CorporateActionEvidence),
+2352 | |     BrokerInstruments(BrokerInstrumentEvidence),
+2353 | |     Fx(FxRateEvidence),
+     | |     ------------------ the second-largest variant contains at least 344 bytes
+2354 | |     BinanceSpotRules(BinanceSpotRuleEvidence),
+     | |     ----------------------------------------- the largest variant contains at least 808 bytes
+2355 | | }
+     | |_^ the entire enum is at least 808 bytes
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#large_enum_variant
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+     |
+2354 -     BinanceSpotRules(BinanceSpotRuleEvidence),
+2354 +     BinanceSpotRules(Box<BinanceSpotRuleEvidence>),
+     |
+
+error: this function has too many arguments (8/7)
+   --> src-tauri/src/binance.rs:465:1
+    |
+465 | / fn signed_request(
+466 | |     http: &impl ProviderHttp,
+467 | |     method: ProviderHttpMethod,
+468 | |     route: &str,
+...   |
+473 | |     current: &impl Fn() -> bool,
+474 | | ) -> Result<ProviderHttpResponse> {
+    | |_________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+    = note: `-D clippy::too-many-arguments` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::too_many_arguments)]`
+
+error: this function has too many arguments (9/7)
+   --> src-tauri/src/binance.rs:488:1
+    |
+488 | / pub(crate) fn signed_request_for(
+489 | |     endpoint: ProviderEndpoint,
+490 | |     http: &impl ProviderHttp,
+491 | |     method: ProviderHttpMethod,
+...   |
+497 | |     current: &impl Fn() -> bool,
+498 | | ) -> Result<ProviderHttpResponse> {
+    | |_________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this function has too many arguments (9/7)
+   --> src-tauri/src/binance.rs:513:1
+    |
+513 | / pub(crate) fn signed_request_with_rate_limit_for(
+514 | |     endpoint: ProviderEndpoint,
+515 | |     http: &impl ProviderHttp,
+516 | |     method: ProviderHttpMethod,
+...   |
+522 | |     current: &impl Fn() -> bool,
+523 | | ) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+    | |______________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this `.filter_map(..)` can be written more simply using `.map(..)`
+    --> src-tauri/src/binance.rs:1172:10
+     |
+1172 |           .filter_map(|row| {
+     |  __________^
+1173 | |             let result = (|| -> Result<BinanceTestnetBalance> {
+1174 | |                 let asset = text(row, "asset", 32)?;
+1175 | |                 if !assets.insert(asset.clone()) {
+...    |
+1188 | |             Some(result)
+1189 | |         })
+     | |__________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#unnecessary_filter_map
+     = note: `-D clippy::unnecessary-filter-map` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::unnecessary_filter_map)]`
+
+error: this function has too many arguments (10/7)
+    --> src-tauri/src/binance.rs:2120:1
+     |
+2120 | / pub(crate) fn query_live_reconciliation_candidate(
+2121 | |     proposal: &OrderProposal,
+2122 | |     attempt_id: &str,
+2123 | |     provider_client_order_id: &str,
+...    |
+2130 | |     current: &impl Fn() -> bool,
+2131 | | ) -> Result<Option<ProviderOrderCandidate>> {
+     | |___________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this `if` statement can be collapsed
+    --> src-tauri/src/binance.rs:2787:5
+     |
+2787 | /     if fields.order_type == OrderType::Limit {
+2788 | |         if positive(&value["price"])?
+2789 | |             != decimal(&Value::String(
+2790 | |                 fields.limit_price.clone().ok_or_else(invalid)?,
+...    |
+2802 | |     }
+     | |_____^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+2787 ~     if fields.order_type == OrderType::Limit
+2788 ~         && (positive(&value["price"])?
+2789 |             != decimal(&Value::String(
+ ...
+2797 |                     TimeInForce::Day => return Err(invalid()),
+2798 ~                 })
+2799 |         {
+2800 |             return Err(TradeXError::new("PROVIDER_IDENTITY_CONFLICT"));
+2801 ~         }
+     |
+
+error: returning the result of a `let` binding from a block
+  --> src-tauri/src/bitget.rs:70:5
+   |
+60 | /     let allowed = match route {
+61 | |         "/api/v2/spot/trade/unfilled-orders" => query
+62 | |             .strip_prefix("limit=100&tpslType=normal")
+63 | |             .or_else(|| query.strip_prefix("limit=100&tpslType=tpsl"))
+...  |
+68 | |         _ => false,
+69 | |     };
+   | |______- unnecessary `let` binding
+70 |       allowed
+   |       ^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#let_and_return
+   = note: `-D clippy::let-and-return` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::let_and_return)]`
+help: return the expression directly
+   |
+60 ~     
+61 ~     match route {
+62 +         "/api/v2/spot/trade/unfilled-orders" => query
+63 +             .strip_prefix("limit=100&tpslType=normal")
+64 +             .or_else(|| query.strip_prefix("limit=100&tpslType=tpsl"))
+65 +             .is_some_and(cursor_suffix),
+66 +         "/api/v2/spot/trade/current-plan-order" => {
+67 +             query.strip_prefix("limit=100").is_some_and(cursor_suffix)
+68 +         }
+69 +         _ => false,
+70 +     }
+   |
+
+error: this function has too many arguments (10/7)
+    --> src-tauri/src/bitget.rs:1683:1
+     |
+1683 | / pub(super) fn query_live_reconciliation_candidate(
+1684 | |     proposal: &OrderProposal,
+1685 | |     attempt_id: &str,
+1686 | |     provider_client_order_id: &str,
+...    |
+1693 | |     current: &impl Fn() -> bool,
+1694 | | ) -> Result<Option<ProviderOrderCandidate>> {
+     | |___________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: large size difference between variants
+   --> src-tauri/src/quote_source/hot.rs:114:1
+    |
+114 | / pub(crate) enum HotLeaseState {
+115 | |     Stock(StockLeaseState),
+    | |     ---------------------- the largest variant contains at least 6768 bytes
+116 | |     Binance(crate::binance_market::stream::Lease),
+    | |     --------------------------------------------- the second-largest variant contains at least 6544 bytes
+117 | | }
+    | |_^ the entire enum is at least 6768 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#large_enum_variant
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+115 -     Stock(StockLeaseState),
+115 +     Stock(Box<StockLeaseState>),
+    |
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/quote_source/hot.rs:266:13
+    |
+266 | /             if let Ok(worker) = worker.lock() {
+267 | |                 if let Some(worker) = worker.as_ref() {
+268 | |                     worker.pending.1.notify_all();
+269 | |                 }
+270 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+266 ~             if let Ok(worker) = worker.lock()
+267 ~                 && let Some(worker) = worker.as_ref() {
+268 |                     worker.pending.1.notify_all();
+269 ~                 }
+    |
+
+error: returning the result of a `let` binding from a block
+   --> src-tauri/src/quote_source/hot.rs:428:25
+    |
+421 | /                         let pending_job = PendingJob::Stock(Job {
+422 | |                             control: control.clone(),
+423 | |                             lease,
+424 | |                             vault,
+425 | |                             http,
+426 | |                             connector: connectors.stock,
+427 | |                         });
+    | |___________________________- unnecessary `let` binding
+428 |                           pending_job
+    |                           ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#let_and_return
+help: return the expression directly
+    |
+421 ~                         
+422 ~                         PendingJob::Stock(Job {
+423 +                             control: control.clone(),
+424 +                             lease,
+425 +                             vault,
+426 +                             http,
+427 +                             connector: connectors.stock,
+428 +                         })
+    |
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:607:17
+    |
+607 |     if !current(&job, stop) {
+    |                 ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+    = note: `-D clippy::needless-borrow` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_borrow)]`
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:619:21
+    |
+619 |         if !current(&job, stop) {
+    |                     ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:634:25
+    |
+634 |             if !current(&job, stop) {
+    |                         ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:638:17
+    |
+638 |                 &job,
+    |                 ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:665:27
+    |
+665 |             while current(&job, stop) {
+    |                           ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:755:33
+    |
+755 | ...                   &job,
+    |                       ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:792:33
+    |
+792 | ...                   &job,
+    |                       ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:814:55
+    |
+814 | ...                   let live = || current(&job, stop);
+    |                                             ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:890:33
+    |
+890 | ...                   &job,
+    |                       ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:965:19
+    |
+965 |     while current(&job, stop) {
+    |                   ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:966:42
+    |
+966 |         let error = match run_connection(&job, stop) {
+    |                                          ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:970:63
+    |
+970 |         if error.code == "STATE_VERSION_CONFLICT" || !current(&job, stop) {
+    |                                                               ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+   --> src-tauri/src/quote_source/hot.rs:979:25
+    |
+979 |             mark_failed(&job, &error);
+    |                         ^^^^ help: change this to: `job`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src-tauri/src/quote_source/hot.rs:1036:29
+     |
+1036 |                 mark_failed(&job, &error);
+     |                             ^^^^ help: change this to: `job`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src-tauri/src/quote_source/hot.rs:1043:25
+     |
+1043 |             if !current(&job, stop) {
+     |                         ^^^^ help: change this to: `job`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this expression creates a reference which is immediately dereferenced by the compiler
+    --> src-tauri/src/quote_source.rs:1328:54
+     |
+1328 |         .filter(|quote| quote.binding.current_source(&control))
+     |                                                      ^^^^^^^^ help: change this to: `control`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#needless_borrow
+
+error: this function has too many arguments (9/7)
+    --> src-tauri/src/risk.rs:1136:1
+     |
+1136 | / pub(crate) fn evaluate(
+1137 | |     proposal: &crate::protocol::OrderProposal,
+1138 | |     policy_state: Option<&RiskPolicyState>,
+1139 | |     account: Option<&crate::providers::AccountConnection>,
+...    |
+1145 | |     evaluated_at: String,
+1146 | | ) -> RiskDecision {
+     | |_________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: casting to the same type is unnecessary (`u64` -> `u64`)
+    --> src-tauri/src/risk.rs:1786:68
+     |
+1786 |                         Some(projected_count) if projected_count > maximum as u64 => (
+     |                                                                    ^^^^^^^^^^^^^^ help: try: `maximum`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#unnecessary_cast
+     = note: `-D clippy::unnecessary-cast` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::unnecessary_cast)]`
+
+error: this `if` has identical blocks
+    --> src-tauri/src/risk.rs:1860:26
+     |
+1860 |           if !market_order {
+     |  __________________________^
+1861 | |             RiskCheckOutcome::Pass
+1862 | |         } else if market_orders_enabled {
+     | |_________^
+     |
+note: same as this
+    --> src-tauri/src/risk.rs:1862:41
+     |
+1862 |           } else if market_orders_enabled {
+     |  _________________________________________^
+1863 | |             RiskCheckOutcome::Pass
+1864 | |         } else {
+     | |_________^
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#if_same_then_else
+     = note: `-D clippy::if-same-then-else` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::if_same_then_else)]`
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/spot_capacity.rs:400:9
+    |
+400 | /         if cp.spot_capacity_runtime.slots.len() >= 8
+401 | |             && !cp
+402 | |                 .spot_capacity_runtime
+403 | |                 .slots
+...   |
+415 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+404 ~                 .contains_key(&query.proposal_id)
+405 ~             && let Some(oldest) = cp
+406 |                 .spot_capacity_runtime
+...
+412 |                 cp.spot_capacity_runtime.slots.remove(&oldest);
+413 ~             }
+    |
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/spot_commission.rs:348:9
+    |
+348 | /         if cp.spot_commission_runtime.slots.len() >= 8
+349 | |             && !cp
+350 | |                 .spot_commission_runtime
+351 | |                 .slots
+...   |
+363 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+352 ~                 .contains_key(&query.proposal_id)
+353 ~             && let Some(oldest) = cp
+354 |                 .spot_commission_runtime
+...
+360 |                 cp.spot_commission_runtime.slots.remove(&oldest);
+361 ~             }
+    |
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/spot_order_intervals.rs:405:9
+    |
+405 | /         if cp.spot_order_interval_runtime.slots.len() >= 8
+406 | |             && !cp
+407 | |                 .spot_order_interval_runtime
+408 | |                 .slots
+...   |
+420 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+409 ~                 .contains_key(&query.proposal_id)
+410 ~             && let Some(oldest) = cp
+411 |                 .spot_order_interval_runtime
+...
+417 |                 cp.spot_order_interval_runtime.slots.remove(&oldest);
+418 ~             }
+    |
+
+error: useless conversion to the same type: `std::string::String`
+   --> src-tauri/src/spot_proposal_rules.rs:806:30
+    |
+806 |                 reason_code: reason.into(),
+    |                              ^^^^^^^^^^^^^ help: consider removing `.into()`: `reason`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#useless_conversion
+    = note: `-D clippy::useless-conversion` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::useless_conversion)]`
+
+error: this `if` statement can be collapsed
+    --> src-tauri/src/spot_proposal_rules.rs:1067:9
+     |
+1067 | /         if cp.spot_rule_runtime.slots.len() >= 8
+1068 | |             && !cp.spot_rule_runtime.slots.contains_key(&query.proposal_id)
+1069 | |         {
+1070 | |             if let Some(oldest) = cp
+...    |
+1079 | |         }
+     | |_________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+     |
+1068 ~             && !cp.spot_rule_runtime.slots.contains_key(&query.proposal_id)
+1069 ~             && let Some(oldest) = cp
+1070 |                 .spot_rule_runtime
+ ...
+1076 |                 cp.spot_rule_runtime.slots.remove(&oldest);
+1077 ~             }
+     |
+
+error: this function has too many arguments (9/7)
+    --> src-tauri/src/storage.rs:4083:5
+     |
+4083 | /     pub fn append_resolution_evidence(
+4084 | |         &mut self,
+4085 | |         workspace_id: &str,
+4086 | |         attempt_id: &str,
+...    |
+4092 | |         occurred_at: &str,
+4093 | |     ) -> Result<(ResolutionEvidenceLedger, DomainEvent)> {
+     | |________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this function has too many arguments (9/7)
+    --> src-tauri/src/storage.rs:4221:5
+     |
+4221 | /     pub fn append_manual_resolution(
+4222 | |         &mut self,
+4223 | |         workspace_id: &str,
+4224 | |         attempt_id: &str,
+...    |
+4230 | |         resolution: ManualResolutionRecord,
+4231 | |     ) -> Result<(ResolutionEvidenceLedger, Vec<DomainEvent>)> {
+     | |_____________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this function has too many arguments (10/7)
+    --> src-tauri/src/storage.rs:4920:5
+     |
+4920 | /     pub fn prepare_live_place(
+4921 | |         &mut self,
+4922 | |         approval_id: &str,
+4923 | |         expected_approval_state_version: &str,
+...    |
+4930 | |         now: &str,
+4931 | |     ) -> Result<(ExecutionPreparation, Vec<DomainEvent>)> {
+     | |_________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this function has too many arguments (8/7)
+    --> src-tauri/src/storage.rs:5409:5
+     |
+5409 | /     pub fn prepare_live_cancel(
+5410 | |         &mut self,
+5411 | |         approval_id: &str,
+5412 | |         expected_approval_state_version: &str,
+...    |
+5417 | |         now: &str,
+5418 | |     ) -> Result<(ExecutionPreparation, Vec<DomainEvent>)> {
+     | |_________________________________________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this function has too many arguments (8/7)
+    --> src-tauri/src/storage.rs:8810:5
+     |
+8810 | /     pub fn save_binance_private_stream_state(
+8811 | |         &mut self,
+8812 | |         connection_id: &str,
+8813 | |         expected_state_version: &str,
+...    |
+8822 | |         DomainEvent,
+8823 | |     )> {
+     | |______^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: this `if` statement can be collapsed
+     --> src-tauri/src/storage.rs:15137:5
+      |
+15137 | /     if let (Some(quantity), Some(filled), Some(remaining)) = (
+15138 | |         order_quantity.as_deref(),
+15139 | |         filled_quantity.as_deref(),
+15140 | |         remaining_quantity.as_deref(),
+...     |
+15145 | |     }
+      | |_____^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+      |
+15141 ~     )
+15142 ~         && crate::provider_io::decimal_subtract(quantity, filled)? != remaining {
+15143 |             return Err(TradeXError::new("PROVIDER_RESPONSE_INVALID"));
+15144 ~         }
+      |
+
+error: very complex type used. Consider factoring parts into `type` definitions
+    --> src-tauri/src/lib.rs:7893:10
+     |
+7893 |       ) -> Result<(
+     |  __________^
+7894 | |         risk::RiskDecision,
+7895 | |         Option<AccountConnection>,
+7896 | |         Option<protocol::MarketDetail>,
+7897 | |         protocol::TimeStatus,
+7898 | |         Option<protocol::FxReviewEvidence>,
+7899 | |     )> {
+     | |______^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#type_complexity
+     = note: `-D clippy::type-complexity` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::type_complexity)]`
+
+error: using `clone` on type `RiskCheckOutcome` which implements the `Copy` trait
+    --> src-tauri/src/lib.rs:8211:33
+     |
+8211 |                 check.outcome = rules.outcome.clone();
+     |                                 ^^^^^^^^^^^^^^^^^^^^^ help: try removing the `clone` call: `rules.outcome`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#clone_on_copy
+     = note: `-D clippy::clone-on-copy` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::clone_on_copy)]`
+
+error: this `match` expression can be replaced with `?`
+    --> src-tauri/src/lib.rs:8930:30
+     |
+8930 |                   let review = match self.build_cancellation_review(&intent, &account) {
+     |  ______________________________^
+8931 | |                     Ok(review) => review,
+8932 | |                     Err(error) => return Err(error),
+8933 | |                 };
+     | |_________________^ help: try instead: `self.build_cancellation_review(&intent, &account)?`
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#question_mark
+     = note: `-D clippy::question-mark` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::question_mark)]`
+
+error: this function has too many arguments (8/7)
+     --> src-tauri/src/lib.rs:11281:5
+      |
+11281 | /     pub fn persist_binance_private_stream_state(
+11282 | |         &mut self,
+11283 | |         connection_id: &str,
+11284 | |         expected_state_version: &str,
+...     |
+11289 | |         last_event_at: Option<&str>,
+11290 | |     ) -> Result<()> {
+      | |___________________^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: could not compile `tradex` (lib) due to 53 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: this `if` statement can be collapsed
+    --> src-tauri/src/../tests/support/provider_fixtures.rs:1195:21
+     |
+1195 | /                     if self.binance_capacity_ui.get().partial_inventory() {
+1196 | |                         if let Some(row)=rows.iter_mut().find(|row| row["symbol"]=="BTCUSDT") {
+1197 | |                             row["orderListId"]=json!(9007199254740997u64);
+1198 | |                             if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { row["side"]=json!(1); }
+1199 | |                         }
+1200 | |                     }
+     | |_____________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+     = note: `-D clippy::collapsible-if` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+     |
+1195 ~                     if self.binance_capacity_ui.get().partial_inventory()
+1196 ~                         && let Some(row)=rows.iter_mut().find(|row| row["symbol"]=="BTCUSDT") {
+1197 |                             row["orderListId"]=json!(9007199254740997u64);
+1198 |                             if self.binance_capacity_ui.get()==BinanceCapacityFixture::Malformed { row["side"]=json!(1); }
+1199 ~                         }
+     |
+
+error: this `if` statement can be collapsed
+   --> src-tauri/src/financial_sources/binance_rules.rs:284:9
+    |
+284 | /         if let Some(name) = exponent {
+285 | |             if let Some(raw) = map.remove(name) {
+286 | |                 let n: u32 = serde_json::from_str(raw.get()).map_err(|_| invalid())?;
+287 | |                 if n > 64 {
+...   |
+296 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+284 ~         if let Some(name) = exponent
+285 ~             && let Some(raw) = map.remove(name) {
+286 |                 let n: u32 = serde_json::from_str(raw.get()).map_err(|_| invalid())?;
+...
+294 |                 });
+295 ~             }
+    |
+
+error: this function has too many arguments (8/7)
+    --> src-tauri/src/binance.rs:3762:5
+     |
+3762 | /     fn execution_report(
+3763 | |         execution: &str,
+3764 | |         status: &str,
+3765 | |         filled: &str,
+...    |
+3770 | |         last_quantity: &str,
+3771 | |     ) -> Value {
+     | |______________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#too_many_arguments
+
+error: items after a test module
+    --> src-tauri/src/bitget.rs:1357:1
+     |
+1357 |   mod tests {
+     |   ^^^^^^^^^
+...
+1434 |   struct DemoClock {
+     |   ^^^^^^^^^^^^^^^^
+...
+1439 |   struct DemoOrderIntent {
+     |   ^^^^^^^^^^^^^^^^^^^^^^
+...
+1449 | / fn demo_clock(
+1450 | |     http: &impl ProviderHttp,
+1451 | |     current: &impl Fn() -> bool,
+1452 | |     secrets: &[String],
+1453 | | ) -> Result<DemoClock> {
+     | |______________________^
+...
+1481 | / fn demo_signed_headers(
+1482 | |     clock: &DemoClock,
+1483 | |     secrets: &[String],
+1484 | |     method: &str,
+1485 | |     path: &str,
+1486 | |     body: Option<&Value>,
+1487 | | ) -> Result<(HeaderMap, Zeroizing<String>)> {
+     | |___________________________________________^
+...
+1502 | / fn demo_get(
+1503 | |     clock: &DemoClock,
+1504 | |     secrets: &[String],
+1505 | |     http: &impl ProviderHttp,
+1506 | |     current: &impl Fn() -> bool,
+1507 | |     path: &str,
+1508 | | ) -> Result<Value> {
+     | |__________________^
+...
+1526 | / fn bitget_symbol(
+1527 | |     proposal: &OrderProposal,
+1528 | |     connection_id: &str,
+1529 | |     environment: ExecutionContext,
+1530 | | ) -> Result<String> {
+     | |___________________^
+...
+1556 | / fn demo_order_intent(
+1557 | |     proposal: &OrderProposal,
+1558 | |     attempt: &BitgetDemoOrderAttempt,
+1559 | | ) -> Result<DemoOrderIntent> {
+     | |____________________________^
+...
+1573 | / fn bitget_order_intent(
+1574 | |     proposal: &OrderProposal,
+1575 | |     connection_id: &str,
+1576 | |     environment: ExecutionContext,
+1577 | | ) -> Result<DemoOrderIntent> {
+     | |____________________________^
+...
+1656 |   pub(super) fn validate_demo_proposal(proposal: &OrderProposal, connection_id: &str) -> Result<()> {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1683 | / pub(super) fn query_live_reconciliation_candidate(
+1684 | |     proposal: &OrderProposal,
+1685 | |     attempt_id: &str,
+1686 | |     provider_client_order_id: &str,
+...    |
+1693 | |     current: &impl Fn() -> bool,
+1694 | | ) -> Result<Option<ProviderOrderCandidate>> {
+     | |___________________________________________^
+...
+1792 |   fn symbol_number(value: &Value, name: &str) -> Result<u32> {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1804 |   fn decimal_places(value: &str) -> usize {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1810 | / fn checked_order_body(
+1811 | |     proposal: &OrderProposal,
+1812 | |     attempt: &BitgetDemoOrderAttempt,
+1813 | |     http: &impl ProviderHttp,
+...    |
+1816 | |     current: &impl Fn() -> bool,
+1817 | | ) -> Result<Value> {
+     | |__________________^
+...
+1906 | / fn set_demo_attempt_error(
+1907 | |     mut attempt: BitgetDemoOrderAttempt,
+1908 | |     state: BitgetDemoOrderAttemptState,
+1909 | |     code: &str,
+1910 | |     reason: &str,
+1911 | | ) -> BitgetDemoOrderAttempt {
+     | |___________________________^
+...
+1920 | / fn acknowledgement(
+1921 | |     attempt: &BitgetDemoOrderAttempt,
+1922 | |     data: &Value,
+1923 | |     expected_user_id: Option<&str>,
+1924 | | ) -> Result<BitgetDemoOrderAttempt> {
+     | |___________________________________^
+...
+1962 | / pub(super) fn run_demo_order(
+1963 | |     attempt: &BitgetDemoOrderAttempt,
+1964 | |     proposal: &OrderProposal,
+1965 | |     reconcile: bool,
+...    |
+1969 | |     current: &impl Fn() -> bool,
+1970 | | ) -> BitgetDemoOrderAttempt {
+     | |___________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#items_after_test_module
+     = note: `-D clippy::items-after-test-module` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::items_after_test_module)]`
+     = help: move the items to before the test module was defined
+
+error: length comparison to zero
+     --> src-tauri/src/lib.rs:22636:13
+      |
+22636 | /             persisted_account
+22637 | |                 .data
+22638 | |                 .as_ref()
+22639 | |                 .unwrap()
+...     |
+22644 | |                 .len()
+22645 | |                 > 0
+      | |___________________^
+      |
+      = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#len_zero
+      = note: `-D clippy::len-zero` implied by `-D warnings`
+      = help: to override `-D warnings` add `#[allow(clippy::len_zero)]`
+help: using `!is_empty` is clearer and more explicit
+      |
+22636 ~             !persisted_account
+22637 +                 .data
+22638 +                 .as_ref()
+22639 +                 .unwrap()
+22640 +                 .bitget_order_book
+22641 +                 .as_ref()
+22642 +                 .unwrap()
+22643 +                 .fills.is_empty()
+      |
+
+error: could not compile `tradex` (lib test) due to 57 previous errors
+
+exit_code=101

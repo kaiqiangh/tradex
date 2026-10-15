@@ -50,6 +50,8 @@ export async function checkWorkspaceUI(tab, browser) {
     const identity = await ui.getByRole('complementary', { name: 'Workspace', exact: true }).innerText();
     assert.match(identity, /S01 Browser Research/);
     assert.match(identity, /EUR/);
+    await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Threads', exact: true }).click();
+    await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.getByRole('button', { name: 'Create Thread', exact: true }).isEnabled(), true);
     await tab.reload();
     await ui.getByRole('complementary', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
@@ -72,9 +74,13 @@ export async function checkWorkspaceUI(tab, browser) {
 
     await ui.getByRole('button', { name: 'Settings', exact: true }).click();
     await tab.getAXState({ emit: false });
-    assert.equal(await ui.getByText('Local workspace control is available.', { exact: true }).isVisible(), true);
-    assert.equal(await ui.getByRole('heading', { name: 'CLIProxyAPI → ChatGPT', exact: true }).isVisible(), true);
-    assert.equal(await ui.getByRole('heading', { name: 'CLIProxyAPI → DeepSeek', exact: true }).isVisible(), true);
+    assert.equal(await ui.getByRole('button', { name: 'Workspace', exact: true }).isVisible(), true);
+    await ui.getByRole('heading', { name: 'Models · CLIProxyAPI', exact: true }).waitFor({ state: 'visible' });
+    await ui.getByText('CLIProxyAPI → ChatGPT', { exact: true }).waitFor({ state: 'visible' });
+    await ui.getByText('CLIProxyAPI → DeepSeek', { exact: true }).waitFor({ state: 'visible' });
+    const settingsText = await ui.locator('main').innerText();
+    assert.match(settingsText, /CLIProxyAPI → ChatGPT/);
+    assert.match(settingsText, /CLIProxyAPI → DeepSeek/);
     assert.equal(await ui.locator('input[type="password"]').count(), 0, 'Model keys must never have renderer inputs');
     observed.push('The Rust-backed browser fixture completes onboarding locally, exposes the Settings surface, and keeps model keys out of renderer inputs.');
 
@@ -85,7 +91,10 @@ export async function checkWorkspaceUI(tab, browser) {
       const actualWidth = await ui.evaluate(() => document.documentElement.clientWidth);
       assert.ok(actualWidth <= width && actualWidth >= width - 20, `Browser viewport override did not apply: requested ${width}, observed ${actualWidth}`);
       for (const name of destinations) {
-        await ui.getByText('More', { exact: true }).press('Enter');
+        const mobileNavigation = ui.locator('details.mobile-nav');
+        if (!(await mobileNavigation.evaluate(details => details.open))) {
+          await ui.getByText('More', { exact: true }).press('Enter');
+        }
         await tab.getAXState({ emit: false });
         assert.equal(await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name, exact: true }).isVisible(), true);
         await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name, exact: true }).press('Enter');

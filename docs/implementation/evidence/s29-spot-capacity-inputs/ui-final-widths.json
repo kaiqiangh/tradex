@@ -1,0 +1,20 @@
+[
+  {
+    "body": 1280,
+    "client": 390,
+    "panel": 390,
+    "viewport": 1280
+  },
+  {
+    "body": 768,
+    "client": 422,
+    "panel": 422,
+    "viewport": 768
+  },
+  {
+    "body": 390,
+    "client": 268,
+    "panel": 268,
+    "viewport": 390
+  }
+]

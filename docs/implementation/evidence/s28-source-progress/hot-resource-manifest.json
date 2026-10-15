@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-10-01T07:01:14.613451+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "delivery": "Uncommitted #116 resource/protocol stage; external fake vault/HTTP and actual TCP WebSocket public boundary only",
+  "checks": {
+    "integrationSourceAndHot": "21 passed: 10 source + 11 Hot",
+    "desktopCheckTypeFmtDiffPlanningTraceFinalIntegrationBuild": "PASS",
+    "publicUI": "No new UI run for the resource-only stage; reconnect UI stage is historical evidence in hot-reconnect-manifest.json"
+  },
+  "redEvidence": [
+    "Last supervisor owner left the actual provider socket open",
+    "Rejected acquire overwrote the retired public lease",
+    "Unknown options wildcard was accepted as complete quote subscription",
+    "Unrelated Pong cancelled the pending heartbeat deadline"
+  ],
+  "verifiedCases": [
+    "Intermediate clone drop keeps socket alive; final owner closes it and retires lease",
+    "Explicit stop terminal before first use; rejected acquire preserves public lease",
+    "Unknown/unrequested subscription channel rejected without retry or quote",
+    "Mismatched Pong cannot postpone the heartbeat deadline; next attempt rotates connection generation"
+  ],
+  "limits": [
+    "Production DNS saturation is code-guarded but not fault-injected",
+    "Hosted entitlement, physical Sleep/Wake, financial readiness and complete ticket are unverified",
+    "Risk/consent integration, remaining fault cases, final suite and serial reviewers pending"
+  ],
+  "runtimeBinarySha256": "57a3b7d9479f9552c7401fe11f91e4c46fce24d1493749f1ffc4ce541a965e3e",
+  "sha256": {
+    "src-tauri/src/quote_source/hot.rs": "2c525ae2ccfe7e330908c1cb35a41291f71b7785ee1c5d99c360e55508cbddfb",
+    "src-tauri/tests/quote_hot.rs": "e52a643084f9c0b29c018b6b52b36bd6c22c96b0c1006e5dfb428a745c1059f3",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "6051360cb0396a82257b66754c9f21b562c46d326fef977336e1513e99e5c071",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "40dae4a897fa2b703ec01f695f3b786c237fa4d178a5a0cd97855ffb3cbf3cbc",
+    "docs/implementation/s28-alpaca-production-quotes.md": "6d152e2064657e7811873a11e9524453a523af8dab1a93577f2ddc85d2b7d26d",
+    "docs/implementation/s28-alpaca-production-quotes_zh.md": "ef5f972110ee9222f47d6aaf6f5e08e5f6a9f0a9ac5e34983255fa7a736325c3",
+    "docs/implementation/evidence/s28-source-progress/hot-resource-check.txt": "cb87aed4de32b4df1c47459a2c89d9363d6efd6d2d6f68d1d0a890ea84e4d306"
+  }
+}

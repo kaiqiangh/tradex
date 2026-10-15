@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "surface": "G4",
+  "title": "Binance Spot Testnet fail-closed submission UI regression",
+  "recordedDate": "2026-10-14",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "status": "IMPLEMENTED_UNVERIFIED",
+  "scope": "S33 local synthetic UI and fail-closed RiskDecision evidence only; no real Binance credentials or endpoint, and no order side effect",
+  "runner": "node /tmp/run-tradex-g4-only.mjs",
+  "check": "tests/provider-ui.mjs::checkProviderUI(tab, browser, 'binance/TESTNET')",
+  "workspaceId": "d9f6ff3d-70b2-46e1-9274-eef0b572c4fe",
+  "providerResponses": "Synthetic local connection setup only; the order path stopped before provider or simulator side effects",
+  "proposalReview": [
+    "Binance Spot Testnet environment, exact connection label, full TradeX connection ID, and remote account ID",
+    "Immutable Proposal ID and SHA-256 hash",
+    "crypto:BTC/USDT:spot · BUY · 25 QUOTE · MARKET · DAY · quote coin (USDT)",
+    "Limit and maximum spend both shown as — for this market-order Proposal",
+    "BINANCE · BINANCE_TESTNET venue/context"
+  ],
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "width": 768,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 900
+    }
+  ],
+  "observed": [
+    "Secure connection setup contains no renderer password inputs and requires explicit acknowledgement of unverified permissions.",
+    "Dismissing the exact confirmation leaves no SQLite order attempt.",
+    "After explicit confirmation, RiskDecision returns RISK_EVIDENCE_UNAVAILABLE for MARKET_ORDER_SLIPPAGE, QUOTE_FRESHNESS, MARKET_SESSION, and INSTRUMENT_RULES; the UI states that no attempt or provider/simulator side effect was created.",
+    "The immutable Proposal remains available. Reload does not create or replay an attempt, and the submit action remains reviewable.",
+    "The test does not infer order-book, private-stream, or cancellation lifecycle behavior from the blocked Proposal; historical S19 local lifecycle evidence is separate.",
+    "Account controls and Account Health are reachable at 768 px and 390 px; disconnect hides local credential access and disables refresh."
+  ],
+  "attemptAfterConfirmation": null,
+  "attemptAfterReload": null,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "externalHttpRequests": [],
+  "notEstablished": [
+    "Provider-hosted Binance Testnet acceptance S19 #67/#72.",
+    "Positive S19 #68 submission acknowledgement/reconciliation and the full #69–#71 order-book, stream, and cancellation lifecycle in this run; prior local S19 evidence remains separate.",
+    "Current S06/S29 market, time/calendar, and instrument-rule evidence required for an eligible Testnet submission.",
+    "Native VoiceOver and overall S33/#141 acceptance."
+  ],
+  "realProviderGate": "S19 provider-hosted acceptance remains pending and was skipped per user scope; no real provider request was made."
+}

@@ -1,0 +1,39 @@
+{
+  "result": "PASS_LIMITED",
+  "statesChecked": {
+    "STOPPED": 3,
+    "UNAUTHORIZED": 3,
+    "PORT_CONFLICT": 3,
+    "RUNNING": 3
+  },
+  "viewportObservations": [
+    "STOPPED@1280",
+    "STOPPED@768",
+    "STOPPED@390",
+    "UNAUTHORIZED@1280",
+    "UNAUTHORIZED@768",
+    "UNAUTHORIZED@390",
+    "PORT_CONFLICT@1280",
+    "PORT_CONFLICT@768",
+    "PORT_CONFLICT@390",
+    "RUNNING@1280",
+    "RUNNING@768",
+    "RUNNING@390"
+  ],
+  "defaultRoutePreserved": true,
+  "fallbackRemainsOff": true,
+  "accountHealthReachable": true,
+  "stoppedSendDisabled": true,
+  "unsentDraftPreserved": true,
+  "restartActivated": false,
+  "realOAuthOrModelProbe": false,
+  "forbiddenCommands": 0,
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "boundary": "One disposable Rust-backed workspace; model.gateway.fixture states and synthetic disconnected credentials only. No gateway process, OAuth, Keychain, route verification, model inference, or external provider call was activated.",
+  "limitations": [
+    "Restart, Launch, Probe, ChatGPT re-login, DeepSeek key configuration, quota cooldown, actual MODEL_UNAVAILABLE Turn failure, and close-error-dialog recovery were not activated. The harness state fixture cannot establish native OAuth/Keychain/sidecar behavior or an in-flight provider failure.",
+    "The QA-09 local Send gate and four gateway states are covered; complete S03/S27/S33 model recovery acceptance and native accessibility remain open."
+  ],
+  "capturedAt": "2026-10-14T12:40:23.204Z"
+}

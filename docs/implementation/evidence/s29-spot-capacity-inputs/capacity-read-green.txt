@@ -1,0 +1,33 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0603]: function `server_time_for` is private
+   --> src-tauri/src/spot_capacity.rs:322:61
+    |
+322 |         let (clock, sampled) = crate::provider_io::binance::server_time_for(
+    |                                                             ^^^^^^^^^^^^^^^ private function
+    |
+note: the function `server_time_for` is defined here
+   --> src-tauri/src/binance.rs:521:1
+    |
+521 | / pub(super) fn server_time_for(
+522 | |     endpoint: ProviderEndpoint,
+523 | |     http: &impl ProviderHttp,
+524 | |     current: &impl Fn() -> bool,
+...   |
+554 | |     Ok((value, Instant::now()))
+555 | | }
+    | |_^
+
+error[E0603]: function `valid_binance_symbol` is private
+   --> src-tauri/src/spot_capacity.rs:408:58
+    |
+408 |                 .filter(|s| crate::provider_io::binance::valid_binance_symbol(s))
+    |                                                          ^^^^^^^^^^^^^^^^^^^^ private function
+    |
+note: the function `valid_binance_symbol` is defined here
+   --> src-tauri/src/binance.rs:426:1
+    |
+426 | pub(super) fn valid_binance_symbol(value: &str) -> bool {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0603`.
+error: could not compile `tradex` (lib) due to 2 previous errors

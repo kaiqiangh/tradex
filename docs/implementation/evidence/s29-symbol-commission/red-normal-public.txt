@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.74s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority ... FAILED
+
+failures:
+
+failures:
+    symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 105 filtered out; finished in 0.10s
+
+
+thread 'symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority' (13769056) panicked at src-tauri/tests/binance_rules.rs:6737:5:
+assertion `left == right` failed: A user must be able to inspect the exact Proposal fee-source state: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"spot-rules","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority' (13769026) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority ... FAILED
+
+failures:
+
+failures:
+    symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 105 filtered out; finished in 0.35s
+
+error: test failed, to rerun pass `--test binance_rules`

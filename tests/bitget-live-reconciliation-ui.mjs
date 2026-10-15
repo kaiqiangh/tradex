@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
-export async function checkBitgetLiveReconciliationUI(tab, browser) {
+export async function checkBitgetLiveReconciliationUI(tab, browser, { onBeforeConfirm } = {}) {
   const ui = tab.playwright;
   const commandEndpoint = new URL('/__integration/command', await tab.url()).toString();
   const send = async (command, payload) => {
@@ -108,7 +108,8 @@ export async function checkBitgetLiveReconciliationUI(tab, browser) {
     await evidence.getByText('Exact-order lookup complete', { exact: true }).waitFor({ state: 'visible' });
     await evidence.getByText(/Candidate only · provider order 987654321/).waitFor({ state: 'visible' });
     await evidence.getByText(/remote 9007199254740993/).waitFor({ state: 'visible' });
-    await evidence.getByText(/orderInfo\?clientOid=/).waitFor({ state: 'visible' });
+    const exactOrderQuery = evidence.getByText(/orderInfo\?clientOid=/).first();
+    await exactOrderQuery.waitFor({ state: 'visible' });
 
     const preparation = await send('trade.execution.preparation.get', {
       workspaceId, approvalId: approval.approvalId,
@@ -206,6 +207,7 @@ export async function checkBitgetLiveReconciliationUI(tab, browser) {
       await new Promise(resolve => setTimeout(resolve, 250));
     }
     assert.equal(await confirmSubmitted.count(), 1, 'The exact backend-authorized order can be confirmed after expiry.');
+    if (onBeforeConfirm) await onBeforeConfirm({ evidence, viewport });
     await confirmSubmitted.press('Enter');
     const resolutionNotice = ui.getByRole('status').filter({ hasText: 'Provider order 987654321 was linked as submitted.' });
     const noticeDeadline = Date.now() + 20_000;

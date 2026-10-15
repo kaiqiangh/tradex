@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.59s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ... FAILED
+
+failures:
+
+---- a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting stdout ----
+
+thread 'a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting' (9348314) panicked at src-tauri/tests/binance_market_hot.rs:360:5:
+assertion `left == right` failed: Obsolete buffered events do not imply a stream gap: {"data":{"authenticated":false,"connectionGeneration":"4f4d4bfa-c138-424b-bbe7-575076e37ab3","detail":{"adjustmentStatus":"UNKNOWN","availabilityReason":"Retry 1 of 3 after PROVIDER_STREAM_GAP; the new connection requires its own snapshot and continuity proof. Retained liquidity is unavailable.","corporateActions":[],"instrument":{"assetClass":"CRYPTO_SPOT","base":"BTC","currency":"USDT","displayName":"Bitcoin / Tether spot","instrumentId":"crypto:BTC/USDT:spot","providers":[{"providerId":"binance","providerSymbol":"BTCUSDT"},{"providerId":"bitget","providerSymbol":"BTCUSDT"}],"quote":"USDT","symbol":"BTC/USDT"},"marketState":{"observedAt":"2026-10-08T09:58:07.065Z","reason":"No crypto venue-state source is selected in the S06 authorization catalog.","session":"UNKNOWN","sourceStatus":"UNAVAILABLE","timeConfidence":"TRUSTED","venue":"UNSELECTED"},"status":"UNAVAILABLE","tier":"HOT","workspaceId":"1395dc0b-9669-4a0b-83c5-bdff2fe3383a"},"generation":"d6017aff-0ded-400c-b87d-2c980b26eca1","instrumentId":"crypto:BTC/USDT:spot","leaseId":"a2906c7e-e8a7-4588-ac0b-a9391d91ee62","reason":"Retry 1 of 3 after PROVIDER_STREAM_GAP; the new connection requires its own snapshot and continuity proof. Retained liquidity is unavailable.","reconnectAttempt":1,"sequence":2,"sourceId":"BINANCE_SPOT_PUBLIC","sourceVersion":"binance-market:1395dc0b-9669-4a0b-83c5-bdff2fe3383a:1","status":"RECONNECTING","subscribed":false,"workspaceId":"1395dc0b-9669-4a0b-83c5-bdff2fe3383a"},"ok":true,"requestId":"spot-hot","schemaVersion":1}
+  left: Number(1)
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.41s
+
+error: test failed, to rerun pass `--test binance_market_hot`

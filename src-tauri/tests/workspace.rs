@@ -37,6 +37,123 @@ fn a_workspace_keeps_its_identity_and_events_after_process_state_is_dropped() {
 }
 
 #[test]
+fn local_paper_remains_healthy_and_simulation_ready_after_workspace_reopen() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("local-paper-reopen");
+    let mut control = ControlPlane::new(path.clone());
+    let opened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+    let first = command(
+        &mut control,
+        "account.list",
+        json!({"workspaceId":workspace_id}),
+    );
+    let first_local = first["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|account| account["providerId"] == "local-paper")
+        .unwrap();
+    assert_eq!(first_local["connectionState"], "CONNECTED");
+    assert_eq!(first_local["health"]["connection"], "ONLINE");
+    assert_eq!(first_local["health"]["authentication"], "NOT_REQUIRED");
+    assert_eq!(first_local["health"]["credential"], "NOT_REQUIRED");
+    assert_eq!(
+        first_local["health"]["executionEligibility"],
+        "SIMULATION_ONLY"
+    );
+    drop(control);
+
+    let mut restarted = ControlPlane::new(path);
+    let reopened = command(&mut restarted, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    let restored = command(
+        &mut restarted,
+        "account.list",
+        json!({"workspaceId":workspace_id}),
+    );
+    let local = restored["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|account| account["providerId"] == "local-paper")
+        .unwrap();
+    assert_eq!(local["connectionState"], "CONNECTED");
+    assert_eq!(local["health"]["connection"], "ONLINE");
+    assert_eq!(local["health"]["authentication"], "NOT_REQUIRED");
+    assert_eq!(local["health"]["credential"], "NOT_REQUIRED");
+    assert_eq!(local["health"]["executionEligibility"], "SIMULATION_ONLY");
+}
+
+#[cfg(unix)]
+#[test]
+fn released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec() {
+    use std::{
+        io::{Read, Write},
+        os::{
+            fd::AsRawFd,
+            unix::{net::UnixStream, process::CommandExt},
+        },
+        process::Command,
+    };
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("workspace");
+    let mut owner = ControlPlane::new(path.clone());
+    let opened = command(&mut owner, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let (mut signal_reader, signal_writer) = UnixStream::pair().unwrap();
+    let (mut gate_writer, gate_reader) = UnixStream::pair().unwrap();
+    signal_reader
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    gate_reader
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    let launch = std::thread::spawn(move || {
+        let signal_fd = signal_writer.as_raw_fd();
+        let gate_fd = gate_reader.as_raw_fd();
+        let mut child = Command::new("/usr/bin/true");
+        // Model an unrelated OS child between fork and exec. Only async-signal-
+        // safe syscalls run in the child; no application/vault/authority is mocked.
+        unsafe {
+            child.pre_exec(move || {
+                let mut byte = 1u8;
+                if libc::write(signal_fd, (&byte as *const u8).cast(), 1) != 1
+                    || libc::read(gate_fd, (&mut byte as *mut u8).cast(), 1) != 1
+                {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        let spawned = child.spawn();
+        drop((signal_writer, gate_reader));
+        spawned.unwrap().wait().unwrap()
+    });
+    let mut byte = [0u8];
+    signal_reader.read_exact(&mut byte).unwrap();
+    let mut contender = ControlPlane::new(path.clone());
+    let busy = command(&mut contender, "workspace.open", json!({}));
+    drop(contender);
+    drop(owner);
+    let mut reopened = ControlPlane::new(path);
+    let result = command(&mut reopened, "workspace.open", json!({}));
+    // Release and reap the external child before any assertion can unwind.
+    gate_writer.write_all(&[1]).unwrap();
+    assert!(launch.join().unwrap().success());
+    assert_eq!(
+        busy["error"]["code"], "WORKSPACE_BUSY",
+        "The active owner still excludes another writer"
+    );
+    assert_eq!(
+        result["ok"], true,
+        "Released ownership must not be kept alive by an unrelated child: {result}"
+    );
+    assert_eq!(result["data"]["workspaceId"], opened["data"]["workspaceId"]);
+}
+
+#[test]
 fn creation_settings_survive_reopen_and_invalid_requests_do_not_change_state() {
     let directory = tempfile::tempdir().unwrap();
     let mut control = ControlPlane::new(directory.path().join("workspace"));
@@ -307,7 +424,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
     );
     drop(control);
     let future = rusqlite::Connection::open(path).unwrap();
-    future.pragma_update(None, "user_version", 32).unwrap();
+    future.pragma_update(None, "user_version", 39).unwrap();
     let mut control = ControlPlane::new(directory.path().to_path_buf());
     assert_eq!(
         command(&mut control, "workspace.open", json!({}))["error"]["code"],
@@ -317,7 +434,7 @@ fn upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema() {
         future
             .pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))
             .unwrap(),
-        32
+        39
     );
 }
 
@@ -353,6 +470,11 @@ fn schema_30_migrates_execution_attempt_history_without_losing_foreign_keys() {
             DROP TABLE execution_attempts;
             ALTER TABLE execution_attempts_v30 RENAME TO execution_attempts;
             CREATE INDEX execution_attempts_account_state ON execution_attempts(account_id,state);
+            DROP TABLE quote_source_config;
+            DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials;
+            DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit;
+            DROP TABLE binance_market_source_config; DROP TABLE binance_market_source_config_audit;
+            DROP TABLE workspace_retention;
             PRAGMA user_version=30;
             PRAGMA foreign_keys=ON;",
         )
@@ -362,7 +484,7 @@ fn schema_30_migrates_execution_attempt_history_without_losing_foreign_keys() {
     let mut migrated = ControlPlane::new(directory.path().to_path_buf());
     let reopened = command(&mut migrated, "workspace.open", json!({}));
     assert_eq!(reopened["ok"], true, "{reopened}");
-    assert_eq!(reopened["data"]["storageSchemaVersion"], 31);
+    assert_eq!(reopened["data"]["storageSchemaVersion"], 38);
     drop(migrated);
 
     let database = rusqlite::Connection::open(database_path).unwrap();

@@ -1,0 +1,34 @@
+{
+  "assignees": [
+    {
+      "id": "MDQ6VXNlcjkwMTQwNjI=",
+      "login": "kaiqiangh",
+      "name": "Kai",
+      "databaseId": 9014062
+    }
+  ],
+  "closedAt": "2026-10-08T21:17:47Z",
+  "labels": [
+    {
+      "id": "LA_kwDOUOX8L88AAAACz--d0w",
+      "name": "ready-for-agent",
+      "description": "Specified and ready for agent execution",
+      "color": "0E8A16"
+    },
+    {
+      "id": "LA_kwDOUOX8L88AAAACz--eKA",
+      "name": "wayfinder:task",
+      "description": "Work resolving a Wayfinder decision",
+      "color": "1D76DB"
+    }
+  ],
+  "number": 124,
+  "state": "CLOSED",
+  "title": "[S29.3] \u63d0\u4f9b Binance Spot Hot \u62a5\u4ef7\u4e0e\u8fde\u7eed\u6df1\u5ea6\u6765\u6e90",
+  "url": "https://github.com/kaiqiangh/tradex/issues/124",
+  "resolutionUrl": "https://github.com/kaiqiangh/tradex/issues/124#issuecomment-6069229563",
+  "acceptanceDeliverySha": "dc51bd7bb46d546c61dcdbcf00627139caba8535",
+  "acceptanceDeliveryVerifiedOriginDev": true,
+  "parent121State": "OPEN",
+  "mainChanged": false
+}

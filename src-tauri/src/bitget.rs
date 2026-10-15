@@ -680,6 +680,7 @@ pub(super) fn read(
         limitations.push("Classic Demo account endpoints may be unsupported.".into());
     }
     Ok(Observation {
+        binance_trading_status: None,
         permissions,
         data: AccountData {
             remote_account_id: identity,
@@ -1142,6 +1143,7 @@ fn open_order(order: &BitgetSpotOrder, raw: &Value) -> Result<OpenOrder> {
         quantity: order.quantity.clone(),
         notional: order.notional.clone(),
         filled_quantity: order.filled_quantity.clone(),
+        remaining_quantity: order.remaining_quantity.clone(),
         filled_value: order.filled_value.clone(),
         currency: order.currency.clone(),
         status: order.provider_status.to_ascii_uppercase(),

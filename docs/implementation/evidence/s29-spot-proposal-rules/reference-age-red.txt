@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.78s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'identical_reference_cannot_renew_first_receipt_or_financial_freshness' (10458955) panicked at src-tauri/tests/binance_rules.rs:431:5:
+assertion `left == right` failed: Default3-second financial freshness is stricter than30-second rule metadata: {"data":{"accountId":"a230f48f-ce03-4c94-aee2-505c525c86ec","baseAsset":"BTC","bindingVersion":"sha256:a28ce7a5abeb32cae803f8b8fdc9be2d226c54b4ecfe4fab8a4221377ec88e03","instrumentId":"crypto:BTC/USDT:spot","materialVersion":"9af2e7bc9fa5f205c53db3c20e75a3df09ffb84d7f72faff955ac87fe90f3736","observedAt":"2026-10-08T22:35:59.592Z","outcome":"UNAVAILABLE","proposalHash":"sha256:e29a2e4c184f39ae7784d18a2c66c945ac9e243e344965da7633daeaf962d14c","proposalId":"proposal:8b9cf709-3702-485f-aa4b-f56da3d537fe","quoteAsset":"USDT","referenceFailure":null,"referencePurposes":["ExchangeInfo:Symbol:PERCENT_PRICE"],"references":[{"digest":"sha256:8f296e0bddffe3ff3b7ab0dd483ac9359525f087d1f4f37b0bd0c80b59545ee8","intervalMinutes":null,"kind":"PROVIDER_REFERENCE","price":"60000","providerObservedAt":"2026-10-08T22:35:59.609Z","receivedAt":"2026-10-08T22:35:59.612Z"}],"rules":[{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ruleType":"ORDER_FORM","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PRICE_FILTER","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"LOT_SIZE","scope":"SYMBOL"},{"applicable":true,"origin":"EXCHANGE_INFO","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"PERCENT_PRICE","scope":"SYMBOL"},{"applicable":true,"origin":"EXECUTION_RULES","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"PRICE_RANGE","scope":"EXECUTION"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"UNAVAILABLE","reasonCode":"RULE_INPUT_UNAVAILABLE","ruleType":"EXCHANGE_MAX_NUM_ORDERS","scope":"EXCHANGE"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MIN_NOTIONAL","scope":"SYMBOL"},{"applicable":true,"origin":"ACCOUNT_FILTERS","outcome":"PASS","reasonCode":"STATIC_RULE_SATISFIED","ruleType":"MAX_ASSET","scope":"ASSET"}],"sourceVersion":"BINANCE_SPOT_RULES:28159989-4dd8-4a4b-91ff-6587e6f51fa8:1","stateVersion":"sha256:894518f29001415e853fcdf2f7d3248c2a28ca2c1dd2ed1ff00f7af056c4dcc2","unresolvedObligations":["ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED","ExecutionRules:Execution:PRICE_RANGE","AccountFilters:Exchange:EXCHANGE_MAX_NUM_ORDERS"],"workspaceId":"28159989-4dd8-4a4b-91ff-6587e6f51fa8"},"ok":true,"requestId":"spot-rules","schemaVersion":1,"stateVersion":"sha256:894518f29001415e853fcdf2f7d3248c2a28ca2c1dd2ed1ff00f7af056c4dcc2"}
+  left: Array [Object {"digest": String("sha256:8f296e0bddffe3ff3b7ab0dd483ac9359525f087d1f4f37b0bd0c80b59545ee8"), "intervalMinutes": Null, "kind": String("PROVIDER_REFERENCE"), "price": String("60000"), "providerObservedAt": String("2026-10-08T22:35:59.609Z"), "receivedAt": String("2026-10-08T22:35:59.612Z")}]
+ right: Array []
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test identical_reference_cannot_renew_first_receipt_or_financial_freshness ... FAILED
+
+failures:
+
+failures:
+    identical_reference_cannot_renew_first_receipt_or_financial_freshness
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 3.25s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term ... FAILED
+
+failures:
+
+failures:
+    interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.25s
+
+test interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term ... FAILED
+
+failures:
+
+failures:
+    interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.51s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.15s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term' (11625809) panicked at src-tauri/tests/binance_rules.rs:63:5:
+assertion `left == right` failed: Reflected authentication text cannot become a retained unknown interval term: {"data":{"accountId":"7bb17d8c-09f8-4ce0-bac8-d7f9deffb590","baseAsset":"BTC","bindingVersion":"sha256:fdf3e83363c8c740c543f691e157bd404652e4a9be7adb35a4dc00fabcf2ded8","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"localRoundTripBoundMs":"4","receivedAt":"2026-10-09T15:39:40.641Z","serverTimeMs":"1791560380641","startedAt":"2026-10-09T15:39:40.637Z"},"collectionId":"4b67306d-1fae-4018-8b9f-f2f30754e8a4","counters":[{"count":"0","interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"count":"9007199254740993","interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"coverageComplete":false,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"S02-FAKE-KEY-594791453"},{"interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"e9bb7a3a39c197adf1dde26b06a0378c3028c54044def9e44ac1d5deeb8c0201","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:39:40.643Z","startedAt":"2026-10-09T15:39:40.641Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:39:40.648Z","startedAt":"2026-10-09T15:39:40.644Z"},{"digest":"3e34ce73e5c92d1892953341110fa715844608af80cb0b5404f73cdd763d95bd","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:39:40.653Z","startedAt":"2026-10-09T15:39:40.649Z"}],"timeAssociation":"DERIVED_UNCERTAIN","unresolvedObligations":["UNKNOWN_DECLARED_TYPE_UNRESOLVED","COUNTER_SNAPSHOT_TIME_UNAVAILABLE","DERIVED_WINDOW_ASSOCIATION_UNCERTAIN","INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:5ec1140dee3a6dd876dde71665ad6caafb373dedff144ec327e3cddff9eb1729","proposalId":"proposal:0e281236-fdc8-411d-8bda-01152cbe9dcc","providerWaitSeconds":null,"qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","retirementReason":null,"ruleMaterialVersion":"d852175b9e43624c5e5b9ba9b361aacf0d48446bcdee7c60e9288c63947402c8","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:cab540e2-c832-4834-a0b7-93f590434f97:1","stateVersion":"sha256:39892cda02e1c91d4942d9e58c9874457b0ce8726c0be01b9b6b825f5fa2de3b","status":"OBSERVED","workspaceId":"cab540e2-c832-4834-a0b7-93f590434f97"},"ok":true,"requestId":"interval-collection","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term' (11625803) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_public_definition_reflection_cannot_expose_a_saved_key_as_an_unknown_term
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

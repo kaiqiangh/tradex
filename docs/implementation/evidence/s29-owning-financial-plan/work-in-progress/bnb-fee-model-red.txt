@@ -1,0 +1,13 @@
+Command: cargo test -p tradex --features integration-test --test binance_market_hot owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch -- --nocapture --test-threads=1
+Result: expected RED before the owning BNB model consumed the public fee-market source.
+
+running 1 test
+test owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch ...
+
+thread 'owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch' panicked at src-tauri/tests/binance_market_hot.rs:2683:5:
+assertion `left == right` failed
+  left: Null
+ right: "TAKER"
+FAILED
+
+The test reached the public Control Plane flow with real loopback HTTP/WS producers, authenticated disposable account/rule/capacity/commission reads, and a continuous fixed BNBUSDT source. It failed because currentFeeModel did not expose the discounted BNB fee scenario.

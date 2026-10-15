@@ -1,0 +1,2 @@
+Traceability OK: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.
+S29-mapped requirements: FR-017 (IN_PROGRESS, S19/S29), UX-004 (IMPLEMENTED_UNVERIFIED, S16-S20/S28-S30). S29.7 raises neither; both still wait on S33 and the OD-005/OD-006 authorizations.

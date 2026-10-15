@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-04T09:47:49.262301+00:00",
+  "parentImageMatchesBundle": true,
+  "gatewayImageMatchesBundle": true,
+  "gatewayParentMatches": true,
+  "protectedKeychainRead": false,
+  "ownedVaultRead": false,
+  "financialSourceReadOnStack": false,
+  "privateStackArchived": false
+}

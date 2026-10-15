@@ -1,0 +1,85 @@
+{
+  "scenario": "S33 B4 Composer Pickers",
+  "result": "PASS_LIMITED",
+  "evidenceRecordedAt": "2026-10-14T15:12:09Z",
+  "branch": "dev",
+  "reviewBaseline": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "fixtureBoundary": "Fresh isolated Rust-backed integration workspaces; canonical local metadata, Local Paper fixture and synthetic ChatGPT/DeepSeek routes only. No real provider endpoint, credentials, OAuth or inference.",
+  "surfaces": {
+    "contextPicker": {
+      "result": "PASS_LIMITED",
+      "test": "tests/s33-qa08-selection-playwright.js",
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "attachCancelRemoveVerified": true,
+      "canonicalRefs": [
+        "crypto:ETH/USDT:spot",
+        "equity:US:MSFT"
+      ],
+      "catalogLimit": 256,
+      "capacityDialogViewportBounded": true,
+      "turnStarts": 0,
+      "providerOrFinancialMutations": 0,
+      "externalHttpRequests": 0,
+      "pageErrors": 0
+    },
+    "accountAndModelPicker": {
+      "result": "PASS_LIMITED",
+      "test": "tests/s33-qa06-immutable-turn-provenance-playwright.js",
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "account": "Local Paper synthetic fixture",
+      "defaultModel": "CHATGPT · gpt-5.6-sol",
+      "alternateModel": "DEEPSEEK · deepseek-v4-flash synthetic fixture",
+      "nextTurnMode": "BACKTEST",
+      "historicalTurnAndArtifactProvenanceUnchanged": true,
+      "localSyntheticTurnStarts": 1,
+      "providerOrFinancialCommands": 0,
+      "externalHttpRequests": 0,
+      "pageErrors": 0
+    },
+    "modeAndExecutionBadge": {
+      "result": "PASS_LIMITED",
+      "test": "tests/s33-b3-ask-mode-playwright.js",
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "ask": "ASK / NONE_READ_ONLY / C0",
+      "backtest": "HISTORICAL_SIMULATION / C2",
+      "invalidTrade": "NONE_READ_ONLY blocked as UNSUPPORTED_CAPABILITY"
+    }
+  },
+  "screenshots": {
+    "contextPicker390": {
+      "path": "qa08-context-picker-390.png",
+      "sha256": "24112082a725334a0d31a1ef00d478794afa1abd477c84f7a9ccf1c99af9ee51"
+    },
+    "modelAndAccountProvenance390": {
+      "path": "qa06-immutable-provenance-390.png",
+      "sha256": "549948b5d74631471eada004a10f9f79ef368d39495a44c39eed9ec65d4e8f6d"
+    },
+    "askMode390": {
+      "path": "b3-ask-mode-390.png",
+      "sha256": "e9e055fa4fe1787bcd56bd2c77faedb1a8b7df4572fef0f9f600336702bb6c82"
+    }
+  },
+  "testSha256": {
+    "contextPicker": "5f88ad41951ee5d98a29496749302477390f8bddac1f91f0017e266373b4a43f",
+    "accountModelPicker": "d8daec6319ca15d9a9c9f2d13459a3a029052ba111fe9a81fbe27ad03e553cf7",
+    "modeExecution": "182654e779d0afceff91eab479cf33527c9875ebd38f3c169ed9ecb5db46a8db"
+  },
+  "limitations": [
+    "Only Local Paper and synthetic model routes were exercised in the fresh picker runs; real Demo/Testnet/Live connections and provider truth remain open.",
+    "QA-06 used one integration-test synthetic Turn; no real model endpoint or inference was used.",
+    "Native VoiceOver and full S33 acceptance remain open.",
+    "The QA-08/QA-06 scripts do not instrument console errors; no console-error-zero claim is made for those runs."
+  ]
+}

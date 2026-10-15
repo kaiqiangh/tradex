@@ -1,0 +1,68 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> src-tauri/src/financial_sources.rs:703:50
+    |
+703 |             let path = if let Some(token) = next.as_ref() {
+    |                                                  ^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by a bound in `std::option::Option::<T>::as_ref`
+   --> /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/option.rs:742:4
+
+error[E0277]: the size for values of type `str` cannot be known at compilation time
+   --> src-tauri/src/financial_sources.rs:693:24
+    |
+693 |         let mut next = None;
+    |                        ^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `str`
+note: required by a bound in `std::prelude::v1::None`
+   --> /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/option.rs:602:4
+
+error[E0308]: mismatched types
+   --> src-tauri/src/financial_sources.rs:743:20
+    |
+693 |         let mut next = None;
+    |                        ---- expected due to this value
+...
+743 |             next = page.next_page_token;
+    |                    ^^^^^^^^^^^^^^^^^^^^ expected `Option<str>`, found `Option<String>`
+    |
+    = note: expected enum `std::option::Option<str>`
+               found enum `std::option::Option<std::string::String>`
+
+error[E0599]: the method `as_ref` exists for enum `std::option::Option<str>`, but its trait bounds were not satisfied
+   --> src-tauri/src/financial_sources.rs:744:39
+    |
+744 |             if let Some(token) = next.as_ref() {
+    |                                       ^^^^^^ method cannot be called on `std::option::Option<str>` due to unsatisfied trait bounds
+    |
+    = note: the following trait bounds were not satisfied:
+            `str: Sized`
+note: the method `as_ref` exists on the type `str`
+   --> /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/convert/mod.rs:224:4
+help: consider using `Option::expect` to unwrap the `str` value, panicking if the value is an `Option::None`
+    |
+744 |             if let Some(token) = next.expect("REASON").as_ref() {
+    |                                      +++++++++++++++++
+
+error[E0382]: borrow of moved value: `status`
+   --> src-tauri/src/financial_sources.rs:275:50
+    |
+232 |     let status = if saved.connection_id.is_none() {
+    |         ------ move occurs because `status` has type `DataSourceStatus`, which does not implement the `Copy` trait
+...
+261 |         status,
+    |         ------ value moved here
+...
+275 |             capability(Capability::KnownActions, status.clone(), reason),
+    |                                                  ^^^^^^ value borrowed here after move
+    |
+help: consider cloning the value if the performance cost is acceptable
+    |
+261 |         status: status.clone(),
+    |               ++++++++++++++++
+
+Some errors have detailed explanations: E0277, E0308, E0382, E0599.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `tradex` (lib) due to 5 previous errors

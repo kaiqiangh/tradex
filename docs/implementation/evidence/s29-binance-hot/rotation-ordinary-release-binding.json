@@ -1,0 +1,17 @@
+{
+  "sourceSha": "d9abe2470ed0b5d69b08c645625a4aa30d988511",
+  "command": "npm run desktop:build",
+  "exitCode": 0,
+  "nativeCompileFeaturesObserved": [
+    "default",
+    "desktop"
+  ],
+  "integrationTestEnabled": false,
+  "application": "/Users/kai/Desktop/my-repo/tradex/target/release/tradex",
+  "applicationSha256": "c32410691f67f5f9fbaf7d7883431f5dd92c7f2b7aea6b01c2ef2c92b47a4ec8",
+  "gateway": "/Users/kai/Desktop/my-repo/tradex/target/release/tradex-order-gateway",
+  "gatewaySha256": "ea1ff8cef4f25a95d24b733c01a1c4dce8e962d1924467f1631d2055d5758fdc",
+  "gatewayPinPresentInApplication": true,
+  "executedApplication": false,
+  "realProviderOrNativeUiAcceptance": false
+}

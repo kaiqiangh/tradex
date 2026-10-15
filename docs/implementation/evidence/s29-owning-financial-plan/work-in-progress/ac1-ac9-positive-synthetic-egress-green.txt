@@ -1,0 +1,14 @@
+S29.11 AC1/AC9 synthetic positive model-egress boundary — 2026-10-12
+
+Scope: One test-only source fixture, through the normal ControlPlane research.run and begin_turn path, into the real Codex process adapter. No real account, provider, credentials, network source, or financial action.
+
+Focused commands:
+- cargo test -p tradex --features integration-test --lib begin_turn_keeps_available_synthetic_crypto_quotes_local -- --nocapture — 1 passed.
+- cargo test -p tradex --features integration-test --lib begin_turn_ -- --nocapture — 2 passed (available synthetic crypto result and existing unavailable AAPL result).
+- cargo test -p tradex --features integration-test --lib process_adapter_sends_only_user_text_and_research_marker_to_model_runtime -- --nocapture — 1 passed.
+
+The positive case retained typed synthetic Binance/Bitget bid, ask, spread and depth in the local thread result. A local fake Codex App Server captured turn/start; it contained user text and the result marker, and omitted the quote values, source id, fixture label and attached artifact id/hash. The shared fake-server helper removed duplicated JSONL handshake code. Test-only thread-local fixture selection avoids process environment mutation and restores nested state on unwind.
+
+Validation: cargo fmt --all -- --check; git diff --check; npm run check. The full check completed schema agreement, production typecheck/build, frontend unit tests (18/18), Rust library tests (270/270), Binance rules (120/120), financial_sources (41 passed, 3 existing ignored), remaining workspace integration suites, and requirements traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files). Existing Vite chunk and test-fixture dead-code warnings remain.
+
+Limit: This synthetic positive path does not establish real source-use rights or provider evidence, cover every raw-data/cache/export boundary, validate positive owning-plan Prepare/settlement, or close AC1/AC9. Alpaca Support has not replied; real source-use remains UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED. GitHub #135/#134 remain OPEN.

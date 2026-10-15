@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-04T07:47:20.474222+00:00",
+  "ui": "tauri://localhost",
+  "selectionSaved": true,
+  "refreshTerminalStatus": "UNAVAILABLE",
+  "firstReceiptPublished": false,
+  "reason": "The provider read failed or exceeded its deadline. No current observation was published.",
+  "refreshReenabled": true,
+  "reloadAvailable": true,
+  "protectedAuthenticationObserved": true,
+  "hostedAccessStatus": "UNVERIFIED",
+  "providerRateAge": "UNVERIFIED",
+  "transactionQualification": "UNVERIFIED",
+  "privateAccountIdentifiersBalancesHoldingsProviderBodiesArchived": false,
+  "financialMutation": false,
+  "exactNativeDeadlineTimingIndependentlyProved": false
+}

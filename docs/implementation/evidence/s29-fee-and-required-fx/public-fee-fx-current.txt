@@ -1,0 +1,15 @@
+
+running 8 tests
+test owning_fee_fx_binding_blocker_prefers_the_route_and_keeps_the_fee_fact_visible ... ok
+test owning_fee_fx_declared_basis_compares_actual_rates_numerically_without_a_fee_estimate ... ok
+test owning_fee_fx_declared_fee_change_updates_the_approval_bound_material_without_authority ... ok
+test owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact ... ok
+test owning_fee_fx_gate_refuses_approval_and_leaves_no_partial_state ... ok
+test owning_fee_fx_route_blocker_does_not_invent_a_missing_commission_observation ... ok
+test owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers ... ok
+test owning_fee_fx_stays_visible_when_capacity_evidence_is_absent ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 3.25s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.48s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)

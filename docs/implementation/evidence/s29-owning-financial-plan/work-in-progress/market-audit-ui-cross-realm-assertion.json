@@ -1,0 +1,5 @@
+{
+  "passed": false,
+  "name": "AssertionError",
+  "message": "Values have same structure but are not reference-equal:\n\n{\n  denominator: '6000100000',\n  numerator: '3'\n}\n"
+}

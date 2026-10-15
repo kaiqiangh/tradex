@@ -1,0 +1,8 @@
+{
+  "checkedAt": "2026-10-01T08:46:51.449Z",
+  "observations": [
+    "Public normally connected T212 account remains UNVERIFIED/DISARMED; backend read-only review shows the same adapter-produced snapshot and exact quote provenance before Arm.",
+    "Arm remains disabled, Approve is absent, and read-only quote/blocker display works through keyboard at 390/768/1280px without overflow/errors."
+  ],
+  "mode": "Public UI, disposable Rust workspace, normal fake provider connect, actual quote adapter frames; no arming/authority seeding or financial actions"
+}

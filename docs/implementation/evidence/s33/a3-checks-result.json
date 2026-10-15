@@ -1,0 +1,21 @@
+{
+  "command": "RUST_TEST_THREADS=1 npm run check",
+  "exitCode": 0,
+  "recordedAt": "2026-10-15T16:03:01.194113+00:00",
+  "reviewBaseline": "3297d9f45b7971cee41f3cb383310d0e46172fbc",
+  "nodeTests": 35,
+  "rustPassed": 578,
+  "rustFailed": 0,
+  "rustIgnored": 39,
+  "rustTargets": 35,
+  "secretScan": "PASS",
+  "traceability": {
+    "requirements": 203,
+    "screens": 70,
+    "qa": 13,
+    "baselineFiles": 23
+  },
+  "affectedRustfmt": "PASS",
+  "browserScriptSyntax": "PASS",
+  "warningBoundary": "Existing Vite chunk-size and Rust test-fixture warnings; ignored tests are not acceptance passes."
+}

@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-10-01T06:38:43.578Z",
+  "mode": "isolated integration with external synthetic secure vault/HTTP and actual loopback WebSocket provider bytes; no hosted provider or OS sleep proof",
+  "observations": [
+    "Explicit saved SIP configuration is verified through the adapter, with technical access separate from quote/trading readiness.",
+    "Source card and source connection agree; unsaved feed changes disable verification; no renderer password input.",
+    "Provider-initiated TCP closure automatically recovers the same public view lease on the selected SIP feed, without a UI reacquire or manual Retry.",
+    "The recovered public projection displays reconnect attempt 1 and actual quote bytes; old fixture time remains non-current and trading guards stay visible.",
+    "Actual loopback WebSocket frames activate the public Hot detail only after provider acknowledgements and validated quotes.",
+    "Old fixture time remains non-current despite STREAMING; AAPL to results to MSFT remount displays the requested provider symbol; no overflow at 390/768/1280px."
+  ]
+}

@@ -1,0 +1,19 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 26.10s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-01462f343f6b72a8)
+
+running 1 test
+test fee_only_bnb_book_is_continuous_without_replacing_the_trading_quote_or_catalogue ... 
+thread 'fee_only_bnb_book_is_continuous_without_replacing_the_trading_quote_or_catalogue' (14823990) panicked at src-tauri/tests/binance_market_hot.rs:2951:9:
+Fee stream did not become continuous: {"data":{"connectionGeneration":"02be1347-1451-4c00-b563-b62a3c8a9caf","generation":"02be1347-1451-4c00-b563-b62a3c8a9caf","leaseId":"726b4fe7-2b5c-4f23-9afc-33e955c1c41a","metadata":null,"reason":"Continuous Spot book unavailable (PROVIDER_UNSUPPORTED). Retry the selected source; retained observations are unavailable.","reconnectAttempt":0,"sequence":2,"snapshot":null,"sourceId":"BINANCE_SPOT_PUBLIC","sourceVersion":"binance-market:e64328b1-3c33-4eb7-9d91-9bb01e70e2e1:1","status":"FAILED","workspaceId":"e64328b1-3c33-4eb7-9d91-9bb01e70e2e1"},"ok":true,"requestId":"spot-hot","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    fee_only_bnb_book_is_continuous_without_replacing_the_trading_quote_or_catalogue
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 54 filtered out; finished in 5.33s
+
+error: test failed, to rerun pass `-p tradex --test binance_market_hot`

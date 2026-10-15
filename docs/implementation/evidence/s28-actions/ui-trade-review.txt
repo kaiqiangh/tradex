@@ -1,0 +1,27 @@
+{
+  "originalReceipt": "2026-10-03T10:24:54.023Z",
+  "materialVersion": "56bf1e9994dba5ea2914f6c3d21b163d42141f094524c64dd6157fd7263059d6",
+  "layouts": [
+    {
+      "left": 16,
+      "right": 374,
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "left": 64,
+      "right": 704,
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "left": 320,
+      "right": 960,
+      "scroll": 1280,
+      "width": 1280
+    }
+  ],
+  "approvalCount": 0,
+  "financialMutation": false,
+  "summary": "Public unverified/disarmed account; original known-event evidence and independent coverage/adjustment blockers in the disabled pre-arm review. No positive authority seed or financial action."
+}

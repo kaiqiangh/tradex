@@ -1,0 +1,44 @@
+{
+  "result": "PASS",
+  "screenId": "J6",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "runDate": "2026-10-14",
+  "workspaceId": "6eb78f10-ae4e-4a73-9a94-9b869e6e15a9",
+  "test": {
+    "path": "tests/s33-appearance-screen-playwright.js",
+    "sha256": "e887561ca12ce613e1e669eb623917e6192c9076b597064ed9da4a1126a86a8a"
+  },
+  "sourceHashes": {
+    "src/SettingsSurfaces.tsx": "a72739442654140d7bebd9409246d8ac9d40d23e25306054c7a6c79844abd4cd",
+    "src/App.tsx": "ced57dea569ea339a9cd685903153a2d02e07ea514d13087a91790e6113dedeb",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b"
+  },
+  "systemPreference": {
+    "prefersDark": true,
+    "effectiveColorScheme": "light"
+  },
+  "themes": {
+    "current": "System / Light prototype",
+    "futureDisabled": "Dark workspace",
+    "controlActivated": false
+  },
+  "viewports": [
+    { "width": 1280, "noHorizontalOverflow": true, "labelsVisible": true },
+    { "width": 768, "noHorizontalOverflow": true, "labelsVisible": true },
+    { "width": 390, "noHorizontalOverflow": true, "labelsVisible": true }
+  ],
+  "commandsAfterScreenBaseline": [],
+  "forbiddenCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshot": {
+    "path": "docs/implementation/evidence/s33/appearance-390.png",
+    "bytes": 12740
+  },
+  "limitations": [
+    "Does not establish native OS theme preference behavior or VoiceOver acceptance.",
+    "Reduced-motion behavior is covered by a separate partial S33 check.",
+    "J6 remains IN_PROGRESS until the full S33 acceptance gates are complete."
+  ]
+}

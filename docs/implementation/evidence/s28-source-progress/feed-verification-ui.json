@@ -1,0 +1,7 @@
+{
+  "boundary": "Public UI with real Rust and temporary SQLite; external synthetic vault/HTTP responses.",
+  "observations": [
+    "Explicit saved SIP configuration is verified through the adapter, with technical access separate from quote/trading readiness.",
+    "Source card and source connection agree; unsaved feed changes disable verification; no renderer password input."
+  ]
+}

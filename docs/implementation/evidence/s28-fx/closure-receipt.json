@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-10-07T08:47:14.581212+00:00",
+  "ticket": 120,
+  "ticketState": "CLOSED",
+  "resolutionUrl": "https://github.com/kaiqiangh/tradex/issues/120#issuecomment-6034334854",
+  "parentUpdateUrl": "https://github.com/kaiqiangh/tradex/issues/117#issuecomment-6034346961",
+  "sourceCommit": "e82b65e396e91560debae914d407577b62a76db0",
+  "evidenceCommit": "d4a943cba31a948fae54b365bce4e91697c358bf",
+  "originDevVerified": true,
+  "workingTreeCleanAtDelivery": true,
+  "sourceHashesVerified": 35,
+  "frozenEvidenceHashesVerified": 114,
+  "frozenDeliveryBindingSha256": "f6b338809ba367fe0559d97413800ebc15dd51ce58e8e7ab96d6aa80a3bddd44",
+  "standards": {
+    "verdict": "PASS",
+    "hardFindings": 0,
+    "advisorySmells": 1
+  },
+  "spec": {
+    "verdict": "PASS",
+    "confirmedFindings": 0
+  },
+  "checks": {
+    "node": 17,
+    "ordinaryRust": 386,
+    "integrationRust": 425,
+    "gateway": 23,
+    "ignoredUnverified": 39
+  },
+  "native": "Current ordinary2026-10-07 sanitized endpoint-denial reason observed; HTTP403/classification mapping inference; no rate/quality authority",
+  "parentsOpen": [
+    1,
+    113,
+    115,
+    116,
+    117
+  ],
+  "goal": "ACTIVE",
+  "ciClaimed": false,
+  "financialMutation": false,
+  "mainAction": false,
+  "scope": "Post-delivery closure metadata; frozen pre-delivery114artifact snapshot remains unchanged",
+  "mapPointerVerified": true
+}

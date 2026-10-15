@@ -1,0 +1,8 @@
+{
+  "stage": "BEFORE_MARKET_REFERENCE_RENDER",
+  "name": "AssertionError",
+  "message": "market.hot.get: {\"blocking\":true,\"category\":\"STATE_STALE\",\"code\":\"STATE_VERSION_CONFLICT\",\"message\":\"The state cursor cannot be resumed. Reload authoritative state.\",\"remediationActions\":[{\"id\":\"reload_snapshot\",\"label\":\"Reload state\"}],\"retryable\":false}\n\nfalse !== true\n",
+  "classification": "PREPARATION_LEASE_STATE_CONFLICT_NOT_EXPECTED_UI_RED",
+  "initialHypothesis": "Policy save after lease acquisition; not a confirmed cause",
+  "laterResolution": "React owns the visible Proposal quote lease and replaces a competing harness lease"
+}

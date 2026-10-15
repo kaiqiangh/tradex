@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.91s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query ... FAILED
+
+failures:
+
+---- provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query stdout ----
+
+thread 'provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query' (2390471) panicked at src-tauri/tests/financial_sources.rs:551:9:
+assertion `left == right` failed: A valid exact provider number was lost: 2.5e-6: {"data":{"availabilityReason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","capabilityStatuses":[{"capability":"KNOWN_ACTIONS","reason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","status":"UNAVAILABLE"},{"capability":"ACTION_QUERY_COMPLETION","reason":"Pagination exhaustion applies only to the returned processing-date query, not prospective event completeness.","status":"UNAVAILABLE"},{"capability":"COMPLETE_ACTION_COVERAGE","reason":"The provider documents processing delays and no immediate-announcement completeness guarantee. An empty query cannot certify no pending action or complete delisting coverage.","status":"BLOCKED_EXTERNAL"},{"capability":"HISTORICAL_ADJUSTMENT","reason":"Known events do not prove historical prices were adjusted; actual history provenance is still required.","status":"UNVERIFIED"}],"configured":true,"connectionId":"7b6c33fe-20ce-401e-b864-6d4e0b1caf48","eligibleAccounts":[{"connectionId":"7b6c33fe-20ce-401e-b864-6d4e0b1caf48","displayName":"Read-only source"}],"environment":"PAPER","kind":"CORPORATE_ACTIONS","stateVersion":"CORPORATE_ACTIONS:2c7723b8-964b-4bd1-9204-13bd82a09a1e:1","status":"UNAVAILABLE","workspaceId":"2c7723b8-964b-4bd1-9204-13bd82a09a1e"},"ok":true,"requestId":"exact-terms","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    provider_exponent_terms_are_exact_and_invalid_ratios_retire_the_query
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

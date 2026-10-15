@@ -1,0 +1,7 @@
+S29.11 single public RED -> GREEN behavior: RiskDecision consumes the owning fee/FX statement.
+
+Command: cargo test --test binance_rules intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth -- --exact --nocapture
+
+RED result before implementation: FAILED at src-tauri/tests/binance_rules.rs:6431 because the public RiskDecision had no SPOT_FEE_FX check, even though it carried the qualified INTENT_POLICY route and the unavailable owning SpotFeeFxStatement. The risk record therefore did not consume the same owning statement used by approval review.
+
+Only external HTTP and vault producers were fixture-backed. The test used a disposable RuleRig workspace. No real account/provider was read or written; no approval, Arm, consent, Prepare, dispatch or order was performed.

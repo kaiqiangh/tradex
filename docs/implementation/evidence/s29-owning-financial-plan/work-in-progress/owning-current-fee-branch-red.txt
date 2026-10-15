@@ -1,0 +1,33 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.44s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-c1e8f29d5c5a26b9)
+
+running 1 test
+
+running 1 test
+test owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset ... FAILED
+
+failures:
+
+failures:
+    owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 119 filtered out; finished in 0.14s
+
+
+thread 'owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset' (17072041) panicked at src-tauri/tests/binance_rules.rs:7140:5:
+The same owning statement must explain the complete current branch while retaining future-asset uncertainty: {"accountId":"5232adf3-5b43-4f31-bb39-a25f2768b2d7","baseAsset":"BTC","baseCurrency":"USD","bindingBlocker":"SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE","carriedLimitations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"],"currentFeeModel":{"chargingCondition":"DISCOUNT_DISABLED_CURRENT_FALLBACK","class":"CURRENT_ORDER_SCENARIO","fallback":{"netReceived":"0.00094999718","preRounding":{"special":{"denominator":"20000","numerator":"1"},"standard":{"denominator":"2000000000","numerator":"1"},"tax":{"denominator":"12500000000","numerator":"29"},"total":{"denominator":"50000000000","numerator":"2500141"}},"role":"TAKER","special":"0.00005","standard":"0.0000000005","tax":"0.00000000232","total":"0.00005000282"},"fallbackCandidates":[{"netReceived":"0.0009599973","preRounding":{"special":{"denominator":"25000","numerator":"1"},"standard":{"denominator":"2500000000","numerator":"1"},"tax":{"denominator":"10000000000","numerator":"23"},"total":{"denominator":"10000000000","numerator":"400027"}},"role":"MAKER","special":"0.00004","standard":"0.0000000004","tax":"0.0000000023","total":"0.0000400027"},{"netReceived":"0.00094999718","preRounding":{"special":{"denominator":"20000","numerator":"1"},"standard":{"denominator":"2000000000","numerator":"1"},"tax":{"denominator":"12500000000","numerator":"29"},"total":{"denominator":"50000000000","numerator":"2500141"}},"role":"TAKER","special":"0.00005","standard":"0.0000000005","tax":"0.00000000232","total":"0.00005000282"}],"fundingPlanPreview":{"fallbackFeeAmount":"0.00005000282","fallbackFeeAsset":"BTC","fallbackNetReceipt":"0.00094999718","feeDisposition":"RECEIVED_ASSET_DEDUCTION","principalClaim":{"amount":"60","asset":"USDT"}},"grossReceived":"0.001","limitations":["VENUE_PER_FILL_ROUNDING_UNPROVEN"],"method":"SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1","receivedAsset":"BTC"},"expectedSpendQuote":"60","feeCurrency":"UNKNOWN","feeCurrencyOrigin":"UNKNOWN","feeEvidenceVersion":"sha256:b17dac27a9cc33bf558f3fd7552121d65f66c563de4ab11e68a9143a75449487","instrumentId":"crypto:BTC/USDT:spot","outcome":"UNAVAILABLE","proposalHash":"sha256:274424191aa5590322397beabd9db62dac95ceed06c806de936d0de6c3f8120e","proposalId":"proposal:d47afb64-f843-4cf8-8bd7-f27b016fb514","quoteAsset":"USDT","reason":"The genuinely-required price-only policy-valuation FX route USDT -> USD is unavailable because no current proposal-scoped quote is bound; The exact-symbol commission terms are current, but the venue does not declare the future fee-charging asset, so fee currency remains UNKNOWN and no fee amount is fabricated.","reasonCode":"SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE","routeEvidenceVersion":"sha256:ff8c3337d1b9c6e6274c5a380082030e8904e08ca052892e73a27a5d5efe41f7","routes":[{"fromCurrency":"USDT","purpose":"INTENT_FUNDING","reason":"The monetary input and target share one currency, so no external rate is required.","state":"QUALIFIED","toCurrency":"USDT"},{"fromCurrency":"USDT","providerPair":"USDTUSD","purpose":"INTENT_POLICY","reason":"This required conversion has a supported producer pair but no current qualified rate is bound to this unchanged intent.","state":"EVIDENCE_UNAVAILABLE","toCurrency":"USD"}],"side":"BUY","walletFundingEvidence":{"accountId":"5232adf3-5b43-4f31-bb39-a25f2768b2d7","accountReadStartedAt":"2026-10-12T00:17:05.434Z","balances":[],"capacityBindingVersion":"sha256:f2a8095a9bb16b22416c1f441b74083d98b563ce235002668072e072f8f42a90","collectionId":"91ed5023-afd9-4dd8-863c-fe5a0e1d9050","firstReceipt":"2026-10-12T00:17:05.438Z","missingAssets":["BTC","USDT","BNB"],"originalDigest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","proposalHash":"sha256:274424191aa5590322397beabd9db62dac95ceed06c806de936d0de6c3f8120e","proposalId":"proposal:d47afb64-f843-4cf8-8bd7-f27b016fb514","reason":"SPOT_WALLET_REQUIRED_ASSET_MISSING","requiredAssets":["BTC","USDT","BNB"],"ruleMaterialVersion":"033274ee80ae3f347cedeba929a225dfc7f5c18ad93e7710271315b44fe20a34","sourceVersion":"BINANCE_SPOT_RULES:f6414c7a-2afd-43fd-a341-0fe9f5254154:1","status":"INCOMPLETE","workspaceId":"f6414c7a-2afd-43fd-a341-0fe9f5254154"},"workspaceId":"f6414c7a-2afd-43fd-a341-0fe9f5254154"}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset' (17072006) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset ... FAILED
+
+failures:
+
+failures:
+    owning_fee_fx_reports_a_complete_current_branch_without_claiming_the_future_asset
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 119 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `--test binance_rules`

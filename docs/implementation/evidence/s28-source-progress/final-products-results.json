@@ -1,0 +1,73 @@
+{
+  "checkedAt": "2026-10-01T09:17:50.172704+00:00",
+  "results": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--features",
+        "integration-test"
+      ],
+      "exitCode": 0,
+      "seconds": 186.45
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "-p",
+        "tradex",
+        "--features",
+        "order-gateway-runtime",
+        "--bin",
+        "tradex-order-gateway"
+      ],
+      "exitCode": 0,
+      "seconds": 21.91
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "desktop:build"
+      ],
+      "exitCode": 0,
+      "seconds": 403.58
+    },
+    {
+      "command": [
+        "cargo",
+        "build",
+        "-p",
+        "tradex",
+        "--features",
+        "integration-test",
+        "--bin",
+        "tradex-ipc"
+      ],
+      "exitCode": 0,
+      "seconds": 0.49
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 1.23
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.17
+    }
+  ]
+}

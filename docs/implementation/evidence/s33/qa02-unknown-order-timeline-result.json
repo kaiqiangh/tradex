@@ -1,0 +1,34 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "F9 / QA-02",
+  "attempt": "UNKNOWN_RECONCILING",
+  "observedTimeline": [
+    "APPROVED",
+    "RESERVED",
+    "SUBMITTING",
+    "INCONCLUSIVE",
+    "KEEP_RECONCILING"
+  ],
+  "fabricatedAcknowledgementOrFill": false,
+  "providerOrderIdentity": "PENDING",
+  "automaticWindowExpired": true,
+  "allowedManualResolution": [
+    "KEEP_RECONCILING"
+  ],
+  "accountArming": "DISARMED",
+  "accountReconciliation": "STALE",
+  "reservation": "ACTIVE",
+  "fakeGatewayPosts": 1,
+  "resendActions": 0,
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "timelineViewport": 390,
+  "providerManagementCommands": 0,
+  "syntheticReadOnlyReconciliationRefreshes": 1,
+  "externalHttpRequests": 0,
+  "consoleErrors": 0,
+  "pageErrors": 0
+}

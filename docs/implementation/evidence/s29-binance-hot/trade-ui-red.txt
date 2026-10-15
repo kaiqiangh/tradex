@@ -1,0 +1,7 @@
+AssertionError [ERR_ASSERTION]: The selected immutable Proposal must own a new visible Hot lease after Markets releases its lease
+
+0 !== 1
+
+    at Module.checkBinanceTradeHotUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-trade-hot-ui.mjs:64:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_149.mjs:40:273

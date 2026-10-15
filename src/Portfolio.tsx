@@ -1,3 +1,4 @@
+import { FxSourceContext } from './FinancialEvidencePanel.tsx';
 import { useQuery } from '@tanstack/react-query';
 import type { AccountHealth, FxProvenance, PortfolioOrder, PortfolioSnapshot, PortfolioValue } from '../shared/ipc-types.ts';
 import { explainError, request } from './client.ts';
@@ -34,6 +35,7 @@ function provenance(route: FxProvenance) {
 }
 
 function PortfolioTables({ snapshot }: { snapshot: PortfolioSnapshot }) {
+  const onlyLocalPaper = snapshot.accounts.length > 0 && snapshot.accounts.every(account => account.providerId === 'local-paper' && account.environment === 'LOCAL');
   return <>
     <section className="card portfolio-section" aria-labelledby="portfolio-accounts-title">
       <div className="section-heading"><div><p className="eyebrow">Accounts</p><h2 id="portfolio-accounts-title">Cross-account view</h2></div><span className="badge">{snapshot.accounts.length} accounts</span></div>
@@ -46,7 +48,7 @@ function PortfolioTables({ snapshot }: { snapshot: PortfolioSnapshot }) {
     <section className="card portfolio-section" aria-labelledby="portfolio-orders-title">
       <div className="section-heading"><div><p className="eyebrow">Orders and fills</p><h2 id="portfolio-orders-title">Open orders</h2></div><span className="badge">{snapshot.openOrders.length} open</span></div>
       {snapshot.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Portfolio open orders"><table><thead><tr><th>Asset</th><th>Account</th><th>Side</th><th>Quantity / notional</th><th>Broker state</th><th>Observed / health</th></tr></thead><tbody>{snapshot.openOrders.map(order => <tr key={order.brokerOrderId}><td>{order.instrumentId ?? order.asset}{!order.instrumentId && <small className="identity">No canonical instrument</small>}<small className="identity">{order.brokerOrderId}</small></td><td>{order.accountLabel}</td><td>{order.side}</td><td>{orderAmount(order)}</td><td>{order.status}</td><td>{observationText(order.observedAt, order.health)}</td></tr>)}</tbody></table></div> : <p className="muted">No open orders are available.</p>}
-      <h3>Fills</h3>{snapshot.fills?.length ? <div className="table-scroll" tabIndex={0} aria-label="Portfolio fills"><table><thead><tr><th>Asset</th><th>Account</th><th>Quantity</th><th>Value</th><th>Observed / health</th></tr></thead><tbody>{snapshot.fills.map(fill => <tr key={fill.fillId}><td>{fill.instrumentId ?? fill.asset}{!fill.instrumentId && <small className="identity">No canonical instrument</small>}</td><td>{fill.accountLabel}</td><td>{fill.quantity}</td><td>{valueText(fill.value)}</td><td>{observationText(fill.observedAt, fill.health)}</td></tr>)}</tbody></table></div> : <p className="muted">Fills are unavailable from the connected providers.</p>}
+      <h3>Fills</h3>{snapshot.fills?.length ? <div className="table-scroll" tabIndex={0} aria-label="Portfolio fills"><table><thead><tr><th>Asset</th><th>Account</th><th>Quantity</th><th>Value</th><th>Observed / health</th></tr></thead><tbody>{snapshot.fills.map(fill => <tr key={fill.fillId}><td>{fill.instrumentId ?? fill.asset}{!fill.instrumentId && <small className="identity">No canonical instrument</small>}</td><td>{fill.accountLabel}</td><td>{fill.quantity}</td><td>{valueText(fill.value)}</td><td>{observationText(fill.observedAt, fill.health)}</td></tr>)}</tbody></table></div> : snapshot.fills != null ? <p className="muted">{onlyLocalPaper ? 'No fills in the Local Paper simulation.' : 'No fills were recorded in this portfolio snapshot.'}</p> : <p className="muted">Fills are unavailable from the connected providers.</p>}
     </section>
   </>;
 }
@@ -66,6 +68,7 @@ export function Portfolio({ workspaceId }: { workspaceId: string }) {
       <p className="notice">Live risk: {snapshot.liveRisk.eligible ? 'Eligible' : 'Blocked'} — {snapshot.liveRisk.reason}</p>
     </div>
     <section className="card portfolio-section" aria-labelledby="portfolio-fx-title"><div className="section-heading"><div><p className="eyebrow">Provenance</p><h2 id="portfolio-fx-title">FX and stablecoin routes</h2></div><span className="badge">{snapshot.fxRoutes.length} routes</span></div>{snapshot.fxRoutes.length ? <ul className="portfolio-provenance">{snapshot.fxRoutes.map(provenance)}</ul> : <p className="muted">No conversion routes were required or observed.</p>}</section>
+    <FxSourceContext workspaceId={workspaceId} />
     <PortfolioTables snapshot={snapshot} />
   </section>;
 }

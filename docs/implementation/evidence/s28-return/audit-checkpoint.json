@@ -1,0 +1,32 @@
+{
+  "capturedAt": "2026-10-07T09:09:39.446221+00:00",
+  "baseline": "64b21a3df0ae56a4410604902ff14b636f6837aa",
+  "ticket": 116,
+  "state": "AUDIT_REVIEWED_ORIGINAL_ACCEPTANCE_NOT_PASS",
+  "filesSha256": {
+    "docs/implementation/s28-financial-prerequisites.md": "0f76cf6bcc35a5d772dcdc1e68f8d12a155f05182b8cfb70d7ab9005e25a0983",
+    "docs/implementation/s28-financial-prerequisites_zh.md": "3b3c0c71c5cff052f15f4c90ee27463403d89ab737baf78fc43ecfc5f82233af",
+    "docs/implementation/README.md": "775aa876d1fafb9212953a1e13eaf26c266885d7f0cfbfdc02f0a9a7e22cad0c",
+    "docs/implementation/evidence/s28-return/acceptance-audit.md": "1ca5f7514c731fa40c8ae1ca90905feab81113c3818d55f9367d1f4b2b538f95",
+    "docs/implementation/evidence/s28-return/native-binding.json": "64469578ff7c4f3b83ecf5e1ead20593ec90090ee78264b9fb13e267fcc5d25a",
+    "docs/implementation/evidence/s28-return/native-observations.json": "c3702a2dbeaa0ee72f59107039ff34ff31ff1ce1312b922bdde4f94e6748ff5f",
+    "docs/implementation/evidence/s28-return/spec-review.md": "3568e6a40bc4d7122a2428dc9fa5037bf27a82c037d412ccc959f6e91e0c9999",
+    "docs/implementation/evidence/s28-return/standards-review.md": "410a8872df03bb4708f85cef706fd2dd23730ca1705e89f85b691ad5712b3850",
+    "docs/implementation/evidence/s28-return/trading212-contract.json": "a87cef2cbd6ddb58dcd248152e58be84eb4827b45393a0b7f5a0b6e6ef060265"
+  },
+  "noRuntimeSourceChanges": true,
+  "noFinancialActions": true,
+  "standards": "PASS0hard0advisory",
+  "spec": "NOT PASS originalpositiveAC4;0auditdefects1acceptancegap",
+  "pending": [
+    "human Keychain authentication/currentaccountread",
+    "authoritative applicable financialprerequisites/positiveissuedapprovalPrepareGateway acceptance"
+  ],
+  "parentIssuesRemainOpen": [
+    1,
+    113,
+    115,
+    116,
+    117
+  ]
+}

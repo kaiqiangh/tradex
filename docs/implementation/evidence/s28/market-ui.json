@@ -1,0 +1,7 @@
+{
+  "observedAt": "2026-09-30T17:19:41.709Z",
+  "results": [
+    "S28 Market maximum50 below expected50.001 blocks approval at390/768/1280px with readable reason and zero approvals/attempts/POSTs; UI remediation saves version2 maximum51 and generates a new immutable proposal while retaining the old maximum50 intent.",
+    "S28 public Market DAY approval used trusted synthetic displayed depth and 0.002% midpoint slippage, reserved maximumSpend=51 and sent one exact real-child fake-provider Market POST; reopen retained ACCEPTED and active capacity without replay; ACCEPTED is not a fill; Enter never approves; 390/768/1280px Market reviews passed."
+  ]
+}

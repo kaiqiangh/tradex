@@ -1,0 +1,357 @@
+
+$ cargo test -p tradex --lib market_freshness
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests src/lib.rs (target/debug/deps/tradex-a7d04870edf24fb7)
+
+running 1 test
+test risk::tests::market_freshness_uses_full_timestamp_precision_and_rejects_future_subseconds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.01s
+
+
+$ cargo test -p tradex --lib market_slippage_compares_the_exact_policy_boundary_and_side_depth
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src/lib.rs (target/debug/deps/tradex-a7d04870edf24fb7)
+
+running 1 test
+test live_approval_tests::market_slippage_compares_the_exact_policy_boundary_and_side_depth ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.43s
+
+
+$ cargo test -p tradex --lib live_approval_rejects_disarmed_untrusted_time_and_stale_market
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests src/lib.rs (target/debug/deps/tradex-a7d04870edf24fb7)
+
+running 1 test
+test live_approval_tests::live_approval_rejects_disarmed_untrusted_time_and_stale_market ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 240 filtered out; finished in 0.19s
+
+
+$ cargo test -p tradex --test data_sources --test market --test workspace --test watchlists
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.42s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-a8e0fdc90cdee4ca)
+
+running 9 tests
+test source_secure_entry_rejects_untrusted_consumers_and_renderer_secrets_before_capture ... ok
+test catalog_and_credentialed_probe_are_scoped_and_read_only ... ok
+test dedicated_data_key_is_native_only_and_disconnect_reports_owned_key_cleanup ... ok
+test selected_quote_source_has_independent_configuration_and_retains_no_live_readiness ... ok
+test selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt ... ok
+test cancelled_and_stale_secure_entry_preserve_the_current_selection_and_restart_never_verifies_it ... ok
+test interrupted_keychain_write_is_visible_after_restart_and_can_only_clean_its_owned_key ... ok
+test configured_sip_quote_only_evidence_reaches_public_risk_and_review_without_granting_authority ... ok
+test user_can_reuse_an_alpaca_reference_and_reopen_the_explicit_feed_without_entitlement ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests/market.rs (target/debug/deps/market-91044f10ff248881)
+
+running 2 tests
+test market_query_rejects_control_characters_without_network_or_mutation ... ok
+test market_catalog_and_detail_preserve_identity_and_gate_entitlement ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/watchlists.rs (target/debug/deps/watchlists-8703b026e8c69217)
+
+running 4 tests
+test watchlist_schema_rejects_unknown_fields_and_invalid_names ... ok
+test watchlists_are_versioned_ordered_idempotent_and_persistent ... ok
+test schema_eight_workspaces_migrate_artifacts_table ... ok
+test schema_six_workspaces_migrate_watchlists_transactionally ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/workspace.rs (target/debug/deps/workspace-6266169fd3e638a2)
+
+running 7 tests
+test upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema ... ok
+test a_workspace_keeps_its_identity_and_events_after_process_state_is_dropped ... ok
+test retained_events_join_live_delivery_and_resubscription_preserves_event_identity ... ok
+test schema_30_migrates_execution_attempt_history_without_losing_foreign_keys ... ok
+test same_workspace_reopen_recreates_missing_market_history_table ... ok
+test failed_storage_switches_and_outbox_writes_preserve_the_active_workspace ... ok
+test creation_settings_survive_reopen_and_invalid_requests_do_not_change_state ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+
+$ cargo test -p tradex --features integration-test --test data_sources --test quote_hot --no-default-features
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.02s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-77948fe378e69b8d)
+
+running 12 tests
+test catalog_and_credentialed_probe_are_scoped_and_read_only ... ok
+test dedicated_data_key_is_native_only_and_disconnect_reports_owned_key_cleanup ... ok
+test a_late_successful_probe_cannot_replace_a_newer_feed_denial_or_trigger_fallback ... ok
+test selected_feed_is_verified_through_the_actual_read_only_http_boundary_and_reopen_clears_it ... ok
+test interrupted_keychain_write_is_visible_after_restart_and_can_only_clean_its_owned_key ... ok
+test cancelled_and_stale_secure_entry_preserve_the_current_selection_and_restart_never_verifies_it ... ok
+test legacy_live_fixture_cannot_override_an_explicitly_configured_quote_source ... ok
+test configured_sip_quote_only_evidence_reaches_public_risk_and_review_without_granting_authority ... ok
+test selected_quote_source_has_independent_configuration_and_retains_no_live_readiness ... ok
+test source_secure_entry_rejects_untrusted_consumers_and_renderer_secrets_before_capture ... ok
+test selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt ... ok
+test user_can_reuse_an_alpaca_reference_and_reopen_the_explicit_feed_without_entitlement ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-72ed569b5fe0a82e)
+
+running 11 tests
+test public_session_safety_trigger_retires_pending_stream_authentication_and_keeps_source_selection ... ok
+test an_unrequested_subscription_channel_cannot_confirm_the_hot_lease_or_create_quotes ... ok
+test oversized_provider_frames_fail_once_without_retrying_or_creating_quotes ... ok
+test last_supervisor_owner_closes_the_socket_and_retires_the_public_hot_projection ... ok
+test explicit_stop_closes_the_connection_and_rejected_acquire_preserves_the_retired_lease ... ok
+test hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket ... ok
+test feed_authentication_and_connection_limits_are_terminal_and_cannot_become_acknowledgements ... ok
+test replacement_closes_old_socket_and_late_auth_or_old_release_cannot_activate_or_stop_new_lease ... ok
+test transient_reconnect_keeps_view_ownership_but_invalidates_quotes_until_new_acknowledged_frame ... ok
+test repeated_provider_internal_errors_stop_after_three_retries_without_feed_fallback ... ok
+test unrelated_pongs_do_not_acknowledge_our_heartbeat_or_keep_a_dead_connection_current ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.37s
+
+
+$ npm run schema:check
+npm notice run tradex@0.1.0 schema:check
+npm notice run node scripts/ipc-schema.mjs --check
+Rust / JSON Schema / TypeScript agree.
+
+$ npm run typecheck
+npm notice run tradex@0.1.0 typecheck
+npm notice run tsc --noEmit
+
+$ cargo fmt --all -- --check
+
+$ git diff --check
+
+$ python3 scripts/check_requirements.py
+Traceability OK: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files.
+This checks the plan and source inventory; it does not prove application behavior.
+
+$ cargo check -p tradex --features desktop --bin tradex
+    Checking tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.85s
+
+$ cargo build -p tradex --features desktop --bin tradex
+   Compiling serde_core v1.0.229
+   Compiling siphasher v1.0.3
+   Compiling zerofrom v0.1.8
+   Compiling equivalent v1.0.2
+   Compiling winnow v1.0.4
+   Compiling regex-syntax v0.8.11
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling byteorder v1.5.0
+   Compiling yoke v0.8.3
+   Compiling phf_shared v0.13.1
+   Compiling thiserror v2.0.20
+   Compiling typeid v1.0.3
+   Compiling zerovec v0.11.8
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling zerotrie v0.2.5
+   Compiling fnv v1.0.7
+   Compiling unic-common v0.9.0
+   Compiling phf_generator v0.13.1
+   Compiling unic-char-range v0.9.0
+   Compiling unic-ucd-version v0.9.0
+   Compiling phf_macros v0.13.1
+   Compiling phf_codegen v0.13.1
+   Compiling string_cache_codegen v0.6.1
+   Compiling unic-char-property v0.9.0
+   Compiling tinystr v0.8.4
+   Compiling potential_utf v0.1.6
+   Compiling indexmap v2.14.2
+   Compiling alloc-no-stdlib v2.0.4
+   Compiling icu_locale_core v2.3.0
+   Compiling icu_collections v2.3.0
+   Compiling web_atoms v0.2.6
+   Compiling alloc-stdlib v0.2.4
+   Compiling phf v0.13.1
+   Compiling regex-automata v0.4.18
+   Compiling thiserror v1.0.69
+   Compiling bitflags v2.13.1
+   Compiling unic-ucd-ident v0.9.0
+   Compiling serde_spanned v1.1.1
+   Compiling quick-xml v0.41.0
+   Compiling icu_provider v2.3.1
+   Compiling string_cache v0.9.0
+   Compiling serde v1.0.229
+   Compiling brotli-decompressor v5.0.3
+   Compiling getrandom v0.4.3
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling simd-adler32 v0.3.10
+   Compiling same-file v1.0.6
+   Compiling dunce v1.0.5
+   Compiling ctor v0.8.0
+   Compiling walkdir v2.5.0
+   Compiling uuid v1.26.0
+   Compiling regex v1.13.1
+   Compiling brotli v8.0.4
+   Compiling anyhow v1.0.104
+   Compiling idna_adapter v1.2.2
+   Compiling selectors v0.36.1
+   Compiling idna v1.1.0
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling glob v0.3.4
+   Compiling markup5ever v0.38.0
+   Compiling cssparser v0.36.0
+   Compiling toml v1.1.5+spec-1.1.0
+   Compiling url v2.5.8
+   Compiling swift-rs v1.0.8
+   Compiling adler2 v2.0.1
+   Compiling html5ever v0.38.0
+   Compiling crc32fast v1.5.1
+   Compiling cfb v0.7.3
+   Compiling objc2-exception-helper v0.1.1
+   Compiling erased-serde v0.4.10
+   Compiling time v0.3.55
+   Compiling jsonptr v0.6.3
+   Compiling objc2-encode v4.1.0
+   Compiling dom_query v0.27.0
+   Compiling cargo_metadata v0.19.2
+   Compiling serde-untagged v0.1.9
+   Compiling objc2 v0.6.4
+   Compiling json-patch v3.0.1
+   Compiling infer v0.19.0
+   Compiling schemars v0.8.22
+   Compiling urlpattern v0.3.0
+   Compiling miniz_oxide v0.9.1
+   Compiling serde_with v3.22.0
+   Compiling option-ext v0.2.0
+   Compiling plist v1.10.0
+   Compiling block2 v0.6.2
+   Compiling heck v0.5.0
+   Compiling zerocopy v0.8.57
+   Compiling objc2-core-foundation v0.3.2
+   Compiling flate2 v1.1.10
+   Compiling toml v0.9.12+spec-1.1.0
+   Compiling embed-resource v3.0.11
+   Compiling dirs-sys v0.5.0
+   Compiling tauri-utils v2.9.3
+   Compiling tokio v1.53.1
+   Compiling dirs v6.0.0
+   Compiling tauri-winres v0.3.6
+   Compiling objc2-foundation v0.3.2
+   Compiling cargo_toml v0.22.3
+   Compiling serde_json v1.0.151
+   Compiling arrow-schema v58.4.0
+   Compiling time-macros v0.2.32
+   Compiling half v2.7.1
+   Compiling generic-array v0.14.7
+   Compiling arrow-buffer v58.4.0
+   Compiling ahash v0.8.12
+   Compiling miniz_oxide v0.8.9
+   Compiling fdeflate v0.3.7
+   Compiling raw-window-handle v0.6.2
+   Compiling arrow-data v58.4.0
+   Compiling dpi v0.1.2
+   Compiling crossbeam-utils v0.8.23
+   Compiling block-buffer v0.10.4
+   Compiling arrow-array v58.4.0
+   Compiling objc2-app-kit v0.3.2
+   Compiling crypto-common v0.1.7
+   Compiling foreign-types-shared v0.3.1
+   Compiling tauri-build v2.6.3
+   Compiling tauri-plugin v2.6.3
+   Compiling foreign-types v0.5.0
+   Compiling png v0.17.16
+   Compiling rustix v1.1.4
+   Compiling digest v0.10.7
+   Compiling cookie v0.18.2
+   Compiling crossbeam-channel v0.5.17
+   Compiling core-graphics-types v0.2.0
+   Compiling dispatch2 v0.3.1
+   Compiling cpufeatures v0.2.17
+   Compiling semver v1.0.28
+   Compiling zopfli v0.8.3
+   Compiling tempfile v3.27.0
+   Compiling objc2-web-kit v0.3.2
+   Compiling sha2 v0.10.9
+   Compiling security-framework v3.7.0
+   Compiling core-graphics v0.25.0
+   Compiling xattr v1.6.1
+   Compiling ico v0.5.0
+   Compiling arrow-select v58.4.0
+   Compiling rustix v0.38.44
+   Compiling tar v0.4.46
+   Compiling png v0.18.1
+   Compiling crossterm v0.28.1
+   Compiling native-tls v0.2.18
+   Compiling tauri-codegen v2.6.3
+   Compiling tao v0.35.3
+   Compiling wry v0.55.1
+   Compiling zip v6.0.0
+   Compiling tauri v2.11.5
+   Compiling tauri-plugin-fs v2.5.2
+   Compiling keyboard-types v0.7.0
+   Compiling comfy-table v7.1.4
+   Compiling hyper v1.11.1
+   Compiling serialize-to-javascript v0.1.2
+   Compiling muda v0.19.3
+   Compiling tauri-macros v2.6.3
+   Compiling libduckdb-sys v1.10505.0
+   Compiling tauri-plugin-dialog v2.7.3
+   Compiling arrow-ord v58.4.0
+   Compiling window-vibrancy v0.6.0
+   Compiling mime v0.3.17
+   Compiling embed_plist v1.2.2
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling tauri-runtime v2.11.3
+   Compiling arrow-string v58.4.0
+   Compiling tokio-native-tls v0.3.1
+   Compiling tauri-runtime-wry v2.11.4
+   Compiling arrow-cast v58.4.0
+   Compiling arrow-row v58.4.0
+   Compiling arrow-arith v58.4.0
+   Compiling strum_macros v0.27.2
+   Compiling ref-cast v1.0.27
+   Compiling arrow v58.4.0
+   Compiling hyper-tls v0.6.0
+   Compiling tower-http v0.6.11
+   Compiling strum v0.27.2
+   Compiling rfd v0.16.0
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+   Compiling tungstenite v0.30.0
+   Compiling rusqlite v0.40.2
+   Compiling reqwest v0.13.4
+   Compiling schemars v1.2.2
+   Compiling duckdb v1.10505.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 39s
+
+$ cargo build -p tradex --features integration-test --bin tradex-ipc --no-default-features
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.44s
+
+Added public regression for missing last-trade price-deviation reference; source/risk product code unchanged.
+
+$ cargo test -p tradex --features integration-test --test data_sources --no-default-features
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.50s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-77948fe378e69b8d)
+
+running 12 tests
+test catalog_and_credentialed_probe_are_scoped_and_read_only ... ok
+test dedicated_data_key_is_native_only_and_disconnect_reports_owned_key_cleanup ... ok
+test a_late_successful_probe_cannot_replace_a_newer_feed_denial_or_trigger_fallback ... ok
+test selected_feed_is_verified_through_the_actual_read_only_http_boundary_and_reopen_clears_it ... ok
+test interrupted_keychain_write_is_visible_after_restart_and_can_only_clean_its_owned_key ... ok
+test cancelled_and_stale_secure_entry_preserve_the_current_selection_and_restart_never_verifies_it ... ok
+test legacy_live_fixture_cannot_override_an_explicitly_configured_quote_source ... ok
+test configured_sip_quote_only_evidence_reaches_public_risk_and_review_without_granting_authority ... ok
+test selected_quote_source_has_independent_configuration_and_retains_no_live_readiness ... ok
+test source_secure_entry_rejects_untrusted_consumers_and_renderer_secrets_before_capture ... ok
+test selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt ... ok
+test user_can_reuse_an_alpaca_reference_and_reopen_the_explicit_feed_without_entitlement ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+
+
+$ cargo fmt --all -- --check
+
+$ git diff --check

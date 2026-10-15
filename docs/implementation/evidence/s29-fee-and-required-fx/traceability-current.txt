@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/Users/kai/Desktop/my-repo/tradex/scripts/check_requirements.py", line 77, in <module>
+    check()
+    ~~~~~^^
+  File "/Users/kai/Desktop/my-repo/tradex/scripts/check_requirements.py", line 51, in check
+    assert owners and set(owners) <= slices, row["id"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: AC-035

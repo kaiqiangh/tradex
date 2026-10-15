@@ -1,0 +1,22 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.47s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes ... FAILED
+
+failures:
+
+---- public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes stdout ----
+
+thread 'public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes' (9654550) panicked at src-tauri/tests/binance_market_hot.rs:1529:10:
+Technical access must have a separate financial data-use gate
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `--test binance_market_hot`

@@ -1,0 +1,43 @@
+{
+  "result": "PASS_LIMITED",
+  "pickerContext": [
+    {
+      "hash": "sha256:dd9cd8a7b5cb4e6f36266b6db28f33452ecd91d3d08178d25e3cb2cd33aa831f",
+      "id": "crypto:ETH/USDT:spot",
+      "kind": "instrument"
+    }
+  ],
+  "screenerContext": [
+    {
+      "hash": "sha256:49ebed634c0a08d12ac33f50b39673d0cb7eefbd995394678835a31f626eac7f",
+      "id": "equity:US:MSFT",
+      "kind": "instrument"
+    }
+  ],
+  "runs": 3,
+  "boundedCatalogEntries": 256,
+  "savedBoundaryVersions": 252,
+  "unsupportedSearches": [
+    "NVDA",
+    "AMD"
+  ],
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "capacityPickerViewportBounded": true,
+  "capacityListScrollsInternally": true,
+  "catalogNoticeAndActionsVisible": true,
+  "capacityScreenshot": "qa08-capacity-limit-390.png",
+  "forbiddenCommands": 0,
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "boundary": "One disposable local Rust-backed workspace; canonical local metadata and synthetic screener/market results only. No provider, model, or financial execution.",
+  "limitations": [
+    "NVDA and AMD are correctly reported unavailable in this bounded catalog; the test does not establish their live-data support.",
+    "The catalog-cap boundary covers 252 local synthetic strategy versions plus existing context kinds; native accessibility, external provider data, and complete S05/S07/S11/S33 acceptance remain open."
+  ],
+  "capturedAt": "2026-10-14T15:12:09Z",
+  "rerunNote": "Fresh rerun after B2 ContextPicker draft-reset change, using rebuilt integration-test IPC binary on isolated port 1424."
+}

@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0599]: no method named `risk_policy` found for reference `&Store` in the current scope
+   --> src-tauri/src/binance_market/stream.rs:843:47
+    |
+843 |     let age = control.store.as_ref().unwrap().risk_policy()?.as_ref()
+    |                                               ^^^^^^^^^^^ method not found in `&Store`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `tradex` (lib) due to 1 previous error

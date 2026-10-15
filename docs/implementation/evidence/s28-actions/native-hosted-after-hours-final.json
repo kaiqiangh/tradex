@@ -1,0 +1,95 @@
+{
+  "recordedAt": "2026-10-04T05:31:21.432938+00:00",
+  "scope": "Ordinary final after-hours/lock binary, same local signature and actual provider reads; sanitized metadata only. No integration feature or authority fixture.",
+  "corporateActions": {
+    "current": {
+      "status": "AVAILABLE",
+      "firstReceipt": "2026-10-03T23:01:35.28Z",
+      "materialVersion": "061e108a812b24c9ab5a23d9f709c60238f05a13508c7a10d0446a7cec061ce0",
+      "providerQuality": "Delayed process-date query. A recent receipt does not improve provider quality.",
+      "providerObservationTime": "Not supplied",
+      "knownEventCount": 1,
+      "dateOnlyPrecisionShown": true,
+      "queryExhausted": true,
+      "completeCoverageSupported": false,
+      "historicalAdjustmentSupported": false
+    },
+    "currentSnapshotTimeNotRecorded": true,
+    "expiry": {
+      "observedAt": "2026-10-03T23:02:53.363Z",
+      "status": "UNAVAILABLE",
+      "firstReceiptUnchanged": true,
+      "materialVersionUnchanged": true,
+      "noRefreshBetweenObservations": true,
+      "noTimeSynchronizationBetweenObservations": true
+    },
+    "expiryReasonShown": "This observation expired or no longer matches the account/time binding.",
+    "method": "Natural elapsed time exceeded30seconds; no source/account/workspace/time mutations between current and expired company snapshots.",
+    "eventBodiesOrEconomicTermsArchived": false
+  },
+  "brokerInstruments": {
+    "current": {
+      "capturedAt": "2026-10-04T05:21:38.910Z",
+      "status": "AVAILABLE",
+      "firstReceipt": "2026-10-04T05:21:38.16Z",
+      "materialVersion": "ab1ebec42d29d7bac0781de5c7cc323dede21e14d72b0aca47c3302f4a7a58be",
+      "providerQuality": "Ten-minute provider metadata. A recent receipt does not improve provider quality.",
+      "providerObservationTime": "Not supplied",
+      "sameSelectedAccountIdentityAvailable": true,
+      "instrumentMetadataAvailable": true,
+      "supportedSymbolsPresent": [
+        "AAPL_US_EQ",
+        "MSFT_US_EQ"
+      ],
+      "exchangeHaltsStatus": "blocked external",
+      "accountTradabilityStatus": "blocked external",
+      "actualScheduleBodiesOrPrivateAccountValuesArchived": false,
+      "scheduleEventCounts": [
+        126,
+        126
+      ],
+      "canonicalIdentityLabelsUnverified": true
+    },
+    "expiry": {
+      "observedAt": "2026-10-04T05:23:28.490Z",
+      "status": "UNAVAILABLE",
+      "firstReceiptUnchanged": true,
+      "materialVersionUnchanged": true,
+      "noRefreshBetweenObservations": true,
+      "noTimeSynchronizationBetweenObservations": true,
+      "elapsedSecondsSinceFirstReceipt": 110.33
+    },
+    "scheduleCountsReadFromTextLabelsOnly": true,
+    "financialMutation": false
+  },
+  "guards": {
+    "observedAt": "2026-10-04T05:27:15.169Z",
+    "selectedLiveAccountDetail": true,
+    "existingLiveConnectionConnected": true,
+    "permissionScopeUnverified": true,
+    "liveDisarmed": true,
+    "wholeOd005StillUnverified": true,
+    "noArmApprovalReservationOrderOrCancellationPerformed": true
+  },
+  "connectionRecovery": {
+    "initialExistingLiveState": "FAILED",
+    "existingSavedCredentialRetestTerminal": "REVIEW_REQUIRED",
+    "authorizedUnknownScopeAcknowledgmentThenLocalConfirmation": "CONNECTED",
+    "newKeyOrAccountCreated": false,
+    "permissionScope": "UNVERIFIED",
+    "arming": "DISARMED",
+    "exactRetestCompletionOrAuthenticationTimeNotRecorded": true
+  },
+  "quota": {
+    "initialPostConfirmationMetadataRead": "PROVIDER_RATE_LIMITED without a new receipt",
+    "denialInitiatedAt": "2026-10-04T05:10:59.714Z",
+    "afterActualCooldownReadReceipt": "2026-10-04T05:19:39.427Z",
+    "earlierSuccessfulReadNaturallyExpiredBeforeCurrentCapture": true,
+    "finalCurrentRead": "2026-10-04T05:21:38.16Z",
+    "quotaResetOrBypass": false
+  },
+  "noEventBodiesEconomicTermsPrivateAccountValuesRemoteIdentifiersOrCredentialsArchived": true,
+  "noArmApprovalReservationOrderOrCancelMutation": true,
+  "wholeFinancialAcceptanceClaimed": false,
+  "nativeMarketDetailNotRevalidated": "Previously blocked native detail attempt remains historical; real-Rust responsive UI checks are separate."
+}

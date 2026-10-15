@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.45s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+test owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx ... 
+running 1 test
+test owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx ... FAILED
+
+failures:
+
+failures:
+    owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 112 filtered out; finished in 0.15s
+
+
+thread 'owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx' (14284772) panicked at src-tauri/tests/binance_rules.rs:6946:5:
+assertion `left == right` failed
+  left: Null
+ right: "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx' (14284770) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    owning_fee_model_uses_complete_symbol_families_in_received_asset_without_claiming_fx
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 112 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

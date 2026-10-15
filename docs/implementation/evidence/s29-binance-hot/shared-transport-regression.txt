@@ -1,0 +1,38 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: unused import: `mpsc`
+  --> src-tauri/src/quote_source/hot.rs:11:9
+   |
+11 |         mpsc,
+   |         ^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `loopback` is never read
+ --> src-tauri/src/binance_market/stream.rs:6:5
+  |
+4 | pub struct BinanceStreamConnector {
+  |            ---------------------- field in this struct
+5 |     #[cfg(feature = "integration-test")]
+6 |     loopback: Option<String>,
+  |     ^^^^^^^^
+  |
+  = note: `BinanceStreamConnector` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `connect` is never used
+  --> src-tauri/src/binance_market/stream.rs:31:19
+   |
+ 8 | impl BinanceStreamConnector {
+   | --------------------------- method in this implementation
+...
+31 |     pub(crate) fn connect(
+   |                   ^^^^^^^
+
+warning: `tradex` (lib) generated 3 warnings (run `cargo fix --lib -p tradex` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.31s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-a66707bb4eff5ed9)
+
+running 1 test
+test trickling_upgrade_has_total_deadline_and_release_cancels_the_actual_socket ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 3.83s

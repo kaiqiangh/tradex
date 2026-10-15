@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "screenId": "C2",
+  "title": "Natural-language Screener Builder",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T16:47:24Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 109,
+    "sha256": "946c8093a21694651105112d3c6ddf28d1fc9c33aed426fcdc33d7f3166ba4d1"
+  },
+  "test": {
+    "method": "CUA local browser replay",
+    "regressionHelper": "tests/screener-ui.mjs",
+    "regressionHelperSha256": "9ac062382e608b21920cd0406ffeeffa36aa66d9c91b1b7ee7bc4fc40a603c27",
+    "regressionHelperSyntaxCheck": "PASS",
+    "fullHelperRun": "NOT_RUN; the recorded C2 assertions were replayed directly in the UI"
+  },
+  "harness": "Rust-backed local integration Vite on 127.0.0.1:1426 with one disposable fixture-ready workspace",
+  "workspaceId": "c3d03ae0-5609-4b32-8b83-eb01cef1cba7",
+  "fixtureOnly": true,
+  "viewports": [
+    505
+  ],
+  "assertions": {
+    "parsedConditionsVisibleBeforeRun": true,
+    "naturalLanguageEditInvalidatesRevisionAndRun": true,
+    "unsupportedPeFilter": {
+      "state": "FAILED",
+      "fieldLevelReasonVisible": true,
+      "oldInspectionCleared": true,
+      "oldRevisionCleared": true,
+      "runDisabled": true
+    },
+    "fixtureRun": {
+      "state": "COMPLETED",
+      "candidateCount": 2,
+      "canonicalCandidates": [
+        "MSFT",
+        "AAPL"
+      ],
+      "fixtureLabel": "SYNTHETIC_SCREENER_FIXTURE",
+      "source": "FX-SCREENER"
+    },
+    "structuredThresholdEdit": {
+      "oldResultRemoved": true,
+      "runDisabled": true
+    },
+    "recalculatedRun": {
+      "state": "EMPTY",
+      "candidateCount": 0,
+      "appliedCondition": "RevenueGrowth GreaterThan 1"
+    },
+    "noHorizontalOverflow": true
+  },
+  "commands": {
+    "cursorStart": 513,
+    "cursorEnd": 528,
+    "localCommandCount": 15,
+    "marketScreenCommands": 6,
+    "otherCommands": {
+      "runtime.status": 8,
+      "account.activity": 1
+    },
+    "forbiddenProviderModelDataTradeOrderGatewayApprovalRiskCommands": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED",
+    "consoleWarningsAndErrors": 0
+  },
+  "buildChecks": {
+    "npmRunBuild": "PASS (includes typecheck)",
+    "productionChunkWarning": "Main JavaScript bundle is 5,435.15 kB, above Vite's 500 kB warning threshold.",
+    "nodeCheckScreenerHelper": "PASS",
+    "gitDiffCheck": "PASS after the evidence and documentation updates"
+  },
+  "worktreeFileSha256": {
+    "src/Markets.tsx": "902d5382a4f46839a571830f933c8b164c762a8d38533c7dea5793a8b3683c45",
+    "src/styles.css": "d27893227cd0102bb55e1b7a9ca8a7b65a4a43cc7f7d86a9500f60860bd51ded",
+    "tests/screener-ui.mjs": "9ac062382e608b21920cd0406ffeeffa36aa66d9c91b1b7ee7bc4fc40a603c27"
+  },
+  "limitations": [
+    "The browser replay used only the local synthetic screener fixture; it did not use a real market-data provider, credentials, entitlement, model inference, or financial command.",
+    "Only the observed 505 CSS px viewport was checked in this C2 replay; this result does not claim fresh 390, 768, or 1280 px C2 coverage.",
+    "External HTTP and page-error events were not separately instrumented in this direct replay; browser console warnings and errors were empty.",
+    "Full S11/S33 acceptance, real feature-source entitlement, native VoiceOver, and end-to-end screener persistence/attachment remain open."
+  ]
+}

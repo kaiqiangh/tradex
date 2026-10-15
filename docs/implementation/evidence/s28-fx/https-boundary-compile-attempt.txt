@@ -1,0 +1,18 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0277]: `provider_io::ProviderHttpResponse` doesn't implement `Debug`
+   --> src-tauri/src/../tests/support/provider_http.rs:449:33
+    |
+449 |             assert_eq!(response.unwrap_err().code, expected, "{mode}");
+    |                                 ^^^^^^^^^^ the trait `Debug` is not implemented for `provider_io::ProviderHttpResponse`
+    |
+note: required by a bound in `std::result::Result::<T, E>::unwrap_err`
+   --> /rustc/48a229ceaefd4985c50990b14116b6d856af0985/library/core/src/result.rs:1322:4
+help: consider annotating `provider_io::ProviderHttpResponse` with `#[derive(Debug)]`
+   --> src-tauri/src/provider_io.rs:553:1
+    |
+553 + #[derive(Debug)]
+554 | pub struct ProviderHttpResponse {
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `tradex` (lib test) due to 1 previous error

@@ -20,7 +20,13 @@
 - 备注：此前默认并行的 `npm run check` 有两项 workspace reopen 测试失败；两项单独重跑均通过，完整检查在 Rust 测试串行执行时通过。
 - PASS：运行中的原生开发版返回 TradeX 时触发 `NSApplicationDidBecomeActiveNotification`，并把 Trading 212 Live 持久化为 `SESSION_RESUMED / STALE / BLOCKED / DISARMED`；上次成功观测保持不变。
 - PASS：按 `3ca4d54..f9e81ca` 完成 Standards 与 Spec 独立审查；无可操作发现。
-- BLOCKED：原生只读 provider refresh 停在 macOS SecurityAgent；系统要求输入 `com.tradex.broker.credentials` 对应的 `login` Keychain 密码。没有输入密码或替换凭据，因此原生 provider recovery 完成情况未验证；没有尝试订单写入。
+- 2026-09-29 BLOCKED（下方后续记录已解除）：原生只读 provider refresh 停在 macOS SecurityAgent；系统要求输入 `com.tradex.broker.credentials` 对应的 `login` Keychain 密码。代理没有输入密码或替换凭据；没有尝试订单写入。
 - 未执行：实际 OS sleep/wake。Darwin 编译覆盖了 wake 通知路径；已直接验证原生应用重新激活。
 
 生产恢复路径复用现有固定只读 provider adapter，不增加 provider 路由或金融权限。
+
+## 后续，2026-09-30
+
+在 `dev@b0750634d5e770fc5c955b061908ed4da66578aa` 的普通原生开发版运行中，Keychain/Provider 完成阻塞已解除。只读 outbox 检查记录 T212 在 `08:03:12.085077Z` 触发 `SESSION_RESUMED`，在 `08:03:23.244385Z` 获得新鲜成功 Provider 观察，在 `08:03:23.25236Z` 恢复 `CURRENT` 对账。Live 保持 `DISARMED / BLOCKED`，仍需显式 Arm；投影保留 3 个持仓、0 个开放订单、6 个近期订单。未进行 broker 订单写操作或代理凭据/ACL 修改。
+
+实际 OS 睡眠唤醒仍未验证。用户报告完成后，约 `08:15 UTC` 及 `08:19 UTC` 的电源日志检查未发现当天 Sleep/Wake/DarkWake 事件；已有 `caffeinate` 进程仍持有睡眠断言，账户保持 sequence 83。存在多次 resume 触发且未测量 Provider 请求开始时间，因此只证明 resume 后 Provider 完成，不证明物理唤醒或新的 `<5 s` 结果。其他边界见配对的[父级验收审计](s27-parent-acceptance-audit_zh.md)。

@@ -1,0 +1,8 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.17s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-4c98a3a0735e964e)
+
+running 1 test
+test actual_http_adapter_retires_company_evidence_on_redirect_timeout_and_oversize ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 13.37s

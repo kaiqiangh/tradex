@@ -1,0 +1,13 @@
+{
+  "workspaceId": "3ca36dcd-dbb4-4aa1-981a-cfc96d48974e",
+  "marketsLease": "e5371f3b-c6a0-4404-9750-0aa2a060179a",
+  "tradeLease": "4a2e0d64-141e-420e-a35c-56b76876d84a",
+  "capturedMaterial": "bd192a3d-2117-4c9d-b703-30010b0e8db8",
+  "widths": [
+    1280,
+    768,
+    390
+  ],
+  "seededAuthority": false,
+  "orderWrites": false
+}

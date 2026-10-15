@@ -1,0 +1,526 @@
+{
+  "reviewBaseline": "3b00c6ede74689aa234a58c442090241df808d90",
+  "status": "PASS_LIMITED",
+  "scope": "Public UI permission response variants; not real provider/native/full S33 acceptance",
+  "cases": [
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:25:11.151Z",
+      "workspaceId": "215a7058-0e1d-4ae7-a093-8ea27ceda79a",
+      "scenario": "INTERNAL_TRANSFER",
+      "expected": {
+        "forbidden": [
+          "transfer.internal"
+        ],
+        "unsupported": []
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 9,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 6,
+        "domain.subscribe": 7,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 5,
+        "trade.execution.order_links": 5
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-internal-transfer-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:25:20.434Z",
+      "workspaceId": "187607e9-82c4-4a66-8621-77ec3b403706",
+      "scenario": "UNIVERSAL_TRANSFER",
+      "expected": {
+        "forbidden": [
+          "transfer.universal"
+        ],
+        "unsupported": []
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 8,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 5,
+        "domain.subscribe": 5,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 3,
+        "trade.execution.order_links": 3
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-universal-transfer-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:25:29.623Z",
+      "workspaceId": "3c04170a-3241-42a0-8deb-04e484f33fac",
+      "scenario": "MARGIN",
+      "expected": {
+        "forbidden": [],
+        "unsupported": [
+          "margin"
+        ]
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 9,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 6,
+        "domain.subscribe": 6,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 4,
+        "trade.execution.order_links": 4
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-margin-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:25:38.752Z",
+      "workspaceId": "ac50a751-afb5-475a-b311-d0821bda2cdd",
+      "scenario": "FUTURES",
+      "expected": {
+        "forbidden": [],
+        "unsupported": [
+          "futures"
+        ]
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 8,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 5,
+        "domain.subscribe": 5,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 3,
+        "trade.execution.order_links": 3
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-futures-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:25:48.085Z",
+      "workspaceId": "d2fe8fe3-b022-4e3d-b5c4-e6b6b215f634",
+      "scenario": "OPTIONS",
+      "expected": {
+        "forbidden": [],
+        "unsupported": [
+          "options"
+        ]
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 9,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 6,
+        "domain.subscribe": 7,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 5,
+        "trade.execution.order_links": 5
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-options-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:25:57.313Z",
+      "workspaceId": "45c74b5d-6fbb-4b65-a555-a3be26b58358",
+      "scenario": "PORTFOLIO_MARGIN",
+      "expected": {
+        "forbidden": [],
+        "unsupported": [
+          "portfolio.margin"
+        ]
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 8,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 6,
+        "domain.subscribe": 6,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 3,
+        "trade.execution.order_links": 3
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-portfolio-margin-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:26:06.521Z",
+      "workspaceId": "987a6400-cf5b-4289-9cec-4e0fcddcacee",
+      "scenario": "FIX_TRADE",
+      "expected": {
+        "forbidden": [],
+        "unsupported": [
+          "fix.trade"
+        ]
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 8,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 5,
+        "domain.subscribe": 5,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 3,
+        "trade.execution.order_links": 3
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-fix-trade-blocked-390.png"
+    },
+    {
+      "status": "PASS_LIMITED",
+      "testedAt": "2026-10-15T18:26:15.837Z",
+      "workspaceId": "bec597fb-fc84-453e-8821-28df22ed71db",
+      "scenario": "READING_DISABLED",
+      "expected": {
+        "forbidden": [],
+        "unsupported": [
+          "reading.disabled"
+        ]
+      },
+      "layouts": [
+        {
+          "width": 1280,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 768,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        },
+        {
+          "width": 390,
+          "blockerReachable": true,
+          "noDocumentOverflow": true
+        }
+      ],
+      "rejectedConfirmation": "PROVIDER_PERMISSION_BLOCKED",
+      "rejectedConfirmationPreservedState": true,
+      "producerChangeRequiresExplicitRetest": true,
+      "finalArming": "DISARMED",
+      "commandCounts": {
+        "account.activity": 1,
+        "account.get": 2,
+        "account.list": 9,
+        "account.refresh": 1,
+        "binance.live.permission.fixture": 2,
+        "domain.snapshot": 6,
+        "domain.subscribe": 7,
+        "paper.get": 1,
+        "provider.connect": 3,
+        "provider.list_definitions": 1,
+        "trade.cancel_approval.list": 5,
+        "trade.execution.order_links": 5
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "limitations": [
+        "Synthetic HTTP and secret entry only",
+        "Other forbidden/unsupported variants, native secure entry, VoiceOver and real-provider acceptance remain open"
+      ],
+      "capture": "docs/implementation/evidence/s33/a3-variants-reading-disabled-blocked-390.png"
+    }
+  ],
+  "viewportObservations": 24,
+  "redMeaning": "Seven new selectors were unsupported by the fixture. This does not demonstrate a production permission bypass. Existing INTERNAL_TRANSFER is a regression.",
+  "red": [
+    {
+      "scenario": "UNIVERSAL_TRANSFER",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    },
+    {
+      "scenario": "MARGIN",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    },
+    {
+      "scenario": "FUTURES",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    },
+    {
+      "scenario": "OPTIONS",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    },
+    {
+      "scenario": "PORTFOLIO_MARGIN",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    },
+    {
+      "scenario": "FIX_TRADE",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    },
+    {
+      "scenario": "READING_DISABLED",
+      "stage": "External fixture scenario selection",
+      "errorCode": "IPC_PAYLOAD_INVALID",
+      "firstDiagnostic": "AssertionError [ERR_ASSERTION]: binance.live.permission.fixture: {\"blocking\":true,\"category\":\"INTERNAL_ERROR\",\"code\":\"IPC_PAYLOAD_INVALID\",\"message\":\"The request does not match the supported command schema.\",\"remediationActions\":[{\"id\":\"retry_request\",\"label\":\"Review and retry\"}],\"retryable\":false}"
+    }
+  ],
+  "preparationFailure": "The first universal-transfer run timed out in REVIEW_REQUIRED after the alert cleared. A transient disabled confirmation was suspected, not measured in that run. The final helper explicitly waits for confirmation to be enabled after re-test before pressing Enter.",
+  "sourceAndArtifactSha256": {
+    "src-tauri/src/bin/ipc.rs": "4aaa3a819075ccffcb29eec04ab26a73499abb2065120d635f4a291c7e84a140",
+    "src-tauri/tests/support/provider_fixtures.rs": "f9853a32492b407d465bd76dd354c85b0001105baff0d91c50aa8f477445436b",
+    "tests/s33-permission-transfer-ui.mjs": "ee63255be044cf054954eb024e64969bb81cc466db2e738975142576cf0e1542",
+    "docs/implementation/evidence/s33/a3-variants-internal-transfer-blocked-390.png": "a172261af6f957f1ae0be6b40d7adf9c8d64127bbcc079724f0b110445532d9e",
+    "docs/implementation/evidence/s33/a3-variants-universal-transfer-blocked-390.png": "04a4d8ba5b60af3f0e1e0b5d587ab536e5bb15b145d4a575d572d97977f21ed6",
+    "docs/implementation/evidence/s33/a3-variants-margin-blocked-390.png": "4f73b34aaac619719d6dd2cde77437211930ce522c39ccfff8e57f5540bbd3ae",
+    "docs/implementation/evidence/s33/a3-variants-futures-blocked-390.png": "42a4454a38c9ed5ac4f1407bd2fe72d09730642e090a0f7835b440aecca4d2a5",
+    "docs/implementation/evidence/s33/a3-variants-options-blocked-390.png": "bfc4a8167d64092faafa716288bff008ae9c51dbf6159e1b0f04bc4341f3101b",
+    "docs/implementation/evidence/s33/a3-variants-portfolio-margin-blocked-390.png": "e3b47ea540a3078c7f89fe1e7304477ec2c61dc2742e930ff6c6397f572e73b5",
+    "docs/implementation/evidence/s33/a3-variants-fix-trade-blocked-390.png": "ee104968b231375514d84547c199c5a220e0f9331e7916d873d3a8864140edca",
+    "docs/implementation/evidence/s33/a3-variants-reading-disabled-blocked-390.png": "a581fa3f870f33e3c8b8c4345b199f0273a66f9fd0eff677e92264d2dcb10364"
+  },
+  "limitations": [
+    "Synthetic HTTP and native secret entry only",
+    "Single-flag Binance responses; other-provider variants/combinations and native credential cancellation remain unverified",
+    "Native VoiceOver, real providers and full S33 remain open"
+  ],
+  "checks": {
+    "rustCommand": "RUST_TEST_THREADS=1 cargo test --workspace permission",
+    "rustExitCode": 0,
+    "rustPassed": 6,
+    "rustFailed": 0,
+    "rustIgnored": 1,
+    "clippyCommand": "cargo clippy --workspace --all-targets",
+    "clippyExitCode": 0,
+    "integrationBuild": "PASS after each fixture change",
+    "syntaxAndAffectedRustfmt": "PASS",
+    "traceability": "203 requirements / 70 screens / 13 QA / 23 baseline files",
+    "fullSuite": "Not rerun for test-fixture-only changes; prior full check remains separately pinned at 1ccb38f",
+    "warnings": "Clippy warnings retained, including test-fixture dead code, type complexity and existing library warnings; no claim that every warning is unchanged."
+  }
+}

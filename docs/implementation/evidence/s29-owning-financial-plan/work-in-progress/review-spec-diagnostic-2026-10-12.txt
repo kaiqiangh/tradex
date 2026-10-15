@@ -1,0 +1,9 @@
+S29.11 Spec diagnostic review — 2026-10-12
+
+Fixed review base: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+HEAD at review: 015f4ba19b0dcba138d2a48fafb42b6323821e83
+Scope: current tracked worktree diff plus untracked S29.11 source, test and evidence files.
+
+The ticket remains incomplete: AC1, AC5–AC7 and AC9–AC14 are unchecked. The specification's testing decision permits synthetic external HTTP/vault/WebSocket/clock producers only (S29 owning-plan spec, lines 113–117). `tests/spot-bnb-fee-estimate-ui.mjs` uses a synthetic user-reported Support reference in a disposable profile. It tests a policy-evaluator branch only and is excluded from ticket acceptance evidence; the user confirmed there is no real Support report. Actual source-use remains `UNRESOLVED`, and `FX_DATA_USE_RIGHTS` remains `UNVERIFIED`.
+
+The bilingual conditional-fee proposal was not adopted. Its status wording had not recorded the user's 2026-10-12 decision to retain RevC; both versions now reflect that decision. No normative financial contract, gate, issue state, or acceptance checkbox changed. No actual provider/account or financial action occurred.

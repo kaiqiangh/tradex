@@ -48,6 +48,7 @@ TradeX 当前能够保存市场、账户、研究和订单上下文，但没有�
 - worker 启动复用现有受控子进程/继承 duplex 设计：父进程保留唯一句柄，握手先验证 protocol version 和一次性 session credential，再接受有限请求；worker stdout/stderr、环境和退出原因不得泄露秘密。
 - worker capability allowlist 只包括 approved dataset read、数值运算、strategy state 与 workspace strategy file；filesystem、network、Keychain、broker adapter、Order Gateway、CLIProxyAPI 和 arbitrary subprocess 全部拒绝。策略运行输出只能被 Control Plane 转换成 bounded signal 或 typed failure。
 - strategy.run 在运行前重新验证 workspace、version/hash、canonical instrument/dataset refs、TimeService confidence 和 parameter bounds，并冻结 run input；运行中取消只影响该 run，不改变 version 或其他 workspace state。
+- strategy.run 将规范化的 `contextRefs` 持久化并纳入 identity；缺少标的引用时由 Control Plane 补入所选标的的 canonical ref。`retryOfRunId` 只能引用同一 workspace 中的 FAILED/CANCELLED run，后端逐项比较版本、hash、标的、dataset、时间范围、context refs 与参数，并复用原 run 的 `observedAt`，使 request hash 不变且产生新 run ID。旧的无 contextRefs 运行记录继续按旧 identity 读取/重试。
 - run identity/hash 包含 strategy version、dataset/source refs、instrument/context refs、parameters、time assumptions 和 engine/runtime version；相同输入必须得到相同 identity，但结果仍标记为 simulation/strategy signal。
 - UI 通过 context-driven Strategies surface 和 React Query 读取 backend-owned library；版本列表、editor、run status、signal card 和 error recovery 不能自行推断 authority。Signal card 不提供 Trade/approval 操作。
 - integration mode 可使用 TRADEX_STRATEGY_FIXTURE=1 产生固定成功、失败和取消场景，但 production Control Plane 没有 synthetic strategy source。fixture label、worker restriction 和 unavailable reason 必须显式显示。

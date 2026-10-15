@@ -1,0 +1,10 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.04s
+     Running tests/binance_market_stream_cancellation.rs (target/debug/deps/binance_market_stream_cancellation-457de3bbe11eae8d)
+
+running 3 tests
+test releasing_a_trickling_incomplete_frame_allows_the_next_view_to_connect_promptly ... ok
+test retiring_a_stock_trickling_frame_allows_the_binance_view_to_connect_promptly ... ok
+test trickling_bootstrap_bytes_cannot_escape_the_total_deadline_or_create_quotes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.78s

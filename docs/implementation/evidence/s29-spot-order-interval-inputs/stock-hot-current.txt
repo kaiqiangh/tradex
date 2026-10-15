@@ -1,0 +1,30 @@
+error: no test target named `stock_hot_source` in default-run packages
+help: available test targets:
+    backtest
+    binance
+    binance_market
+    binance_market_hot
+    binance_market_stream_cancellation
+    binance_market_stream_limits
+    binance_rate_limit
+    binance_rule_limits
+    binance_rules
+    bitget
+    calendar_source
+    data_sources
+    financial_sources
+    gateway
+    market
+    model
+    order_gateway
+    portfolio
+    providers
+    quote_hot
+    screener
+    screener_persistence
+    strategy
+    strategy_worker
+    time
+    trading212
+    watchlists
+    workspace

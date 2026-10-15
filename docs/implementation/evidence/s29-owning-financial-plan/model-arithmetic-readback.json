@@ -1,0 +1,94 @@
+{
+  "kind": "MODEL_PLANNING_ONLY_NOT_PUBLIC_TDD_OR_IMPLEMENTATION_ACCEPTANCE",
+  "checkedAt": "2026-10-10T20:09:38.278873+00:00",
+  "sourceBaseline": "92544f58e59fb660dcd6a5475c0ac92b762296b3",
+  "model": "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1",
+  "reference": "independent Python Fraction; pinned FAQ cross-checked with Decimal precision100",
+  "pinnedProviderDocCommit": "263ac1aa96556af0b4da824c82a1d8cd9a0edda9",
+  "pinnedProviderDocSha256": "580cfa59c9f55adae0d27bf38d2bc7f268ad759fdf054486e356464c30bbd54c",
+  "sourceFetch": "gh contents API successful; web cache attempts failed; no changed-provider claim",
+  "allCasesSynthetic": true,
+  "cases": [
+    {
+      "id": "PINNED_FAQ_EXACT_FAMILIES",
+      "expectedFallbackUsdt": "1049.525724625",
+      "expectedModelFamilyBnB": [
+        "0.000010091105769231",
+        "0.000154730288461539",
+        "4.036442307692307693"
+      ],
+      "expectedModelTotalBnB": "4.036607129086538463",
+      "independentDecimal100CrossCheck": true
+    },
+    {
+      "id": "ROLE_WINNER_DIFFERS_BY_BRANCH",
+      "receivedUsdt": "100",
+      "multiplier": "0.1",
+      "assumedBnbUsdt": "260",
+      "fallback": {
+        "maker": "1",
+        "taker": "0.6",
+        "winner": "MAKER"
+      },
+      "bnb": {
+        "maker": "0.000384615384615385",
+        "taker": "0.001961538461538463",
+        "winner": "TAKER"
+      }
+    },
+    {
+      "id": "ROLE_WINNER_CHANGES_AFTER_FAMILY_ROUNDING",
+      "makerModel": "0.000000000000000001",
+      "takerModel": "0.000000000000000002",
+      "exactWinner": "MAKER",
+      "modelWinner": "TAKER"
+    },
+    {
+      "id": "POSITIVE_REMAINDER_NOT_DISCARDED",
+      "numerator": "0.000000000000000001",
+      "denominator": "3",
+      "upper18": "0.000000000000000001",
+      "referenceFloor18": "0"
+    },
+    {
+      "id": "EXTRA_ASSET_QUOTE_BUDGET",
+      "principalUsdt": "500",
+      "feeFundingBnb": "2",
+      "assumedBnbUsdAsk": "50",
+      "assumedUsdtUsdBid": "0.99",
+      "feeQuoteValue": "101.010101010101010102",
+      "totalQuoteValue": "601.010101010101010102",
+      "modelMaximum600": "EXCEEDED",
+      "modelMaximum610": "WITHIN",
+      "remainingPrincipalQuoteAllowance": "508.989898989898989898",
+      "actualSourceUseOrQualityValidated": false
+    },
+    {
+      "id": "FREE_EXCLUDES_PROVIDER_LOCKS",
+      "declaredFree": "500",
+      "declaredLocked": "300",
+      "localClaims": "20",
+      "effectiveFree": "480",
+      "required450": "SUFFICIENT",
+      "required490": "INSUFFICIENT"
+    },
+    {
+      "id": "SELL_LIMIT_IS_NOT_FEE_CEILING",
+      "baseQuantity": "0.5",
+      "limit": "35000",
+      "knownCompleteRate": "0.06",
+      "modelGrossUsdt": "17500",
+      "modelFeeUsdt": "1050",
+      "hypotheticalFillPrice": "40000",
+      "fillGrossUsdt": "20000",
+      "fillFeeUsdt": "1200",
+      "modelFeeIsFutureCap": false
+    }
+  ],
+  "productionCodeChanged": false,
+  "publicProducerTddRun": false,
+  "realProviderFinancialAcceptance": false,
+  "sourceSelected": false,
+  "rightsGranted": false,
+  "pendingSourceProfileAndRouteContract": true
+}

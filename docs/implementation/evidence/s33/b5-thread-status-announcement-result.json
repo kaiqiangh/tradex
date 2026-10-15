@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "announcedStates": [
+    "RUNNING",
+    "COMPLETED"
+  ],
+  "liveRegion": "role=status; aria-live=polite",
+  "forbiddenCommands": 0,
+  "externalRequests": 0,
+  "responsiveWidth": 390,
+  "nativeVoiceOver": "not exercised by this browser test",
+  "capturedAt": "2026-10-14T15:34:01Z",
+  "test": {
+    "path": "tests/s33-thread-status-announcements-playwright.js",
+    "sha256": "bd5c50456d41efe543f220e18b748b77ac63702f2bcbe75dce9be5e015553ad1"
+  }
+}

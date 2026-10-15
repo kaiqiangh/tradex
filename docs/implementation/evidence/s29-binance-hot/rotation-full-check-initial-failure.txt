@@ -1,0 +1,341 @@
+npm notice run tradex@0.1.0 check
+npm notice run npm run schema:check && npm run build && npm run test:unit && cargo test --workspace && python3 scripts/check_requirements.py
+npm notice run tradex@0.1.0 schema:check
+npm notice run node scripts/ipc-schema.mjs --check
+Rust / JSON Schema / TypeScript agree.
+npm notice run tradex@0.1.0 build
+npm notice run npm run typecheck && vite build
+npm notice run tradex@0.1.0 typecheck
+npm notice run tsc --noEmit
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 91 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.46 kB │ gzip:   0.29 kB
+dist/assets/index-CO1F1XJN.css     49.02 kB │ gzip:   9.00 kB
+dist/assets/index-tk2GdirF.js   4,598.93 kB │ gzip: 461.35 kB
+
+✓ built in 612ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+npm notice run tradex@0.1.0 test:unit
+npm notice run node --test tests/*.test.ts
+✔ eight subscriptions share one SSE, survive a sibling close, and recover after disconnect (1.461333ms)
+✔ Live attempt status never describes acknowledgement as a fill or cancellation (0.488708ms)
+✔ Live attempt status only claims no dispatch with persisted stop evidence (0.116125ms)
+✔ the UI applies only contiguous supported events and ignores exact duplicates (6.853625ms)
+✔ workspace snapshots accept the current storage schema version (0.163208ms)
+✔ generated result schema rejects false success, mixed envelopes and foreign payloads (10.238875ms)
+✔ research venue schema keeps unavailable values nullable and rejects numeric zero (0.428958ms)
+✔ Bitget Spot order schema accepts external origins and plan trigger states (0.458125ms)
+✔ research payload schema rejects unbounded scenarios, artifact refs and venue rows (0.897458ms)
+✔ model projection accepts both provider event types and rejects foreign aggregates (0.4615ms)
+✔ thread projection preserves identity and contiguous event ordering (0.304916ms)
+✔ account projection applies durable Live arming transitions (0.24975ms)
+✔ Live settlement events preserve the exact attempt and reservation binding (0.477167ms)
+✔ Alpaca Paper attempts use their own aggregate identity and preserve order bindings (0.296833ms)
+✔ Trading 212 Demo attempts replay by attempt identity without inventing a client order ID (0.73675ms)
+✔ Trading 212 Demo order books replay exact cumulative observations under Demo account identity (0.780833ms)
+✔ managed Hot quote replies pass the public envelope and reject foreign lease fields (1.01625ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149.456459
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: methods `set_order_info`, `set_order_info_error`, `set_order_info_transport_error`, and `order_writes` are never used
+  --> src-tauri/tests/support/bitget_fixtures.rs:23:12
+   |
+22 | impl Http {
+   | --------- methods in this implementation
+23 |     pub fn set_order_info(&self, order: Option<Value>) {
+   |            ^^^^^^^^^^^^^^
+...
+29 |     pub fn set_order_info_error(&self, code: Option<String>) {
+   |            ^^^^^^^^^^^^^^^^^^^^
+...
+34 |     pub fn set_order_info_transport_error(&self, enabled: bool) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+39 |     pub fn order_writes(&self) -> usize {
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "trading212") generated 1 warning (1 duplicate)
+warning: `tradex` (test "binance") generated 1 warning (1 duplicate)
+warning: `tradex` (test "binance_rate_limit") generated 1 warning (1 duplicate)
+warning: `tradex` (test "providers") generated 1 warning
+warning: `tradex` (test "bitget") generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 48.92s
+     Running unittests src/lib.rs (target/debug/deps/tradex-e514ccf2eccb02df)
+
+running 243 tests
+test backtest::tests::canonical_timestamp_normalizes_equivalent_utc_offsets ... ok
+test backtest::tests::fixture_coverage_rejects_ranges_without_declared_bars ... ok
+test binance_stream::tests::supervisor_backoff_is_bounded_and_doubles ... ok
+test alpaca_stream::tests::stream_rejects_an_unverified_authentication_ack ... ok
+test alpaca_stream::tests::stream_authenticates_and_subscribes_only_to_trade_updates ... ok
+test binance_stream::tests::signed_subscription_completes_over_a_loopback_websocket ... ok
+test backtest::tests::result_validation_accepts_sell_loss_trade ... ok
+test alpaca_stream::tests::stream_reader_reports_a_missing_pong_as_disconnect ... ok
+test binance_stream::tests::pause_marks_connected_order_books_stale_until_reconciliation ... ok
+test cancellation_approval_tests::bitget_cancel_review_read_failure_does_not_mark_account_failed ... ok
+test cancellation_approval_tests::account_disarm_and_health_degradation_invalidate_cancel_approvals ... ok
+test cancellation_approval_tests::cancel_review_reuses_semantic_intent_after_arm_and_invalidates_on_snapshot_or_quantity_change ... ok
+test cancellation_approval_tests::binance_live_cancel_refresh_persists_partial_then_full_fill_across_reopen ... ok
+test cancellation_approval_tests::changed_cancel_order_cannot_be_prepared_or_consume_approval ... ok
+test cancellation_approval_tests::missing_provider_order_invalidates_the_current_cancel_intent ... ok
+test cancellation_approval_tests::s27_model_outage_allows_exact_cancel_preparation_without_reservation ... ok
+test cancellation_approval_tests::trading212_sell_cancellation_normalizes_signed_filled_quantities ... ok
+test capability::tests::account_context_ref_is_stable_and_secret_free ... ok
+test capability::tests::artifact_context_validation_requires_workspace_and_canonical_hash ... ok
+test capability::tests::attached_account_context_adds_read_capability_without_trade_authority ... ok
+test capability::tests::capability_query_rejects_nulls_and_unbounded_tool_probes ... ok
+test capability::tests::catalog_ref_validation_rejects_malformed_duplicate_and_unknown_refs ... ok
+test capability::tests::context_catalog_keeps_stale_and_cleanup_accounts_unavailable ... ok
+test capability::tests::context_catalog_lists_accounts_and_future_empty_states ... ok
+test capability::tests::context_catalog_rejects_unbounded_account_lists ... ok
+test capability::tests::duplicate_or_unknown_context_refs_are_rejected ... ok
+test capability::tests::every_supported_environment_keeps_mode_boundaries ... ok
+test capability::tests::invalid_matrix_rows_fail_closed ... ok
+test capability::tests::mode_context_matrix_keeps_live_proposal_below_execution ... ok
+test capability::tests::requested_capabilities_fail_closed_for_unknown_or_privileged_grants ... ok
+test codex_runtime::tests::approval_requests_are_distinct_from_financial_actions ... ok
+test codex_runtime::tests::bounded_frame_reader_rejects_an_unterminated_oversized_frame ... ok
+test codex_runtime::tests::normalizes_upstream_item_types_and_reads_nested_thread_ids ... ok
+test codex_runtime::tests::parses_typed_stream_notifications_and_preserves_unknown_item_type ... ok
+test cancellation_approval_tests::startup_probe_refresh_fetches_and_persists_t212_recent_live_history ... ok
+test cancellation_approval_tests::startup_recovery_stays_blocked_for_an_unknown_live_cancel_attempt ... ok
+test codex_runtime::tests::rejects_bad_response_and_unsupported_jsonrpc_version ... ok
+test codex_runtime::tests::rejects_events_for_a_different_thread_or_turn ... ok
+test codex_runtime::tests::rejects_non_successful_turn_completion ... ok
+test data_sources::tests::credentialed_probe_stays_blocked_without_reading_credentials ... ok
+test data_sources::tests::policy_covers_each_open_decision_without_secrets ... ok
+test data_sources::tests::public_probe_requires_all_sec_endpoint_shapes ... ok
+test data_sources::tests::sec_rate_limit_rejects_the_eleventh_request_in_a_window ... ok
+test gateway_process::tests::inference_request_and_status_keep_provider_contract_explicit ... ok
+test gateway_process::tests::model_catalog_and_inference_responses_fail_closed ... ok
+test gateway_process::tests::quota_metadata_is_bounded_and_unknown_stays_unavailable ... ok
+test codex_runtime::tests::process_adapter_uses_one_bounded_jsonl_session ... ok
+test codex_runtime::tests::process_adapter_maps_cancel_to_turn_interrupt ... ok
+test live_approval_tests::accepted_live_place_persists_trading212_order_identity ... ok
+test cancellation_approval_tests::bitget_live_cancel_refresh_settles_partial_then_full_fills_across_reopen ... ok
+test live_approval_tests::ambiguous_live_place_keeps_capacity_frozen_and_cannot_be_retried ... ok
+test live_approval_tests::binance_live_account_refresh_restores_bounded_recent_order_history ... ok
+test live_approval_tests::account_disarm_and_disable_all_release_only_reserved_place_attempts ... ok
+test live_approval_tests::approval_ttl_rejects_expired_gateway_grant_and_releases_reserved_capacity ... ok
+test live_approval_tests::binance_live_confirmed_submission_links_exact_order_and_keeps_capacity ... ok
+test live_approval_tests::bitget_live_unknown_reconciliation_persists_exact_query_evidence_read_only ... ok
+test live_approval_tests::bounded_trading212_market_approval_reserves_its_exact_maximum ... ok
+test live_approval_tests::concurrent_live_place_preparations_isolate_account_capacity ... ok
+test live_approval_tests::definitive_live_place_rejection_releases_capacity_once ... ok
+test live_approval_tests::concurrent_policy_save_and_preparation_obey_both_serial_orders ... ok
+test binance_stream::tests::terminated_stream_reconnects_and_restores_current_book ... ok
+test live_approval_tests::disable_all_after_submitting_preserves_may_have_submitted_capacity ... ok
+test live_approval_tests::disable_all_winning_before_submit_revokes_grant_and_releases_place_reservation ... ok
+test live_approval_tests::individual_account_disarm_revokes_issued_dispatch_grant ... ok
+test live_approval_tests::interrupted_live_place_preparation_rolls_back_and_retries_idempotently ... ok
+test live_approval_tests::live_capacity_projection_does_not_subtract_provider_commitments_twice ... ok
+test live_approval_tests::live_approval_rejects_changed_portfolio_account_and_policy_inputs ... ok
+test live_approval_tests::live_capacity_review_refreshes_after_account_state_changes_and_marks_stale_evidence ... ok
+test live_approval_tests::live_dispatch_grant_is_one_use_and_bound_to_its_gateway_session ... ok
+test live_approval_tests::live_approval_rejects_disarmed_untrusted_time_and_stale_market ... ok
+test live_approval_tests::live_order_fill_settlement_reduces_capacity_and_releases_terminal_remainder_once ... ok
+test live_approval_tests::live_place_preparation_accepts_exact_available_capacity ... ok
+test live_approval_tests::live_place_preparation_capacity_failure_leaves_approval_and_ledger_unchanged ... ok
+test live_approval_tests::live_place_preparation_consumes_approval_once_and_replays_idempotently ... ok
+test live_approval_tests::live_place_preparation_rejects_missing_cross_currency_fx_without_partial_state ... ok
+test live_approval_tests::live_place_preparation_subtracts_existing_account_reservations ... ok
+test live_approval_tests::live_place_reservations_are_scoped_to_the_bound_account ... ok
+test live_approval_tests::live_ttl_scan_propagates_workspace_lookup_errors ... ok
+test live_approval_tests::live_review_reject_and_approve_are_bound_short_lived_and_non_executing ... ok
+test live_approval_tests::binance_live_unknown_reconciliation_queries_exact_attempt_identity_read_only ... ok
+test live_approval_tests::market_live_approval_rejects_expected_value_above_authorized_maximum ... ok
+test live_approval_tests::policy_change_before_preparation_invalidates_issued_approval ... ok
+test live_approval_tests::policy_change_invalidates_and_releases_reserved_place_idempotently ... ok
+test live_approval_tests::market_quote_depth_is_revalidated_at_preparation_and_dispatch ... ok
+test live_approval_tests::restart_after_submitting_marks_unknown_and_keeps_reservation ... ok
+test live_approval_tests::restart_before_submitting_revokes_grant_and_preserves_reservation ... ok
+test live_approval_tests::resume_lookup_failure_keeps_safety_disarm_pending_for_retry ... ok
+test live_approval_tests::market_slippage_compares_the_exact_policy_boundary_and_side_depth ... ok
+test live_approval_tests::t212_reconciliation_timeout_disarms_account_without_releasing_place_reservation ... ok
+test live_arming_tests::account_disable_is_scoped_and_disable_all_disarms_every_live_account ... ok
+test live_approval_tests::workspace_reserved_capital_rejection_uses_transaction_capacity_context ... ok
+test live_arming_tests::acknowledged_unverified_permissions_remain_blocked_for_live_arming ... ok
+test live_arming_tests::failed_safety_disarm_blocks_commands_and_retries_until_persisted ... ok
+test live_arming_tests::explicit_arm_is_a_durable_account_event_and_workspace_restart_disarms_it ... ok
+test alpaca_stream::tests::account_worker_reconnects_and_reconciles_after_private_stream_disconnect ... ok
+test live_arming_tests::generic_codex_approval_event_does_not_arm_live_accounts ... ok
+test live_arming_tests::inactivity_deadline_tick_disarms_without_an_ipc_request ... ok
+test live_arming_tests::live_arm_requires_a_trusted_clock_and_keeps_the_account_disarmed ... ok
+test live_arming_tests::s27_model_outage_keeps_auth_and_stream_failures_account_scoped ... ok
+test live_arming_tests::sleep_and_resume_safety_triggers_persist_disarm_reasons ... ok
+test live_arming_tests::reopening_the_same_workspace_stales_and_disarms_every_live_account ... ok
+test live_arming_tests::startup_revalidates_local_clock_without_connected_live_accounts ... ok
+test live_arming_tests::trusted_ui_activity_resets_the_live_inactivity_deadline ... ok
+test market::tests::blocked_calendar_keeps_market_state_unknown_and_gate_fail_closed ... ok
+test market::tests::canonical_catalog_is_searchable_and_blocked_source_is_explicit ... ok
+test market::tests::corporate_actions_are_duplicate_safe_and_timestamp_bounded ... ok
+test live_arming_tests::startup_recovery_covers_all_live_accounts_and_preserves_unknown_scope ... ok
+test market::tests::eligibility_requires_authoritative_source_and_adjustment ... ok
+test market::tests::fixture_seam_covers_equity_and_crypto_sessions ... ok
+test market::tests::history_rejects_crypto_and_realtime_entitlement ... ok
+test market::tests::history_rejects_invalid_decimal_timestamp_and_venue ... ok
+test market::tests::integration_fixture_detail_exposes_actions_without_live_authority ... ok
+test model::tests::allowlist_requires_exact_provider_contracts ... ok
+test model::tests::model_state_resets_process_observations_and_bounds_attempt_history ... ok
+test model::tests::retry_cooldown_is_bounded_by_the_latest_quota_attempt ... ok
+test model::tests::thread_plan_requires_default_and_only_offers_opt_in_deepseek_fallback ... ok
+test model::tests::verified_route_requires_matching_provider_identity ... ok
+test model_credentials::tests::model_keys_are_validated_and_memory_vault_is_workspace_scoped ... ok
+test live_arming_tests::weakened_policy_credentials_and_health_changes_revoke_live_arming ... ok
+test model_tests::enabling_fallback_without_a_verified_deepseek_route_fails_closed ... ok
+test model_tests::failed_route_verification_stays_unverified_and_clears_current_route ... ok
+test market::tests::duckdb_history_is_separate_and_reopens ... ok
+test order_gateway::busy_gateway_admission_returns_backpressure_without_waiting ... ok
+test order_gateway::gateway_cooldown_is_validated_and_shared_with_parent_requests ... ok
+test order_gateway::outcome_tests::cancel_ack_requires_the_preflight_provider_status ... ok
+test paper::tests::initial_account_and_state_are_explicit_simulation ... ok
+test paper::tests::quote_requires_fresh_bounded_profile_input ... ok
+test model_tests::model_routing_commands_persist_default_and_require_verified_fallback ... ok
+test live_approval_tests::market_approval_rejects_invalid_depth_and_changed_quote_consent ... ok
+test model_tests::model_verify_is_blocked_during_known_quota_cooldown ... ok
+test paper_tests::bitget_demo_risk_evaluation_skips_account_portfolio_and_market_reads ... ok
+test paper_tests::daily_traded_limit_requires_trusted_time_through_public_commands ... ok
+test paper_tests::local_paper_is_provisioned_and_exposed_without_provider_io ... ok
+test paper_tests::local_paper_quote_refresh_is_not_an_agent_command ... ok
+test paper_tests::local_paper_outcomes_cancel_and_reopen_are_authoritative ... ok
+test paper_tests::local_paper_quote_refresh_recovers_stale_input_and_changes_identity ... ok
+test paper_tests::local_paper_rejects_tampered_cash_projection ... ok
+test paper_tests::local_paper_scenario_mutation_is_not_an_agent_command ... ok
+test paper_tests::local_paper_rejects_unknown_and_foreign_queries ... ok
+test paper_tests::local_paper_state_reopens_without_duplication ... ok
+test paper_tests::local_paper_submit_full_fill_is_idempotent_and_reopenable ... ok
+test paper_tests::open_order_limit_counts_the_candidate_proposal ... ok
+test paper_tests::local_paper_submit_rejects_insufficient_and_foreign_proposals ... ok
+test portfolio::tests::aggregation_fails_closed_when_one_native_value_lacks_conversion ... ok
+test portfolio::tests::decimal_operations_are_exact_and_signed ... ok
+test portfolio::tests::empty_production_snapshot_is_unavailable_without_mutation ... ok
+test portfolio::tests::fixture_exposure_excludes_unavailable_balance_identity ... ok
+test portfolio::tests::fixture_preserves_usdt_warning_and_base_currency ... ok
+test portfolio::tests::fixture_with_unmapped_base_currency_degrades_instead_of_claiming_availability ... ok
+test portfolio::tests::invalid_base_currency_cannot_escape_snapshot_schema ... ok
+test portfolio::tests::missing_equity_total_stays_unavailable ... ok
+test portfolio::tests::production_snapshot_rejects_rows_and_routes_over_wire_limits ... ok
+test portfolio::tests::unknown_native_currency_keeps_an_unavailable_fx_route ... ok
+test portfolio::tests::unmapped_provider_symbols_remain_unavailable ... ok
+test provider_io::alpaca_trade_update_tests::stream_updates_preserve_supported_lifecycle_states ... ok
+test provider_io::alpaca_trade_update_tests::stream_updates_reject_cross_account_identity_and_secret_reflection ... ok
+test provider_io::alpaca_trade_update_tests::updates_dedupe_fills_ignore_late_states_and_preserve_unknown_statuses ... ok
+test provider_io::binance::tests::exact_refresh_advances_unchanged_order_observation_without_resetting_cancel_intent ... ok
+test provider_io::binance::tests::live_recent_order_history_requires_the_requested_symbol_and_known_status ... ok
+test provider_io::binance::tests::private_stream_deduplicates_fills_and_ignores_late_order_state ... ok
+test provider_io::binance::tests::private_stream_merges_account_assets_and_requires_reconciliation_for_deltas ... ok
+test provider_io::binance::tests::private_stream_rejects_wrong_subscription_and_secret_reflection ... ok
+test provider_io::binance::tests::signing_decimal_and_route_bounds_match_external_contracts ... ok
+test provider_io::bitget::tests::exact_live_fills_require_complete_order_matched_fees_and_totals ... ok
+test provider_io::bitget::tests::fill_currency_matches_order_id_and_symbol ... ok
+test provider_io::bitget_live_cancel_route_tests::bitget_live_cancel_and_exact_read_routes_are_narrow ... ok
+test provider_io::http_tests::alpaca_asset_and_position_paths_allow_only_bounded_symbols ... ok
+test provider_io::http_tests::alpaca_order_book_paths_and_delete_are_bounded_to_paper_uuid_routes ... ok
+test provider_io::http_tests::binance_live_delete_is_limited_to_one_exact_spot_order ... ok
+test provider_io::http_tests::bitget_order_submission_is_exactly_demo_only_and_requires_paptrading ... ok
+test paper_tests::local_paper_rejects_tampered_fill_position_and_pnl_without_mutation ... ok
+test provider_io::http_tests::ordinary_live_cancellation_review_has_read_routes_but_no_provider_write_route ... ok
+test provider_io::http_tests::provider_order_remaining_quantity_uses_exact_decimal_subtraction ... ok
+test paper_tests::risk_order_quantity_uses_exact_decimal_boundary ... ok
+test paper_tests::risk_decisions_append_history_and_block_submit_without_policy ... ok
+test provider_io::http_tests::real_https_transport_posts_only_to_the_fixed_alpaca_paper_order_route ... ok
+test provider_io::http_tests::real_https_transport_deletes_only_the_fixed_alpaca_paper_order_route ... ok
+test provider_io::provider_scheduler_tests::cooled_account_does_not_block_another_accounts_eligible_work ... ok
+test provider_io::provider_scheduler_tests::p0_keeps_one_provider_slot_when_low_priority_work_is_active ... ok
+test provider_io::provider_scheduler_tests::p0_bypasses_a_saturated_p3_queue_and_overflow_is_explicit ... ok
+test provider_io::provider_scheduler_tests::p1_runs_before_queued_p2_and_p3_work ... ok
+test provider_io::provider_scheduler_tests::provider_jobs_use_the_documented_priority_classes ... ok
+test provider_io::provider_scheduler_tests::provider_retry_after_delays_the_next_eligible_request ... ok
+test provider_io::trading212_demo_route_tests::order_merge_preserves_cancel_pending_until_provider_terminal_state ... ok
+test provider_io::trading212_demo_route_tests::order_posts_are_restricted_to_the_two_demo_routes ... ok
+test provider_io::trading212_demo_route_tests::t212_recent_history_parses_official_order_fill_rows_and_rejects_conflicts ... ok
+test provider_io::trading212_demo_route_tests::trading212_order_merge_retains_known_currency_and_rejects_conflicts ... ok
+test provider_io::trading212_demo_route_tests::trading212_order_reads_classify_client_and_server_errors_separately ... ok
+test provider_io::provider_scheduler_tests::provider_concurrency_never_exceeds_its_limit ... ok
+test provider_io::trading212_demo_route_tests::trading212_orders_keep_exact_cumulative_fills_and_reject_unknown_states ... ok
+test research::tests::artifact_context_ids_are_copied_without_query_text ... ok
+test provider_io::trading212_live_cancel_preflight_tests::live_cancel_preflight_accepts_exact_signed_sell_snapshot_and_rejects_changes ... ok
+test research::tests::available_catalog_source_without_matching_fixture_stays_unavailable ... ok
+test research::tests::every_non_available_source_is_unavailable_even_for_fixtures ... ok
+test research::tests::disallowed_tool_is_not_accepted_by_research_registry ... ok
+test research::tests::fixture_source_is_scoped_to_public_market_equity_or_crypto ... ok
+test research::tests::focus_is_part_of_request_identity ... ok
+test research::tests::renderer_contexts_are_not_reinterpreted_as_producer_refs ... ok
+test research::tests::result_is_deterministic_and_does_not_echo_query ... ok
+test research::tests::spot_rows_keep_blocked_values_missing_and_fixture_values_explicit ... ok
+test risk::tests::decimal_and_boundary_validation_is_exact ... ok
+test research::tests::unavailable_spot_values_serialize_as_null_not_zero ... ok
+test risk::tests::defaults_leave_money_unset_and_keep_safe_non_money_values ... ok
+test risk::tests::input_digests_ignore_read_times_but_bind_material_and_quote_provenance ... ok
+test risk::tests::legacy_persisted_policy_keeps_market_order_preference_with_new_limits_unset ... ok
+test risk::tests::market_freshness_uses_full_timestamp_precision_and_rejects_future_subseconds ... ok
+test risk::tests::policy_weakening_classifier_detects_mixed_relaxation_and_pure_tightening ... ok
+test risk::tests::reserved_capital_fx_conversion_requires_recent_verified_route ... ok
+test risk_tests::full_risk_policy_round_trips_through_the_public_command_after_reopen ... ok
+test screener::tests::fixture_run_filters_and_ranks_candidates ... ok
+test screener::tests::parse_is_deterministic_and_bounded ... ok
+test screener::tests::run_cannot_bypass_failed_parse ... ok
+test screener::tests::run_rejects_stale_revision_and_blocks_external_sources ... ok
+test risk_tests::risk_policy_is_persisted_and_ready_is_gated_by_model_and_order ... ok
+test storage::confirmed_candidate_tests::confirmed_candidate_rechecks_binance_quote_quantity_and_limit_terms ... ok
+test storage::confirmed_candidate_tests::confirmed_candidate_rechecks_bitget_limit_force_and_tpsl_type ... ok
+test strategy::tests::canonical_hash_is_stable_and_source_sensitive ... ok
+test strategy::tests::source_allows_bounded_multiline_code ... ok
+test strategy::tests::validation_rejects_duplicate_parameters ... ok
+test thread_tests::account_research_scope_keeps_unselected_accounts_out ... ok
+test screener::tests::unsupported_language_is_explicit ... ok
+test thread_tests::capability_query_and_thread_creation_share_the_policy_matrix ... ok
+test thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely ... FAILED
+test thread_tests::data_source_probe_keeps_last_successful_observation_when_stale ... ok
+test thread_tests::context_catalog_command_is_workspace_scoped_and_read_only ... ok
+test thread_tests::order_draft_save_reopen_and_version_conflict_are_workspace_scoped ... ok
+test thread_tests::proposal_refresh_status_maps_each_reference_gate ... ok
+test thread_tests::order_proposal_is_immutable_and_invalidates_after_material_draft_change ... ok
+test thread_tests::thread_create_list_snapshot_subscribe_and_reopen_are_persistent ... ok
+test thread_tests::thread_create_rejects_an_account_from_outside_the_workspace ... ok
+test time::tests::first_status_after_open_is_untrusted_until_explicit_revalidation ... ok
+test time::tests::material_wall_jump_requires_revalidation ... ok
+test time::tests::monotonic_rollback_is_stale ... ok
+test time::tests::normal_wall_and_monotonic_elapsed_stays_trusted ... ok
+test time::tests::provider_offset_is_bounded_and_workspace_scoped ... ok
+test time::tests::resume_invalidates_an_existing_trusted_baseline ... ok
+test thread_tests::turn_start_rejects_trade_without_an_execution_context ... ok
+test live_approval_tests::s27_model_failure_preserves_live_authority_and_reconciliation ... ok
+test cancellation_approval_tests::trading212_exact_order_refresh_persists_fill_race_across_reopen ... ok
+test live_approval_tests::trading212_live_unknown_reconciliation_is_read_only_pageable_and_durable ... ok
+test provider_io::http_tests::fx_https_uses_only_fixed_get_pairs_with_bounded_body_timeout_and_no_redirect ... ok
+test provider_io::http_tests::real_https_transport_rejects_redirects_oversize_and_timeout_and_classifies_auth_and_quota ... ok
+test cancellation_approval_tests::expired_binance_diagnostic_does_not_degrade_an_exact_cancel_observation ... ok
+
+failures:
+
+---- thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely stdout ----
+
+thread 'thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely' (9911165) panicked at src-tauri/src/lib.rs:13643:9:
+assertion `left == right` failed: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"WORKSPACE_OPEN_FAILED","message":"The workspace could not be opened. Check folder access and available storage.","remediationActions":[{"id":"retry_workspace","label":"Retry opening"}],"retryable":true},"ok":false,"requestId":"request-workspace.open","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    thread_tests::artifact_round_trip_preserves_provenance_and_exports_safely
+
+test result: FAILED. 242 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.96s
+
+error: test failed, to rerun pass `--lib`

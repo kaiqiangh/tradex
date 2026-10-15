@@ -1,0 +1,13 @@
+{
+  "sourceState": "frozen worktree above 1d24523158674d2763d50bee49150e8ff9d808d6",
+  "sourceCheckpoint": "implementation-checkpoint.json",
+  "ipcSha256": "f810842ddb87f566bdfe4424ccf68186514fa5c1afe481da8676bce7b360c93e",
+  "gatewaySha256": "538680a9d47b1942568b27a404ff9f11aff01b426a76d61629871e938bc9fa2f",
+  "hostPort": 1427,
+  "sourceOnlyFixture": true,
+  "externalRuleHttpFixture": true,
+  "orderGatewayRuntimeFeature": true,
+  "integrationGatewayPinEnabled": true,
+  "uiHelperSha256": "594ebc9d13db63a29182315094ae66861bf9ea4c4f9456000c9e249daa7be169",
+  "nativeFinancialAcceptance": false
+}

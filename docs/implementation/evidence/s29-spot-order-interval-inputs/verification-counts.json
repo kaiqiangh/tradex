@@ -1,0 +1,36 @@
+{
+  "stage": "Post-review final checks, desktop/UI/handoff still pending",
+  "counts": {
+    "ordinary-rust-review-final": {
+      "passed": 483,
+      "failed": 0,
+      "ignored": 39
+    },
+    "stock-hot-review-final": {
+      "passed": 19,
+      "failed": 0,
+      "ignored": 0
+    },
+    "gateway-review-final": {
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0
+    },
+    "node-unit": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0
+    },
+    "binance-hot": {
+      "passed": 49,
+      "failed": 0,
+      "isolated": true
+    },
+    "public-binance-rules-capacity-intervals": {
+      "passed": 85,
+      "includedInOrdinaryRust": true
+    }
+  },
+  "inputs": 163,
+  "checksReference": "checks-review-final.json"
+}

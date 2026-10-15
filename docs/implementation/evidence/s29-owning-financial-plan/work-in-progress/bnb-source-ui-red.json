@@ -1,0 +1,5 @@
+{
+  "stage": "BEFORE_BNB_SOURCE_UI",
+  "name": "Error",
+  "message": "Error: Playwright selector deadline exceeded\nlocator.waitFor(visible) timed out for selector internal:role=region[name=\"Current BNB fee source\"s]\nLocator diagnostics: {\"kind\":\"no_matches\",\"action\":\"waitFor\",\"locator\":\"internal:role=region[name=\\\"Current BNB fee source\\\"s]\",\"matchCount\":0,\"matches\":[],\"visibleCount\":0,\"truncated\":false}"
+}

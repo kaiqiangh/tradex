@@ -1,0 +1,11 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0609]: no field `uid` on type `RuleRig`
+   --> src-tauri/tests/binance_rules.rs:389:87
+    |
+389 |     let remaining = tradex::provider_io::provider_retry_after_seconds("binance", &rig.uid.to_string());
+    |                                                                                       ^^^ unknown field
+    |
+    = note: available fields are: `_folder`, `control`, `workspace`, `account`, `vault`
+
+For more information about this error, try `rustc --explain E0609`.
+error: could not compile `tradex` (test "binance_rules") due to 1 previous error

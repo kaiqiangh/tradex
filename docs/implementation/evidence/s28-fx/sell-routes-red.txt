@@ -1,0 +1,22 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.89s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test sell_intent_does_not_require_buy_funding_fx_for_asset_capacity ... FAILED
+
+failures:
+
+---- sell_intent_does_not_require_buy_funding_fx_for_asset_capacity stdout ----
+
+thread 'sell_intent_does_not_require_buy_funding_fx_for_asset_capacity' (5425637) panicked at src-tauri/tests/financial_sources.rs:3869:5:
+Sell capacity is in the base asset; it must not acquire a Buy funding-currency route: {"data":{"baseCurrency":"USD","materialVersion":"94827bde5889eed5f7449d84d393bb9a001d53ba3576fecca79b3a09d3340470","proposalId":"proposal:f9c301f5-8a2e-451b-93de-7f2b1f9e1337","requirements":[{"accountVersion":"a692711e-0319-4e55-bc3c-65b0c954ebd6:3","connectionId":"a692711e-0319-4e55-bc3c-65b0c954ebd6","fromCurrency":"EUR","need":"EXTERNAL_RATE","providerPair":"EURUSD","purpose":"ACCOUNT_WORKSPACE","reason":"EUR to USD needs a qualified directional conversion. A rate read alone does not establish financial eligibility.","toCurrency":"USD"},{"accountVersion":"local-paper:5c29d5b4-9d02-45a9-bd94-bc32e04d66b6:1","connectionId":"local-paper:5c29d5b4-9d02-45a9-bd94-bc32e04d66b6","fromCurrency":"USD","need":"IDENTITY","purpose":"ACCOUNT_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"a692711e-0319-4e55-bc3c-65b0c954ebd6:3","connectionId":"a692711e-0319-4e55-bc3c-65b0c954ebd6","fromCurrency":"USD","need":"EXTERNAL_RATE","providerPair":"USDEUR","purpose":"INTENT_FUNDING","reason":"USD to EUR needs a qualified directional conversion. A rate read alone does not establish broker funding or fees.","toCurrency":"EUR"},{"accountVersion":"a692711e-0319-4e55-bc3c-65b0c954ebd6:3","connectionId":"a692711e-0319-4e55-bc3c-65b0c954ebd6","fromCurrency":"USD","need":"IDENTITY","purpose":"INTENT_POLICY","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"a692711e-0319-4e55-bc3c-65b0c954ebd6:3","connectionId":"a692711e-0319-4e55-bc3c-65b0c954ebd6","fromCurrency":"GBP","need":"EXTERNAL_RATE","purpose":"ORDER_WORKSPACE","reason":"This currency route is required but unsupported by the selected bounded FX producer. Currency parity is never assumed.","toCurrency":"USD"},{"accountVersion":"a692711e-0319-4e55-bc3c-65b0c954ebd6:3","connectionId":"a692711e-0319-4e55-bc3c-65b0c954ebd6","fromCurrency":"EUR","need":"EXTERNAL_RATE","providerPair":"EURUSD","purpose":"POSITION_WORKSPACE","reason":"EUR to USD needs a qualified directional conversion. A rate read alone does not establish financial eligibility.","toCurrency":"USD"}],"workspaceId":"5c29d5b4-9d02-45a9-bd94-bc32e04d66b6"},"ok":true,"requestId":"financial-source","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    sell_intent_does_not_require_buy_funding_fx_for_asset_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

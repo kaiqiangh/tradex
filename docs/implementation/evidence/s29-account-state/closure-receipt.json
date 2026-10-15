@@ -1,0 +1,25 @@
+{
+  "recordedAt": "2026-10-07T20:32:08.696243+00:00",
+  "implementation": "ec9929ec8d449cad142e03da6acb19545a1ceb7d",
+  "evidenceDelivery": "09e999e8be0a44082d531bbe6e3acfcef3ff68c1",
+  "remoteDevAtEvidenceDelivery": "09e999e8be0a44082d531bbe6e3acfcef3ff68c1",
+  "sourceInputsMatchReviewedImplementation": true,
+  "diagnosticTicket": {
+    "closedAt": "2026-10-07T20:30:01Z",
+    "number": 122,
+    "state": "CLOSED",
+    "url": "https://github.com/kaiqiangh/tradex/issues/122"
+  },
+  "parent": {
+    "number": 121,
+    "state": "OPEN",
+    "url": "https://github.com/kaiqiangh/tradex/issues/121"
+  },
+  "resolutionUrl": "https://github.com/kaiqiangh/tradex/issues/122#issuecomment-6046264503",
+  "mapContextPointerUpdated": true,
+  "allMapComplete": false,
+  "mainPrOrMergePerformed": false,
+  "nativeRuntimeOrRealProviderAcceptance": false,
+  "ignoredTestsRemainUnverified": 39,
+  "sourceAndCheckScope": "Diagnostic child only; no real financial transaction or new public financial authority seed"
+}

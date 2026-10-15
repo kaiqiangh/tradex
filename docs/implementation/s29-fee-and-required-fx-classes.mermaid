@@ -1,0 +1,82 @@
+classDiagram
+    class RiskDecision {
+        +Option~SpotFeeFxStatement~ spot_fee_fx
+        +Vec~RiskDecisionInputReference~ inputs
+        +Vec~RiskCheckResult~ checks
+        +Option~SpotOwningQualification~ spot_owning
+    }
+    class RiskDecisionInputReference {
+        +RiskDecisionInputKind kind
+        +String reference_id
+        +String digest
+    }
+    class RiskDecisionInputKind {
+        <<enum>>
+        SpotFeeFx  «new»
+        CurrencyRates
+        SpotCapacity
+        SpotOrderIntervals
+    }
+    class SpotFeeFxStatement {
+        +String fee_currency
+        +Option~String~ expected_fee
+        +Option~String~ expected_spend_quote
+        +Vec~SpotRequiredRoute~ routes
+        +SpotFeeFxReasonCode reason_code
+        +RiskCheckOutcome outcome
+        +String fee_evidence_version «sha256: 71»
+        +String route_evidence_version «sha256: 71»
+    }
+    class SpotRequiredRoute {
+        +SpotRequiredRoutePurpose purpose
+        +String from_currency
+        +String to_currency
+        +SpotRequiredRouteState state
+        +Option~String~ conservative_cost
+    }
+    class SpotFeeFxReasonCode {
+        <<enum>>
+        SpotFeeFxQualified
+        SpotRequiredFxUnsupportedRoute
+    }
+    class SpotCapacityInputs {
+        +Option~SpotCapacityObservation~ observation
+    }
+    class SpotCapacityObservation {
+        +Option~SpotDeclaredCommission~ declared_commission «new»
+    }
+    class SpotDeclaredCommission {
+        +String maker
+        +String taker
+        +String buyer
+        +String seller
+    }
+    class FxRequirements {
+        +String material_version
+        +Vec~FxRouteRequirement~ requirements
+    }
+    class FxRouteRequirement {
+        +FxRequirementPurpose purpose
+        +FxRequirementNeed need
+        +Option~String~ provider_pair
+    }
+    class FxRateEvidence {
+        +Vec~FxObservedRate~ rates
+        +String material_version
+    }
+    class ApprovalReview {
+        +Option~SpotFeeFxStatement~ spot_fee_fx «new»
+        +String review_digest
+        +bool eligible
+    }
+    SpotFeeFxStatement ..> SpotRequiredRoute : carries <=2
+    SpotFeeFxStatement --> SpotFeeFxReasonCode
+    RiskDecision "1" o-- "0..1" SpotFeeFxStatement
+    RiskDecision "1" o-- "*" RiskDecisionInputReference
+    RiskDecisionInputReference --> RiskDecisionInputKind
+    SpotCapacityInputs --> SpotCapacityObservation
+    SpotCapacityObservation --> SpotDeclaredCommission
+    SpotFeeFxStatement ..> SpotCapacityObservation : consumes declared_commission
+    SpotFeeFxStatement ..> FxRequirements : narrows intent routes
+    SpotFeeFxStatement ..> FxRateEvidence : consumes rates
+    ApprovalReview "1" o-- "0..1" SpotFeeFxStatement

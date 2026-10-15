@@ -1,0 +1,71 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running tests/binance_market.rs (target/debug/deps/binance_market-b27d17916223a904)
+
+running 3 tests
+test public_catalog_keeps_spot_policy_and_selection_separate_from_stock_access ... ok
+test public_spot_market_selection_is_versioned_metadata_without_trading_credentials ... ok
+test spot_source_metadata_rejects_untrusted_consumers_and_credential_or_endpoint_overrides ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s
+
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 11 tests
+test a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable ... ok
+test a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation ... ok
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ... ok
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ... ok
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... ok
+test obsolete_update_ids_do_not_hide_malformed_original_depth_values ... ok
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ... ok
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ... ok
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ... ok
+test stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io ... ok
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.73s
+
+     Running tests/binance_rule_limits.rs (target/debug/deps/binance_rule_limits-014703e0f51faf30)
+
+running 2 tests
+test account_and_ip_read_budgets_survive_selection_and_workspace_changes ... ok
+test vault_deadline_finishes_without_http_or_late_publication ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.58s
+
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 15 tests
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+test authentication_reflections_are_rejected_before_typed_projection ... ok
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+test clock_revalidation_and_reopen_retire_active_rule_evidence ... ok
+test collected_constraints_name_the_unresolved_per_order_obligations ... ok
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... ok
+test elapsed_receipt_expires_rules_without_renewing_retained_evidence ... ok
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... ok
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... ok
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+test rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64 ... ok
+test unpopulated_permission_sets_never_grant_account_admission ... FAILED
+
+failures:
+
+---- unpopulated_permission_sets_never_grant_account_admission stdout ----
+
+thread 'unpopulated_permission_sets_never_grant_account_admission' (9372796) panicked at src-tauri/tests/binance_rules.rs:845:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    unpopulated_permission_sets_never_grant_account_admission
+
+test result: FAILED. 14 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.54s
+
+error: test failed, to rerun pass `--test binance_rules`

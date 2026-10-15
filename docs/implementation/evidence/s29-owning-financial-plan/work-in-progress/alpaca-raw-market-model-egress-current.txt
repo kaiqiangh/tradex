@@ -1,0 +1,13 @@
+S29.11 source-data model-egress boundary — 2026-10-12
+
+Recorded: 2026-10-12T09:37:46Z
+Branch/head: dev / 015f4ba19b0dcba138d2a48fafb42b6323821e83
+
+Focused current-worktree regressions:
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib --features integration-test thread_tests::begin_turn_keeps_available_synthetic_crypto_quotes_local -- --exact --nocapture` — 1 passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib codex_runtime::tests::process_adapter_sends_only_user_text_and_research_marker_to_model_runtime -- --exact --nocapture` — 1 passed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib artifact_round_trip_preserves_provenance_and_exports_safely -- --nocapture` — 1 passed.
+
+The public turn test keeps a synthetic typed research result with bid, ask, spread, depth and source metadata in the local persisted turn. The captured `turn/start` adapter input contains only user text plus a bounded research marker; it excludes the quote/depth values, source ID, fixture label and attached-context ID/hash. The adapter-level regression independently supplies raw values to a local fixture, then verifies they do not appear in the captured runtime request. The artifact regression confirms raw quote values remain available locally after workspace reopen while export is refused with `ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED` / `PERMISSION_ERROR` and no destination file is created.
+
+Scope limits: these tests use synthetic data and a captured fake runtime boundary; they do not call a real model, read Alpaca, verify an applicable account agreement or dataset entitlement, or prove every shared-cache, textual-content and external-consumer boundary. Actual source-use remains `UNRESOLVED`; `FX_DATA_USE_RIGHTS` remains `UNVERIFIED`; no AC checkbox changed. GitHub #135 and #134 remain OPEN at 4/14 checked. No real account/provider or financial action occurred.

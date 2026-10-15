@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow ... FAILED
+
+failures:
+
+failures:
+    interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.13s
+
+test interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow ... FAILED
+
+failures:
+
+failures:
+    interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.39s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.98s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow' (11605453) panicked at src-tauri/tests/binance_rules.rs:65:9:
+assertion `left == right` failed: Original integer/duration must fail closed at intervalNum: {"data":{"accountId":"b3f31557-c728-424c-80a1-2dabbcfe0d70","baseAsset":"BTC","bindingVersion":"sha256:0c8eb3bb050971fd3156cf588a9520ffc5bb92c3a7163ba4797bc713c75d1f5c","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"receivedAt":"2026-10-09T15:29:20.332Z","serverTimeMs":"1791559760332","startedAt":"2026-10-09T15:29:20.329Z"},"collectionId":"16958a96-1a6f-4d89-b4fe-dbf6b5f33312","counters":[{"count":"0","interval":"DAY","intervalNum":"9223372036854775807","limit":"50","rateLimitType":"ORDERS"}],"coverageComplete":false,"declarations":[{"interval":"MINUTE","intervalNum":"1","limit":"6000","rateLimitType":"REQUEST_WEIGHT"},{"interval":"HOUR","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"},{"interval":"DAY","intervalNum":"1","limit":"9223372036854775807","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"4535018568224b66750496fd02a9b649c1eeda90eee760a6fa2653f0f5f77364","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:29:20.335Z","startedAt":"2026-10-09T15:29:20.332Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:29:20.343Z","startedAt":"2026-10-09T15:29:20.338Z"},{"digest":"d6d89a5ba6296ea82489434eb4cbf6da085a26b14d18cff797ff5ff439ca3449","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:29:20.349Z","startedAt":"2026-10-09T15:29:20.345Z"}],"unresolvedObligations":["DECLARED_INTERVALS_MISSING","UNDECLARED_COUNTER_INTERVALS","INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:d875e8191237073470e9bc6bdaf45e8a5d555fc3b1db21814c080f5e73518679","proposalId":"proposal:b51c52b8-83c5-473c-bae5-a3a0c692c14c","qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"29b15068925c5e82050f7c141b37a7c70b7bc255831f2570fd7f47708623f90c","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:c7c26686-299e-4156-828a-add0be67882f:1","stateVersion":"sha256:7dcca587acbe2e4853d56d713c1b4179e35a1b76e31a5722789a6c76c21085b1","status":"OBSERVED","workspaceId":"c7c26686-299e-4156-828a-add0be67882f"},"ok":true,"requestId":"interval-collection","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow' (11605439) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_original_integers_and_duration_math_cannot_be_coerced_or_overflow
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

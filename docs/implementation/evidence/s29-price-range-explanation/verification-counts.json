@@ -1,0 +1,29 @@
+{
+  "rustPassed": 487,
+  "rustFailed": 0,
+  "rustIgnoredPreExisting": 39,
+  "rustBinaries": 34,
+  "nodePassed": 17,
+  "nodeFailed": 0,
+  "binanceRulesSuitePassed": 89,
+  "binanceRulesSuiteFailed": 0,
+  "binanceRulesPriceRangeCases": 4,
+  "s29PublicRuleCases": 89,
+  "isolatedBinanceHot": 49,
+  "isolatedStockHot": 19,
+  "isolatedGateway": 23,
+  "traceability": {
+    "requirements": 203,
+    "screens": 70,
+    "qaScenarios": 13,
+    "baselineFiles": 23
+  },
+  "sources": {
+    "fullCheck": "checks-review-final.txt",
+    "intermediateCheck": "checks-intermediate.txt",
+    "ordinaryRust": "ordinary-rust-initial.txt",
+    "red": "red.txt",
+    "green": "green.txt",
+    "ui": "ui-review.json"
+  }
+}

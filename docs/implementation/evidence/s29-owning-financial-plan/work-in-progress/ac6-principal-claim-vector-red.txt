@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.47s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 1 test
+test live_approval_tests::live_place_preparation_consumes_approval_once_and_replays_idempotently ... FAILED
+
+failures:
+
+---- live_approval_tests::live_place_preparation_consumes_approval_once_and_replays_idempotently stdout ----
+
+thread 'live_approval_tests::live_place_preparation_consumes_approval_once_and_replays_idempotently' (16338984) panicked at src-tauri/src/lib.rs:18578:9:
+assertion `left == right` failed: New PLACE reservations should expose their trusted native principal claim as a vector while retaining the legacy scalar fields: {"data":{"attempt":{"accountId":"fa0c89de-49ac-477c-8fe4-36229838f64c","accountStateVersion":"fa0c89de-49ac-477c-8fe4-36229838f64c:3","approvalId":"2f6f371b-44d4-4730-8473-a479db2a773d","attemptId":"16107d73-da0e-428f-813f-b38bf4030b2b","createdAt":"2026-10-11T18:48:23.059Z","environment":"TRADING212_LIVE","intentHash":"sha256:00654a1a38bd1d1eef14b22ccd74a5455ce0d6b2e3d524f5434f446b403a9e2b","intentId":"proposal:4e6bb4b4-fa7c-47d8-b0c9-42e849f3874d","intentStateVersion":"order-proposal:proposal:4e6bb4b4-fa7c-47d8-b0c9-42e849f3874d:1","operation":"PLACE_ORDER","policyVersion":2,"proposalId":"proposal:4e6bb4b4-fa7c-47d8-b0c9-42e849f3874d","reservationId":"2c5171cc-6dd8-4d48-a288-fff46ac23f78","reviewDigest":"sha256:72a13e7fc107f544412632633d6f818b81a63155cdee94e854946a5844897fc9","riskDecisionId":"risk-decision:fcf0d0ec-61b5-44a3-8efe-55f68f1c22e4","state":"RESERVED","stateVersion":"execution-attempt:16107d73-da0e-428f-813f-b38bf4030b2b:1","workspaceId":"d6f45f84-0ced-4262-a7a0-4e56a3a1e4b9"},"reservation":{"accountId":"fa0c89de-49ac-477c-8fe4-36229838f64c","accountStateVersion":"fa0c89de-49ac-477c-8fe4-36229838f64c:3","amount":"500","attemptId":"16107d73-da0e-428f-813f-b38bf4030b2b","brokerAvailable":"1000","capacityKey":"cash:USD","capacityProjection":{"accountStateVersion":"fa0c89de-49ac-477c-8fe4-36229838f64c:3","available":"1000","availableSource":"PROVIDER_BALANCE_AVAILABLE","committed":"0","committedSource":"PROVIDER_BALANCE_COMMITTED","effectiveAvailable":"500","freshness":"CURRENT","observedAt":"2026-10-11T18:48:23.041Z","requestedAmount":"500","reserved":"500","unit":"USD"},"createdAt":"2026-10-11T18:48:23.059Z","effectiveAvailable":"500","existingReservations":"0","instrumentId":"equity:US:AAPL","notional":"500","notionalCurrency":"USD","proposalHash":"sha256:00654a1a38bd1d1eef14b22ccd74a5455ce0d6b2e3d524f5434f446b403a9e2b","proposalId":"proposal:4e6bb4b4-fa7c-47d8-b0c9-42e849f3874d","reservationId":"2c5171cc-6dd8-4d48-a288-fff46ac23f78","side":"BUY","stateVersion":"execution-reservation:2c5171cc-6dd8-4d48-a288-fff46ac23f78:1","status":"ACTIVE","unit":"USD","workspaceCurrency":"USD","workspaceId":"d6f45f84-0ced-4262-a7a0-4e56a3a1e4b9","workspaceNotional":"500"}},"ok":true,"requestId":"live-approval-trade.execution.prepare","schemaVersion":1,"stateVersion":"execution-attempt:16107d73-da0e-428f-813f-b38bf4030b2b:1"}
+  left: Null
+ right: Array [Object {"amount": String("500"), "asset": String("USD"), "purpose": String("PRINCIPAL")}]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    live_approval_tests::live_place_preparation_consumes_approval_once_and_replays_idempotently
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 253 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `--lib`

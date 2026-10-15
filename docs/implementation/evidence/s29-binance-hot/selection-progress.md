@@ -1,0 +1,9 @@
+# S29.3 metadata stage — IN_PROGRESS
+
+Ticket #124 remains OPEN. Baseline5edf18d; published spec/planning1fdceca. This stage implements public ordinary-source selection/CAS/reopen/disconnect, typed connection/policy projection, an independent source-registry entry, schema37 metadata/audit migration, and the persisted legacy-authority retirement marker. No HTTP/WS/credential acquisition or usable quote is implemented by this stage.
+
+Genuine selection RED (IPC_COMMAND_UNKNOWN) and catalog RED (missing public source) precede their GREEN results. Public regression:3pass, including untrusted-consumer/credential/endpoint/canonical override rejection with unchanged state. Typecheck and17Node pass; workspace8/watchlists4/old financial-source migration1 pass. These are focused stage checks, not full #124 acceptance. selection-green-compile-attempt.txt records the missing verified_at initializer compile repair; selection-storage-old-fixture-attempt.txt records the schema30 fixture retaining new schema37 tables, repaired by restoring the genuinely historical external storage shape. Failed attempts remain unclaimed.
+
+Next: real external HTTP+WS bootstrap/known-band continuity and freshness, lifecycle/transport faults, owning protected consumers and actual Settings/Markets/Trade UI. Full checks/ordinary build/serial Standards→Spec reviews/remote source delivery remain required before ticket closure. Parent S29, S28/S17/physical S27 remain OPEN. Prototype unchanged; no ordinary-provider/native UI/financial acceptance performed.
+
+中文：#124 保持 OPEN。本阶段仅配置/CAS/重开/断开、类型化政策/目录及 schema37 元数据审计迁移，未实现可用 HTTP+WS 报价。选择与目录真实 RED→GREEN；公开边界3、Node17、workspace8/watchlists4/旧金融来源迁移1通过。保留编译和旧存储夹具失败尝试，不当作通过。下一步真实外部 HTTP+WS 对齐/连续性/时效、生命周期故障、受保护消费者及实际 UI；完整检查/普通构建/串行双轴复审/远端交付后才关闭整票。父项及独立门禁不免除，原型未改，未执行真实提供方/原生 UI/金融验收。

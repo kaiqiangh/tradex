@@ -1,0 +1,26 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.40s
+     Running tests/watchlists.rs (target/debug/deps/watchlists-57945b3233c1bafb)
+
+running 4 tests
+test watchlist_schema_rejects_unknown_fields_and_invalid_names ... ok
+test watchlists_are_versioned_ordered_idempotent_and_persistent ... ok
+test schema_six_workspaces_migrate_watchlists_transactionally ... ok
+test schema_eight_workspaces_migrate_artifacts_table ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/workspace.rs (target/debug/deps/workspace-f3ca66f43f01bb2e)
+
+running 8 tests
+test upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema ... ok
+test a_workspace_keeps_its_identity_and_events_after_process_state_is_dropped ... ok
+test released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec ... ok
+test retained_events_join_live_delivery_and_resubscription_preserves_event_identity ... ok
+test creation_settings_survive_reopen_and_invalid_requests_do_not_change_state ... ok
+test same_workspace_reopen_recreates_missing_market_history_table ... ok
+test schema_30_migrates_execution_attempt_history_without_losing_foreign_keys ... ok
+test failed_storage_switches_and_outbox_writes_preserve_the_active_workspace ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+

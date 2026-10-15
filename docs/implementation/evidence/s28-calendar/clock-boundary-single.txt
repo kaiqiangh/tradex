@@ -1,0 +1,20 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.44s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-96f7e429a868e95e)
+
+running 1 test
+
+thread 'authenticated_calendar_reaches_market_without_making_other_capabilities_ready' (712535) panicked at src-tauri/tests/calendar_source.rs:184:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"Calendar evidence is stale or the last refresh failed. Revalidate time if needed, then refresh the selected calendar.","capabilityStatuses":[{"capability":"MARKET_CALENDAR","reason":"Calendar evidence is stale or the last refresh failed. Revalidate time if needed, then refresh the selected calendar.","status":"UNAVAILABLE"},{"capability":"CORPORATE_ACTIONS","reason":"Corporate-action production evidence is not configured.","status":"BLOCKED_EXTERNAL"},{"capability":"HALTS","reason":"Execution-provider halt/tradability evidence is not configured.","status":"BLOCKED_EXTERNAL"},{"capability":"HISTORICAL_ADJUSTMENT","reason":"Calendar access does not prove historical adjustment.","status":"UNVERIFIED"}],"configured":true,"connectionId":"fcf25e4f-60cd-4bf2-940d-d470898c5c20","eligibleAccounts":[{"connectionId":"fcf25e4f-60cd-4bf2-940d-d470898c5c20","displayName":"Calendar only"}],"environment":"PAPER","sourceId":"OD-005","stateVersion":"calendar:f232438a-1040-4df0-a02f-8caa6508fd77:1","status":"UNAVAILABLE","workspaceId":"f232438a-1040-4df0-a02f-8caa6508fd77"},"ok":true,"requestId":"calendar-refresh","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... FAILED
+
+failures:
+
+failures:
+    authenticated_calendar_reaches_market_without_making_other_capabilities_ready
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `-p tradex --test calendar_source`

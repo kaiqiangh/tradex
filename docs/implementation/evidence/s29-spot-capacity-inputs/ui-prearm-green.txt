@@ -1,0 +1,55 @@
+Captured Proposal Spot capacity inputs
+
+observed · Read-only inputs · Execution qualification unavailable
+
+Saved assessment. Reading this history never renews its collection receipts or consent. These inputs cannot approve an order. Rights, quotes, permissions, fees, FX, funding, arming and immediate preflight need their own checks.
+
+Proposal
+proposal:0177e2e7-c504-46fd-9178-0ce72b52bade · sha256:621baf11c00cd5dc16acc3a7ecc85353d380a5ab3e79f73b6dc385e77b50e825
+Exact account
+6744c6ca-10d8-4b37-8a50-1f6948db1c24
+Instrument / units
+crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. USDT is not USD.
+Rule source / material
+BINANCE_SPOT_RULES:284f9e45-54b3-4a46-b865-a64c89e3500b:1 · 6c43693ed5d703f615fe04e5825c9c1ae11b6d5b3dcad447b73c9dbfe48e76ca
+Required reads
+open orders account
+
+Separate account, order and list responses are non-atomic. Local receipts do not establish a common provider snapshot or execution freshness.
+
+Collection / quality
+76a131c2-c55c-4c91-92ca-1f64dd325af5 · Read-only Spot capacity
+Aggregate provider observation time
+Not supplied
+Returned order coverage
+Complete bounded response for the indicated read scope
+Account / selected-symbol open orders
+2 / 1
+Account / selected-symbol algorithmic orders
+0 / 0 · Classification observed
+Account / selected-symbol iceberg orders
+0 / 0
+Account / selected-symbol order lists
+Not collected / Not collected · Leg coverage not collected
+Missing or pending list legs
+Not collected. Missing legs are not a zero reservation.
+Read scope
+account
+Collection start / original receipt
+2026-10-09T08:17:19.708Z / 2026-10-09T08:17:19.712Z
+Original provider update-time range (milliseconds)
+Not supplied / Not supplied. State-change times are not collection receipts.
+Material digest
+d1f0c7ad3ffab9e08190a891abfad65a043ef48fafd01a4d95e4c812fc553006
+Read scope
+open orders account
+Collection start / original receipt
+2026-10-09T08:17:19.713Z / 2026-10-09T08:17:19.718Z
+Original provider update-time range (milliseconds)
+1788849500000 / 1788849501000. State-change times are not collection receipts.
+Material digest
+5a7d3c5b966637d42391ee7277e5f0a95bc65c9efab79ac54d2e25942a8f7dbc
+Unresolved capacity obligations
+non atomic provider snapshot
+dynamic inputs not execution qualified
+partial fill quantity semantics unresolved

@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.60s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-575b90bc4724c9bb)
+
+running 1 test
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... FAILED
+
+failures:
+
+---- authenticated_calendar_reaches_market_without_making_other_capabilities_ready stdout ----
+
+thread 'authenticated_calendar_reaches_market_without_making_other_capabilities_ready' (695826) panicked at src-tauri/tests/calendar_source.rs:231:5:
+assertion `left == right` failed: A failed calendar read must not look merely unchecked: {"data":{"adjustmentStatus":"UNAVAILABLE","availabilityReason":"Market-data entitlement is not configured or verified in TradeX.","corporateActions":[],"instrument":{"assetClass":"EQUITY","currency":"USD","displayName":"Apple Inc.","exchange":"XNAS","instrumentId":"equity:US:AAPL","providers":[{"providerId":"alpaca","providerSymbol":"AAPL"},{"providerId":"trading212","providerSymbol":"AAPL_US_EQ"}],"symbol":"AAPL"},"marketState":{"observedAt":"2026-10-01T17:56:29.304Z","reason":"Calendar selection configured separately. Inspect its individual capability status; corporate actions, halts and historical adjustment remain unverified.","session":"UNKNOWN","sourceId":"OD-005","sourceStatus":"UNVERIFIED","timeConfidence":"TRUSTED","venue":"XNAS"},"sourceId":"OD-001","status":"BLOCKED_EXTERNAL","tier":"CENSUS","workspaceId":"ef0bdbe4-dee3-4ae2-90bf-d1a42cc95dcc"},"ok":true,"requestId":"calendar-test","schemaVersion":1}
+  left: String("UNVERIFIED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    authenticated_calendar_reaches_market_without_making_other_capabilities_ready
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test calendar_source`

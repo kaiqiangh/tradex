@@ -51,6 +51,179 @@ pub struct OpenWorkspace {
     pub base_currency: Option<String>,
 }
 
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveExport {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub destination_path: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchivePreviewRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub archive_path: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveRestoreRequest {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub archive_path: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub destination_parent: String,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub manifest_hash: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveExportResult {
+    #[schemars(length(min = 1, max = 4096))]
+    pub path: String,
+    #[schemars(range(min = 1, max = 1_073_741_824_u64))]
+    pub bytes: u64,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub content_hash: String,
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveCredentialCheck {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub label: String,
+    pub status: WorkspaceArchiveCredentialStatus,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkspaceArchiveCredentialStatus {
+    NotChecked,
+    PresentUnverified,
+    Missing,
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkspaceArchiveDataCategoryId {
+    Accounts,
+    Conversations,
+    Research,
+    StrategiesAndBacktests,
+    FinancialHistory,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveDataCategory {
+    pub category_id: WorkspaceArchiveDataCategoryId,
+    #[schemars(range(min = 0, max = 4_294_967_295_u32))]
+    pub record_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchivePreview {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub workspace_name: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub captured_at: String,
+    #[schemars(range(min = 1, max = 1))]
+    pub format_version: u32,
+    #[schemars(range(min = 1, max = 38))]
+    pub storage_schema_version: u32,
+    #[schemars(range(min = 1, max = 16))]
+    pub member_count: u32,
+    #[schemars(range(min = 1, max = 1_073_741_824_u64))]
+    pub bytes: u64,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub manifest_hash: String,
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub warnings: Vec<String>,
+    #[schemars(length(min = 5, max = 5))]
+    pub data_categories: Vec<WorkspaceArchiveDataCategory>,
+    #[schemars(length(max = 256))]
+    pub credential_checks: Vec<WorkspaceArchiveCredentialCheck>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceArchiveRestoreResult {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub restored_path: String,
+    #[schemars(length(min = 1, max = 4096))]
+    pub backup_path: String,
+    #[schemars(length(max = 8), inner(length(min = 1, max = 512)))]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceRetention {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_retention_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_retention_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_data_retention_days: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_applied_at: Option<String>,
+    #[schemars(range(min = 0, max = 256))]
+    pub last_deleted_artifacts: u32,
+    #[schemars(range(min = 0, max = 100_000))]
+    pub last_deleted_cache_files: u32,
+    #[schemars(range(min = 0, max = 100_000))]
+    pub last_deleted_market_rows: u32,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceRetentionQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceRetentionUpdate {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[serde(default)]
+    #[schemars(range(min = 1, max = 3650))]
+    pub artifact_retention_days: Option<u16>,
+    #[serde(default)]
+    #[schemars(range(min = 1, max = 3650))]
+    pub cache_retention_days: Option<u16>,
+    #[serde(default)]
+    #[schemars(range(min = 1, max = 3650))]
+    pub market_data_retention_days: Option<u16>,
+}
+
 fn present<'de, D, T>(value: D) -> std::result::Result<Option<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -130,7 +303,7 @@ pub struct Subscribe {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SubscriptionAck {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt", "workspace-retention"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -163,6 +336,10 @@ pub struct SuccessEnvelope {
 #[serde(untagged)]
 pub enum ReplyData {
     Workspace(Workspace),
+    WorkspaceRetention(WorkspaceRetention),
+    WorkspaceArchiveExport(WorkspaceArchiveExportResult),
+    WorkspaceArchivePreview(WorkspaceArchivePreview),
+    WorkspaceArchiveRestore(WorkspaceArchiveRestoreResult),
     Snapshot(Snapshot),
     Runtime(RuntimeStatus),
     Time(TimeStatus),
@@ -172,6 +349,11 @@ pub enum ReplyData {
     Gateway(GatewayState),
     Model(ModelState),
     Risk(Box<RiskPolicyState>),
+    SpotProposalRules(Box<crate::spot_proposal_rules::SpotProposalRules>),
+    SpotCapacityInputs(Box<crate::spot_capacity::SpotCapacityInputs>),
+    SpotCommissionInputs(Box<crate::spot_commission::SpotCommissionInputs>),
+    SpotFeeMarketProjection(Box<crate::spot_fee_market::SpotFeeMarketProjection>),
+    SpotOrderIntervalInputs(Box<crate::spot_order_intervals::SpotOrderIntervalInputs>),
     RiskDecision(Box<RiskDecision>),
     RiskDecisionHistory(RiskDecisionHistory),
     ProviderCatalog(ProviderCatalog),
@@ -183,8 +365,15 @@ pub enum ReplyData {
     Capability(CapabilityDecision),
     ContextCatalog(ContextCatalog),
     DataSourceCatalog(DataSourceCatalog),
+    DataSourceConnection(DataSourceConnection),
+    BinanceMarketSourceConnection(BinanceMarketSourceConnection),
+    CalendarConnection(CalendarConnection),
+    FinancialSourceConnection(FinancialSourceConnection),
+    FxRequirements(FxRequirements),
     MarketCatalog(MarketCatalog),
     MarketDetail(Box<MarketDetail>),
+    HotQuoteProjection(Box<HotQuoteProjection>),
+    HotQuoteRelease(HotQuoteRelease),
     Portfolio(Box<PortfolioSnapshot>),
     Paper(Box<LocalPaperState>),
     Watchlist(Box<Watchlist>),
@@ -203,6 +392,7 @@ pub enum ReplyData {
     FinancialApprovalHistory(FinancialApprovalHistory),
     ExecutionPreparation(Box<ExecutionPreparation>),
     ExecutionPreparationQuery(ExecutionPreparationQueryResult),
+    ExecutionOrderLinks(ExecutionOrderLinks),
     ResolutionEvidence(Box<ResolutionEvidenceLedger>),
     ResolutionEvidenceQuery(Box<ResolutionEvidenceQueryResult>),
     ApprovalRejection(Box<ApprovalRejection>),
@@ -276,6 +466,14 @@ pub struct IpcSchema {
     pub set_fallback_policy: SetFallbackPolicy,
     pub risk_query: RiskQuery,
     pub risk_decision_evaluate: RiskDecisionEvaluate,
+    pub spot_rules_refresh: crate::spot_proposal_rules::SpotRulesRefresh,
+    pub spot_rules_query: crate::spot_proposal_rules::SpotRulesQuery,
+    pub spot_proposal_rules: crate::spot_proposal_rules::SpotProposalRules,
+    pub spot_capacity_inputs: crate::spot_capacity::SpotCapacityInputs,
+    pub spot_commission_inputs: crate::spot_commission::SpotCommissionInputs,
+    pub spot_fee_market_acquire: crate::spot_fee_market::SpotFeeMarketAcquire,
+    pub spot_fee_market_projection: crate::spot_fee_market::SpotFeeMarketProjection,
+    pub spot_order_interval_inputs: crate::spot_order_intervals::SpotOrderIntervalInputs,
     pub risk_decision_query: RiskDecisionQuery,
     pub save_risk_policy: SaveRiskPolicy,
     pub set_onboarding_step: SetOnboardingStep,
@@ -284,6 +482,15 @@ pub struct IpcSchema {
     pub result: ResultEnvelope,
     pub event: DomainEvent,
     pub workspace_open: OpenWorkspace,
+    pub workspace_archive_export: WorkspaceArchiveExport,
+    pub workspace_archive_preview_request: WorkspaceArchivePreviewRequest,
+    pub workspace_archive_restore_request: WorkspaceArchiveRestoreRequest,
+    pub workspace_archive_export_result: WorkspaceArchiveExportResult,
+    pub workspace_archive_preview: WorkspaceArchivePreview,
+    pub workspace_archive_restore_result: WorkspaceArchiveRestoreResult,
+    pub workspace_retention: WorkspaceRetention,
+    pub workspace_retention_query: WorkspaceRetentionQuery,
+    pub workspace_retention_update: WorkspaceRetentionUpdate,
     pub aggregate: Aggregate,
     pub subscribe: Subscribe,
     pub empty: EmptyPayload,
@@ -296,6 +503,7 @@ pub struct IpcSchema {
     pub provider_connect: Connect,
     pub thread_create: ThreadCreate,
     pub thread_query: ThreadQuery,
+    pub thread_lifecycle: ThreadLifecycle,
     pub turn_start: TurnStart,
     pub turn_cancel: TurnCancel,
     pub turn_retry: TurnRetry,
@@ -304,8 +512,25 @@ pub struct IpcSchema {
     pub research_result: ResearchToolResult,
     pub data_source_query: DataSourceQuery,
     pub data_source_probe: DataSourceProbe,
+    pub data_source_connection: DataSourceConnection,
+    pub binance_market_source_connection: BinanceMarketSourceConnection,
+    pub calendar_connection: CalendarConnection,
+    pub calendar_configure: CalendarConfigure,
+    pub financial_source_connection: FinancialSourceConnection,
+    pub financial_source_configure: FinancialSourceConfigure,
+    pub binance_rule_source_configure: BinanceRuleSourceConfigure,
+    pub fx_requirements_query: FxRequirementsQuery,
+    pub fx_source_refresh: FxSourceRefresh,
+    pub fx_local_use_attestation_command: FxLocalUseAttestationCommand,
+    pub fx_requirements: FxRequirements,
+    pub data_source_configure: DataSourceConfigure,
+    pub data_source_mutation: DataSourceMutation,
     pub market_catalog_query: MarketCatalogQuery,
     pub market_get_query: MarketGetQuery,
+    pub hot_quote_acquire: HotQuoteAcquire,
+    pub hot_quote_query: HotQuoteQuery,
+    pub hot_quote_projection: HotQuoteProjection,
+    pub hot_quote_release: HotQuoteRelease,
     pub screener_request: ScreenerRequest,
     pub screener_save: ScreenerSave,
     pub screener_update: ScreenerUpdate,
@@ -332,6 +557,8 @@ pub struct IpcSchema {
     pub execution_preparation: ExecutionPreparation,
     pub execution_preparation_query: ExecutionPreparationQuery,
     pub execution_preparation_query_result: ExecutionPreparationQueryResult,
+    pub execution_order_links_query: ExecutionOrderLinksQuery,
+    pub execution_order_links: ExecutionOrderLinks,
     pub resolution_evidence_query: ResolutionEvidenceQuery,
     pub resolution_evidence_refresh: ResolutionEvidenceRefresh,
     pub manual_resolution_request: ManualResolutionRequest,
@@ -449,7 +676,7 @@ pub struct Workspace {
     pub path: String,
     pub created_at: String,
     pub last_opened_at: String,
-    #[schemars(range(min = 1, max = 31))]
+    #[schemars(range(min = 1, max = 38))]
     pub storage_schema_version: u32,
 }
 
@@ -1169,6 +1396,9 @@ pub struct StrategyRun {
     pub observed_at: String,
     #[serde(default)]
     #[schemars(length(max = 32))]
+    pub context_refs: Vec<ThreadContextRef>,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
     pub parameters: Vec<StrategyParameter>,
     pub state: StrategyRunState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1252,6 +1482,9 @@ pub struct StrategyRunRequest {
     #[schemars(length(min = 1, max = 128))]
     pub strategy_version_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub retry_of_run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 80))]
     pub expected_strategy_hash: Option<String>,
     #[schemars(length(min = 1, max = 128))]
@@ -1262,6 +1495,9 @@ pub struct StrategyRunRequest {
     pub start_at: String,
     #[schemars(length(min = 1, max = 64))]
     pub end_at: String,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub context_refs: Vec<ThreadContextRef>,
     #[serde(default)]
     #[schemars(length(max = 32))]
     pub parameters: Vec<StrategyParameter>,
@@ -1761,6 +1997,968 @@ pub struct DataSourceCatalog {
     pub sources: Vec<DataSourceEntry>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub connection_id: Option<String>,
+    #[schemars(extend("const"="PAPER"))]
+    pub environment: String,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub eligible_accounts: Vec<DataSourceAccountChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub calendar_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 10, max = 10))]
+    pub coverage_start: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 10, max = 10))]
+    pub coverage_end: Option<String>,
+    #[schemars(length(min = 4, max = 4))]
+    pub capability_statuses: Vec<CalendarCapabilityResult>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CalendarCapability {
+    MarketCalendar,
+    CorporateActions,
+    Halts,
+    HistoricalAdjustment,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarCapabilityResult {
+    pub capability: CalendarCapability,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CalendarConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialSourceKind {
+    CorporateActions,
+    BrokerInstruments,
+    Fx,
+    BinanceSpotRules,
+}
+
+/// Explicit Alpaca crypto data location. A failed or unsupported location never falls back.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum AlpacaCryptoLocation {
+    Us,
+    #[serde(rename = "us-1")]
+    #[schemars(rename = "us-1")]
+    Us1,
+    #[serde(rename = "eu-1")]
+    #[schemars(rename = "eu-1")]
+    Eu1,
+}
+
+/// User-reported provider UI facts used only as input to the local source-use policy.
+/// These facts are not a provider permission or entitlement assertion.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxCountrySupportConfirmation {
+    #[schemars(length(min = 2, max = 2))]
+    pub confirmed_jurisdiction: String,
+    #[schemars(length(min = 10, max = 10))]
+    pub confirmed_at: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub reference: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceUseContext {
+    pub market_data_plan: AlpacaMarketDataPlan,
+    #[schemars(length(min = 2, max = 2))]
+    pub account_jurisdiction: String,
+    #[schemars(length(min = 10, max = 10))]
+    pub agreement_reviewed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country_support_confirmation: Option<FxCountrySupportConfirmation>,
+    pub use_scope: FxDeclaredUseScope,
+    pub raw_data_destination: FxRawDataDestination,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AlpacaMarketDataPlan {
+    Basic,
+    AlgoTraderPlus,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxDeclaredUseScope {
+    OwnLocalNoncommercial,
+    CommercialOrShared,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxRawDataDestination {
+    LocalOnly,
+    External,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxSourceUseAssessmentStatus {
+    Unresolved,
+    SupportedForDeclaredScope,
+    OutOfProfile,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxSourceUseEvidenceProvenance {
+    NotRecorded,
+    UserReportedProviderUi,
+    UserReportedProviderSupport,
+}
+
+/// Provenance for the deliberately narrow, user-confirmed local-use scope.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxLocalUseAttestationProvenance {
+    UserAttestedLocalOnly,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxLocalUseAttestationPurpose {
+    PolicyValuation,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxLocalUseDatasetProfile {
+    AlpacaForexRatesAndConfiguredCryptoQuotes,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxLocalUseAttestation {
+    pub provenance: FxLocalUseAttestationProvenance,
+    #[schemars(extend("const" = "OD-005"))]
+    pub source_id: String,
+    #[schemars(extend("const" = "alpaca"))]
+    pub provider_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub remote_account_id: String,
+    pub dataset_profile: FxLocalUseDatasetProfile,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    pub purpose: FxLocalUseAttestationPurpose,
+    pub raw_data_destination: FxRawDataDestination,
+    #[schemars(length(min = 20, max = 64))]
+    pub confirmed_at: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub binding_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceUsePolicyDocument {
+    #[schemars(length(min = 1, max = 64))]
+    pub document_id: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub title: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub url: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub sha256: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceUseAssessment {
+    #[schemars(length(min = 1, max = 64))]
+    pub policy_version: String,
+    pub status: FxSourceUseAssessmentStatus,
+    pub provenance: FxSourceUseEvidenceProvenance,
+    pub context: Option<FxSourceUseContext>,
+    #[schemars(length(max = 8))]
+    pub documents: Vec<FxSourceUsePolicyDocument>,
+    #[schemars(length(max = 8))]
+    pub supported_purposes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_use_attestation: Option<FxLocalUseAttestation>,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxRequirementsQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[serde(default)]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub proposal_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxSourceRefresh {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[serde(default)]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub proposal_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxLocalUseAttestationCommand {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub confirm_local_policy_valuation_only: bool,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxRequirementPurpose {
+    AccountWorkspace,
+    BalanceWorkspace,
+    PositionWorkspace,
+    OrderWorkspace,
+    IntentPolicy,
+    IntentFunding,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxRequirementNeed {
+    Identity,
+    ExternalRate,
+    UnknownCurrency,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FxProviderDataset {
+    ForexLatestRates,
+    CryptoLatestQuotes,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxRouteRequirement {
+    pub purpose: FxRequirementPurpose,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub connection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 256))]
+    pub account_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 16))]
+    pub from_currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 16))]
+    pub to_currency: Option<String>,
+    pub need: FxRequirementNeed,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 6, max = 7))]
+    pub provider_pair: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_dataset: Option<FxProviderDataset>,
+    #[schemars(length(min = 1, max = 256))]
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxRequirements {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub base_currency: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub proposal_id: Option<String>,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    #[schemars(length(max = 128))]
+    pub requirements: Vec<FxRouteRequirement>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxReviewEvidence {
+    pub requirements: FxRequirements,
+    pub source: FinancialSourceConnection,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialSourceConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    pub kind: FinancialSourceKind,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub connection_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub instrument_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_use_context: Option<FxSourceUseContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_use_assessment: Option<FxSourceUseAssessment>,
+    #[schemars(length(min = 1, max = 16))]
+    pub environment: String,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub eligible_accounts: Vec<DataSourceAccountChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub observed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<FinancialSourceEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fx_requirements: Option<FxRequirements>,
+    #[schemars(length(min = 4, max = 8))]
+    pub capability_statuses: Vec<FinancialEvidenceCapabilityResult>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialSourceConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[serde(default)]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    #[serde(default)]
+    pub source_use_context: Option<FxSourceUseContext>,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceRuleSourceConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialEvidenceCapability {
+    KnownActions,
+    ActionQueryCompletion,
+    CompleteActionCoverage,
+    HistoricalAdjustment,
+    BrokerAccountIdentity,
+    BrokerInstrumentMetadata,
+    ExchangeHalts,
+    AccountTradability,
+    FxRateObservation,
+    FxDataUseRights,
+    TransactionFxQualification,
+    BrokerConversionCosts,
+    MonetaryInputCompleteness,
+    SpotRuleCollection,
+    SpotAccountAdmission,
+    SpotExecutionQualification,
+    SpotDataUseRights,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialEvidenceQuality {
+    DelayedProcessDateQuery,
+    TenMinuteMetadata,
+    UnqualifiedFxRate,
+    ReadOnlySpotRules,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialEvidenceCapabilityResult {
+    pub capability: FinancialEvidenceCapability,
+    pub status: FinancialEvidenceCapabilityStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+/// Capability status is separate from source connectivity so only a specific
+/// backend-derived capability can report a user-attested local verification.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialEvidenceCapabilityStatus {
+    Available,
+    Unavailable,
+    BlockedExternal,
+    Unverified,
+    Verified,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialEvidenceBinding {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub account_version: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub binding_version: String,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CompanyEventCategory {
+    NameChange,
+    CashDividend,
+    ForwardSplit,
+    ReverseSplit,
+    UnitSplit,
+    StockDividend,
+    SpinOff,
+    CashMerger,
+    StockMerger,
+    StockAndCashMerger,
+    Redemption,
+    WorthlessRemoval,
+    RightsDistribution,
+    PartialCall,
+    Reorganization,
+    CapitalGainsDistribution,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompanyEventTermName {
+    Rate,
+    OldRate,
+    NewRate,
+    AlternateRate,
+    SourceRate,
+    AcquireeRate,
+    AcquirerRate,
+    CashRate,
+    DividendRate,
+    Price,
+    LongTermRate,
+    ShortTermRate,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompanyEventDateName {
+    ExDate,
+    EffectiveDate,
+    PayableDate,
+    RecordDate,
+    DueBillOnDate,
+    DueBillOffDate,
+    DueBillRedemptionDate,
+    ExpirationDate,
+    LotteryDate,
+    ResultsPublicationDate,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum CompanyEventSecurityRole {
+    Subject,
+    Old,
+    New,
+    Alternate,
+    Source,
+    Acquiree,
+    Acquirer,
+    Movement,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyEventTerm {
+    pub name: CompanyEventTermName,
+    #[schemars(length(min = 1, max = 64), regex(pattern = "^-?[0-9]+(\\.[0-9]+)?$"))]
+    pub value: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyEventDate {
+    pub name: CompanyEventDateName,
+    #[schemars(length(min = 10, max = 10))]
+    pub value: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyEventSecurity {
+    pub role: CompanyEventSecurityRole,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 32))]
+    pub symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 12, max = 12))]
+    pub isin: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 9, max = 9))]
+    pub cusip: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompanyStockMovement {
+    pub security: CompanyEventSecurity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub new_rate: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub source_rate: Option<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct KnownCompanyEvent {
+    #[schemars(length(min = 36, max = 36))]
+    pub action_id: String,
+    #[schemars(length(min = 1, max = 2))]
+    pub instrument_ids: Vec<String>,
+    pub category: CompanyEventCategory,
+    #[schemars(length(min = 10, max = 10))]
+    pub process_date: String,
+    #[schemars(length(max = 16))]
+    pub dates: Vec<CompanyEventDate>,
+    #[schemars(length(min = 1, max = 16))]
+    pub securities: Vec<CompanyEventSecurity>,
+    #[schemars(length(max = 32))]
+    pub terms: Vec<CompanyEventTerm>,
+    #[schemars(length(max = 16))]
+    pub stock_movements: Vec<CompanyStockMovement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 3, max = 3))]
+    pub currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub special: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreign: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub sub_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub lottery_type: Option<String>,
+    pub partial: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CorporateActionEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    #[schemars(length(min = 10, max = 10))]
+    pub coverage_start: String,
+    #[schemars(length(min = 10, max = 10))]
+    pub coverage_end: String,
+    pub query_complete: bool,
+    #[schemars(length(max = 1000))]
+    pub actions: Vec<KnownCompanyEvent>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FinancialSourceEvidence {
+    CorporateActions(CorporateActionEvidence),
+    BrokerInstruments(BrokerInstrumentEvidence),
+    Fx(FxRateEvidence),
+    BinanceSpotRules(BinanceSpotRuleEvidence),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotRuleScope {
+    Symbol,
+    Exchange,
+    Asset,
+    Execution,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotRuleOrigin {
+    ExchangeInfo,
+    AccountFilters,
+    ExecutionRules,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceSpotSymbolStatus {
+    Trading,
+    Halt,
+    Break,
+    Unknown,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotRuleValue {
+    Decimal(#[schemars(length(min = 1, max = 64))] String),
+    Integer(#[schemars(length(min = 1, max = 20))] String),
+    Boolean(bool),
+    Asset(#[schemars(length(min = 1, max = 16))] String),
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotRuleField {
+    #[schemars(length(min = 1, max = 64))]
+    pub name: String,
+    pub value: SpotRuleValue,
+    pub disabled: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotRuleConstraint {
+    pub scope: SpotRuleScope,
+    pub origin: SpotRuleOrigin,
+    #[schemars(length(min = 1, max = 64))]
+    pub rule_type: String,
+    pub known_schema: bool,
+    #[schemars(length(max = 32))]
+    pub fields: Vec<SpotRuleField>,
+    #[schemars(length(max = 32))]
+    pub unsupported_fields: Vec<String>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceSpotOrderFormFlags {
+    pub iceberg_allowed: Option<bool>,
+    pub oco_allowed: Option<bool>,
+    pub oto_allowed: Option<bool>,
+    pub opo_allowed: Option<bool>,
+    pub allow_trailing_stop: Option<bool>,
+    pub cancel_replace_allowed: Option<bool>,
+    pub amend_allowed: Option<bool>,
+    pub peg_instructions_allowed: Option<bool>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceSpotRuleEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub provider_observed_at: Option<String>,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_clock_sample: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub remote_account_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub base_asset: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub quote_asset: String,
+    pub symbol_status: BinanceSpotSymbolStatus,
+    #[schemars(length(min = 1, max = 32))]
+    pub reported_symbol_status: String,
+    pub base_asset_precision: u32,
+    pub quote_asset_precision: u32,
+    pub spot_trading_allowed: bool,
+    pub quote_order_qty_market_allowed: bool,
+    #[schemars(length(max = 32))]
+    pub order_types: Vec<String>,
+    pub order_form_flags: BinanceSpotOrderFormFlags,
+    #[schemars(length(min = 1, max = 32))]
+    pub default_self_trade_prevention_mode: String,
+    #[schemars(length(max = 32))]
+    pub allowed_self_trade_prevention_modes: Vec<String>,
+    #[schemars(length(max = 64))]
+    pub account_permissions: Vec<String>,
+    #[schemars(length(max = 64))]
+    pub permission_sets: Vec<Vec<String>>,
+    pub permission_sets_satisfied: bool,
+    pub account_can_trade: bool,
+    #[schemars(length(min = 1, max = 16))]
+    pub account_type: String,
+    pub account_requires_self_trade_prevention: Option<bool>,
+    pub key_permissions: crate::providers::PermissionReview,
+    pub trading_status: crate::providers::BinanceTradingStatus,
+    #[schemars(length(max = 256))]
+    pub constraints: Vec<SpotRuleConstraint>,
+    #[schemars(length(max = 32))]
+    pub admission_blockers: Vec<String>,
+    #[schemars(length(max = 64))]
+    pub unresolved_obligations: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxObservedRate {
+    #[schemars(length(min = 6, max = 7))]
+    pub provider_pair: String,
+    #[schemars(length(min = 3, max = 4))]
+    pub from_currency: String,
+    #[schemars(length(min = 3, max = 4))]
+    pub to_currency: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>", length(min = 1, max = 64))]
+    pub mid: Option<String>,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_timestamp: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxCryptoQuote {
+    #[schemars(length(min = 8, max = 8))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid_price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid_size: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask_price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask_size: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub provider_timestamp: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub request_path: String,
+    #[schemars(length(min = 64, max = 64))]
+    pub response_sha256: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub received_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FxRateEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    pub requirements: FxRequirements,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crypto_location: Option<AlpacaCryptoLocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 1))]
+    pub crypto_quotes: Vec<FxCryptoQuote>,
+    #[schemars(length(min = 1, max = 2))]
+    pub rates: Vec<FxObservedRate>,
+}
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BrokerScheduleEventType {
+    Open,
+    Close,
+    BreakStart,
+    BreakEnd,
+    PreMarketOpen,
+    AfterHoursOpen,
+    AfterHoursClose,
+    OvernightOpen,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrokerScheduleEvent {
+    #[schemars(length(min = 1, max = 64))]
+    pub date: String,
+    pub event_type: BrokerScheduleEventType,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrokerInstrumentMetadata {
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 12, max = 12))]
+    pub isin: String,
+    #[schemars(length(min = 3, max = 3))]
+    pub currency: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub display_name: String,
+    #[schemars(range(min = 1, max = 9_007_199_254_740_991_u64))]
+    pub working_schedule_id: u64,
+    #[schemars(length(min = 1, max = 160))]
+    pub exchange_name: String,
+    #[schemars(length(max = 4000))]
+    pub schedule_events: Vec<BrokerScheduleEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub max_open_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extended_hours: Option<bool>,
+    pub canonical_security_identity: DataSourceStatus,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BrokerInstrumentEvidence {
+    pub binding: FinancialEvidenceBinding,
+    #[schemars(length(min = 64, max = 64))]
+    pub material_version: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub provider_observed_at: Option<String>,
+    pub provider_quality: FinancialEvidenceQuality,
+    #[schemars(length(min = 3, max = 3))]
+    pub account_currency: String,
+    #[schemars(length(min = 2, max = 2))]
+    pub instruments: Vec<BrokerInstrumentMetadata>,
+}
+
+/// Source configuration is separate from account connectivity and quote readiness.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    pub status: DataSourceStatus,
+    #[schemars(length(min = 1, max = 512))]
+    pub availability_reason: String,
+    #[schemars(length(max = 256))]
+    pub eligible_accounts: Vec<DataSourceAccountChoice>,
+    pub cleanup_pending: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_kind: Option<DataSourceCredentialKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feed: Option<AlpacaFeed>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceMarketSourceConnection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub state_version: String,
+    pub configured: bool,
+    pub source: DataSourceEntry,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceAccountChoice {
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_id: String,
+    #[schemars(length(min = 1, max = 120))]
+    pub display_name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AlpacaFeed {
+    Iex,
+    Sip,
+    DelayedSip,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE", deny_unknown_fields)]
+pub enum DataSourceCredential {
+    Dedicated {},
+    ExistingAccount {
+        #[serde(rename = "connectionId")]
+        #[schemars(length(min = 1, max = 128))]
+        connection_id: String,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DataSourceCredentialKind {
+    ExistingAccount,
+    Dedicated,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceConfigure {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    pub feed: AlpacaFeed,
+    pub credential: DataSourceCredential,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DataSourceMutation {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarketTier {
@@ -1871,6 +3069,10 @@ pub struct Instrument {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct MarketSnapshotProvenance {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alpaca: Option<AlpacaQuoteEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binance: Option<BinanceSpotQuoteEvidence>,
     #[schemars(length(min = 1, max = 128))]
     pub market_snapshot_id: String,
     #[schemars(length(min = 1, max = 32))]
@@ -1884,6 +3086,121 @@ pub struct MarketSnapshotProvenance {
     pub received_timestamp: String,
     pub entitlement: MarketEntitlement,
     pub freshness: MarketFreshness,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum QuoteCoverage {
+    UsSip,
+    Iex,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum QuoteDepthUnit {
+    Base,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuoteCondition {
+    #[schemars(length(min = 1, max = 4))]
+    pub code: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AlpacaQuoteEvidence {
+    pub feed: AlpacaFeed,
+    pub coverage: QuoteCoverage,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub listing_venue: String,
+    #[schemars(regex(pattern = "^[A-Z]$"))]
+    pub bid_exchange: String,
+    #[schemars(regex(pattern = "^[A-Z]$"))]
+    pub ask_exchange: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub bid_exchange_name: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub ask_exchange_name: String,
+    #[schemars(regex(pattern = "^[ABC]$"))]
+    pub tape: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub conditions: Vec<QuoteCondition>,
+    pub regular_conditions: bool,
+    pub depth_unit: QuoteDepthUnit,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_generation: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpotDepthLevel {
+    #[schemars(length(min = 1, max = 64))]
+    pub price: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub quantity: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotMarketEnvironment {
+    Ordinary,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotDepthCoverage {
+    KnownPriceBands,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceSpotQuoteEvidence {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub session_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub time_generation: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    pub environment: SpotMarketEnvironment,
+    pub depth_coverage: SpotDepthCoverage,
+    #[schemars(range(min = 1, max = 5000))]
+    pub known_bid_levels: u32,
+    #[schemars(range(min = 1, max = 5000))]
+    pub known_ask_levels: u32,
+    #[schemars(regex(pattern = "^[a-f0-9]{64}$"))]
+    pub material_hash: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub provider_event_time_ms: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_symbol: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub base_asset: String,
+    #[schemars(length(min = 1, max = 16))]
+    pub quote_asset: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_generation: String,
+    #[schemars(length(min = 1, max = 20))]
+    pub book_update_id: String,
+    pub depth_unit: QuoteDepthUnit,
+    #[schemars(length(min = 1, max = 64))]
+    pub bid_known_floor: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub ask_known_ceiling: String,
+    #[schemars(length(max = 20))]
+    pub bids: Vec<SpotDepthLevel>,
+    #[schemars(length(max = 20))]
+    pub asks: Vec<SpotDepthLevel>,
+    pub data_use_rights: DataSourceStatus,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -1901,6 +3218,91 @@ pub struct MarketSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub ask: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub bid_size: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 64))]
+    pub ask_size: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum HotQuoteStatus {
+    Connecting,
+    Reconnecting,
+    Authenticating,
+    Subscribing,
+    AwaitingQuote,
+    Streaming,
+    Stale,
+    Failed,
+    Closed,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteAcquire {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_source_version: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub generation: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteProjection {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub instrument_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub generation: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub connection_generation: String,
+    #[schemars(range(min = 0, max = 3))]
+    pub reconnect_attempt: u32,
+    #[schemars(length(min = 1, max = 256))]
+    pub source_version: String,
+    #[schemars(range(min = 0, max = 9007199254740991u64))]
+    pub sequence: u64,
+    pub status: HotQuoteStatus,
+    pub authenticated: bool,
+    pub subscribed: bool,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<MarketDetail>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HotQuoteRelease {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub lease_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub generation: String,
+    pub released: bool,
+    pub status: HotQuoteStatus,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -2016,6 +3418,17 @@ pub struct MarketDetail {
     #[schemars(length(max = 16))]
     pub corporate_actions: Vec<CorporateAction>,
     pub adjustment_status: AdjustmentStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub financial_evidence: Option<MarketFinancialEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_rule_evidence: Option<FinancialSourceConnection>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MarketFinancialEvidence {
+    pub company_events: FinancialSourceConnection,
+    pub broker_instruments: FinancialSourceConnection,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -2811,6 +4224,8 @@ pub struct ApprovalReview {
     pub account: Option<Box<AccountConnection>>,
     pub market: Box<MarketDetail>,
     pub risk_decision: Box<RiskDecision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency_evidence: Option<FxReviewEvidence>,
     #[schemars(regex(pattern = "^sha256:[0-9a-f]{64}$"))]
     pub review_digest: String,
     pub eligible: bool,
@@ -2833,6 +4248,8 @@ pub struct ApprovalReview {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub estimated_slippage_percent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spot_fee_fx: Option<crate::spot_fee_fx::SpotFeeFxStatement>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capacity_projection: Option<CapacityProjection>,
     #[schemars(length(min = 1, max = 64))]
@@ -2956,6 +4373,50 @@ pub struct EstimatedFee {
     pub currency: String,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalExpiryScope {
+    Approval,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ApprovalExpiryAuthority {
+    TrustedTimeService,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ApprovalExpiryReservationDisposition {
+    None,
+    Retained,
+    Released,
+    AlreadyReleased,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialApprovalExpiry {
+    pub scope: ApprovalExpiryScope,
+    pub authority: ApprovalExpiryAuthority,
+    #[schemars(length(min = 1, max = 128))]
+    pub authority_reference: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub expires_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub reservation_disposition: ApprovalExpiryReservationDisposition,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub execution_attempt_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub reservation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 256))]
+    pub reservation_state_version: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FinancialApproval {
@@ -2987,6 +4448,8 @@ pub struct FinancialApproval {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub consumed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<FinancialApprovalExpiry>,
     #[schemars(length(min = 1, max = 256))]
     pub state_version: String,
 }
@@ -3049,6 +4512,42 @@ pub struct ExecutionPreparationQueryResult {
     pub preparation: Option<ExecutionPreparation>,
     #[schemars(length(max = 32))]
     pub rejections: Vec<ExecutionPreparationRejection>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionOrderLinksQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(max = 2000))]
+    pub broker_order_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionOrderLink {
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reservation: Option<Box<ExecutionReservation>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionOrderLinks {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(max = 2000))]
+    pub links: Vec<ExecutionOrderLink>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -3341,6 +4840,44 @@ pub enum ExecutionReservationStatus {
     Released,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExecutionReservationClaimPurpose {
+    Principal,
+    Fee,
+}
+
+/// One native-asset allowance in an account-scoped PLACE reservation.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionReservationAssetClaim {
+    #[schemars(length(min = 1, max = 16))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub amount: String,
+    pub purpose: ExecutionReservationClaimPurpose,
+}
+
+/// Atomic per-asset capacity recorded alongside the PLACE reservation vector.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionReservationAssetCapacity {
+    #[schemars(length(min = 1, max = 16))]
+    pub asset: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub requested_amount: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub broker_available: String,
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub existing_reservations: String,
+    /// Capacity before this attempt, after existing local reservations.
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub effective_available: String,
+    /// Capacity remaining after this attempt's complete claims for this asset.
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub remaining_after_reservation: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LiveOrderObservation {
@@ -3460,6 +4997,18 @@ pub struct ExecutionReservation {
     pub amount: String,
     #[schemars(length(min = 1, max = 32))]
     pub unit: String,
+    /// Additive for old reservation captures, which remain scalar-only when absent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(min = 1, max = 16))]
+    pub asset_claims: Vec<ExecutionReservationAssetClaim>,
+    /// Immutable selected conditional-fee branch and received-asset allowance used by settlement.
+    /// This metadata is not an outgoing capacity claim; old scalar/vector captures omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fee_settlement_plan: Option<crate::spot_fee_model::SpotFundingPlanPreview>,
+    /// Per-asset balance capacity captured and validated in the same atomic Prepare transaction.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(min = 1, max = 16))]
+    pub asset_capacities: Vec<ExecutionReservationAssetCapacity>,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub notional: String,
     #[schemars(length(min = 1, max = 16))]
@@ -3570,6 +5119,10 @@ pub struct LiveOrderSettlement {
     pub observed_at: String,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub initial_commitment: String,
+    /// Immutable initial native claims for exactly-once per-asset settlement.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[schemars(length(max = 16))]
+    pub initial_asset_claims: Vec<ExecutionReservationAssetClaim>,
     #[schemars(with = "String", length(min = 1, max = 128))]
     pub remaining_commitment: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3743,11 +5296,43 @@ impl<'de> Deserialize<'de> for FinancialApproval {
             invalidation_reason: Option<String>,
             #[serde(default)]
             consumed_at: Option<String>,
+            #[serde(default)]
+            expiry: Option<FinancialApprovalExpiry>,
             state_version: String,
         }
 
         use serde::de::Error;
         let wire = Wire::deserialize(deserializer)?;
+        if let Some(expiry) = &wire.expiry {
+            let observed = time::OffsetDateTime::parse(
+                &expiry.observed_at,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| D::Error::custom("Invalid approval expiry observation"))?;
+            let deadline = time::OffsetDateTime::parse(
+                &expiry.expires_at,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| D::Error::custom("Invalid approval expiry deadline"))?;
+            let has_reservation = expiry.reservation_id.is_some()
+                && expiry.reservation_state_version.is_some()
+                && expiry.execution_attempt_id.is_some();
+            if expiry.authority_reference != wire.approval_id
+                || expiry.expires_at != wire.expires_at
+                || observed < deadline
+                || !matches!(
+                    wire.status,
+                    FinancialApprovalStatus::Expired | FinancialApprovalStatus::Consumed
+                )
+                || (expiry.reservation_disposition == ApprovalExpiryReservationDisposition::None
+                    && (expiry.reservation_id.is_some()
+                        || expiry.reservation_state_version.is_some()))
+                || (expiry.reservation_disposition != ApprovalExpiryReservationDisposition::None
+                    && !has_reservation)
+            {
+                return Err(D::Error::custom("Approval expiry evidence is inconsistent"));
+            }
+        }
         let intent = match wire.operation {
             FinancialOperation::PlaceOrder => {
                 if wire.cancellation_intent_id.is_some()
@@ -3809,6 +5394,7 @@ impl<'de> Deserialize<'de> for FinancialApproval {
             status: wire.status,
             invalidation_reason: wire.invalidation_reason,
             consumed_at: wire.consumed_at,
+            expiry: wire.expiry,
             state_version: wire.state_version,
         })
     }
@@ -5208,6 +6794,17 @@ pub struct ThreadQuery {
 
 #[derive(Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ThreadLifecycle {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub thread_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TurnStart {
     #[schemars(length(min = 1, max = 128))]
     pub workspace_id: String,
@@ -5277,6 +6874,7 @@ pub enum DomainProjection {
     Gateway(GatewayState),
     Model(ModelState),
     Workspace(Workspace),
+    WorkspaceRetention(WorkspaceRetention),
     Account(Box<AccountConnection>),
     Risk(Box<RiskPolicyState>),
     RiskDecision(Box<RiskDecision>),
@@ -5304,6 +6902,7 @@ impl DomainProjection {
             Self::Gateway(g) => &g.workspace_id,
             Self::Model(m) => &m.workspace_id,
             Self::Workspace(w) => &w.workspace_id,
+            Self::WorkspaceRetention(r) => &r.workspace_id,
             Self::Account(a) => &a.connection_id,
             Self::Risk(r) => &r.workspace_id,
             Self::RiskDecision(d) => &d.proposal_id,
@@ -5330,6 +6929,7 @@ impl DomainProjection {
             Self::Gateway(_) => "model-gateway",
             Self::Model(_) => "model",
             Self::Workspace(_) => "workspace",
+            Self::WorkspaceRetention(_) => "workspace-retention",
             Self::Account(_) => "account",
             Self::Risk(_) => "risk",
             Self::RiskDecision(_) => "risk-decision",
@@ -5358,12 +6958,12 @@ impl DomainProjection {
 pub struct DomainEvent {
     #[schemars(length(min = 1))]
     pub event_id: String,
-    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.adjusted", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.live_order.settlement.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed"]))]
+    #[schemars(extend("enum" = ["workspace.opened", "account.health.changed", "account.arming.changed", "model.gateway.changed", "model.provider.changed", "model.provider_attempt.changed", "risk.policy.changed", "risk.decision.evaluated", "trade.approval.issued", "trade.approval.invalidated", "trade.approval.expired", "trade.approval.consumed", "trade.approval.rejected", "trade.reservation.created", "trade.reservation.adjusted", "trade.reservation.released", "trade.execution.attempt.changed", "trade.execution.preparation.rejected", "trade.resolution_evidence.changed", "trade.live_order.settlement.changed", "trade.proposal.consumed", "thread.created", "thread.updated", "trading212.demo.order.attempt.changed", "trading212.demo.order.book.changed", "alpaca.paper.order.attempt.changed", "alpaca.paper.order.book.changed", "binance.testnet.order.attempt.changed", "binance.testnet.order.book.changed", "bitget.demo.order.attempt.changed", "workspace.retention.changed", "workspace.retention.applied"]))]
     pub event_type: String,
     #[schemars(extend("const" = 1))]
     pub schema_version: u32,
     pub occurred_at: String,
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt", "workspace-retention"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -5375,7 +6975,7 @@ pub struct DomainEvent {
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Snapshot {
-    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt"]))]
+    #[schemars(extend("enum" = ["workspace", "account", "model-gateway", "model", "risk", "risk-decision", "financial-approval", "execution-attempt", "execution-reservation", "live-order-settlement", "execution-preparation", "resolution-evidence", "order-proposal-consumption", "approval-audit", "thread", "trading212-demo-order-attempt", "trading212-demo-order-book", "alpaca-paper-order-attempt", "alpaca-paper-order-book", "binance-testnet-order-attempt", "binance-testnet-order-book", "bitget-demo-order-attempt", "workspace-retention"]))]
     pub aggregate_type: String,
     #[schemars(length(min = 1))]
     pub aggregate_id: String,
@@ -5473,6 +7073,11 @@ impl TradeXError {
                 "The data source probe could not be completed. No source data was changed.",
                 "retry_request",
                 "Retry probe",
+            ),
+            "DATA_SOURCE_FEED_DENIED" => (
+                "Alpaca denied access to the selected feed. Review its entitlement or explicitly choose another feed; no automatic fallback occurred.",
+                "configure_data_source",
+                "Review quote source",
             ),
             "MARKET_INSTRUMENT_INVALID" => (
                 "That instrument identifier is not a supported canonical TradeX ID.",
@@ -5595,9 +7200,9 @@ impl TradeXError {
                 "Review order terms",
             ),
             "ORDER_STATUS_UNKNOWN" => (
-                "Alpaca has not established this order's status. Reconcile by client order ID; do not submit it again.",
+                "The provider has not established this order's status. Refresh this exact order; do not submit it again.",
                 "retry_provider",
-                "Reconcile order",
+                "Refresh exact order",
             ),
             "ORDER_NOT_CANCELLABLE" => (
                 "This Live order is missing, terminal, changed, or lacks an exact remaining quantity. Refresh the account and review the current order again.",
@@ -5844,6 +7449,11 @@ impl TradeXError {
                 "disconnect_provider",
                 "Retry Disconnect",
             ),
+            "CREDENTIAL_CLEANUP_REQUIRED" => (
+                "Pending data-key cleanup must finish before another dedicated key can be saved.",
+                "cleanup_data_keys",
+                "Retry data-key cleanup",
+            ),
             code if code.starts_with("GATEWAY_") => (
                 "The model gateway needs attention. Check its status before retrying.",
                 "check_gateway",
@@ -5984,8 +7594,13 @@ impl TradeXError {
                 "retry_request",
                 "Review content",
             ),
+            "ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED" => (
+                "Raw market quotes are kept in the local workspace and are not included in artifact exports.",
+                "retry_request",
+                "Review artifact",
+            ),
             "ARTIFACT_EXPORT_PATH_INVALID" => (
-                "Choose a safe local JSON filename inside the TradeX exports folder.",
+                "Choose a valid local JSON destination with a safe filename and non-symlinked parent folder.",
                 "retry_request",
                 "Choose another filename",
             ),
@@ -6175,6 +7790,16 @@ impl TradeXError {
                 "select_account",
                 "Choose a matching account",
             ),
+            "THREAD_ARCHIVED" => (
+                "This Thread is archived. Restore it to active before sending or retrying a Turn.",
+                "restore_thread",
+                "Restore to active",
+            ),
+            "THREAD_STATUS_CONFLICT" => (
+                "This Thread is already in the requested lifecycle state. Reload its current status.",
+                "reload_snapshot",
+                "Reload thread",
+            ),
             "TURN_ALREADY_RUNNING" => (
                 "This Thread already has a running Turn.",
                 "wait_for_turn",
@@ -6346,6 +7971,7 @@ impl TradeXError {
                 code,
                 "PROVIDER_UNSUPPORTED"
                     | "UNSUPPORTED_CAPABILITY"
+                    | "TURN_CONTEXT_INVALID"
                     | "RESEARCH_RESULT_INVALID"
                     | "DATA_SOURCE_UNKNOWN"
                     | "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"
@@ -6359,7 +7985,9 @@ impl TradeXError {
                 code
             } else if matches!(
                 code,
-                "PROVIDER_PERMISSION_BLOCKED" | "ORDER_SUBMIT_FORBIDDEN"
+                "PROVIDER_PERMISSION_BLOCKED"
+                    | "ORDER_SUBMIT_FORBIDDEN"
+                    | "ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED"
             ) {
                 "PERMISSION_ERROR"
             } else if matches!(
@@ -6384,6 +8012,8 @@ impl TradeXError {
                     | "APPROVAL_CONSUMED"
                     | "WATCHLIST_NOT_FOUND"
                     | "STATE_VERSION_CONFLICT"
+                    | "THREAD_ARCHIVED"
+                    | "THREAD_STATUS_CONFLICT"
                     | "IPC_REPLAY_UNAVAILABLE"
                     | "CLOCK_SKEW"
                     | "BACKTEST_RUN_NOT_FOUND"
@@ -6806,3 +8436,19 @@ pub struct PaperOrderResult {
 }
 
 pub type Result<T> = std::result::Result<T, TradeXError>;
+
+#[cfg(test)]
+mod trade_x_error_tests {
+    use super::TradeXError;
+
+    #[test]
+    fn unknown_order_status_guidance_is_provider_neutral() {
+        let error = TradeXError::new("ORDER_STATUS_UNKNOWN");
+
+        assert_eq!(
+            error.message,
+            "The provider has not established this order's status. Refresh this exact order; do not submit it again."
+        );
+        assert_eq!(error.remediation_actions[0].label, "Refresh exact order");
+    }
+}

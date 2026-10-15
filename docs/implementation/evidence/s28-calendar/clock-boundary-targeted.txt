@@ -1,0 +1,25 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.21s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-96f7e429a868e95e)
+
+running 2 tests
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... FAILED
+test user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only ... ok
+
+failures:
+
+---- authenticated_calendar_reaches_market_without_making_other_capabilities_ready stdout ----
+
+thread 'authenticated_calendar_reaches_market_without_making_other_capabilities_ready' (710360) panicked at src-tauri/tests/calendar_source.rs:184:5:
+assertion `left == right` failed: {"data":{"availabilityReason":"Calendar evidence is stale or the last refresh failed. Revalidate time if needed, then refresh the selected calendar.","capabilityStatuses":[{"capability":"MARKET_CALENDAR","reason":"Calendar evidence is stale or the last refresh failed. Revalidate time if needed, then refresh the selected calendar.","status":"UNAVAILABLE"},{"capability":"CORPORATE_ACTIONS","reason":"Corporate-action production evidence is not configured.","status":"BLOCKED_EXTERNAL"},{"capability":"HALTS","reason":"Execution-provider halt/tradability evidence is not configured.","status":"BLOCKED_EXTERNAL"},{"capability":"HISTORICAL_ADJUSTMENT","reason":"Calendar access does not prove historical adjustment.","status":"UNVERIFIED"}],"configured":true,"connectionId":"a3532f7e-8f1a-461e-8445-ed3f8c1be543","eligibleAccounts":[{"connectionId":"a3532f7e-8f1a-461e-8445-ed3f8c1be543","displayName":"Calendar only"}],"environment":"PAPER","sourceId":"OD-005","stateVersion":"calendar:f77a8304-d8fd-4227-bc00-d1780ddceb5a:1","status":"UNAVAILABLE","workspaceId":"f77a8304-d8fd-4227-bc00-d1780ddceb5a"},"ok":true,"requestId":"calendar-refresh","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    authenticated_calendar_reaches_market_without_making_other_capabilities_ready
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `-p tradex --test calendar_source`

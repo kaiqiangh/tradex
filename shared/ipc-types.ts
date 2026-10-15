@@ -32,6 +32,11 @@ export type AlpacaPaperOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRADED"
 export type ApprovalRejectionReason = "USER_REJECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSystemStatus".
+ */
+export type BinanceSystemStatus = "NORMAL" | "MAINTENANCE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ConnectionState".
  */
 export type ConnectionState = "CONNECTING" | "REVIEW_REQUIRED" | "CONNECTED" | "FAILED" | "DISCONNECTED";
@@ -50,6 +55,345 @@ export type CapacityCommittedSource = "PROVIDER_BALANCE_COMMITTED" | "OPEN_SELL_
  * via the `definition` "CapacityFreshness".
  */
 export type CapacityFreshness = "CURRENT" | "STALE" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRequirementNeed".
+ */
+export type FxRequirementNeed = "IDENTITY" | "EXTERNAL_RATE" | "UNKNOWN_CURRENCY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxProviderDataset".
+ */
+export type FxProviderDataset = "FOREX_LATEST_RATES" | "CRYPTO_LATEST_QUOTES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRequirementPurpose".
+ */
+export type FxRequirementPurpose =
+  | "ACCOUNT_WORKSPACE"
+  | "BALANCE_WORKSPACE"
+  | "POSITION_WORKSPACE"
+  | "ORDER_WORKSPACE"
+  | "INTENT_POLICY"
+  | "INTENT_FUNDING";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceCapability".
+ */
+export type FinancialEvidenceCapability =
+  | "KNOWN_ACTIONS"
+  | "ACTION_QUERY_COMPLETION"
+  | "COMPLETE_ACTION_COVERAGE"
+  | "HISTORICAL_ADJUSTMENT"
+  | "BROKER_ACCOUNT_IDENTITY"
+  | "BROKER_INSTRUMENT_METADATA"
+  | "EXCHANGE_HALTS"
+  | "ACCOUNT_TRADABILITY"
+  | "FX_RATE_OBSERVATION"
+  | "FX_DATA_USE_RIGHTS"
+  | "TRANSACTION_FX_QUALIFICATION"
+  | "BROKER_CONVERSION_COSTS"
+  | "MONETARY_INPUT_COMPLETENESS"
+  | "SPOT_RULE_COLLECTION"
+  | "SPOT_ACCOUNT_ADMISSION"
+  | "SPOT_EXECUTION_QUALIFICATION"
+  | "SPOT_DATA_USE_RIGHTS";
+/**
+ * Capability status is separate from source connectivity so only a specific
+ * backend-derived capability can report a user-attested local verification.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceCapabilityStatus".
+ */
+export type FinancialEvidenceCapabilityStatus =
+  "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED" | "VERIFIED";
+/**
+ * Explicit Alpaca crypto data location. A failed or unsupported location never falls back.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaCryptoLocation".
+ */
+export type AlpacaCryptoLocation = "us" | "us-1" | "eu-1";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceEvidence".
+ */
+export type FinancialSourceEvidence =
+  | {
+      /**
+       * @maxItems 1000
+       */
+      actions: KnownCompanyEvent[];
+      binding: FinancialEvidenceBinding;
+      coverageEnd: string;
+      coverageStart: string;
+      kind: "CORPORATE_ACTIONS";
+      materialVersion: string;
+      observedAt: string;
+      providerObservedAt?: string;
+      providerQuality: FinancialEvidenceQuality;
+      queryComplete: boolean;
+    }
+  | {
+      accountCurrency: string;
+      binding: FinancialEvidenceBinding;
+      /**
+       * @minItems 2
+       * @maxItems 2
+       */
+      instruments: [BrokerInstrumentMetadata, BrokerInstrumentMetadata];
+      kind: "BROKER_INSTRUMENTS";
+      materialVersion: string;
+      observedAt: string;
+      providerObservedAt?: string;
+      providerQuality: FinancialEvidenceQuality;
+    }
+  | {
+      binding: FinancialEvidenceBinding;
+      cryptoLocation?: AlpacaCryptoLocation | null;
+      /**
+       * @maxItems 1
+       */
+      cryptoQuotes?: [] | [FxCryptoQuote];
+      kind: "FX";
+      materialVersion: string;
+      observedAt: string;
+      providerObservedAt?: string;
+      providerQuality: FinancialEvidenceQuality;
+      /**
+       * @minItems 1
+       * @maxItems 2
+       */
+      rates: [FxObservedRate] | [FxObservedRate, FxObservedRate];
+      requirements: FxRequirements;
+    }
+  | {
+      accountCanTrade: boolean;
+      /**
+       * @maxItems 64
+       */
+      accountPermissions: string[];
+      accountRequiresSelfTradePrevention?: boolean | null;
+      accountType: string;
+      /**
+       * @maxItems 32
+       */
+      admissionBlockers: string[];
+      /**
+       * @maxItems 32
+       */
+      allowedSelfTradePreventionModes: string[];
+      baseAsset: string;
+      baseAssetPrecision: number;
+      binding: FinancialEvidenceBinding;
+      /**
+       * @maxItems 256
+       */
+      constraints: SpotRuleConstraint[];
+      defaultSelfTradePreventionMode: string;
+      instrumentId: string;
+      keyPermissions: PermissionReview;
+      kind: "BINANCE_SPOT_RULES";
+      materialVersion: string;
+      observedAt: string;
+      orderFormFlags: BinanceSpotOrderFormFlags;
+      /**
+       * @maxItems 32
+       */
+      orderTypes: string[];
+      /**
+       * @maxItems 64
+       */
+      permissionSets: string[][];
+      permissionSetsSatisfied: boolean;
+      providerClockSample: string;
+      providerObservedAt?: string | null;
+      providerQuality: FinancialEvidenceQuality;
+      providerSymbol: string;
+      quoteAsset: string;
+      quoteAssetPrecision: number;
+      quoteOrderQtyMarketAllowed: boolean;
+      remoteAccountId: string;
+      reportedSymbolStatus: string;
+      spotTradingAllowed: boolean;
+      symbolStatus: BinanceSpotSymbolStatus;
+      tradingStatus: BinanceTradingStatus;
+      /**
+       * @maxItems 64
+       */
+      unresolvedObligations: string[];
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventCategory".
+ */
+export type CompanyEventCategory =
+  | "NAME_CHANGE"
+  | "CASH_DIVIDEND"
+  | "FORWARD_SPLIT"
+  | "REVERSE_SPLIT"
+  | "UNIT_SPLIT"
+  | "STOCK_DIVIDEND"
+  | "SPIN_OFF"
+  | "CASH_MERGER"
+  | "STOCK_MERGER"
+  | "STOCK_AND_CASH_MERGER"
+  | "REDEMPTION"
+  | "WORTHLESS_REMOVAL"
+  | "RIGHTS_DISTRIBUTION"
+  | "PARTIAL_CALL"
+  | "REORGANIZATION"
+  | "CAPITAL_GAINS_DISTRIBUTION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventDateName".
+ */
+export type CompanyEventDateName =
+  | "ex_date"
+  | "effective_date"
+  | "payable_date"
+  | "record_date"
+  | "due_bill_on_date"
+  | "due_bill_off_date"
+  | "due_bill_redemption_date"
+  | "expiration_date"
+  | "lottery_date"
+  | "results_publication_date";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventSecurityRole".
+ */
+export type CompanyEventSecurityRole =
+  "SUBJECT" | "OLD" | "NEW" | "ALTERNATE" | "SOURCE" | "ACQUIREE" | "ACQUIRER" | "MOVEMENT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventTermName".
+ */
+export type CompanyEventTermName =
+  | "rate"
+  | "old_rate"
+  | "new_rate"
+  | "alternate_rate"
+  | "source_rate"
+  | "acquiree_rate"
+  | "acquirer_rate"
+  | "cash_rate"
+  | "dividend_rate"
+  | "price"
+  | "long_term_rate"
+  | "short_term_rate";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceQuality".
+ */
+export type FinancialEvidenceQuality =
+  "DELAYED_PROCESS_DATE_QUERY" | "TEN_MINUTE_METADATA" | "UNQUALIFIED_FX_RATE" | "READ_ONLY_SPOT_RULES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceStatus".
+ */
+export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BrokerScheduleEventType".
+ */
+export type BrokerScheduleEventType =
+  | "OPEN"
+  | "CLOSE"
+  | "BREAK_START"
+  | "BREAK_END"
+  | "PRE_MARKET_OPEN"
+  | "AFTER_HOURS_OPEN"
+  | "AFTER_HOURS_CLOSE"
+  | "OVERNIGHT_OPEN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleValue".
+ */
+export type SpotRuleValue =
+  | {
+      type: "DECIMAL";
+      value: string;
+      [k: string]: unknown;
+    }
+  | {
+      type: "INTEGER";
+      value: string;
+      [k: string]: unknown;
+    }
+  | {
+      type: "BOOLEAN";
+      value: boolean;
+      [k: string]: unknown;
+    }
+  | {
+      type: "ASSET";
+      value: string;
+      [k: string]: unknown;
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleOrigin".
+ */
+export type SpotRuleOrigin = "EXCHANGE_INFO" | "ACCOUNT_FILTERS" | "EXECUTION_RULES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleScope".
+ */
+export type SpotRuleScope = "SYMBOL" | "EXCHANGE" | "ASSET" | "EXECUTION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSpotSymbolStatus".
+ */
+export type BinanceSpotSymbolStatus = "TRADING" | "HALT" | "BREAK" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceKind".
+ */
+export type FinancialSourceKind = "CORPORATE_ACTIONS" | "BROKER_INSTRUMENTS" | "FX" | "BINANCE_SPOT_RULES";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaMarketDataPlan".
+ */
+export type AlpacaMarketDataPlan = "BASIC" | "ALGO_TRADER_PLUS" | "UNKNOWN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRawDataDestination".
+ */
+export type FxRawDataDestination = "LOCAL_ONLY" | "EXTERNAL";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxDeclaredUseScope".
+ */
+export type FxDeclaredUseScope = "OWN_LOCAL_NONCOMMERCIAL" | "COMMERCIAL_OR_SHARED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseDatasetProfile".
+ */
+export type FxLocalUseDatasetProfile = "ALPACA_FOREX_RATES_AND_CONFIGURED_CRYPTO_QUOTES";
+/**
+ * Provenance for the deliberately narrow, user-confirmed local-use scope.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestationProvenance".
+ */
+export type FxLocalUseAttestationProvenance = "USER_ATTESTED_LOCAL_ONLY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestationPurpose".
+ */
+export type FxLocalUseAttestationPurpose = "POLICY_VALUATION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseEvidenceProvenance".
+ */
+export type FxSourceUseEvidenceProvenance =
+  "NOT_RECORDED" | "USER_REPORTED_PROVIDER_UI" | "USER_REPORTED_PROVIDER_SUPPORT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseAssessmentStatus".
+ */
+export type FxSourceUseAssessmentStatus = "UNRESOLVED" | "SUPPORTED_FOR_DECLARED_SCOPE" | "OUT_OF_PROFILE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "AdjustmentStatus".
@@ -86,6 +430,31 @@ export type MarketDataStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" 
  * via the `definition` "TimeConfidence".
  */
 export type TimeConfidence = "TRUSTED" | "CLOCK_UNCERTAIN" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "QuoteCoverage".
+ */
+export type QuoteCoverage = "US_SIP" | "IEX";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "QuoteDepthUnit".
+ */
+export type QuoteDepthUnit = "BASE" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaFeed".
+ */
+export type AlpacaFeed = "iex" | "sip" | "delayed_sip";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotDepthCoverage".
+ */
+export type SpotDepthCoverage = "KNOWN_PRICE_BANDS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotMarketEnvironment".
+ */
+export type SpotMarketEnvironment = "ORDINARY";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "MarketEntitlement".
@@ -178,16 +547,22 @@ export type RiskCheckId =
   | "DAILY_REALIZED_LOSS"
   | "OPEN_ORDER_COUNT"
   | "RESERVED_CAPITAL"
+  | "RESERVED_CAPACITY"
   | "MARKET_ORDER"
   | "MARKET_ORDER_SLIPPAGE"
   | "PRICE_DEVIATION"
   | "QUOTE_FRESHNESS"
+  | "MARKET_DATA_USE"
   | "MARKET_SESSION"
   | "INSTRUMENT_RULES"
+  | "CORPORATE_ACTION_COVERAGE"
+  | "HISTORICAL_ADJUSTMENT"
   | "LIVE_INACTIVITY"
   | "CANCELLATION_ORDER"
   | "CANCELLATION_CAPABILITY"
-  | "SNAPSHOT_FRESHNESS";
+  | "SNAPSHOT_FRESHNESS"
+  | "CURRENCY_CONVERSION"
+  | "SPOT_FEE_FX";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskCheckOutcome".
@@ -207,6 +582,7 @@ export type RiskDecisionReasonCode =
   | "EVIDENCE_MISSING"
   | "EVIDENCE_STALE"
   | "EVIDENCE_UNTRUSTED"
+  | "DATA_USE_RIGHTS_UNVERIFIED"
   | "ACCOUNT_UNAVAILABLE"
   | "ACCOUNT_MISMATCH"
   | "ACCOUNT_UNHEALTHY"
@@ -219,15 +595,22 @@ export type RiskDecisionReasonCode =
   | "MARKET_CLOSED"
   | "MARKET_HALTED"
   | "INSTRUMENT_RULES_UNAVAILABLE"
+  | "INSTRUMENT_RULES_REJECTED"
+  | "CORPORATE_ACTION_COVERAGE_UNAVAILABLE"
+  | "HISTORICAL_ADJUSTMENT_UNAVAILABLE"
   | "COUNTER_UNAVAILABLE"
   | "RESERVATION_UNAVAILABLE"
+  | "RESERVED_CAPACITY"
   | "CALENDAR_UNAVAILABLE"
   | "CLOCK_UNCERTAIN"
   | "NOT_APPLICABLE"
   | "UNSUPPORTED_CONTEXT"
   | "INVALID_PROPOSAL_VALUE"
   | "ORDER_NOT_CANCELABLE"
-  | "CANCELLATION_UNSUPPORTED";
+  | "CANCELLATION_UNSUPPORTED"
+  | "CURRENCY_CONVERSION_UNAVAILABLE"
+  | "VALUATION_CURRENCY_MISMATCH"
+  | "SPOT_FEE_FX_UNAVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionInputKind".
@@ -241,7 +624,166 @@ export type RiskDecisionInputKind =
   | "CALENDAR"
   | "DAILY_COUNTERS"
   | "RESERVATIONS"
-  | "INSTRUMENT_RULES";
+  | "INSTRUMENT_RULES"
+  | "CURRENCY_RATES"
+  | "SPOT_CAPACITY"
+  | "SPOT_ORDER_INTERVALS"
+  | "SPOT_FEE_FX"
+  | "SPOT_COMMISSION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityQuality".
+ */
+export type SpotCapacityQuality = "READ_ONLY_SPOT_CAPACITY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityReadKind".
+ */
+export type SpotCapacityReadKind = "ACCOUNT" | "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" | "OPEN_ORDER_LISTS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityPurpose".
+ */
+export type SpotCapacityPurpose = "OPEN_ORDERS_ACCOUNT" | "OPEN_ORDERS_SYMBOL" | "BASE_BALANCES" | "OPEN_ORDER_LISTS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityStatus".
+ */
+export type SpotCapacityStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionQuality".
+ */
+export type SpotCommissionQuality = "READ_ONLY_SYMBOL_COMMISSION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionReadKind".
+ */
+export type SpotCommissionReadKind = "ACCOUNT_IDENTITY" | "SYMBOL_COMMISSION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionStatus".
+ */
+export type SpotCommissionStatus = "NOT_OBSERVED" | "OBSERVED" | "UNAVAILABLE" | "STALE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeePriceSide".
+ */
+export type FeePriceSide = "BID" | "ASK";
+/**
+ * A maker/taker role label. Legacy `feeRateBasis` values on captured statements describe the
+ * historical account-comparison calculation; new owning statements leave that field absent.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeRateBasis".
+ */
+export type SpotFeeRateBasis = "MAKER" | "TAKER";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ChargingCondition".
+ */
+export type ChargingCondition =
+  | "DISCOUNT_DISABLED_CURRENT_FALLBACK"
+  | "CONDITIONAL_BNB_INPUTS_REQUIRED"
+  | "ZERO_BNB_CURRENT_FALLBACK"
+  | "ZERO_DISCOUNTED_FEE_EXPRESSION"
+  | "DISCOUNTED_BNB_CURRENT_ESTIMATE"
+  | "INSUFFICIENT_BNB_CURRENT_FALLBACK";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeModelClass".
+ */
+export type FeeModelClass = "CURRENT_ORDER_SCENARIO";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeFundingDisposition".
+ */
+export type FeeFundingDisposition =
+  "RECEIVED_ASSET_DEDUCTION" | "BNB_CURRENT_ESTIMATE" | "NO_CURRENT_FEE" | "CONDITIONAL_INPUTS_REQUIRED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeModelMethod".
+ */
+export type FeeModelMethod = "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1";
+/**
+ * The single typed reason a fee/FX statement carries. The wire value is screaming-snake.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeFxReasonCode".
+ */
+export type SpotFeeFxReasonCode =
+  | "SPOT_FEE_FX_QUALIFIED"
+  | "SPOT_FEE_FX_EVIDENCE_MISMATCH"
+  | "SPOT_FEE_EVIDENCE_UNAVAILABLE"
+  | "SPOT_FEE_CURRENCY_UNKNOWN"
+  | "SPOT_FEE_RATE_UNSUPPORTED"
+  | "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
+  | "SPOT_REQUIRED_FX_UNQUALIFIED"
+  | "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+  | "VALUATION_CURRENCY_MISMATCH";
+/**
+ * Why a required FX route exists for this intent.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRequiredRoutePurpose".
+ */
+export type SpotRequiredRoutePurpose = "INTENT_POLICY" | "INTENT_FUNDING";
+/**
+ * The declared state of one required FX route's evidence.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRequiredRouteState".
+ */
+export type SpotRequiredRouteState =
+  "QUALIFIED" | "UNQUALIFIED" | "UNSUPPORTED_ROUTE" | "EVIDENCE_UNAVAILABLE" | "CURRENCY_MISMATCH";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotWalletFundingStatus".
+ */
+export type SpotWalletFundingStatus = "NOT_OBSERVED" | "COMPLETE" | "INCOMPLETE" | "UNAVAILABLE" | "RETIRED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalReadKind".
+ */
+export type SpotOrderIntervalReadKind = "INTERVAL_DEFINITIONS" | "ACCOUNT_IDENTITY" | "ACCOUNT_INTERVAL_COUNTERS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalTimeAssociation".
+ */
+export type SpotOrderIntervalTimeAssociation = "DERIVED_UNCERTAIN";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalScope".
+ */
+export type SpotOrderIntervalScope = "ACCOUNT_ALL_KEYS_IPS_APIS";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOwningReasonCode".
+ */
+export type SpotOwningReasonCode =
+  | "SPOT_OWNING_QUALIFIED"
+  | "SPOT_OWNING_EVIDENCE_MISMATCH"
+  | "SPOT_CAPACITY_EVIDENCE_UNAVAILABLE"
+  | "SPOT_CAPACITY_COVERAGE_INCOMPLETE"
+  | "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+  | "SPOT_INTERVAL_QUOTA_EXHAUSTED"
+  | "SPOT_INTERVAL_WINDOW_UNCERTAIN";
+/**
+ * Documented PRICE_RANGE state for one immutable Proposal. Every state is a snapshot
+ * explanation, never placement authority or a promised fill.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotPriceRangeState".
+ */
+export type SpotPriceRangeState =
+  | "NO_RULE"
+  | "UNSUPPORTED_CONFIGURATION"
+  | "NOT_ENFORCED_SELECTED_SIDE"
+  | "NO_STATED_EXECUTION_PRICE"
+  | "REFERENCE_MISSING"
+  | "REFERENCE_UNAVAILABLE"
+  | "REFERENCE_EXPLICIT_NULL"
+  | "SNAPSHOT_AVAILABLE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskDecisionStatus".
@@ -279,6 +821,11 @@ export type BacktestFixtureScenario =
   | "DATASET_HASH_MISMATCH";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceProbeKind".
+ */
+export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BinanceTestnetOrderOrigin".
  */
 export type BinanceTestnetOrderOrigin = "TRADE_X" | "EXTERNAL";
@@ -304,6 +851,11 @@ export type BinanceTestnetOrderBookAction = "PENDING" | "ACCOUNT" | "HISTORY" | 
 export type BitgetDemoOrderAttemptState = "SUBMITTING" | "ACKNOWLEDGED" | "UNKNOWN_RECONCILING" | "REJECTED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarCapability".
+ */
+export type CalendarCapability = "MARKET_CALENDAR" | "CORPORATE_ACTIONS" | "HALTS" | "HISTORICAL_ADJUSTMENT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialApproval".
  */
 export type FinancialApproval = {
@@ -312,6 +864,7 @@ export type FinancialApproval = {
   consumedAt?: string;
   environment: ExecutionContext;
   expiresAt: string;
+  expiry?: FinancialApprovalExpiry | null;
   invalidationReason?: string | null;
   issuedAt: string;
   policyVersion: number;
@@ -323,6 +876,21 @@ export type FinancialApproval = {
   workspaceId: string;
   [k: string]: unknown;
 } & FinancialApproval1;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalExpiryAuthority".
+ */
+export type ApprovalExpiryAuthority = "TRUSTED_TIME_SERVICE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalExpiryReservationDisposition".
+ */
+export type ApprovalExpiryReservationDisposition = "NONE" | "RETAINED" | "RELEASED" | "ALREADY_RELEASED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalExpiryScope".
+ */
+export type ApprovalExpiryScope = "approval";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialApprovalStatus".
@@ -378,12 +946,30 @@ export type CapacityLimitSource = "BROKER_AVAILABLE" | "WORKSPACE_RESERVED_CAPIT
 export type ChatgptLoginAction = "LOGIN" | "RELOGIN";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceCredential".
+ */
+export type DataSourceCredential =
+  | {
+      kind: "DEDICATED";
+    }
+  | {
+      connectionId: string;
+      kind: "EXISTING_ACCOUNT";
+    };
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceCredentialKind".
+ */
+export type DataSourceCredentialKind = "EXISTING_ACCOUNT" | "DEDICATED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DomainProjection".
  */
 export type DomainProjection =
   | GatewayState
   | ModelState
   | Workspace
+  | WorkspaceRetention
   | AccountConnection
   | RiskPolicyState
   | RiskDecision
@@ -480,6 +1066,11 @@ export type ResolutionEvidenceOutcome = "CANDIDATES_FOUND" | "INCONCLUSIVE";
 export type ManualResolutionDecision = "CONFIRMED_NOT_SUBMITTED" | "CONFIRMED_SUBMITTED" | "KEEP_RECONCILING";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationClaimPurpose".
+ */
+export type ExecutionReservationClaimPurpose = "PRINCIPAL" | "FEE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ExecutionReservationStatus".
  */
 export type ExecutionReservationStatus = "ACTIVE" | "RELEASED";
@@ -503,11 +1094,6 @@ export type ResearchFreshness = "HEALTHY" | "STALE" | "UNAVAILABLE";
  * via the `definition` "ResearchQuality".
  */
 export type ResearchQuality = "VERIFIED" | "DEGRADED" | "UNKNOWN" | "UNAVAILABLE";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceStatus".
- */
-export type DataSourceStatus = "AVAILABLE" | "UNAVAILABLE" | "BLOCKED_EXTERNAL" | "UNVERIFIED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ResearchFocus".
@@ -578,6 +1164,20 @@ export type Trading212DemoOrderBookStatus = "NEVER_SYNCED" | "CURRENT" | "DEGRAD
 export type GatewayAction = "LAUNCH" | "PROBE" | "RESTART" | "STOP";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteStatus".
+ */
+export type HotQuoteStatus =
+  | "CONNECTING"
+  | "RECONNECTING"
+  | "AUTHENTICATING"
+  | "SUBSCRIBING"
+  | "AWAITING_QUOTE"
+  | "STREAMING"
+  | "STALE"
+  | "FAILED"
+  | "CLOSED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LocalPaperEventKind".
  */
 export type LocalPaperEventKind =
@@ -623,6 +1223,10 @@ export type ResultEnvelope = SuccessEnvelope | FailureEnvelope;
  */
 export type ReplyData =
   | Workspace
+  | WorkspaceRetention
+  | WorkspaceArchiveExportResult
+  | WorkspaceArchivePreview
+  | WorkspaceArchiveRestoreResult
   | Snapshot
   | RuntimeStatus
   | TimeStatus
@@ -632,6 +1236,11 @@ export type ReplyData =
   | GatewayState
   | ModelState
   | RiskPolicyState
+  | SpotProposalRules
+  | SpotCapacityInputs
+  | SpotCommissionInputs
+  | SpotFeeMarketProjection
+  | SpotOrderIntervalInputs
   | RiskDecision
   | RiskDecisionHistory
   | ProviderCatalog
@@ -643,8 +1252,15 @@ export type ReplyData =
   | CapabilityDecision
   | ContextCatalog
   | DataSourceCatalog
+  | DataSourceConnection
+  | BinanceMarketSourceConnection
+  | CalendarConnection
+  | FinancialSourceConnection
+  | FxRequirements
   | MarketCatalog
   | MarketDetail
+  | HotQuoteProjection
+  | HotQuoteRelease
   | PortfolioSnapshot
   | LocalPaperState
   | Watchlist
@@ -663,6 +1279,7 @@ export type ReplyData =
   | FinancialApprovalHistory
   | ExecutionPreparation
   | ExecutionPreparationQueryResult
+  | ExecutionOrderLinks
   | ResolutionEvidenceLedger
   | ResolutionEvidenceQueryResult
   | ApprovalRejection
@@ -695,6 +1312,17 @@ export type ReplyData =
   | BacktestComparison;
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveCredentialStatus".
+ */
+export type WorkspaceArchiveCredentialStatus = "NOT_CHECKED" | "PRESENT_UNVERIFIED" | "MISSING" | "UNAVAILABLE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveDataCategoryId".
+ */
+export type WorkspaceArchiveDataCategoryId =
+  "ACCOUNTS" | "CONVERSATIONS" | "RESEARCH" | "STRATEGIES_AND_BACKTESTS" | "FINANCIAL_HISTORY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ToolId".
  */
 export type ToolId =
@@ -703,11 +1331,6 @@ export type ToolId =
   | "historical_simulation"
   | "paper_demo_testnet_execution"
   | "live_order_proposal";
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceProbeKind".
- */
-export type DataSourceProbeKind = "PUBLIC_METADATA" | "CREDENTIALED_METADATA";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FxFreshness".
@@ -845,6 +1468,8 @@ export interface IpcSchema {
   backtestRunQuery: BacktestRunQuery;
   backtestRunRequest: BacktestRunRequest;
   backtestRunSummary: BacktestRunSummary;
+  binanceMarketSourceConnection: BinanceMarketSourceConnection;
+  binanceRuleSourceConfigure: BinanceRuleSourceConfigure;
   binanceTestnetBalance: BinanceTestnetBalance;
   binanceTestnetFill: BinanceTestnetFill;
   binanceTestnetHistoryState: BinanceTestnetHistoryState;
@@ -865,6 +1490,8 @@ export interface IpcSchema {
   bitgetDemoOrderAttemptQueryResult: BitgetDemoOrderAttemptQueryResult;
   bitgetDemoOrderReconcile: BitgetDemoOrderReconcile;
   bitgetDemoOrderSubmit: BitgetDemoOrderSubmit;
+  calendarConfigure: CalendarConfigure;
+  calendarConnection: CalendarConnection;
   cancellationApprovalAction: CancellationApprovalAction;
   cancellationApprovalHistory: CancellationApprovalHistory;
   cancellationApprovalHistoryQuery: CancellationApprovalHistoryQuery;
@@ -879,12 +1506,17 @@ export interface IpcSchema {
   completeOnboarding: CompleteOnboarding;
   configureDeepseek: ConfigureDeepseek;
   contextCatalog: WorkspaceQuery;
+  dataSourceConfigure: DataSourceConfigure;
+  dataSourceConnection: DataSourceConnection;
+  dataSourceMutation: DataSourceMutation;
   dataSourceProbe: DataSourceProbe;
   dataSourceQuery: DataSourceQuery;
   empty: EmptyPayload;
   equityPoint: EquityPoint;
   event: DomainEvent;
   executionAttempt: ExecutionAttempt;
+  executionOrderLinks: ExecutionOrderLinks;
+  executionOrderLinksQuery: ExecutionOrderLinksQuery;
   executionPreparation: ExecutionPreparation;
   executionPreparationQuery: ExecutionPreparationQuery;
   executionPreparationQueryResult: ExecutionPreparationQueryResult;
@@ -893,7 +1525,17 @@ export interface IpcSchema {
   financialApproval: FinancialApproval;
   financialApprovalHistory: FinancialApprovalHistory;
   financialApprovalHistoryQuery: FinancialApprovalHistoryQuery;
+  financialSourceConfigure: FinancialSourceConfigure;
+  financialSourceConnection: FinancialSourceConnection;
+  fxLocalUseAttestationCommand: FxLocalUseAttestationCommand;
+  fxRequirements: FxRequirements;
+  fxRequirementsQuery: FxRequirementsQuery;
+  fxSourceRefresh: FxSourceRefresh;
   gatewayMutation: GatewayMutation;
+  hotQuoteAcquire: HotQuoteAcquire;
+  hotQuoteProjection: HotQuoteProjection;
+  hotQuoteQuery: HotQuoteQuery;
+  hotQuoteRelease: HotQuoteRelease;
   liveOrderRefreshRequest: LiveOrderRefreshRequest;
   localPaperState: LocalPaperState;
   manualResolutionRequest: ManualResolutionRequest;
@@ -939,6 +1581,14 @@ export interface IpcSchema {
   setDefaultModel: SetDefaultModel;
   setFallbackPolicy: SetFallbackPolicy;
   setOnboardingStep: SetOnboardingStep;
+  spotCapacityInputs: SpotCapacityInputs;
+  spotCommissionInputs: SpotCommissionInputs;
+  spotFeeMarketAcquire: SpotFeeMarketAcquire;
+  spotFeeMarketProjection: SpotFeeMarketProjection;
+  spotOrderIntervalInputs: SpotOrderIntervalInputs;
+  spotProposalRules: SpotProposalRules;
+  spotRulesQuery: SpotRulesQuery;
+  spotRulesRefresh: SpotRulesRefresh;
   strategyCancel: StrategyCancel;
   strategyDefinition: StrategyDefinition;
   strategyFailure: StrategyFailure;
@@ -952,6 +1602,7 @@ export interface IpcSchema {
   strategyVersion: StrategyVersion;
   subscribe: Subscribe;
   threadCreate: ThreadCreate;
+  threadLifecycle: ThreadLifecycle;
   threadQuery: ThreadQuery;
   timeStatus: TimeStatus;
   tradeRecord: TradeRecord;
@@ -974,8 +1625,17 @@ export interface IpcSchema {
   watchlistDelete: WatchlistDelete;
   watchlistInstrumentMutation: WatchlistInstrumentMutation;
   watchlistRename: WatchlistRename;
+  workspaceArchiveExport: WorkspaceArchiveExport;
+  workspaceArchiveExportResult: WorkspaceArchiveExportResult;
+  workspaceArchivePreview: WorkspaceArchivePreview;
+  workspaceArchivePreviewRequest: WorkspaceArchivePreviewRequest;
+  workspaceArchiveRestoreRequest: WorkspaceArchiveRestoreRequest;
+  workspaceArchiveRestoreResult: WorkspaceArchiveRestoreResult;
   workspaceOpen: OpenWorkspace;
   workspaceQuery: WorkspaceQuery;
+  workspaceRetention: WorkspaceRetention;
+  workspaceRetentionQuery: WorkspaceRetentionQuery;
+  workspaceRetentionUpdate: WorkspaceRetentionUpdate;
   [k: string]: unknown;
 }
 /**
@@ -1220,6 +1880,7 @@ export interface ApprovalReview {
    */
   blockers: string[];
   capacityProjection?: CapacityProjection | null;
+  currencyEvidence?: FxReviewEvidence | null;
   eligible: boolean;
   estimatedFees?: EstimatedFee | null;
   estimatedSlippagePercent?: string;
@@ -1231,6 +1892,7 @@ export interface ApprovalReview {
   reviewDigest: string;
   reviewedAt: string;
   riskDecision: RiskDecision;
+  spotFeeFx?: SpotFeeFxStatement | null;
   spread?: string;
   workspaceId: string;
 }
@@ -1239,6 +1901,7 @@ export interface ApprovalReview {
  * via the `definition` "AccountConnection".
  */
 export interface AccountConnection {
+  binanceTradingStatus?: BinanceTradingStatus | null;
   connectionId: string;
   connectionState: ConnectionState;
   createdAt: string;
@@ -1253,6 +1916,17 @@ export interface AccountConnection {
   stateVersion: string;
   updatedAt: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceTradingStatus".
+ */
+export interface BinanceTradingStatus {
+  apiTradingLocked: boolean;
+  observedAt: string;
+  plannedRecoveryAt?: string | null;
+  providerUpdatedAt: string;
+  systemStatus: BinanceSystemStatus;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1363,6 +2037,7 @@ export interface OpenOrder {
   limitPrice?: string | null;
   notional?: string | null;
   quantity?: string | null;
+  remainingQuantity?: string | null;
   side: string;
   status: string;
   symbol: string;
@@ -1425,6 +2100,867 @@ export interface CapacityProjection {
   requestedAmount?: string;
   reserved?: string;
   unit: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxReviewEvidence".
+ */
+export interface FxReviewEvidence {
+  requirements: FxRequirements;
+  source: FinancialSourceConnection;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRequirements".
+ */
+export interface FxRequirements {
+  baseCurrency: string;
+  materialVersion: string;
+  proposalId?: string;
+  /**
+   * @maxItems 128
+   */
+  requirements: FxRouteRequirement[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRouteRequirement".
+ */
+export interface FxRouteRequirement {
+  accountVersion?: string;
+  connectionId?: string;
+  fromCurrency?: string;
+  need: FxRequirementNeed;
+  providerDataset?: FxProviderDataset | null;
+  providerPair?: string;
+  purpose: FxRequirementPurpose;
+  reason: string;
+  toCurrency?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceConnection".
+ */
+export interface FinancialSourceConnection {
+  availabilityReason: string;
+  /**
+   * @minItems 4
+   * @maxItems 8
+   */
+  capabilityStatuses:
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ]
+    | [
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult,
+        FinancialEvidenceCapabilityResult
+      ];
+  configured: boolean;
+  connectionId?: string;
+  cryptoLocation?: AlpacaCryptoLocation | null;
+  /**
+   * @maxItems 256
+   */
+  eligibleAccounts: DataSourceAccountChoice[];
+  environment: string;
+  evidence?: FinancialSourceEvidence | null;
+  fxRequirements?: FxRequirements | null;
+  instrumentId?: string;
+  kind: FinancialSourceKind;
+  observedAt?: string;
+  sourceUseAssessment?: FxSourceUseAssessment | null;
+  sourceUseContext?: FxSourceUseContext | null;
+  stateVersion: string;
+  status: DataSourceStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceCapabilityResult".
+ */
+export interface FinancialEvidenceCapabilityResult {
+  capability: FinancialEvidenceCapability;
+  reason: string;
+  status: FinancialEvidenceCapabilityStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceAccountChoice".
+ */
+export interface DataSourceAccountChoice {
+  connectionId: string;
+  displayName: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "KnownCompanyEvent".
+ */
+export interface KnownCompanyEvent {
+  actionId: string;
+  category: CompanyEventCategory;
+  currency?: string;
+  /**
+   * @maxItems 16
+   */
+  dates:
+    | []
+    | [CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate, CompanyEventDate]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ]
+    | [
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate,
+        CompanyEventDate
+      ];
+  foreign?: boolean | null;
+  /**
+   * @minItems 1
+   * @maxItems 2
+   */
+  instrumentIds: [string] | [string, string];
+  lotteryType?: string;
+  partial: boolean;
+  processDate: string;
+  /**
+   * @minItems 1
+   * @maxItems 16
+   */
+  securities:
+    | [CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity]
+    | [CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity, CompanyEventSecurity]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ]
+    | [
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity,
+        CompanyEventSecurity
+      ];
+  special?: boolean | null;
+  /**
+   * @maxItems 16
+   */
+  stockMovements:
+    | []
+    | [CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement, CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement, CompanyStockMovement, CompanyStockMovement]
+    | [CompanyStockMovement, CompanyStockMovement, CompanyStockMovement, CompanyStockMovement, CompanyStockMovement]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ]
+    | [
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement,
+        CompanyStockMovement
+      ];
+  subType?: string;
+  /**
+   * @maxItems 32
+   */
+  terms: CompanyEventTerm[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventDate".
+ */
+export interface CompanyEventDate {
+  name: CompanyEventDateName;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventSecurity".
+ */
+export interface CompanyEventSecurity {
+  cusip?: string;
+  isin?: string;
+  role: CompanyEventSecurityRole;
+  symbol?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyStockMovement".
+ */
+export interface CompanyStockMovement {
+  newRate?: string;
+  security: CompanyEventSecurity;
+  sourceRate?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CompanyEventTerm".
+ */
+export interface CompanyEventTerm {
+  name: CompanyEventTermName;
+  value: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialEvidenceBinding".
+ */
+export interface FinancialEvidenceBinding {
+  accountVersion: string;
+  bindingVersion: string;
+  connectionId: string;
+  sourceVersion: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BrokerInstrumentMetadata".
+ */
+export interface BrokerInstrumentMetadata {
+  canonicalSecurityIdentity: DataSourceStatus;
+  currency: string;
+  displayName: string;
+  exchangeName: string;
+  extendedHours?: boolean | null;
+  instrumentId: string;
+  isin: string;
+  maxOpenQuantity?: string;
+  providerSymbol: string;
+  /**
+   * @maxItems 4000
+   */
+  scheduleEvents: BrokerScheduleEvent[];
+  workingScheduleId: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BrokerScheduleEvent".
+ */
+export interface BrokerScheduleEvent {
+  date: string;
+  eventType: BrokerScheduleEventType;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxCryptoQuote".
+ */
+export interface FxCryptoQuote {
+  askPrice: string;
+  askSize: string;
+  bidPrice: string;
+  bidSize: string;
+  providerSymbol: string;
+  providerTimestamp: string;
+  receivedAt: string;
+  requestPath: string;
+  responseSha256: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxObservedRate".
+ */
+export interface FxObservedRate {
+  ask: string;
+  bid: string;
+  fromCurrency: string;
+  mid?: string | null;
+  providerPair: string;
+  providerTimestamp: string;
+  toCurrency: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleConstraint".
+ */
+export interface SpotRuleConstraint {
+  /**
+   * @maxItems 32
+   */
+  fields: SpotRuleField[];
+  knownSchema: boolean;
+  origin: SpotRuleOrigin;
+  ruleType: string;
+  scope: SpotRuleScope;
+  /**
+   * @maxItems 32
+   */
+  unsupportedFields: string[];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleField".
+ */
+export interface SpotRuleField {
+  disabled: boolean;
+  name: string;
+  value: SpotRuleValue;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSpotOrderFormFlags".
+ */
+export interface BinanceSpotOrderFormFlags {
+  allowTrailingStop?: boolean | null;
+  amendAllowed?: boolean | null;
+  cancelReplaceAllowed?: boolean | null;
+  icebergAllowed?: boolean | null;
+  ocoAllowed?: boolean | null;
+  opoAllowed?: boolean | null;
+  otoAllowed?: boolean | null;
+  pegInstructionsAllowed?: boolean | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseAssessment".
+ */
+export interface FxSourceUseAssessment {
+  context?: FxSourceUseContext | null;
+  /**
+   * @maxItems 8
+   */
+  documents:
+    | []
+    | [FxSourceUsePolicyDocument]
+    | [FxSourceUsePolicyDocument, FxSourceUsePolicyDocument]
+    | [FxSourceUsePolicyDocument, FxSourceUsePolicyDocument, FxSourceUsePolicyDocument]
+    | [FxSourceUsePolicyDocument, FxSourceUsePolicyDocument, FxSourceUsePolicyDocument, FxSourceUsePolicyDocument]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ]
+    | [
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument,
+        FxSourceUsePolicyDocument
+      ];
+  localUseAttestation?: FxLocalUseAttestation | null;
+  policyVersion: string;
+  provenance: FxSourceUseEvidenceProvenance;
+  reason: string;
+  status: FxSourceUseAssessmentStatus;
+  /**
+   * @maxItems 8
+   */
+  supportedPurposes:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUseContext".
+ */
+export interface FxSourceUseContext {
+  accountJurisdiction: string;
+  agreementReviewedAt: string;
+  countrySupportConfirmation?: FxCountrySupportConfirmation | null;
+  marketDataPlan: AlpacaMarketDataPlan;
+  rawDataDestination: FxRawDataDestination;
+  useScope: FxDeclaredUseScope;
+}
+/**
+ * User-reported provider UI facts used only as input to the local source-use policy.
+ * These facts are not a provider permission or entitlement assertion.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxCountrySupportConfirmation".
+ */
+export interface FxCountrySupportConfirmation {
+  confirmedAt: string;
+  confirmedJurisdiction: string;
+  reference: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceUsePolicyDocument".
+ */
+export interface FxSourceUsePolicyDocument {
+  documentId: string;
+  sha256: string;
+  title: string;
+  url: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestation".
+ */
+export interface FxLocalUseAttestation {
+  bindingVersion: string;
+  confirmedAt: string;
+  connectionId: string;
+  cryptoLocation?: AlpacaCryptoLocation | null;
+  datasetProfile: FxLocalUseDatasetProfile;
+  provenance: FxLocalUseAttestationProvenance;
+  providerId: "alpaca";
+  purpose: FxLocalUseAttestationPurpose;
+  rawDataDestination: FxRawDataDestination;
+  remoteAccountId: string;
+  sourceId: "OD-005";
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1587,11 +3123,13 @@ export interface MarketDetail {
         CorporateAction,
         CorporateAction
       ];
+  financialEvidence?: MarketFinancialEvidence | null;
   instrument: Instrument;
   instrumentState?: InstrumentTradingObservation | null;
   marketState: MarketState;
   snapshot?: MarketSnapshot | null;
   sourceId?: string;
+  spotRuleEvidence?: FinancialSourceConnection | null;
   status: MarketDataStatus;
   tier: MarketTier;
   workspaceId: string;
@@ -1609,6 +3147,14 @@ export interface CorporateAction {
   effectiveAt: string;
   instrumentId: string;
   sourceId?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "MarketFinancialEvidence".
+ */
+export interface MarketFinancialEvidence {
+  brokerInstruments: FinancialSourceConnection;
+  companyEvents: FinancialSourceConnection;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1710,7 +3256,9 @@ export interface MarketState {
  */
 export interface MarketSnapshot {
   ask?: string;
+  askSize?: string;
   bid?: string;
+  bidSize?: string;
   instrumentId: string;
   lastPrice?: string;
   provenance: MarketSnapshotProvenance;
@@ -1720,6 +3268,8 @@ export interface MarketSnapshot {
  * via the `definition` "MarketSnapshotProvenance".
  */
 export interface MarketSnapshotProvenance {
+  alpaca?: AlpacaQuoteEvidence | null;
+  binance?: BinanceSpotQuoteEvidence | null;
   entitlement: MarketEntitlement;
   freshness: MarketFreshness;
   marketSnapshotId: string;
@@ -1727,6 +3277,645 @@ export interface MarketSnapshotProvenance {
   receivedTimestamp: string;
   source: string;
   venue?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "AlpacaQuoteEvidence".
+ */
+export interface AlpacaQuoteEvidence {
+  askExchange: string;
+  askExchangeName: string;
+  bidExchange: string;
+  bidExchangeName: string;
+  /**
+   * @minItems 1
+   * @maxItems 16
+   */
+  conditions:
+    | [QuoteCondition]
+    | [QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition, QuoteCondition]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ]
+    | [
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition,
+        QuoteCondition
+      ];
+  connectionGeneration: string;
+  coverage: QuoteCoverage;
+  depthUnit: QuoteDepthUnit;
+  feed: AlpacaFeed;
+  listingVenue: string;
+  providerSymbol: string;
+  regularConditions: boolean;
+  sourceVersion: string;
+  tape: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "QuoteCondition".
+ */
+export interface QuoteCondition {
+  code: string;
+  name: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceSpotQuoteEvidence".
+ */
+export interface BinanceSpotQuoteEvidence {
+  askKnownCeiling: string;
+  /**
+   * @maxItems 20
+   */
+  asks:
+    | []
+    | [SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ];
+  baseAsset: string;
+  bidKnownFloor: string;
+  /**
+   * @maxItems 20
+   */
+  bids:
+    | []
+    | [SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel, SpotDepthLevel]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ]
+    | [
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel,
+        SpotDepthLevel
+      ];
+  bookUpdateId: string;
+  connectionGeneration: string;
+  dataUseRights: DataSourceStatus;
+  depthCoverage: SpotDepthCoverage;
+  depthUnit: QuoteDepthUnit;
+  environment: SpotMarketEnvironment;
+  knownAskLevels: number;
+  knownBidLevels: number;
+  leaseId: string;
+  materialHash: string;
+  providerEventTimeMs: string;
+  providerSymbol: string;
+  quoteAsset: string;
+  sessionId: string;
+  sourceVersion: string;
+  timeGeneration: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotDepthLevel".
+ */
+export interface SpotDepthLevel {
+  price: string;
+  quantity: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -1807,6 +3996,12 @@ export interface RiskDecision {
   policyVersion?: number | null;
   proposalHash: string;
   proposalId: string;
+  spotCapacity?: SpotCapacityInputs | null;
+  spotCommission?: SpotCommissionInputs | null;
+  spotFeeFx?: SpotFeeFxStatement | null;
+  spotOrderIntervals?: SpotOrderIntervalInputs | null;
+  spotOwning?: SpotOwningQualification | null;
+  spotRules?: SpotProposalRules | null;
   stateVersion: string;
   status: RiskDecisionStatus;
   workspaceId: string;
@@ -1830,6 +4025,984 @@ export interface RiskDecisionInputReference {
   kind: RiskDecisionInputKind;
   observedAt?: string;
   referenceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityInputs".
+ */
+export interface SpotCapacityInputs {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  failure?: string | null;
+  instrumentId: string;
+  observation?: SpotCapacityObservation | null;
+  proposalHash: string;
+  proposalId: string;
+  /**
+   * @maxItems 3
+   */
+  purposes:
+    | []
+    | [SpotCapacityPurpose]
+    | [SpotCapacityPurpose, SpotCapacityPurpose]
+    | [SpotCapacityPurpose, SpotCapacityPurpose, SpotCapacityPurpose];
+  qualification: RiskCheckOutcome;
+  qualificationReason: string;
+  quoteAsset: string;
+  ruleMaterialVersion?: string | null;
+  sourceVersion: string;
+  stateVersion: string;
+  status: SpotCapacityStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityObservation".
+ */
+export interface SpotCapacityObservation {
+  atomic: false;
+  baseBalance?: SpotCapacityBalance | null;
+  collectionId: string;
+  counts: SpotCapacityCounts;
+  /**
+   * The venue's already-validated declared commission rates, projected verbatim. Additive only;
+   * no delivered field changes meaning.
+   */
+  declaredCommission?: SpotDeclaredCommission | null;
+  position?: SpotCapacityPosition | null;
+  providerObservedAt?: string | null;
+  quality: SpotCapacityQuality;
+  /**
+   * @minItems 2
+   * @maxItems 3
+   */
+  reads: [SpotCapacityRead, SpotCapacityRead] | [SpotCapacityRead, SpotCapacityRead, SpotCapacityRead];
+  /**
+   * @maxItems 16
+   */
+  unresolvedObligations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  /**
+   * Original selected BASE/QUOTE/BNB rows from the same authenticated account read.
+   * Missing rows remain missing; older captures omit this additive projection.
+   *
+   * @maxItems 3
+   */
+  walletBalances?:
+    | []
+    | [SpotCapacityBalance]
+    | [SpotCapacityBalance, SpotCapacityBalance]
+    | [SpotCapacityBalance, SpotCapacityBalance, SpotCapacityBalance];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityBalance".
+ */
+export interface SpotCapacityBalance {
+  asset: string;
+  free: string;
+  locked: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityCounts".
+ */
+export interface SpotCapacityCounts {
+  accountAlgoOrders?: string | null;
+  accountIcebergOrders?: string | null;
+  accountOpenOrderLists?: string | null;
+  accountOpenOrders?: string | null;
+  classificationsComplete: boolean;
+  listCoverageComplete?: boolean | null;
+  missingListLegs?: string | null;
+  orderCoverageComplete: boolean;
+  symbolAlgoOrders?: string | null;
+  symbolIcebergOrders: string;
+  symbolOpenOrderLists?: string | null;
+  symbolOpenOrders: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotDeclaredCommission".
+ */
+export interface SpotDeclaredCommission {
+  buyer: string;
+  /**
+   * At most 16 unknown commission keys, sorted; the delivered unknown-key obligation is
+   * unaffected by this bound. They are never projected into a rate and never promoted into a
+   * hidden gate.
+   *
+   * @maxItems 16
+   */
+  extensionKeys:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+  maker: string;
+  seller: string;
+  taker: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityPosition".
+ */
+export interface SpotCapacityPosition {
+  assetExposureComplete: boolean;
+  selectedSymbolOpenBuyExecutedQuantity: string;
+  selectedSymbolOpenBuyOriginalQuantity: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCapacityRead".
+ */
+export interface SpotCapacityRead {
+  digest: string;
+  kind: SpotCapacityReadKind;
+  latestProviderTransactionTimeMs?: string | null;
+  latestProviderUpdateTimeMs?: string | null;
+  oldestProviderTransactionTimeMs?: string | null;
+  oldestProviderUpdateTimeMs?: string | null;
+  receivedAt: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionInputs".
+ */
+export interface SpotCommissionInputs {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  failure?: string | null;
+  instrumentId: string;
+  observation?: SpotCommissionObservation | null;
+  proposalHash: string;
+  proposalId: string;
+  qualification: RiskCheckOutcome;
+  quoteAsset: string;
+  ruleMaterialVersion?: string | null;
+  side: OrderSide;
+  sourceVersion: string;
+  stateVersion: string;
+  status: SpotCommissionStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionObservation".
+ */
+export interface SpotCommissionObservation {
+  chargingAssetQualified: boolean;
+  collectionId: string;
+  conditionalDiscountAsset?: string | null;
+  discount: SpotCommissionDiscount;
+  /**
+   * @maxItems 32
+   */
+  extensionKeys: string[];
+  /**
+   * The database response supplies no provider observation timestamp.
+   */
+  providerObservedAt?: string | null;
+  quality: SpotCommissionQuality;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  reads: [SpotCommissionReceipt, SpotCommissionReceipt];
+  /**
+   * Received-asset branch, not a guaranteed fill-time fee currency.
+   */
+  receivedAsset: string;
+  remoteAccountId: string;
+  specialCommission: SpotCommissionRates;
+  standardCommission: SpotCommissionRates;
+  symbol: string;
+  taxCommission: SpotCommissionRates;
+  termsComplete: boolean;
+  /**
+   * @maxItems 4
+   */
+  unresolvedObligations: [] | [string] | [string, string] | [string, string, string] | [string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionDiscount".
+ */
+export interface SpotCommissionDiscount {
+  discount: string;
+  discountAsset: string;
+  enabledForAccount: boolean;
+  enabledForSymbol: boolean;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionReceipt".
+ */
+export interface SpotCommissionReceipt {
+  digest: string;
+  kind: SpotCommissionReadKind;
+  receivedAt: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCommissionRates".
+ */
+export interface SpotCommissionRates {
+  buyer: string;
+  maker: string;
+  seller: string;
+  taker: string;
+}
+/**
+ * One exact statement of the reviewed intent's owning fee and genuinely-required FX.
+ * Price-only policy valuation and funding/execution routes have separate qualification rules.
+ * This statement carries no Arm, consent, dispatch or execution authority even when complete,
+ * and it is not a substitute for authenticated preflight.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeFxStatement".
+ */
+export interface SpotFeeFxStatement {
+  accountId: string;
+  baseAsset: string;
+  baseCurrency: string;
+  bindingBlocker?: string | null;
+  /**
+   * Standing provenance limitations of the consumed slices, carried verbatim.
+   *
+   * @maxItems 5
+   */
+  carriedLimitations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
+  /**
+   * S29.11 current scenario; it does not qualify absent funding or required FX.
+   * Absent on older persisted captures, whose source-only meaning is preserved.
+   */
+  currentFeeModel?: SpotCurrentFeeModel | null;
+  currentFeeModelFailure?: string | null;
+  declaredBuyerRate?: string | null;
+  /**
+   * Historical account-level comparison rates from older captures. New statements leave these
+   * absent; exact-symbol terms are preserved by the bound SpotCommission evidence input.
+   */
+  declaredMakerRate?: string | null;
+  declaredSellerRate?: string | null;
+  declaredTakerRate?: string | null;
+  /**
+   * The conservative expected fee, expressed in `fee_currency`. Never fabricated from an unknown
+   * fee currency, so it stays absent while `fee_currency` is `UNKNOWN`.
+   */
+  expectedFee?: string | null;
+  /**
+   * The intent notional in its own `QUOTE` unit.
+   */
+  expectedSpendQuote?: string | null;
+  /**
+   * `UNKNOWN` when the venue does not genuinely declare the fee-charging asset.
+   */
+  feeCurrency: string;
+  /**
+   * The declared origin of the fee currency, e.g. `ACCOUNT_DECLARED_FEE_ASSET` or `UNKNOWN`.
+   */
+  feeCurrencyOrigin: string;
+  /**
+   * Bound fee-evidence version: a full 71-character `sha256:` digest.
+   */
+  feeEvidenceVersion: string;
+  /**
+   * Historical account-level comparison basis, retained only when reading older captures.
+   * New statements leave it absent; current fee modeling is bound to exact-symbol terms.
+   */
+  feeRateBasis?: SpotFeeRateBasis | null;
+  instrumentId: string;
+  maximumAuthorizedSpendQuote?: string | null;
+  outcome: RiskCheckOutcome;
+  /**
+   * The bound `sha256:` intent hash — a full 71 characters on the wire.
+   */
+  proposalHash: string;
+  proposalId: string;
+  quoteAsset: string;
+  reason: string;
+  reasonCode: SpotFeeFxReasonCode;
+  /**
+   * Bound route-evidence version: a full 71-character `sha256:` digest.
+   */
+  routeEvidenceVersion: string;
+  /**
+   * @maxItems 3
+   */
+  routes:
+    | []
+    | [SpotRequiredRoute]
+    | [SpotRequiredRoute, SpotRequiredRoute]
+    | [SpotRequiredRoute, SpotRequiredRoute, SpotRequiredRoute];
+  side: OrderSide;
+  /**
+   * Exact BASE/QUOTE/BNB wallet rows bound to the current account-read receipt.
+   * Older captures omit this additive evidence; retirement never reuses prior rows.
+   */
+  walletFundingEvidence?: SpotWalletFundingEvidence | null;
+  workspaceBaseExpectedFee?: string | null;
+  /**
+   * Present only when the corresponding required conversion is genuinely qualified.
+   */
+  workspaceBaseExpectedSpend?: string | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotCurrentFeeModel".
+ */
+export interface SpotCurrentFeeModel {
+  /**
+   * @maxItems 2
+   */
+  bnbConversionReferences?: [] | [FeeConversionReference] | [FeeConversionReference, FeeConversionReference];
+  bnbFee?: FeeBnbScenario | null;
+  /**
+   * @maxItems 2
+   */
+  bnbFeeCandidates?: [] | [FeeBnbScenario] | [FeeBnbScenario, FeeBnbScenario];
+  bnbFeeFailure?: string | null;
+  bnbFundingEvidence?: FeeFundingEvidence | null;
+  chargingCondition: ChargingCondition;
+  class: FeeModelClass;
+  discountedFeeIsExactlyZero?: boolean | null;
+  fallback: FeeFamilyScenario;
+  /**
+   * @maxItems 2
+   */
+  fallbackCandidates?: [] | [FeeFamilyScenario] | [FeeFamilyScenario, FeeFamilyScenario];
+  /**
+   * Backend-derived, current-branch plan preview. It is captured in the same financial digest.
+   */
+  fundingPlanPreview?: SpotFundingPlanPreview | null;
+  grossReceived: string;
+  /**
+   * @maxItems 2
+   */
+  limitations: [] | [string] | [string, string];
+  marketReference?: FeeMarketReference | null;
+  method: FeeModelMethod;
+  receivedAsset: string;
+}
+/**
+ * One exact purpose-bound price leg used only by the current BNB fee estimate.
+ * Price and size remain ephemeral; the saved reference contains identity and exact consumed
+ * amount only.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeConversionReference".
+ */
+export interface FeeConversionReference {
+  bookUpdateId: string;
+  connectionGeneration: string;
+  coverage: FeeExactExpression;
+  coverageAsset: string;
+  dataUseRights: DataSourceStatus;
+  firstReceipt: string;
+  fromAsset: string;
+  marketSnapshotId: string;
+  materialHash: string;
+  pair: string;
+  priceSide: FeePriceSide;
+  providerTimestamp: string;
+  source: string;
+  sourceVersion: string;
+  toAsset: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeExactExpression".
+ */
+export interface FeeExactExpression {
+  denominator: string;
+  numerator: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeBnbScenario".
+ */
+export interface FeeBnbScenario {
+  preRounding?: FeeUnroundedFamilies | null;
+  role: SpotFeeRateBasis;
+  special: string;
+  standard: string;
+  tax: string;
+  total: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeUnroundedFamilies".
+ */
+export interface FeeUnroundedFamilies {
+  special: FeeExactExpression;
+  standard: FeeExactExpression;
+  tax: FeeExactExpression;
+  total: FeeExactExpression;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeFundingEvidence".
+ */
+export interface FeeFundingEvidence {
+  asset: string;
+  capacityBindingVersion: string;
+  collectionId: string;
+  effectiveFree: string;
+  firstReceipt: string;
+  free: string;
+  localClaims: string;
+  locked: string;
+  originalDigest: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeFamilyScenario".
+ */
+export interface FeeFamilyScenario {
+  netReceived: string;
+  preRounding?: FeeUnroundedFamilies | null;
+  role: SpotFeeRateBasis;
+  special: string;
+  standard: string;
+  tax: string;
+  total: string;
+}
+/**
+ * Review-bound preview of the native principal and the currently modeled fee branch.
+ * The eventual reservation is still created only by explicit approval and atomic Prepare.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFundingPlanPreview".
+ */
+export interface SpotFundingPlanPreview {
+  currentFeeClaim?: FeeNativeClaimPreview | null;
+  fallbackFeeAmount: string;
+  fallbackFeeAsset: string;
+  fallbackNetReceipt: string;
+  feeDisposition: FeeFundingDisposition;
+  principalClaim: FeeNativeClaimPreview;
+}
+/**
+ * One backend-derived native claim shown with the current scenario. It is not an approval and
+ * never comes from renderer-supplied amounts.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeNativeClaimPreview".
+ */
+export interface FeeNativeClaimPreview {
+  amount: string;
+  asset: string;
+}
+/**
+ * Immutable market identity/receipts, without persisting raw depth or quote prices.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeMarketReference".
+ */
+export interface FeeMarketReference {
+  bookUpdateId: string;
+  connectionGeneration: string;
+  dataUseRights: DataSourceStatus;
+  firstReceipt: string;
+  marketSnapshotId: string;
+  materialHash: string;
+  priceSide: FeePriceSide;
+  providerTimestamp: string;
+  source: string;
+  sourceVersion: string;
+}
+/**
+ * One genuinely-required, purpose-scoped FX leg. A statement carries at most three: two explicit
+ * policy-valuation legs plus a separate funding leg. `QUALIFIED` applies only to `purpose` and
+ * never means provider permission or execution authority.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRequiredRoute".
+ */
+export interface SpotRequiredRoute {
+  conservativeCost?: string | null;
+  firstReceipt?: string | null;
+  fromCurrency: string;
+  /**
+   * Present only when a supported bounded producer pair exists for this route. Its length bound
+   * mirrors `FxRouteRequirement.providerPair`, including the seven-character `USDTUSD` pair.
+   */
+  providerPair?: string | null;
+  providerQuality?: string | null;
+  providerTimestamp?: string | null;
+  purpose: SpotRequiredRoutePurpose;
+  reason: string;
+  state: SpotRequiredRouteState;
+  toCurrency: string;
+}
+/**
+ * Proposal/account-bound exact BASE/QUOTE/BNB wallet coverage from one account-read receipt.
+ * Missing holdings remain missing. This is descriptive local evidence, not execution authority.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotWalletFundingEvidence".
+ */
+export interface SpotWalletFundingEvidence {
+  accountId: string;
+  accountReadStartedAt?: string | null;
+  /**
+   * @maxItems 3
+   */
+  balances:
+    | []
+    | [SpotWalletBalanceEvidence]
+    | [SpotWalletBalanceEvidence, SpotWalletBalanceEvidence]
+    | [SpotWalletBalanceEvidence, SpotWalletBalanceEvidence, SpotWalletBalanceEvidence];
+  capacityBindingVersion: string;
+  collectionId?: string | null;
+  firstReceipt?: string | null;
+  /**
+   * @maxItems 3
+   */
+  missingAssets: [] | [string] | [string, string] | [string, string, string];
+  originalDigest?: string | null;
+  proposalHash: string;
+  proposalId: string;
+  reason?: string | null;
+  /**
+   * @maxItems 3
+   */
+  requiredAssets: [] | [string] | [string, string] | [string, string, string];
+  ruleMaterialVersion?: string | null;
+  sourceVersion: string;
+  status: SpotWalletFundingStatus;
+  workspaceId: string;
+}
+/**
+ * One original account wallet row with active same-account claims for this asset applied once.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotWalletBalanceEvidence".
+ */
+export interface SpotWalletBalanceEvidence {
+  asset: string;
+  effectiveFree?: string | null;
+  free: string;
+  localClaims: string;
+  locked: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalInputs".
+ */
+export interface SpotOrderIntervalInputs {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  failure?: string | null;
+  instrumentId: string;
+  observation?: SpotOrderIntervalObservation | null;
+  proposalHash: string;
+  proposalId: string;
+  providerWaitSeconds?: string | null;
+  qualification: RiskCheckOutcome;
+  qualificationReason: string;
+  quoteAsset: string;
+  retirementReason?: string | null;
+  ruleMaterialVersion?: string | null;
+  scope: SpotOrderIntervalScope;
+  sourceVersion: string;
+  stateVersion: string;
+  status: SpotCapacityStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalObservation".
+ */
+export interface SpotOrderIntervalObservation {
+  atomic: false;
+  clock: SpotOrderIntervalClock;
+  collectionId: string;
+  /**
+   * @maxItems 32
+   */
+  counters: SpotOrderIntervalCounter[];
+  coverageComplete: boolean;
+  /**
+   * @maxItems 32
+   */
+  declarations: SpotOrderIntervalDefinition[];
+  providerObservedAt?: string | null;
+  /**
+   * @minItems 1
+   * @maxItems 3
+   */
+  reads:
+    | [SpotOrderIntervalRead]
+    | [SpotOrderIntervalRead, SpotOrderIntervalRead]
+    | [SpotOrderIntervalRead, SpotOrderIntervalRead, SpotOrderIntervalRead];
+  timeAssociation: SpotOrderIntervalTimeAssociation;
+  /**
+   * @maxItems 16
+   */
+  unresolvedObligations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalClock".
+ */
+export interface SpotOrderIntervalClock {
+  localRoundTripBoundMs: string;
+  receivedAt: string;
+  serverTimeMs: string;
+  startedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalCounter".
+ */
+export interface SpotOrderIntervalCounter {
+  count: string;
+  interval: string;
+  intervalNum: string;
+  limit: string;
+  rateLimitType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalDefinition".
+ */
+export interface SpotOrderIntervalDefinition {
+  interval: string;
+  intervalNum: string;
+  limit: string;
+  rateLimitType: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOrderIntervalRead".
+ */
+export interface SpotOrderIntervalRead {
+  digest: string;
+  kind: SpotOrderIntervalReadKind;
+  receivedAt: string;
+  startedAt: string;
+}
+/**
+ * One exact statement of whether, and how much of, the reviewed intent the venue would
+ * currently admit. It is explicitly execution-unqualified: the venue still recalculates its
+ * order-rate windows, and fees, required FX, authenticated preflight and private-stream
+ * readiness remain separate owning work.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotOwningQualification".
+ */
+export interface SpotOwningQualification {
+  accountId: string;
+  baseAsset: string;
+  bindingBlocker?: string | null;
+  /**
+   * The declared bucket those remaining slots were read from.
+   */
+  bindingInterval?: string | null;
+  /**
+   * Both bound evidence versions are `sha256:` digests, so the generated wire schema must
+   * admit the full 71 characters the same way `proposal_hash` does.
+   */
+  bindingVersion: string;
+  capacityObservedAt?: string | null;
+  /**
+   * The exact declared unit the capacity numbers are read in: QUOTE for a buy, BASE for a sell.
+   */
+  capacityUnit: string;
+  /**
+   * Standing provenance limitations of the two consumed slices, carried verbatim.
+   *
+   * @maxItems 5
+   */
+  carriedLimitations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
+  declaredBaseFree?: string | null;
+  declaredBaseLocked?: string | null;
+  /**
+   * A standing venue-imposed cooldown, reported but never treated as this slice's gate.
+   */
+  declaredProviderWaitSeconds?: string | null;
+  declaredSymbolOpenBuyQuantity?: string | null;
+  declaredSymbolOpenOrders?: string | null;
+  instrumentId: string;
+  intervalObservedAt?: string | null;
+  /**
+   * The declared fact each number was read from, so a reviewer can name the origin.
+   */
+  inventorySource: string;
+  outcome: RiskCheckOutcome;
+  proposalHash: string;
+  proposalId: string;
+  quotaSource: string;
+  quoteAsset: string;
+  reason: string;
+  reasonCode: SpotOwningReasonCode;
+  /**
+   * Exact remaining order-rate slots of the tightest declared bucket, when one binds.
+   */
+  remainingOrderSlots?: string | null;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotProposalRules".
+ */
+export interface SpotProposalRules {
+  accountId: string;
+  baseAsset: string;
+  bindingVersion: string;
+  instrumentId: string;
+  materialVersion?: string | null;
+  observedAt?: string | null;
+  outcome: RiskCheckOutcome;
+  priceRangePreview?: SpotPriceRangePreview | null;
+  proposalHash: string;
+  proposalId: string;
+  quoteAsset: string;
+  referenceFailure?: string | null;
+  /**
+   * @maxItems 256
+   */
+  referencePurposes: string[];
+  /**
+   * @maxItems 2
+   */
+  references: [] | [SpotRuleReference] | [SpotRuleReference, SpotRuleReference];
+  /**
+   * @maxItems 272
+   */
+  rules: SpotRuleEvaluation[];
+  sourceVersion: string;
+  stateVersion: string;
+  /**
+   * @maxItems 272
+   */
+  unresolvedObligations: string[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotPriceRangePreview".
+ */
+export interface SpotPriceRangePreview {
+  /**
+   * Digest of the snapshot bounds. Like `SpotRuleReference::digest`, it survives
+   * capture so a saved review can still be traced to the bounds it was made against
+   * even though the bounds themselves are withheld.
+   */
+  boundsDigest?: string | null;
+  /**
+   * @maxItems 2
+   */
+  directions: [] | [SpotPriceRangeDirection] | [SpotPriceRangeDirection, SpotPriceRangeDirection];
+  explanation: string;
+  lowerBound?: string | null;
+  reference?: SpotRuleReference | null;
+  side: OrderSide;
+  state: SpotPriceRangeState;
+  unit: string;
+  upperBound?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotPriceRangeDirection".
+ */
+export interface SpotPriceRangeDirection {
+  direction: string;
+  enforced: boolean;
+  lowerMultiplier?: string | null;
+  upperMultiplier?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleReference".
+ */
+export interface SpotRuleReference {
+  digest: string;
+  intervalMinutes?: number | null;
+  kind: string;
+  price?: string | null;
+  providerObservedAt: string;
+  receivedAt: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRuleEvaluation".
+ */
+export interface SpotRuleEvaluation {
+  applicable: boolean;
+  origin: SpotRuleOrigin;
+  outcome: RiskCheckOutcome;
+  reasonCode: string;
+  ruleType: string;
+  scope: SpotRuleScope;
+  unit?: string | null;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2203,6 +5376,64 @@ export interface BacktestRunRequest {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceMarketSourceConnection".
+ */
+export interface BinanceMarketSourceConnection {
+  configured: boolean;
+  source: DataSourceEntry;
+  stateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceEntry".
+ */
+export interface DataSourceEntry {
+  availabilityReason: string;
+  /**
+   * @maxItems 8
+   */
+  capabilities:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  checkedAt?: string;
+  commercialUse: string;
+  configured: boolean;
+  coverage: string;
+  entitlement: string;
+  jurisdictions: string;
+  latency: string;
+  observedAt?: string;
+  officialUrl: string;
+  probeKind: DataSourceProbeKind;
+  provider: string;
+  redistribution: string;
+  retention: string;
+  reviewedAt: string;
+  sourceId: string;
+  status: DataSourceStatus;
+  termsUrl: string;
+  verifiedAt?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceRuleSourceConfigure".
+ */
+export interface BinanceRuleSourceConfigure {
+  connectionId: string;
+  expectedStateVersion: string;
+  instrumentId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BinanceTestnetBalance".
  */
 export interface BinanceTestnetBalance {
@@ -2479,6 +5710,56 @@ export interface BitgetDemoOrderSubmit {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarConfigure".
+ */
+export interface CalendarConfigure {
+  connectionId: string;
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarConnection".
+ */
+export interface CalendarConnection {
+  availabilityReason: string;
+  calendarVersion?: string;
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  capabilityStatuses: [
+    CalendarCapabilityResult,
+    CalendarCapabilityResult,
+    CalendarCapabilityResult,
+    CalendarCapabilityResult
+  ];
+  configured: boolean;
+  connectionId?: string;
+  coverageEnd?: string;
+  coverageStart?: string;
+  /**
+   * @maxItems 256
+   */
+  eligibleAccounts: DataSourceAccountChoice[];
+  environment: "PAPER";
+  observedAt?: string;
+  sourceId: string;
+  stateVersion: string;
+  status: DataSourceStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "CalendarCapabilityResult".
+ */
+export interface CalendarCapabilityResult {
+  capability: CalendarCapability;
+  reason: string;
+  status: DataSourceStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CancellationApprovalAction".
  */
 export interface CancellationApprovalAction {
@@ -2500,6 +5781,21 @@ export interface CancellationApprovalHistory {
   intents: CancellationIntentHistoryEntry[];
   rejections: CancellationApprovalRejection[];
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialApprovalExpiry".
+ */
+export interface FinancialApprovalExpiry {
+  authority: ApprovalExpiryAuthority;
+  authorityReference: string;
+  executionAttemptId?: string;
+  expiresAt: string;
+  observedAt: string;
+  reservationDisposition: ApprovalExpiryReservationDisposition;
+  reservationId?: string;
+  reservationStateVersion?: string;
+  scope: ApprovalExpiryScope;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -2687,6 +5983,46 @@ export interface WorkspaceQuery {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceConfigure".
+ */
+export interface DataSourceConfigure {
+  credential: DataSourceCredential;
+  expectedStateVersion: string;
+  feed: AlpacaFeed;
+  workspaceId: string;
+}
+/**
+ * Source configuration is separate from account connectivity and quote readiness.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceConnection".
+ */
+export interface DataSourceConnection {
+  accountId?: string | null;
+  availabilityReason: string;
+  cleanupPending: boolean;
+  configured: boolean;
+  credentialKind?: DataSourceCredentialKind | null;
+  /**
+   * @maxItems 256
+   */
+  eligibleAccounts: DataSourceAccountChoice[];
+  feed?: AlpacaFeed | null;
+  sourceId: string;
+  stateVersion: string;
+  status: DataSourceStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "DataSourceMutation".
+ */
+export interface DataSourceMutation {
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DataSourceProbe".
  */
 export interface DataSourceProbe {
@@ -2734,7 +6070,8 @@ export interface DomainEvent {
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
     | "binance-testnet-order-book"
-    | "bitget-demo-order-attempt";
+    | "bitget-demo-order-attempt"
+    | "workspace-retention";
   eventId: string;
   eventType:
     | "workspace.opened"
@@ -2766,7 +6103,9 @@ export interface DomainEvent {
     | "alpaca.paper.order.book.changed"
     | "binance.testnet.order.attempt.changed"
     | "binance.testnet.order.book.changed"
-    | "bitget.demo.order.attempt.changed";
+    | "bitget.demo.order.attempt.changed"
+    | "workspace.retention.changed"
+    | "workspace.retention.applied";
   occurredAt: string;
   payload: DomainProjection;
   schemaVersion: 1;
@@ -2882,6 +6221,21 @@ export interface Workspace {
   name: string;
   path: string;
   storageSchemaVersion: number;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceRetention".
+ */
+export interface WorkspaceRetention {
+  artifactRetentionDays?: number | null;
+  cacheRetentionDays?: number | null;
+  lastAppliedAt?: string | null;
+  lastDeletedArtifacts: number;
+  lastDeletedCacheFiles: number;
+  lastDeletedMarketRows: number;
+  marketDataRetentionDays?: number | null;
+  stateVersion: string;
   workspaceId: string;
 }
 /**
@@ -3166,6 +6520,338 @@ export interface ExecutionReservation {
   accountId: string;
   accountStateVersion: string;
   amount: string;
+  /**
+   * Per-asset balance capacity captured and validated in the same atomic Prepare transaction.
+   *
+   * @minItems 1
+   * @maxItems 16
+   */
+  assetCapacities?:
+    | [ExecutionReservationAssetCapacity]
+    | [ExecutionReservationAssetCapacity, ExecutionReservationAssetCapacity]
+    | [ExecutionReservationAssetCapacity, ExecutionReservationAssetCapacity, ExecutionReservationAssetCapacity]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ]
+    | [
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity,
+        ExecutionReservationAssetCapacity
+      ];
+  /**
+   * Additive for old reservation captures, which remain scalar-only when absent.
+   *
+   * @minItems 1
+   * @maxItems 16
+   */
+  assetClaims?:
+    | [ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ];
   attemptId: string;
   brokerAvailable: string;
   capacityKey: string;
@@ -3173,6 +6859,11 @@ export interface ExecutionReservation {
   createdAt: string;
   effectiveAvailable: string;
   existingReservations: string;
+  /**
+   * Immutable selected conditional-fee branch and received-asset allowance used by settlement.
+   * This metadata is not an outgoing capacity claim; old scalar/vector captures omit it.
+   */
+  feeSettlementPlan?: SpotFundingPlanPreview | null;
   instrumentId: string;
   notional: string;
   notionalCurrency: string;
@@ -3188,6 +6879,37 @@ export interface ExecutionReservation {
   workspaceNotional?: string;
 }
 /**
+ * Atomic per-asset capacity recorded alongside the PLACE reservation vector.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationAssetCapacity".
+ */
+export interface ExecutionReservationAssetCapacity {
+  asset: string;
+  brokerAvailable: string;
+  /**
+   * Capacity before this attempt, after existing local reservations.
+   */
+  effectiveAvailable: string;
+  existingReservations: string;
+  /**
+   * Capacity remaining after this attempt's complete claims for this asset.
+   */
+  remainingAfterReservation: string;
+  requestedAmount: string;
+}
+/**
+ * One native-asset allowance in an account-scoped PLACE reservation.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionReservationAssetClaim".
+ */
+export interface ExecutionReservationAssetClaim {
+  amount: string;
+  asset: string;
+  purpose: ExecutionReservationClaimPurpose;
+}
+/**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "LiveOrderSettlement".
  */
@@ -3200,6 +6922,172 @@ export interface LiveOrderSettlement {
   fillEvidenceComplete: boolean;
   filledQuantity?: string;
   filledValue?: string;
+  /**
+   * Immutable initial native claims for exactly-once per-asset settlement.
+   *
+   * @maxItems 16
+   */
+  initialAssetClaims?:
+    | []
+    | [ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [ExecutionReservationAssetClaim, ExecutionReservationAssetClaim, ExecutionReservationAssetClaim]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ]
+    | [
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim,
+        ExecutionReservationAssetClaim
+      ];
   initialCommitment: string;
   observedAt: string;
   providerObservedAt?: string | null;
@@ -3684,6 +7572,40 @@ export interface Trading212DemoRateLimits {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionOrderLinks".
+ */
+export interface ExecutionOrderLinks {
+  accountId: string;
+  /**
+   * @maxItems 2000
+   */
+  links: ExecutionOrderLink[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionOrderLink".
+ */
+export interface ExecutionOrderLink {
+  brokerOrderId: string;
+  executionAttemptId: string;
+  proposalId?: string | null;
+  reservation?: ExecutionReservation | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionOrderLinksQuery".
+ */
+export interface ExecutionOrderLinksQuery {
+  accountId: string;
+  /**
+   * @maxItems 2000
+   */
+  brokerOrderIds: string[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "ExecutionPreparation".
  */
 export interface ExecutionPreparation {
@@ -3747,11 +7669,97 @@ export interface FinancialApprovalHistoryQuery {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialSourceConfigure".
+ */
+export interface FinancialSourceConfigure {
+  connectionId: string;
+  cryptoLocation?: AlpacaCryptoLocation | null;
+  expectedStateVersion: string;
+  sourceUseContext?: FxSourceUseContext | null;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxLocalUseAttestationCommand".
+ */
+export interface FxLocalUseAttestationCommand {
+  confirmLocalPolicyValuationOnly: boolean;
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxRequirementsQuery".
+ */
+export interface FxRequirementsQuery {
+  proposalId?: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FxSourceRefresh".
+ */
+export interface FxSourceRefresh {
+  expectedStateVersion: string;
+  proposalId?: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "GatewayMutation".
  */
 export interface GatewayMutation {
   action: GatewayAction;
   expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteAcquire".
+ */
+export interface HotQuoteAcquire {
+  expectedSourceVersion: string;
+  instrumentId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteProjection".
+ */
+export interface HotQuoteProjection {
+  authenticated: boolean;
+  connectionGeneration: string;
+  detail?: MarketDetail | null;
+  generation: string;
+  instrumentId: string;
+  leaseId: string;
+  reason: string;
+  reconnectAttempt: number;
+  sequence: number;
+  sourceId: string;
+  sourceVersion: string;
+  status: HotQuoteStatus;
+  subscribed: boolean;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteQuery".
+ */
+export interface HotQuoteQuery {
+  generation: string;
+  leaseId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "HotQuoteRelease".
+ */
+export interface HotQuoteRelease {
+  generation: string;
+  leaseId: string;
+  released: boolean;
+  status: HotQuoteStatus;
   workspaceId: string;
 }
 /**
@@ -4236,6 +8244,111 @@ export interface SuccessEnvelope {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveExportResult".
+ */
+export interface WorkspaceArchiveExportResult {
+  bytes: number;
+  contentHash: string;
+  path: string;
+  /**
+   * @maxItems 8
+   */
+  warnings:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchivePreview".
+ */
+export interface WorkspaceArchivePreview {
+  bytes: number;
+  capturedAt: string;
+  /**
+   * @maxItems 256
+   */
+  credentialChecks: WorkspaceArchiveCredentialCheck[];
+  /**
+   * @minItems 5
+   * @maxItems 5
+   */
+  dataCategories: [
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory,
+    WorkspaceArchiveDataCategory
+  ];
+  formatVersion: number;
+  manifestHash: string;
+  memberCount: number;
+  storageSchemaVersion: number;
+  /**
+   * @maxItems 8
+   */
+  warnings:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  workspaceId: string;
+  workspaceName: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveCredentialCheck".
+ */
+export interface WorkspaceArchiveCredentialCheck {
+  connectionId: string;
+  environment: string;
+  label: string;
+  providerId: string;
+  status: WorkspaceArchiveCredentialStatus;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveDataCategory".
+ */
+export interface WorkspaceArchiveDataCategory {
+  categoryId: WorkspaceArchiveDataCategoryId;
+  recordCount: number;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveRestoreResult".
+ */
+export interface WorkspaceArchiveRestoreResult {
+  backupPath: string;
+  restoredPath: string;
+  /**
+   * @maxItems 8
+   */
+  warnings:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "Snapshot".
  */
 export interface Snapshot {
@@ -4262,7 +8375,8 @@ export interface Snapshot {
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
     | "binance-testnet-order-book"
-    | "bitget-demo-order-attempt";
+    | "bitget-demo-order-attempt"
+    | "workspace-retention";
   lastSequence: number;
   projection: DomainProjection;
 }
@@ -4335,7 +8449,8 @@ export interface SubscriptionAck {
     | "alpaca-paper-order-book"
     | "binance-testnet-order-attempt"
     | "binance-testnet-order-book"
-    | "bitget-demo-order-attempt";
+    | "bitget-demo-order-attempt"
+    | "workspace-retention";
   lastSequence: number;
   replayedCount: number;
 }
@@ -4358,6 +8473,39 @@ export interface ThreadSummary {
   title: string;
   updatedAt: string;
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeMarketProjection".
+ */
+export interface SpotFeeMarketProjection {
+  connectionGeneration: string;
+  generation: string;
+  leaseId: string;
+  metadata?: FeeMarketMetadata | null;
+  reason: string;
+  reconnectAttempt: number;
+  sequence: number;
+  /**
+   * Current/raw fee inputs are protected ephemeral reads, never saved risk history.
+   */
+  snapshot?: MarketSnapshot | null;
+  sourceId: string;
+  sourceVersion: string;
+  status: HotQuoteStatus;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FeeMarketMetadata".
+ */
+export interface FeeMarketMetadata {
+  baseAsset: string;
+  marketStatus: string;
+  originalDigest: string;
+  providerSymbol: string;
+  quoteAsset: string;
+  receivedAt: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -4541,44 +8689,6 @@ export interface DataSourceCatalog {
       ];
   stateVersion: string;
   workspaceId: string;
-}
-/**
- * This interface was referenced by `IpcSchema`'s JSON-Schema
- * via the `definition` "DataSourceEntry".
- */
-export interface DataSourceEntry {
-  availabilityReason: string;
-  /**
-   * @maxItems 8
-   */
-  capabilities:
-    | []
-    | [string]
-    | [string, string]
-    | [string, string, string]
-    | [string, string, string, string]
-    | [string, string, string, string, string]
-    | [string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string]
-    | [string, string, string, string, string, string, string, string];
-  checkedAt?: string;
-  commercialUse: string;
-  configured: boolean;
-  coverage: string;
-  entitlement: string;
-  jurisdictions: string;
-  latency: string;
-  observedAt?: string;
-  officialUrl: string;
-  probeKind: DataSourceProbeKind;
-  provider: string;
-  redistribution: string;
-  retention: string;
-  reviewedAt: string;
-  sourceId: string;
-  status: DataSourceStatus;
-  termsUrl: string;
-  verifiedAt?: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -5670,6 +9780,10 @@ export interface StrategyDefinition {
  * via the `definition` "StrategyRun".
  */
 export interface StrategyRun {
+  /**
+   * @maxItems 32
+   */
+  contextRefs?: ThreadContextRef[];
   createdAt: string;
   datasetId: string;
   endAt: string;
@@ -5919,6 +10033,31 @@ export interface SetOnboardingStep {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotFeeMarketAcquire".
+ */
+export interface SpotFeeMarketAcquire {
+  expectedSourceVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRulesQuery".
+ */
+export interface SpotRulesQuery {
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotRulesRefresh".
+ */
+export interface SpotRulesRefresh {
+  expectedStateVersion: string;
+  proposalId: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "StrategyCancel".
  */
 export interface StrategyCancel {
@@ -5946,6 +10085,10 @@ export interface StrategyRunQuery {
  * via the `definition` "StrategyRunRequest".
  */
 export interface StrategyRunRequest {
+  /**
+   * @maxItems 32
+   */
+  contextRefs?: ThreadContextRef[];
   datasetId: string;
   endAt: string;
   expectedStrategyHash?: string | null;
@@ -5955,6 +10098,7 @@ export interface StrategyRunRequest {
    * @maxItems 32
    */
   parameters?: StrategyParameter[];
+  retryOfRunId?: string | null;
   startAt: string;
   strategyVersionId: string;
   workspaceId: string;
@@ -5989,6 +10133,15 @@ export interface ThreadCreate {
   linkedContexts: ThreadContextRef[];
   model?: ThreadModel | null;
   title: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ThreadLifecycle".
+ */
+export interface ThreadLifecycle {
+  expectedStateVersion: string;
+  threadId: string;
   workspaceId: string;
 }
 /**
@@ -6143,10 +10296,54 @@ export interface WatchlistRename {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveExport".
+ */
+export interface WorkspaceArchiveExport {
+  destinationPath: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchivePreviewRequest".
+ */
+export interface WorkspaceArchivePreviewRequest {
+  archivePath: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceArchiveRestoreRequest".
+ */
+export interface WorkspaceArchiveRestoreRequest {
+  archivePath: string;
+  destinationParent: string;
+  manifestHash: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "OpenWorkspace".
  */
 export interface OpenWorkspace {
   baseCurrency?: string;
   name?: string;
   path?: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceRetentionQuery".
+ */
+export interface WorkspaceRetentionQuery {
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "WorkspaceRetentionUpdate".
+ */
+export interface WorkspaceRetentionUpdate {
+  artifactRetentionDays?: number | null;
+  cacheRetentionDays?: number | null;
+  expectedStateVersion: string;
+  marketDataRetentionDays?: number | null;
+  workspaceId: string;
 }

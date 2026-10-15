@@ -1,0 +1,66 @@
+npm notice run tradex@0.1.0 schema:check
+npm notice run node scripts/ipc-schema.mjs --check
+Rust / JSON Schema / TypeScript agree.
+npm notice run tradex@0.1.0 typecheck
+npm notice run tsc --noEmit
+✔ the UI applies only contiguous supported events and ignores exact duplicates (6.683333ms)
+✔ workspace snapshots accept the current storage schema version (0.153375ms)
+✔ generated result schema rejects false success, mixed envelopes and foreign payloads (9.188125ms)
+✔ research venue schema keeps unavailable values nullable and rejects numeric zero (0.431417ms)
+✔ Bitget Spot order schema accepts external origins and plan trigger states (0.407666ms)
+✔ research payload schema rejects unbounded scenarios, artifact refs and venue rows (0.827166ms)
+✔ model projection accepts both provider event types and rejects foreign aggregates (0.480084ms)
+✔ thread projection preserves identity and contiguous event ordering (0.301833ms)
+✔ account projection applies durable Live arming transitions (0.249334ms)
+✔ Live settlement events preserve the exact attempt and reservation binding (0.485166ms)
+✔ Alpaca Paper attempts use their own aggregate identity and preserve order bindings (0.303958ms)
+✔ Trading 212 Demo attempts replay by attempt identity without inventing a client order ID (0.323458ms)
+✔ Trading 212 Demo order books replay exact cumulative observations under Demo account identity (0.817042ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 135.291459
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.77s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-a8e0fdc90cdee4ca)
+
+running 7 tests
+test cancelled_and_stale_secure_entry_preserve_the_current_selection_and_restart_never_verifies_it ... ok
+test catalog_and_credentialed_probe_are_scoped_and_read_only ... ok
+test dedicated_data_key_is_native_only_and_disconnect_reports_owned_key_cleanup ... ok
+test interrupted_keychain_write_is_visible_after_restart_and_can_only_clean_its_owned_key ... ok
+test selected_quote_source_has_independent_configuration_and_retains_no_live_readiness ... ok
+test source_secure_entry_rejects_untrusted_consumers_and_renderer_secrets_before_capture ... ok
+test user_can_reuse_an_alpaca_reference_and_reopen_the_explicit_feed_without_entitlement ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+     Running tests/watchlists.rs (target/debug/deps/watchlists-8703b026e8c69217)
+
+running 4 tests
+test schema_eight_workspaces_migrate_artifacts_table ... ok
+test schema_six_workspaces_migrate_watchlists_transactionally ... ok
+test watchlist_schema_rejects_unknown_fields_and_invalid_names ... ok
+test watchlists_are_versioned_ordered_idempotent_and_persistent ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/workspace.rs (target/debug/deps/workspace-6266169fd3e638a2)
+
+running 7 tests
+test a_workspace_keeps_its_identity_and_events_after_process_state_is_dropped ... ok
+test creation_settings_survive_reopen_and_invalid_requests_do_not_change_state ... ok
+test failed_storage_switches_and_outbox_writes_preserve_the_active_workspace ... ok
+test retained_events_join_live_delivery_and_resubscription_preserves_event_identity ... ok
+test same_workspace_reopen_recreates_missing_market_history_table ... ok
+test schema_30_migrates_execution_attempt_history_without_losing_foreign_keys ... ok
+test upgrades_backup_recognized_storage_and_never_downgrade_a_newer_schema ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+    Checking tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.52s

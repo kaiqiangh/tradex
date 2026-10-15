@@ -1,0 +1,8 @@
+AssertionError [ERR_ASSERTION]: {"blocking":true,"category":"INTERNAL_ERROR","code":"PROVIDER_ALREADY_CONNECTED","message":"This account is already connected in this environment. Use the existing connection.","remediationActions":[{"id":"select_account","label":"Open existing connection"}],"retryable":false}
+
+false !== true
+
+    at send (/Users/kai/Desktop/my-repo/tradex/tests/binance-trade-hot-ui.mjs:12:50)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async Module.checkBinanceTradeHotUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-trade-hot-ui.mjs:36:20)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_150.mjs:41:72

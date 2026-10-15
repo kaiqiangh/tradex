@@ -1,0 +1,48 @@
+S29.8 — Owning Binance Spot Live PLACE qualification from exact capacity and interval inputs
+Public RED on the actual React surface, after the Rust GREEN above.
+
+The Rust GREEN proved the qualification through the public dispatcher, but the browser is a
+separate public seam: React decodes every response through the generated Ajv validators before
+any component sees it. Running the real app against the real Rust dispatcher showed the new
+contract was not deliverable at all, and then that no external producer state existed in which
+the delivered read-only inputs could qualify.
+
+1. The owning statement was undecodable in the application.
+
+Command: npm run dev:browser with TRADEX_SOURCE_ONLY_FIXTURE=1 TRADEX_BINANCE_RULE_HTTP_FIXTURE=1
+         TRADEX_LIVE_APPROVAL_FIXTURE=1, then
+         node tradex-spot-owning-runner.mjs /tmp/tx-s298/ui.json
+Observed at 2026-10-09T22:27Z.
+
+  locator.waitFor: Timeout 30000ms exceeded.
+  Call log:
+    - waiting for getByRole('region', { name: 'Captured Proposal Spot owning admission', exact: true }).first() to be visible
+
+  observed alert:  The application and runtime are incompatible. Update them together before continuing.
+
+  observed RiskDecision panel: RiskDecision history / No risk evaluation has been saved for this Proposal.
+
+`risk.evaluate_proposal` returned a RiskDecision carrying the new statement; the generated
+`RiskDecision` validator rejected the whole payload, the browser refused to decode it, and no
+decision was saved. Nothing in the owning statement was ever displayed. This is an actual
+runtime incompatibility at the public React seam, not a provider failure, and no Rust test
+could observe it: `cargo test` never runs the generated validator against a real response.
+
+2. No external producer state could satisfy the delivered read-only inputs.
+
+Command: node tx-s298-probe2.mjs (same server, real dispatcher over the integration bridge)
+Observed at 2026-10-09T22:18Z.
+
+  === scenario NORMAL ===      owning: {"outcome":"UNAVAILABLE","reasonCode":"SPOT_CAPACITY_COVERAGE_INCOMPLETE", ...}
+  === scenario BASE_LISTS ===  owning: {"outcome":"UNAVAILABLE","reasonCode":"SPOT_CAPACITY_COVERAGE_INCOMPLETE", ...}
+
+Every existing capacity fixture left either a partially filled foreign order
+(PARTIAL_FILL_QUANTITY_SEMANTICS_UNRESOLVED) or an unresolved order-list leg
+(listCoverageComplete=false), so the delivered inventory was genuinely incomplete in both and
+the positive case — a current, completely covered inventory qualifying the intent — was
+unreachable in the real UI. The exhausted declared order-rate window was likewise unreachable:
+no fixture scenario returned a count at the declared limit, so the single typed blocker could
+not be produced either.
+
+Both are external HTTP producer states, so the fixture seam is where they belong; no product
+behaviour, assertion or Control Plane value was relaxed to reach them.

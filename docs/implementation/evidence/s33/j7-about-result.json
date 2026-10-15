@@ -1,0 +1,74 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "J7",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:32:37.658Z",
+  "workspace": "e21848cb-f05a-4988-a0b5-1cb51560895a",
+  "test": "tests/s33-about-screen-playwright.js",
+  "testSha256": "076cd77bc70a516e7859f7c723d903a3b8737232f87cb1649a6b61e4f6dbaeb2",
+  "applicationVersionDisplayed": "0.1.0",
+  "applicationIdentity": "Native TradeX desktop workspace",
+  "documentationBaseline": "TradeX v1.0 · Revision C",
+  "prototypeDisclaimer": "Historical clickable fixture; it is not the running application.",
+  "localRuntimeRows": [
+    {
+      "component": "Control Plane",
+      "status": "RUNNING",
+      "message": "Local workspace control is available."
+    },
+    {
+      "component": "Codex App Server",
+      "status": "READY",
+      "message": "Bounded stdio Codex App Server is available."
+    },
+    {
+      "component": "CLIProxyAPI",
+      "status": "RUNNING",
+      "message": "Gateway health is separate from verified model-route availability."
+    },
+    {
+      "component": "Order Gateway",
+      "status": "NOT CONFIGURED",
+      "message": "Live execution is unavailable."
+    }
+  ],
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "perWidthChecks": [
+    "required facts visible",
+    "four runtime rows rendered",
+    "no horizontal overflow"
+  ],
+  "keyboard": [
+    "Enter opens Settings",
+    "Enter selects About",
+    "Enter triggers runtime status refresh"
+  ],
+  "observedCommandCount": 16,
+  "observedCommands": [
+    "account.activity",
+    "account.list",
+    "domain.snapshot",
+    "domain.subscribe",
+    "paper.get",
+    "provider.list_definitions",
+    "runtime.status"
+  ],
+  "unexpectedCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshot": "docs/implementation/evidence/s33/about-390.png",
+  "screenshotSha256": "68cbde0f83f3ec55fc6140fbe0e644af86f447e4b0034a3c3153464f05ffd546",
+  "limits": [
+    "Browser harness version does not establish the native installed application version.",
+    "This local status check does not verify provider/model routes or live Gateway connectivity; native About evidence remains in S32."
+  ],
+  "standardsReview": "PASS for the bounded local read-only screen test; no provider mutation or external HTTP.",
+  "specReview": "PASS for UI Spec J7 version, runtime status, RevC baseline, prototype disclaimer, keyboard selection, and tested responsive bounds.",
+  "overallSurfaceStatus": "IN_PROGRESS"
+}

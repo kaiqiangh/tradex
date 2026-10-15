@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 28.45s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 1 test
+test storage::execution_reservation_claim_tests::prepare_claim_vector_accepts_one_native_fee_leg_and_rejects_duplicates ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 254 filtered out; finished in 0.00s
+

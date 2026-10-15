@@ -1,0 +1,25 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.05s
+     Running tests/quote_hot.rs (target/debug/deps/quote_hot-72ed569b5fe0a82e)
+
+running 1 test
+test hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket ... FAILED
+
+failures:
+
+---- hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket stdout ----
+
+thread 'hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket' (1545404) panicked at src-tauri/tests/quote_hot.rs:190:5:
+Configured and subscribed source must explain missing quote accurately: {"data":{"authenticated":true,"connectionGeneration":"1142173c-6e11-4a9c-8fae-65a4a612f84e","detail":{"adjustmentStatus":"UNAVAILABLE","availabilityReason":"Selected sip feed is configured; technical access has not been verified.","corporateActions":[],"instrument":{"assetClass":"EQUITY","currency":"USD","displayName":"Apple Inc.","exchange":"XNAS","instrumentId":"equity:US:AAPL","providers":[{"providerId":"alpaca","providerSymbol":"AAPL"},{"providerId":"trading212","providerSymbol":"AAPL_US_EQ"}],"symbol":"AAPL"},"marketState":{"observedAt":"2026-10-01T08:10:38.098Z","reason":"Calendar and corporate-action credentials/coverage are not configured or freshly verified.","session":"UNKNOWN","sourceId":"OD-005","sourceStatus":"BLOCKED_EXTERNAL","timeConfidence":"TRUSTED","venue":"XNAS"},"sourceId":"OD-001","status":"UNVERIFIED","tier":"HOT","workspaceId":"1fe67f3e-1433-4bf8-977f-8cbed5cc6b4d"},"generation":"1142173c-6e11-4a9c-8fae-65a4a612f84e","instrumentId":"equity:US:AAPL","leaseId":"c7bfeb2f-501f-47ec-a8f8-0d9a47573776","reason":"Subscription confirmed; waiting for an actual provider quote.","reconnectAttempt":0,"sequence":3,"sourceId":"OD-001","sourceVersion":"data:1fe67f3e-1433-4bf8-977f-8cbed5cc6b4d:1","status":"AWAITING_QUOTE","subscribed":true,"workspaceId":"1fe67f3e-1433-4bf8-977f-8cbed5cc6b4d"},"ok":true,"requestId":"hot-test","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread '<unnamed>' (1545412) panicked at src-tauri/tests/quote_hot.rs:147:57:
+called `Result::unwrap()` on an `Err` value: Disconnected
+
+
+failures:
+    hot_needs_auth_full_subscription_and_real_quotes_and_release_closes_the_socket
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tradex --test quote_hot`

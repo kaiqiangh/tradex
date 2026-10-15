@@ -1,0 +1,133 @@
+{
+  "status": "PASS_LIMITED",
+  "testedAt": "2026-10-15T16:21:31.703Z",
+  "workspaceId": "d8ffc046-b4e8-4dee-bc1c-c14e9804007d",
+  "observations": [
+    "Schema-driven setup has no renderer secret inputs; explicit acknowledgement of unverified permission scope precedes confirmation; exact decimal account/order values are displayed.",
+    "Saved connection survives UI reload; account refresh and workspace subscriptions coexist without cross-aggregate errors.",
+    "Alpaca Paper Proposal review requires explicit confirmation, shows the account/order/hash identity, and renders acknowledgement separately from fills.",
+    "Reload restores the saved provider attempt and removes the submit action, preventing a second UI submission.",
+    "After reload, TradeX re-tests the Alpaca Paper credential before refreshing orders; the saved attempt remains immutable.",
+    "Order refresh identifies the TradeX order; cancel review shows account and exact fill remainder, dismissal sends nothing, and HTTP 204 stays pending.",
+    "Rust IPC persists a stream partial fill and health event; React refreshes the order projection, deduplicates repeat executions, and ignores late state rollback.",
+    "A Rust-persisted stream disconnect marks the saved order book stale and renders degraded stream/reconciliation text on the Order surface.",
+    "Account controls, permission limitations and separate health dimensions remain reachable at 768px.",
+    "Account controls, permission limitations and separate health dimensions remain reachable at 390px.",
+    "Disconnect removes local credential access; historical observations stay labeled disconnected and refresh is disabled."
+  ],
+  "dialogLayouts": [
+    {
+      "dialog": "submission",
+      "width": 1280,
+      "actionsReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "dialog": "submission",
+      "width": 768,
+      "actionsReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "dialog": "submission",
+      "width": 390,
+      "actionsReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "dialog": "cancellation",
+      "width": 1280,
+      "actionsReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "dialog": "cancellation",
+      "width": 768,
+      "actionsReachable": true,
+      "noDocumentOverflow": true
+    },
+    {
+      "dialog": "cancellation",
+      "width": 390,
+      "actionsReachable": true,
+      "noDocumentOverflow": true
+    }
+  ],
+  "captures": [
+    "docs/implementation/evidence/s33/g2-alpaca-submission-390.png",
+    "docs/implementation/evidence/s33/g2-alpaca-submission-actions-390.png",
+    "docs/implementation/evidence/s33/g2-alpaca-cancellation-390.png",
+    "docs/implementation/evidence/s33/g2-alpaca-cancellation-actions-390.png"
+  ],
+  "passiveOpen": {
+    "providerConnects": 0,
+    "accountRefreshes": 0
+  },
+  "commandCounts": {
+    "account.activity": 4,
+    "account.get": 7,
+    "account.list": 40,
+    "account.refresh": 4,
+    "agent.capabilities": 8,
+    "alpaca.paper.order.attempt.get": 5,
+    "alpaca.paper.order.cancel": 1,
+    "alpaca.paper.order.review": 3,
+    "alpaca.paper.order.submit": 1,
+    "alpaca.paper.orders.get": 10,
+    "alpaca.paper.orders.refresh": 1,
+    "alpaca.paper.stream.disconnect.fixture": 1,
+    "alpaca.paper.stream.fixture": 3,
+    "context.catalog": 8,
+    "data.fx.connection": 3,
+    "data.fx.requirements": 3,
+    "data.source.connection": 3,
+    "domain.snapshot": 32,
+    "domain.subscribe": 46,
+    "market.catalog": 3,
+    "paper.get": 7,
+    "provider.connect": 2,
+    "provider.disconnect": 2,
+    "provider.list_definitions": 7,
+    "risk.decision.list": 3,
+    "runtime.status": 11,
+    "thread.list": 4,
+    "time.revalidate": 4,
+    "time.status": 2,
+    "trade.draft.get": 3,
+    "trade.draft.list": 5,
+    "trade.generate_proposal": 1,
+    "trade.proposal.get": 5,
+    "trade.proposal.list": 6,
+    "trade.save_draft": 1,
+    "workspace.open": 4
+  },
+  "forbiddenCommands": 0,
+  "externalRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "limitations": [
+    "Synthetic HTTP/vault/private-stream and market/time fixtures only",
+    "Browser ARIA is not native accessibility or VoiceOver",
+    "No real Alpaca authentication, Paper order, stream or entitlement acceptance",
+    "Full S17/S33 remain open"
+  ],
+  "reviewBaseline": "c14ef067223e3d40ca828e497a821ac6f82649c6",
+  "preparationAttempts": [
+    "The initial harness did not enable the existing synthetic market opt-in; fixture use was denied. Onboarding was also completed explicitly before the counted run.",
+    "With opt-in enabled, the old helper still waited for ACK while Paper had no synthetic market evidence; public risk refused QUOTE_FRESHNESS, MARKET_SESSION, CORPORATE_ACTION_COVERAGE, HISTORICAL_ADJUSTMENT and INSTRUMENT_RULES. Integration/test-only synthetic context selection now includes the exact Alpaca/PAPER account/environment. Normal builds retain the ordinary path.",
+    "Later preparations reached ACK but order-book refresh correctly refused PROVIDER_REVIEW_REQUIRED after reload reset credentials to UNCHECKED. The helper now uses the saved connection and explicitly refreshes it before reading orders.",
+    "The old final-health expectation assumed DEGRADED reconciliation after reload; the counted assertion follows the startup STALE reconciliation, UNVERIFIED authentication and preserved DEGRADED private stream.",
+    "The old zero-alert assertion incorrectly rejected the persisted STREAM_DISCONNECTED recovery surface after disconnect; it now asserts that exact recovery state.",
+    "An added keyboard assertion initially used an absent private data-safe-default attribute. It now identifies the public Keep reviewing button by role/name.",
+    "Preparatory passes at 16:19:36Z and 16:20:53.309Z preceded the final keyboard/action-geometry and explicit command-allowlist checks; only the current final result is counted."
+  ],
+  "sourceAndArtifactSha256": {
+    "src-tauri/src/lib.rs": "5f680a72638e9cd31a4bc67af286e8adc0334eda4b387f639a59238e1c16d211",
+    "tests/provider-ui.mjs": "0e8977596b1de2d06245921c96e4fd84dd3a728c0cf0fbcf5e0971afd823610a",
+    "tests/s33-alpaca-paper-ui.mjs": "5583c8b19f7a0013e1b00f72a80c63bc0669e38b096be2c655a8c8be1b347d04",
+    "docs/implementation/evidence/s33/g2-alpaca-submission-390.png": "9117cd81b2e6e8822f6d6c6c917004b8d569e51e3eef321e7f91bb153e568aa6",
+    "docs/implementation/evidence/s33/g2-alpaca-submission-actions-390.png": "745fff9ef8febca1a7e31fdf1fdd2d3ac612aa7f1d2ede42a20e8153afcfeac1",
+    "docs/implementation/evidence/s33/g2-alpaca-cancellation-390.png": "da844cc5f2dc8b5331fb9dad471c7901a29290325ef0e0e958d7bd496108c513",
+    "docs/implementation/evidence/s33/g2-alpaca-cancellation-actions-390.png": "2c346eaff62483898439b7a6d0da566393951d20d493fc047b91007841911d1e"
+  }
+}

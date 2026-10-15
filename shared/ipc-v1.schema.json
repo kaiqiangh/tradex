@@ -127,6 +127,12 @@
     "backtestRunSummary": {
       "$ref": "#/$defs/BacktestRunSummary"
     },
+    "binanceMarketSourceConnection": {
+      "$ref": "#/$defs/BinanceMarketSourceConnection"
+    },
+    "binanceRuleSourceConfigure": {
+      "$ref": "#/$defs/BinanceRuleSourceConfigure"
+    },
     "binanceTestnetBalance": {
       "$ref": "#/$defs/BinanceTestnetBalance"
     },
@@ -187,6 +193,12 @@
     "bitgetDemoOrderSubmit": {
       "$ref": "#/$defs/BitgetDemoOrderSubmit"
     },
+    "calendarConfigure": {
+      "$ref": "#/$defs/CalendarConfigure"
+    },
+    "calendarConnection": {
+      "$ref": "#/$defs/CalendarConnection"
+    },
     "cancellationApprovalAction": {
       "$ref": "#/$defs/CancellationApprovalAction"
     },
@@ -229,6 +241,15 @@
     "contextCatalog": {
       "$ref": "#/$defs/WorkspaceQuery"
     },
+    "dataSourceConfigure": {
+      "$ref": "#/$defs/DataSourceConfigure"
+    },
+    "dataSourceConnection": {
+      "$ref": "#/$defs/DataSourceConnection"
+    },
+    "dataSourceMutation": {
+      "$ref": "#/$defs/DataSourceMutation"
+    },
     "dataSourceProbe": {
       "$ref": "#/$defs/DataSourceProbe"
     },
@@ -246,6 +267,12 @@
     },
     "executionAttempt": {
       "$ref": "#/$defs/ExecutionAttempt"
+    },
+    "executionOrderLinks": {
+      "$ref": "#/$defs/ExecutionOrderLinks"
+    },
+    "executionOrderLinksQuery": {
+      "$ref": "#/$defs/ExecutionOrderLinksQuery"
     },
     "executionPreparation": {
       "$ref": "#/$defs/ExecutionPreparation"
@@ -271,8 +298,38 @@
     "financialApprovalHistoryQuery": {
       "$ref": "#/$defs/FinancialApprovalHistoryQuery"
     },
+    "financialSourceConfigure": {
+      "$ref": "#/$defs/FinancialSourceConfigure"
+    },
+    "financialSourceConnection": {
+      "$ref": "#/$defs/FinancialSourceConnection"
+    },
+    "fxLocalUseAttestationCommand": {
+      "$ref": "#/$defs/FxLocalUseAttestationCommand"
+    },
+    "fxRequirements": {
+      "$ref": "#/$defs/FxRequirements"
+    },
+    "fxRequirementsQuery": {
+      "$ref": "#/$defs/FxRequirementsQuery"
+    },
+    "fxSourceRefresh": {
+      "$ref": "#/$defs/FxSourceRefresh"
+    },
     "gatewayMutation": {
       "$ref": "#/$defs/GatewayMutation"
+    },
+    "hotQuoteAcquire": {
+      "$ref": "#/$defs/HotQuoteAcquire"
+    },
+    "hotQuoteProjection": {
+      "$ref": "#/$defs/HotQuoteProjection"
+    },
+    "hotQuoteQuery": {
+      "$ref": "#/$defs/HotQuoteQuery"
+    },
+    "hotQuoteRelease": {
+      "$ref": "#/$defs/HotQuoteRelease"
     },
     "liveOrderRefreshRequest": {
       "$ref": "#/$defs/LiveOrderRefreshRequest"
@@ -409,6 +466,30 @@
     "setOnboardingStep": {
       "$ref": "#/$defs/SetOnboardingStep"
     },
+    "spotCapacityInputs": {
+      "$ref": "#/$defs/SpotCapacityInputs"
+    },
+    "spotCommissionInputs": {
+      "$ref": "#/$defs/SpotCommissionInputs"
+    },
+    "spotFeeMarketAcquire": {
+      "$ref": "#/$defs/SpotFeeMarketAcquire"
+    },
+    "spotFeeMarketProjection": {
+      "$ref": "#/$defs/SpotFeeMarketProjection"
+    },
+    "spotOrderIntervalInputs": {
+      "$ref": "#/$defs/SpotOrderIntervalInputs"
+    },
+    "spotProposalRules": {
+      "$ref": "#/$defs/SpotProposalRules"
+    },
+    "spotRulesQuery": {
+      "$ref": "#/$defs/SpotRulesQuery"
+    },
+    "spotRulesRefresh": {
+      "$ref": "#/$defs/SpotRulesRefresh"
+    },
     "strategyCancel": {
       "$ref": "#/$defs/StrategyCancel"
     },
@@ -447,6 +528,9 @@
     },
     "threadCreate": {
       "$ref": "#/$defs/ThreadCreate"
+    },
+    "threadLifecycle": {
+      "$ref": "#/$defs/ThreadLifecycle"
     },
     "threadQuery": {
       "$ref": "#/$defs/ThreadQuery"
@@ -514,11 +598,38 @@
     "watchlistRename": {
       "$ref": "#/$defs/WatchlistRename"
     },
+    "workspaceArchiveExport": {
+      "$ref": "#/$defs/WorkspaceArchiveExport"
+    },
+    "workspaceArchiveExportResult": {
+      "$ref": "#/$defs/WorkspaceArchiveExportResult"
+    },
+    "workspaceArchivePreview": {
+      "$ref": "#/$defs/WorkspaceArchivePreview"
+    },
+    "workspaceArchivePreviewRequest": {
+      "$ref": "#/$defs/WorkspaceArchivePreviewRequest"
+    },
+    "workspaceArchiveRestoreRequest": {
+      "$ref": "#/$defs/WorkspaceArchiveRestoreRequest"
+    },
+    "workspaceArchiveRestoreResult": {
+      "$ref": "#/$defs/WorkspaceArchiveRestoreResult"
+    },
     "workspaceOpen": {
       "$ref": "#/$defs/OpenWorkspace"
     },
     "workspaceQuery": {
       "$ref": "#/$defs/WorkspaceQuery"
+    },
+    "workspaceRetention": {
+      "$ref": "#/$defs/WorkspaceRetention"
+    },
+    "workspaceRetentionQuery": {
+      "$ref": "#/$defs/WorkspaceRetentionQuery"
+    },
+    "workspaceRetentionUpdate": {
+      "$ref": "#/$defs/WorkspaceRetentionUpdate"
     }
   },
   "required": [
@@ -533,6 +644,14 @@
     "setFallbackPolicy",
     "riskQuery",
     "riskDecisionEvaluate",
+    "spotRulesRefresh",
+    "spotRulesQuery",
+    "spotProposalRules",
+    "spotCapacityInputs",
+    "spotCommissionInputs",
+    "spotFeeMarketAcquire",
+    "spotFeeMarketProjection",
+    "spotOrderIntervalInputs",
     "riskDecisionQuery",
     "saveRiskPolicy",
     "setOnboardingStep",
@@ -541,6 +660,15 @@
     "result",
     "event",
     "workspaceOpen",
+    "workspaceArchiveExport",
+    "workspaceArchivePreviewRequest",
+    "workspaceArchiveRestoreRequest",
+    "workspaceArchiveExportResult",
+    "workspaceArchivePreview",
+    "workspaceArchiveRestoreResult",
+    "workspaceRetention",
+    "workspaceRetentionQuery",
+    "workspaceRetentionUpdate",
     "aggregate",
     "subscribe",
     "empty",
@@ -553,6 +681,7 @@
     "providerConnect",
     "threadCreate",
     "threadQuery",
+    "threadLifecycle",
     "turnStart",
     "turnCancel",
     "turnRetry",
@@ -561,8 +690,25 @@
     "researchResult",
     "dataSourceQuery",
     "dataSourceProbe",
+    "dataSourceConnection",
+    "binanceMarketSourceConnection",
+    "calendarConnection",
+    "calendarConfigure",
+    "financialSourceConnection",
+    "financialSourceConfigure",
+    "binanceRuleSourceConfigure",
+    "fxRequirementsQuery",
+    "fxSourceRefresh",
+    "fxLocalUseAttestationCommand",
+    "fxRequirements",
+    "dataSourceConfigure",
+    "dataSourceMutation",
     "marketCatalogQuery",
     "marketGetQuery",
+    "hotQuoteAcquire",
+    "hotQuoteQuery",
+    "hotQuoteProjection",
+    "hotQuoteRelease",
     "screenerRequest",
     "screenerSave",
     "screenerUpdate",
@@ -589,6 +735,8 @@
     "executionPreparation",
     "executionPreparationQuery",
     "executionPreparationQueryResult",
+    "executionOrderLinksQuery",
+    "executionOrderLinks",
     "resolutionEvidenceQuery",
     "resolutionEvidenceRefresh",
     "manualResolutionRequest",
@@ -729,6 +877,16 @@
     "AccountConnection": {
       "type": "object",
       "properties": {
+        "binanceTradingStatus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceTradingStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "connectionId": {
           "type": "string",
           "minLength": 1
@@ -1046,6 +1204,31 @@
       "required": [
         "aggregateType",
         "aggregateId"
+      ]
+    },
+    "AlpacaCryptoLocation": {
+      "description": "Explicit Alpaca crypto data location. A failed or unsupported location never falls back.",
+      "type": "string",
+      "enum": [
+        "us",
+        "us-1",
+        "eu-1"
+      ]
+    },
+    "AlpacaFeed": {
+      "type": "string",
+      "enum": [
+        "iex",
+        "sip",
+        "delayed_sip"
+      ]
+    },
+    "AlpacaMarketDataPlan": {
+      "type": "string",
+      "enum": [
+        "BASIC",
+        "ALGO_TRADER_PLUS",
+        "UNKNOWN"
       ]
     },
     "AlpacaPaperCancelState": {
@@ -1718,6 +1901,90 @@
         "confirmedPaperOrder"
       ]
     },
+    "AlpacaQuoteEvidence": {
+      "type": "object",
+      "properties": {
+        "askExchange": {
+          "type": "string",
+          "pattern": "^[A-Z]$"
+        },
+        "askExchangeName": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bidExchange": {
+          "type": "string",
+          "pattern": "^[A-Z]$"
+        },
+        "bidExchangeName": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/QuoteCondition"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "coverage": {
+          "$ref": "#/$defs/QuoteCoverage"
+        },
+        "depthUnit": {
+          "$ref": "#/$defs/QuoteDepthUnit"
+        },
+        "feed": {
+          "$ref": "#/$defs/AlpacaFeed"
+        },
+        "listingVenue": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "regularConditions": {
+          "type": "boolean"
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "tape": {
+          "type": "string",
+          "pattern": "^[ABC]$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "feed",
+        "coverage",
+        "providerSymbol",
+        "listingVenue",
+        "bidExchange",
+        "askExchange",
+        "bidExchangeName",
+        "askExchangeName",
+        "tape",
+        "conditions",
+        "regularConditions",
+        "depthUnit",
+        "sourceVersion",
+        "connectionGeneration"
+      ]
+    },
     "ApprovalAction": {
       "type": "object",
       "properties": {
@@ -1758,6 +2025,27 @@
         "reviewedRiskDecisionId",
         "reviewDigest",
         "expectedStateVersion"
+      ]
+    },
+    "ApprovalExpiryAuthority": {
+      "type": "string",
+      "enum": [
+        "TRUSTED_TIME_SERVICE"
+      ]
+    },
+    "ApprovalExpiryReservationDisposition": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "RETAINED",
+        "RELEASED",
+        "ALREADY_RELEASED"
+      ]
+    },
+    "ApprovalExpiryScope": {
+      "type": "string",
+      "enum": [
+        "approval"
       ]
     },
     "ApprovalRejection": {
@@ -1854,6 +2142,16 @@
             }
           ]
         },
+        "currencyEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxReviewEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "eligible": {
           "type": "boolean"
         },
@@ -1908,6 +2206,16 @@
         },
         "riskDecision": {
           "$ref": "#/$defs/RiskDecision"
+        },
+        "spotFeeFx": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFeeFxStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "spread": {
           "type": "string",
@@ -3428,6 +3736,273 @@
         "available"
       ]
     },
+    "BinanceMarketSourceConnection": {
+      "type": "object",
+      "properties": {
+        "configured": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/DataSourceEntry"
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "stateVersion",
+        "configured",
+        "source"
+      ]
+    },
+    "BinanceRuleSourceConfigure": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "connectionId",
+        "instrumentId"
+      ]
+    },
+    "BinanceSpotOrderFormFlags": {
+      "type": "object",
+      "properties": {
+        "allowTrailingStop": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "amendAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "cancelReplaceAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "icebergAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ocoAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "opoAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "otoAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "pegInstructionsAllowed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "BinanceSpotQuoteEvidence": {
+      "type": "object",
+      "properties": {
+        "askKnownCeiling": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "asks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotDepthLevel"
+          },
+          "maxItems": 20
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bidKnownFloor": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotDepthLevel"
+          },
+          "maxItems": 20
+        },
+        "bookUpdateId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "dataUseRights": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "depthCoverage": {
+          "$ref": "#/$defs/SpotDepthCoverage"
+        },
+        "depthUnit": {
+          "$ref": "#/$defs/QuoteDepthUnit"
+        },
+        "environment": {
+          "$ref": "#/$defs/SpotMarketEnvironment"
+        },
+        "knownAskLevels": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 5000,
+          "minimum": 1
+        },
+        "knownBidLevels": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 5000,
+          "minimum": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "providerEventTimeMs": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "sessionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "timeGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sessionId",
+        "timeGeneration",
+        "leaseId",
+        "environment",
+        "depthCoverage",
+        "knownBidLevels",
+        "knownAskLevels",
+        "materialHash",
+        "providerEventTimeMs",
+        "providerSymbol",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "connectionGeneration",
+        "bookUpdateId",
+        "depthUnit",
+        "bidKnownFloor",
+        "askKnownCeiling",
+        "bids",
+        "asks",
+        "dataUseRights"
+      ]
+    },
+    "BinanceSpotSymbolStatus": {
+      "type": "string",
+      "enum": [
+        "TRADING",
+        "HALT",
+        "BREAK",
+        "UNKNOWN"
+      ]
+    },
+    "BinanceSystemStatus": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "MAINTENANCE"
+      ]
+    },
     "BinanceTestnetBalance": {
       "type": "object",
       "properties": {
@@ -4296,6 +4871,42 @@
         "confirmedTestnetOrder"
       ]
     },
+    "BinanceTradingStatus": {
+      "type": "object",
+      "properties": {
+        "apiTradingLocked": {
+          "type": "boolean"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "plannedRecoveryAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerUpdatedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "systemStatus": {
+          "$ref": "#/$defs/BinanceSystemStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "systemStatus",
+        "apiTradingLocked",
+        "providerUpdatedAt",
+        "observedAt"
+      ]
+    },
     "BitgetDemoOrderAttempt": {
       "type": "object",
       "properties": {
@@ -4746,6 +5357,255 @@
         "orders",
         "fills",
         "observedAt"
+      ]
+    },
+    "BrokerInstrumentMetadata": {
+      "type": "object",
+      "properties": {
+        "canonicalSecurityIdentity": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 3,
+          "minLength": 3
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "exchangeName": {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        "extendedHours": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "isin": {
+          "type": "string",
+          "maxLength": 12,
+          "minLength": 12
+        },
+        "maxOpenQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "scheduleEvents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BrokerScheduleEvent"
+          },
+          "maxItems": 4000
+        },
+        "workingScheduleId": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "instrumentId",
+        "providerSymbol",
+        "isin",
+        "currency",
+        "displayName",
+        "workingScheduleId",
+        "exchangeName",
+        "scheduleEvents",
+        "canonicalSecurityIdentity"
+      ]
+    },
+    "BrokerScheduleEvent": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "eventType": {
+          "$ref": "#/$defs/BrokerScheduleEventType"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "eventType"
+      ]
+    },
+    "BrokerScheduleEventType": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "CLOSE",
+        "BREAK_START",
+        "BREAK_END",
+        "PRE_MARKET_OPEN",
+        "AFTER_HOURS_OPEN",
+        "AFTER_HOURS_CLOSE",
+        "OVERNIGHT_OPEN"
+      ]
+    },
+    "CalendarCapability": {
+      "type": "string",
+      "enum": [
+        "MARKET_CALENDAR",
+        "CORPORATE_ACTIONS",
+        "HALTS",
+        "HISTORICAL_ADJUSTMENT"
+      ]
+    },
+    "CalendarCapabilityResult": {
+      "type": "object",
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/CalendarCapability"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "status",
+        "reason"
+      ]
+    },
+    "CalendarConfigure": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "connectionId"
+      ]
+    },
+    "CalendarConnection": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "calendarVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "capabilityStatuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CalendarCapabilityResult"
+          },
+          "maxItems": 4,
+          "minItems": 4
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "coverageEnd": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "coverageStart": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "eligibleAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceAccountChoice"
+          },
+          "maxItems": 256
+        },
+        "environment": {
+          "type": "string",
+          "const": "PAPER"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "stateVersion",
+        "configured",
+        "environment",
+        "status",
+        "availabilityReason",
+        "eligibleAccounts",
+        "capabilityStatuses"
       ]
     },
     "CancellationApprovalAction": {
@@ -5494,6 +6354,17 @@
         "REDUCE_REQUEST_OR_REVIEW_WORKSPACE_LIMIT"
       ]
     },
+    "ChargingCondition": {
+      "type": "string",
+      "enum": [
+        "DISCOUNT_DISABLED_CURRENT_FALLBACK",
+        "CONDITIONAL_BNB_INPUTS_REQUIRED",
+        "ZERO_BNB_CURRENT_FALLBACK",
+        "ZERO_DISCOUNTED_FEE_EXPRESSION",
+        "DISCOUNTED_BNB_CURRENT_ESTIMATE",
+        "INSUFFICIENT_BNB_CURRENT_FALLBACK"
+      ]
+    },
     "ChatgptLogin": {
       "type": "object",
       "properties": {
@@ -5550,6 +6421,158 @@
         "schemaVersion",
         "command",
         "payload"
+      ]
+    },
+    "CompanyEventCategory": {
+      "type": "string",
+      "enum": [
+        "NAME_CHANGE",
+        "CASH_DIVIDEND",
+        "FORWARD_SPLIT",
+        "REVERSE_SPLIT",
+        "UNIT_SPLIT",
+        "STOCK_DIVIDEND",
+        "SPIN_OFF",
+        "CASH_MERGER",
+        "STOCK_MERGER",
+        "STOCK_AND_CASH_MERGER",
+        "REDEMPTION",
+        "WORTHLESS_REMOVAL",
+        "RIGHTS_DISTRIBUTION",
+        "PARTIAL_CALL",
+        "REORGANIZATION",
+        "CAPITAL_GAINS_DISTRIBUTION"
+      ]
+    },
+    "CompanyEventDate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CompanyEventDateName"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "CompanyEventDateName": {
+      "type": "string",
+      "enum": [
+        "ex_date",
+        "effective_date",
+        "payable_date",
+        "record_date",
+        "due_bill_on_date",
+        "due_bill_off_date",
+        "due_bill_redemption_date",
+        "expiration_date",
+        "lottery_date",
+        "results_publication_date"
+      ]
+    },
+    "CompanyEventSecurity": {
+      "type": "object",
+      "properties": {
+        "cusip": {
+          "type": "string",
+          "maxLength": 9,
+          "minLength": 9
+        },
+        "isin": {
+          "type": "string",
+          "maxLength": 12,
+          "minLength": 12
+        },
+        "role": {
+          "$ref": "#/$defs/CompanyEventSecurityRole"
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role"
+      ]
+    },
+    "CompanyEventSecurityRole": {
+      "type": "string",
+      "enum": [
+        "SUBJECT",
+        "OLD",
+        "NEW",
+        "ALTERNATE",
+        "SOURCE",
+        "ACQUIREE",
+        "ACQUIRER",
+        "MOVEMENT"
+      ]
+    },
+    "CompanyEventTerm": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CompanyEventTermName"
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "CompanyEventTermName": {
+      "type": "string",
+      "enum": [
+        "rate",
+        "old_rate",
+        "new_rate",
+        "alternate_rate",
+        "source_rate",
+        "acquiree_rate",
+        "acquirer_rate",
+        "cash_rate",
+        "dividend_rate",
+        "price",
+        "long_term_rate",
+        "short_term_rate"
+      ]
+    },
+    "CompanyStockMovement": {
+      "type": "object",
+      "properties": {
+        "newRate": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "security": {
+          "$ref": "#/$defs/CompanyEventSecurity"
+        },
+        "sourceRate": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "security"
       ]
     },
     "CompleteOnboarding": {
@@ -5813,6 +6836,26 @@
         "DELISTING"
       ]
     },
+    "DataSourceAccountChoice": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "displayName"
+      ]
+    },
     "DataSourceCatalog": {
       "type": "object",
       "properties": {
@@ -5840,6 +6883,158 @@
         "workspaceId",
         "stateVersion",
         "sources"
+      ]
+    },
+    "DataSourceConfigure": {
+      "type": "object",
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/DataSourceCredential"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "feed": {
+          "$ref": "#/$defs/AlpacaFeed"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "feed",
+        "credential"
+      ]
+    },
+    "DataSourceConnection": {
+      "description": "Source configuration is separate from account connectivity and quote readiness.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "cleanupPending": {
+          "type": "boolean"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "credentialKind": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DataSourceCredentialKind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eligibleAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceAccountChoice"
+          },
+          "maxItems": 256
+        },
+        "feed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaFeed"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "stateVersion",
+        "configured",
+        "status",
+        "availabilityReason",
+        "eligibleAccounts",
+        "cleanupPending"
+      ]
+    },
+    "DataSourceCredential": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "DEDICATED"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "connectionId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "kind": {
+              "type": "string",
+              "const": "EXISTING_ACCOUNT"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "connectionId"
+          ]
+        }
+      ]
+    },
+    "DataSourceCredentialKind": {
+      "type": "string",
+      "enum": [
+        "EXISTING_ACCOUNT",
+        "DEDICATED"
       ]
     },
     "DataSourceEntry": {
@@ -5963,6 +7158,26 @@
         "availabilityReason"
       ]
     },
+    "DataSourceMutation": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
+      ]
+    },
     "DataSourceProbe": {
       "type": "object",
       "properties": {
@@ -6050,7 +7265,8 @@
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
             "binance-testnet-order-book",
-            "bitget-demo-order-attempt"
+            "bitget-demo-order-attempt",
+            "workspace-retention"
           ]
         },
         "eventId": {
@@ -6089,7 +7305,9 @@
             "alpaca.paper.order.book.changed",
             "binance.testnet.order.attempt.changed",
             "binance.testnet.order.book.changed",
-            "bitget.demo.order.attempt.changed"
+            "bitget.demo.order.attempt.changed",
+            "workspace.retention.changed",
+            "workspace.retention.applied"
           ]
         },
         "occurredAt": {
@@ -6133,6 +7351,9 @@
         },
         {
           "$ref": "#/$defs/Workspace"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceRetention"
         },
         {
           "$ref": "#/$defs/AccountConnection"
@@ -6477,6 +7698,100 @@
         "MAY_HAVE_SUBMITTED"
       ]
     },
+    "ExecutionOrderLink": {
+      "type": "object",
+      "properties": {
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionReservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "brokerOrderId",
+        "executionAttemptId"
+      ]
+    },
+    "ExecutionOrderLinks": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionOrderLink"
+          },
+          "maxItems": 2000
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "links"
+      ]
+    },
+    "ExecutionOrderLinksQuery": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerOrderIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2000
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "brokerOrderIds"
+      ]
+    },
     "ExecutionPreparation": {
       "type": "object",
       "properties": {
@@ -6661,6 +7976,24 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "assetCapacities": {
+          "description": "Per-asset balance capacity captured and validated in the same atomic Prepare transaction.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionReservationAssetCapacity"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "assetClaims": {
+          "description": "Additive for old reservation captures, which remain scalar-only when absent.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionReservationAssetClaim"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
         "attemptId": {
           "type": "string",
           "maxLength": 128,
@@ -6700,6 +8033,17 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "feeSettlementPlan": {
+          "description": "Immutable selected conditional-fee branch and received-asset allowance used by settlement.\nThis metadata is not an outgoing capacity claim; old scalar/vector captures omit it.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFundingPlanPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "instrumentId": {
           "type": "string",
@@ -6787,6 +8131,85 @@
         "stateVersion"
       ]
     },
+    "ExecutionReservationAssetCapacity": {
+      "description": "Atomic per-asset capacity recorded alongside the PLACE reservation vector.",
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "brokerAvailable": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "effectiveAvailable": {
+          "description": "Capacity before this attempt, after existing local reservations.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "existingReservations": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "remainingAfterReservation": {
+          "description": "Capacity remaining after this attempt's complete claims for this asset.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requestedAmount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "requestedAmount",
+        "brokerAvailable",
+        "existingReservations",
+        "effectiveAvailable",
+        "remainingAfterReservation"
+      ]
+    },
+    "ExecutionReservationAssetClaim": {
+      "description": "One native-asset allowance in an account-scoped PLACE reservation.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "purpose": {
+          "$ref": "#/$defs/ExecutionReservationClaimPurpose"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "amount",
+        "purpose"
+      ]
+    },
+    "ExecutionReservationClaimPurpose": {
+      "type": "string",
+      "enum": [
+        "PRINCIPAL",
+        "FEE"
+      ]
+    },
     "ExecutionReservationStatus": {
       "type": "string",
       "enum": [
@@ -6822,6 +8245,469 @@
         "schemaVersion",
         "ok",
         "error"
+      ]
+    },
+    "FeeBnbScenario": {
+      "type": "object",
+      "properties": {
+        "preRounding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeUnroundedFamilies"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/SpotFeeRateBasis"
+        },
+        "special": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "standard": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "tax": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "standard",
+        "tax",
+        "special",
+        "total"
+      ]
+    },
+    "FeeConversionReference": {
+      "description": "One exact purpose-bound price leg used only by the current BNB fee estimate.\nPrice and size remain ephemeral; the saved reference contains identity and exact consumed\namount only.",
+      "type": "object",
+      "properties": {
+        "bookUpdateId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "coverage": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "coverageAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "dataUseRights": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "firstReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fromAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "marketSnapshotId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialHash": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "pair": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "priceSide": {
+          "$ref": "#/$defs/FeePriceSide"
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "toAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pair",
+        "fromAsset",
+        "toAsset",
+        "priceSide",
+        "coverageAsset",
+        "coverage",
+        "marketSnapshotId",
+        "source",
+        "materialHash",
+        "sourceVersion",
+        "connectionGeneration",
+        "bookUpdateId",
+        "providerTimestamp",
+        "firstReceipt",
+        "dataUseRights"
+      ]
+    },
+    "FeeExactExpression": {
+      "type": "object",
+      "properties": {
+        "denominator": {
+          "type": "string",
+          "maxLength": 1234,
+          "minLength": 1,
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "numerator": {
+          "type": "string",
+          "maxLength": 1234,
+          "minLength": 1,
+          "pattern": "^(0|[1-9][0-9]*)$"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator"
+      ]
+    },
+    "FeeFamilyScenario": {
+      "type": "object",
+      "properties": {
+        "netReceived": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "preRounding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeUnroundedFamilies"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/SpotFeeRateBasis"
+        },
+        "special": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "standard": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "tax": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "standard",
+        "tax",
+        "special",
+        "total",
+        "netReceived"
+      ]
+    },
+    "FeeFundingDisposition": {
+      "type": "string",
+      "enum": [
+        "RECEIVED_ASSET_DEDUCTION",
+        "BNB_CURRENT_ESTIMATE",
+        "NO_CURRENT_FEE",
+        "CONDITIONAL_INPUTS_REQUIRED"
+      ]
+    },
+    "FeeFundingEvidence": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "capacityBindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "effectiveFree": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "firstReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "localClaims": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "originalDigest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked",
+        "localClaims",
+        "effectiveFree",
+        "collectionId",
+        "capacityBindingVersion",
+        "startedAt",
+        "firstReceipt",
+        "originalDigest"
+      ]
+    },
+    "FeeMarketMetadata": {
+      "type": "object",
+      "properties": {
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "marketStatus": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "originalDigest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerSymbol",
+        "baseAsset",
+        "quoteAsset",
+        "marketStatus",
+        "receivedAt",
+        "originalDigest"
+      ]
+    },
+    "FeeMarketReference": {
+      "description": "Immutable market identity/receipts, without persisting raw depth or quote prices.",
+      "type": "object",
+      "properties": {
+        "bookUpdateId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "dataUseRights": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "firstReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "marketSnapshotId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialHash": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "priceSide": {
+          "$ref": "#/$defs/FeePriceSide"
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "priceSide",
+        "marketSnapshotId",
+        "source",
+        "materialHash",
+        "sourceVersion",
+        "connectionGeneration",
+        "bookUpdateId",
+        "providerTimestamp",
+        "firstReceipt",
+        "dataUseRights"
+      ]
+    },
+    "FeeModelClass": {
+      "type": "string",
+      "enum": [
+        "CURRENT_ORDER_SCENARIO"
+      ]
+    },
+    "FeeModelMethod": {
+      "type": "string",
+      "enum": [
+        "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1"
+      ]
+    },
+    "FeeNativeClaimPreview": {
+      "description": "One backend-derived native claim shown with the current scenario. It is not an approval and\nnever comes from renderer-supplied amounts.",
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "amount"
+      ]
+    },
+    "FeePriceSide": {
+      "type": "string",
+      "enum": [
+        "BID",
+        "ASK"
+      ]
+    },
+    "FeeUnroundedFamilies": {
+      "type": "object",
+      "properties": {
+        "special": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "standard": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "tax": {
+          "$ref": "#/$defs/FeeExactExpression"
+        },
+        "total": {
+          "$ref": "#/$defs/FeeExactExpression"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "standard",
+        "tax",
+        "special",
+        "total"
       ]
     },
     "FilterSpec": {
@@ -6869,6 +8755,16 @@
           "type": "string",
           "maxLength": 64,
           "minLength": 1
+        },
+        "expiry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialApprovalExpiry"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "invalidationReason": {
           "type": [
@@ -7003,6 +8899,59 @@
       ],
       "unevaluatedProperties": false
     },
+    "FinancialApprovalExpiry": {
+      "type": "object",
+      "properties": {
+        "authority": {
+          "$ref": "#/$defs/ApprovalExpiryAuthority"
+        },
+        "authorityReference": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expiresAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reservationDisposition": {
+          "$ref": "#/$defs/ApprovalExpiryReservationDisposition"
+        },
+        "reservationId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservationStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/ApprovalExpiryScope"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "authority",
+        "authorityReference",
+        "expiresAt",
+        "observedAt",
+        "reservationDisposition"
+      ]
+    },
     "FinancialApprovalHistory": {
       "type": "object",
       "properties": {
@@ -7068,11 +9017,775 @@
         "CONSUMED"
       ]
     },
+    "FinancialEvidenceBinding": {
+      "type": "object",
+      "properties": {
+        "accountVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "accountVersion",
+        "sourceVersion",
+        "bindingVersion"
+      ]
+    },
+    "FinancialEvidenceCapability": {
+      "type": "string",
+      "enum": [
+        "KNOWN_ACTIONS",
+        "ACTION_QUERY_COMPLETION",
+        "COMPLETE_ACTION_COVERAGE",
+        "HISTORICAL_ADJUSTMENT",
+        "BROKER_ACCOUNT_IDENTITY",
+        "BROKER_INSTRUMENT_METADATA",
+        "EXCHANGE_HALTS",
+        "ACCOUNT_TRADABILITY",
+        "FX_RATE_OBSERVATION",
+        "FX_DATA_USE_RIGHTS",
+        "TRANSACTION_FX_QUALIFICATION",
+        "BROKER_CONVERSION_COSTS",
+        "MONETARY_INPUT_COMPLETENESS",
+        "SPOT_RULE_COLLECTION",
+        "SPOT_ACCOUNT_ADMISSION",
+        "SPOT_EXECUTION_QUALIFICATION",
+        "SPOT_DATA_USE_RIGHTS"
+      ]
+    },
+    "FinancialEvidenceCapabilityResult": {
+      "type": "object",
+      "properties": {
+        "capability": {
+          "$ref": "#/$defs/FinancialEvidenceCapability"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/FinancialEvidenceCapabilityStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "status",
+        "reason"
+      ]
+    },
+    "FinancialEvidenceCapabilityStatus": {
+      "description": "Capability status is separate from source connectivity so only a specific\nbackend-derived capability can report a user-attested local verification.",
+      "type": "string",
+      "enum": [
+        "AVAILABLE",
+        "UNAVAILABLE",
+        "BLOCKED_EXTERNAL",
+        "UNVERIFIED",
+        "VERIFIED"
+      ]
+    },
+    "FinancialEvidenceQuality": {
+      "type": "string",
+      "enum": [
+        "DELAYED_PROCESS_DATE_QUERY",
+        "TEN_MINUTE_METADATA",
+        "UNQUALIFIED_FX_RATE",
+        "READ_ONLY_SPOT_RULES"
+      ]
+    },
     "FinancialOperation": {
       "type": "string",
       "enum": [
         "PLACE_ORDER",
         "CANCEL"
+      ]
+    },
+    "FinancialSourceConfigure": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cryptoLocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaCryptoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "sourceUseContext": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "connectionId"
+      ]
+    },
+    "FinancialSourceConnection": {
+      "type": "object",
+      "properties": {
+        "availabilityReason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "capabilityStatuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FinancialEvidenceCapabilityResult"
+          },
+          "maxItems": 8,
+          "minItems": 4
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cryptoLocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaCryptoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "eligibleAccounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DataSourceAccountChoice"
+          },
+          "maxItems": 256
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialSourceEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fxRequirements": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxRequirements"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/FinancialSourceKind"
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sourceUseAssessment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceUseContext": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/DataSourceStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "kind",
+        "stateVersion",
+        "configured",
+        "environment",
+        "status",
+        "availabilityReason",
+        "eligibleAccounts",
+        "capabilityStatuses"
+      ]
+    },
+    "FinancialSourceEvidence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/KnownCompanyEvent"
+              },
+              "maxItems": 1000
+            },
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "coverageEnd": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10
+            },
+            "coverageStart": {
+              "type": "string",
+              "maxLength": 10,
+              "minLength": 10
+            },
+            "kind": {
+              "type": "string",
+              "const": "CORPORATE_ACTIONS"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            },
+            "queryComplete": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "providerQuality",
+            "observedAt",
+            "coverageStart",
+            "coverageEnd",
+            "queryComplete",
+            "actions"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountCurrency": {
+              "type": "string",
+              "maxLength": 3,
+              "minLength": 3
+            },
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "instruments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/BrokerInstrumentMetadata"
+              },
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "kind": {
+              "type": "string",
+              "const": "BROKER_INSTRUMENTS"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "observedAt",
+            "providerQuality",
+            "accountCurrency",
+            "instruments"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "cryptoLocation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AlpacaCryptoLocation"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cryptoQuotes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FxCryptoQuote"
+              },
+              "maxItems": 1
+            },
+            "kind": {
+              "type": "string",
+              "const": "FX"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            },
+            "rates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FxObservedRate"
+              },
+              "maxItems": 2,
+              "minItems": 1
+            },
+            "requirements": {
+              "$ref": "#/$defs/FxRequirements"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "providerQuality",
+            "observedAt",
+            "requirements",
+            "rates"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "accountCanTrade": {
+              "type": "boolean"
+            },
+            "accountPermissions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            },
+            "accountRequiresSelfTradePrevention": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "accountType": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            },
+            "admissionBlockers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32
+            },
+            "allowedSelfTradePreventionModes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32
+            },
+            "baseAsset": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            },
+            "baseAssetPrecision": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "binding": {
+              "$ref": "#/$defs/FinancialEvidenceBinding"
+            },
+            "constraints": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SpotRuleConstraint"
+              },
+              "maxItems": 256
+            },
+            "defaultSelfTradePreventionMode": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "instrumentId": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+            },
+            "keyPermissions": {
+              "$ref": "#/$defs/PermissionReview"
+            },
+            "kind": {
+              "type": "string",
+              "const": "BINANCE_SPOT_RULES"
+            },
+            "materialVersion": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "observedAt": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "orderFormFlags": {
+              "$ref": "#/$defs/BinanceSpotOrderFormFlags"
+            },
+            "orderTypes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 32
+            },
+            "permissionSets": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "maxItems": 64
+            },
+            "permissionSetsSatisfied": {
+              "type": "boolean"
+            },
+            "providerClockSample": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            },
+            "providerObservedAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "providerQuality": {
+              "$ref": "#/$defs/FinancialEvidenceQuality"
+            },
+            "providerSymbol": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "quoteAsset": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            },
+            "quoteAssetPrecision": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0
+            },
+            "quoteOrderQtyMarketAllowed": {
+              "type": "boolean"
+            },
+            "remoteAccountId": {
+              "type": "string",
+              "maxLength": 20,
+              "minLength": 1
+            },
+            "reportedSymbolStatus": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 1
+            },
+            "spotTradingAllowed": {
+              "type": "boolean"
+            },
+            "symbolStatus": {
+              "$ref": "#/$defs/BinanceSpotSymbolStatus"
+            },
+            "tradingStatus": {
+              "$ref": "#/$defs/BinanceTradingStatus"
+            },
+            "unresolvedObligations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 64
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "binding",
+            "materialVersion",
+            "observedAt",
+            "providerQuality",
+            "providerClockSample",
+            "remoteAccountId",
+            "instrumentId",
+            "providerSymbol",
+            "baseAsset",
+            "quoteAsset",
+            "symbolStatus",
+            "reportedSymbolStatus",
+            "baseAssetPrecision",
+            "quoteAssetPrecision",
+            "spotTradingAllowed",
+            "quoteOrderQtyMarketAllowed",
+            "orderTypes",
+            "orderFormFlags",
+            "defaultSelfTradePreventionMode",
+            "allowedSelfTradePreventionModes",
+            "accountPermissions",
+            "permissionSets",
+            "permissionSetsSatisfied",
+            "accountCanTrade",
+            "accountType",
+            "keyPermissions",
+            "tradingStatus",
+            "constraints",
+            "admissionBlockers",
+            "unresolvedObligations"
+          ]
+        }
+      ]
+    },
+    "FinancialSourceKind": {
+      "type": "string",
+      "enum": [
+        "CORPORATE_ACTIONS",
+        "BROKER_INSTRUMENTS",
+        "FX",
+        "BINANCE_SPOT_RULES"
+      ]
+    },
+    "FxCountrySupportConfirmation": {
+      "description": "User-reported provider UI facts used only as input to the local source-use policy.\nThese facts are not a provider permission or entitlement assertion.",
+      "type": "object",
+      "properties": {
+        "confirmedAt": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "confirmedJurisdiction": {
+          "type": "string",
+          "maxLength": 2,
+          "minLength": 2
+        },
+        "reference": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "confirmedJurisdiction",
+        "confirmedAt",
+        "reference"
+      ]
+    },
+    "FxCryptoQuote": {
+      "type": "object",
+      "properties": {
+        "askPrice": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "askSize": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bidPrice": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bidSize": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerSymbol": {
+          "type": "string",
+          "maxLength": 8,
+          "minLength": 8
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "requestPath": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "responseSha256": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerSymbol",
+        "bidPrice",
+        "bidSize",
+        "askPrice",
+        "askSize",
+        "providerTimestamp",
+        "requestPath",
+        "responseSha256",
+        "receivedAt"
+      ]
+    },
+    "FxDeclaredUseScope": {
+      "type": "string",
+      "enum": [
+        "OWN_LOCAL_NONCOMMERCIAL",
+        "COMMERCIAL_OR_SHARED"
       ]
     },
     "FxFreshness": {
@@ -7081,6 +9794,169 @@
         "HEALTHY",
         "STALE",
         "UNAVAILABLE"
+      ]
+    },
+    "FxLocalUseAttestation": {
+      "type": "object",
+      "properties": {
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "confirmedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 20
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "cryptoLocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaCryptoLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "datasetProfile": {
+          "$ref": "#/$defs/FxLocalUseDatasetProfile"
+        },
+        "provenance": {
+          "$ref": "#/$defs/FxLocalUseAttestationProvenance"
+        },
+        "providerId": {
+          "type": "string",
+          "const": "alpaca"
+        },
+        "purpose": {
+          "$ref": "#/$defs/FxLocalUseAttestationPurpose"
+        },
+        "rawDataDestination": {
+          "$ref": "#/$defs/FxRawDataDestination"
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "const": "OD-005"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "provenance",
+        "sourceId",
+        "providerId",
+        "connectionId",
+        "remoteAccountId",
+        "datasetProfile",
+        "purpose",
+        "rawDataDestination",
+        "confirmedAt",
+        "bindingVersion"
+      ]
+    },
+    "FxLocalUseAttestationCommand": {
+      "type": "object",
+      "properties": {
+        "confirmLocalPolicyValuationOnly": {
+          "type": "boolean"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "confirmLocalPolicyValuationOnly"
+      ]
+    },
+    "FxLocalUseAttestationProvenance": {
+      "description": "Provenance for the deliberately narrow, user-confirmed local-use scope.",
+      "type": "string",
+      "enum": [
+        "USER_ATTESTED_LOCAL_ONLY"
+      ]
+    },
+    "FxLocalUseAttestationPurpose": {
+      "type": "string",
+      "enum": [
+        "POLICY_VALUATION"
+      ]
+    },
+    "FxLocalUseDatasetProfile": {
+      "type": "string",
+      "enum": [
+        "ALPACA_FOREX_RATES_AND_CONFIGURED_CRYPTO_QUOTES"
+      ]
+    },
+    "FxObservedRate": {
+      "type": "object",
+      "properties": {
+        "ask": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bid": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fromCurrency": {
+          "type": "string",
+          "maxLength": 4,
+          "minLength": 3
+        },
+        "mid": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerPair": {
+          "type": "string",
+          "maxLength": 7,
+          "minLength": 6
+        },
+        "providerTimestamp": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "toCurrency": {
+          "type": "string",
+          "maxLength": 4,
+          "minLength": 3
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "providerPair",
+        "fromCurrency",
+        "toCurrency",
+        "bid",
+        "ask",
+        "providerTimestamp"
       ]
     },
     "FxProvenance": {
@@ -7135,6 +10011,13 @@
         "quality"
       ]
     },
+    "FxProviderDataset": {
+      "type": "string",
+      "enum": [
+        "FOREX_LATEST_RATES",
+        "CRYPTO_LATEST_QUOTES"
+      ]
+    },
     "FxQuality": {
       "type": "string",
       "enum": [
@@ -7142,6 +10025,344 @@
         "DEGRADED",
         "UNKNOWN",
         "UNAVAILABLE"
+      ]
+    },
+    "FxRawDataDestination": {
+      "type": "string",
+      "enum": [
+        "LOCAL_ONLY",
+        "EXTERNAL"
+      ]
+    },
+    "FxRequirementNeed": {
+      "type": "string",
+      "enum": [
+        "IDENTITY",
+        "EXTERNAL_RATE",
+        "UNKNOWN_CURRENCY"
+      ]
+    },
+    "FxRequirementPurpose": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_WORKSPACE",
+        "BALANCE_WORKSPACE",
+        "POSITION_WORKSPACE",
+        "ORDER_WORKSPACE",
+        "INTENT_POLICY",
+        "INTENT_FUNDING"
+      ]
+    },
+    "FxRequirements": {
+      "type": "object",
+      "properties": {
+        "baseCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "materialVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FxRouteRequirement"
+          },
+          "maxItems": 128
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "baseCurrency",
+        "materialVersion",
+        "requirements"
+      ]
+    },
+    "FxRequirementsQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "default": null,
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "FxReviewEvidence": {
+      "type": "object",
+      "properties": {
+        "requirements": {
+          "$ref": "#/$defs/FxRequirements"
+        },
+        "source": {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "requirements",
+        "source"
+      ]
+    },
+    "FxRouteRequirement": {
+      "type": "object",
+      "properties": {
+        "accountVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "fromCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "need": {
+          "$ref": "#/$defs/FxRequirementNeed"
+        },
+        "providerDataset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxProviderDataset"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providerPair": {
+          "type": "string",
+          "maxLength": 7,
+          "minLength": 6
+        },
+        "purpose": {
+          "$ref": "#/$defs/FxRequirementPurpose"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "toCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "need",
+        "reason"
+      ]
+    },
+    "FxSourceRefresh": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "default": null,
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
+      ]
+    },
+    "FxSourceUseAssessment": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxSourceUseContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FxSourceUsePolicyDocument"
+          },
+          "maxItems": 8
+        },
+        "localUseAttestation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxLocalUseAttestation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policyVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/FxSourceUseEvidenceProvenance"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/FxSourceUseAssessmentStatus"
+        },
+        "supportedPurposes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "policyVersion",
+        "status",
+        "provenance",
+        "documents",
+        "supportedPurposes",
+        "reason"
+      ]
+    },
+    "FxSourceUseAssessmentStatus": {
+      "type": "string",
+      "enum": [
+        "UNRESOLVED",
+        "SUPPORTED_FOR_DECLARED_SCOPE",
+        "OUT_OF_PROFILE"
+      ]
+    },
+    "FxSourceUseContext": {
+      "type": "object",
+      "properties": {
+        "accountJurisdiction": {
+          "type": "string",
+          "maxLength": 2,
+          "minLength": 2
+        },
+        "agreementReviewedAt": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "countrySupportConfirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FxCountrySupportConfirmation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "marketDataPlan": {
+          "$ref": "#/$defs/AlpacaMarketDataPlan"
+        },
+        "rawDataDestination": {
+          "$ref": "#/$defs/FxRawDataDestination"
+        },
+        "useScope": {
+          "$ref": "#/$defs/FxDeclaredUseScope"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "marketDataPlan",
+        "accountJurisdiction",
+        "agreementReviewedAt",
+        "useScope",
+        "rawDataDestination"
+      ]
+    },
+    "FxSourceUseEvidenceProvenance": {
+      "type": "string",
+      "enum": [
+        "NOT_RECORDED",
+        "USER_REPORTED_PROVIDER_UI",
+        "USER_REPORTED_PROVIDER_SUPPORT"
+      ]
+    },
+    "FxSourceUsePolicyDocument": {
+      "type": "object",
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "documentId",
+        "title",
+        "url",
+        "sha256"
       ]
     },
     "GatewayAction": {
@@ -7293,6 +10514,198 @@
         "description"
       ]
     },
+    "HotQuoteAcquire": {
+      "type": "object",
+      "properties": {
+        "expectedSourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "instrumentId",
+        "expectedSourceVersion"
+      ]
+    },
+    "HotQuoteProjection": {
+      "type": "object",
+      "properties": {
+        "authenticated": {
+          "type": "boolean"
+        },
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "reconnectAttempt": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 3,
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/HotQuoteStatus"
+        },
+        "subscribed": {
+          "type": "boolean"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "instrumentId",
+        "leaseId",
+        "generation",
+        "connectionGeneration",
+        "reconnectAttempt",
+        "sourceVersion",
+        "sequence",
+        "status",
+        "authenticated",
+        "subscribed",
+        "reason"
+      ]
+    },
+    "HotQuoteQuery": {
+      "type": "object",
+      "properties": {
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "leaseId",
+        "generation"
+      ]
+    },
+    "HotQuoteRelease": {
+      "type": "object",
+      "properties": {
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "released": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/HotQuoteStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "leaseId",
+        "generation",
+        "released",
+        "status"
+      ]
+    },
+    "HotQuoteStatus": {
+      "type": "string",
+      "enum": [
+        "CONNECTING",
+        "RECONNECTING",
+        "AUTHENTICATING",
+        "SUBSCRIBING",
+        "AWAITING_QUOTE",
+        "STREAMING",
+        "STALE",
+        "FAILED",
+        "CLOSED"
+      ]
+    },
     "Instrument": {
       "type": "object",
       "properties": {
@@ -7428,6 +10841,103 @@
         "STREAMING",
         "COMPLETED",
         "FAILED"
+      ]
+    },
+    "KnownCompanyEvent": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "maxLength": 36,
+          "minLength": 36
+        },
+        "category": {
+          "$ref": "#/$defs/CompanyEventCategory"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 3,
+          "minLength": 3
+        },
+        "dates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyEventDate"
+          },
+          "maxItems": 16
+        },
+        "foreign": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "instrumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1
+        },
+        "lotteryType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "processDate": {
+          "type": "string",
+          "maxLength": 10,
+          "minLength": 10
+        },
+        "securities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyEventSecurity"
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "special": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "stockMovements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyStockMovement"
+          },
+          "maxItems": 16
+        },
+        "subType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CompanyEventTerm"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "actionId",
+        "instrumentIds",
+        "category",
+        "processDate",
+        "dates",
+        "securities",
+        "terms",
+        "stockMovements",
+        "partial"
       ]
     },
     "LiveArmingEligibility": {
@@ -7624,6 +11134,14 @@
           "type": "string",
           "maxLength": 128,
           "minLength": 1
+        },
+        "initialAssetClaims": {
+          "description": "Immutable initial native claims for exactly-once per-asset settlement.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionReservationAssetClaim"
+          },
+          "maxItems": 16
         },
         "initialCommitment": {
           "type": "string",
@@ -8638,6 +12156,16 @@
           },
           "maxItems": 16
         },
+        "financialEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketFinancialEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "instrument": {
           "$ref": "#/$defs/Instrument"
         },
@@ -8669,6 +12197,16 @@
           "maxLength": 32,
           "minLength": 1
         },
+        "spotRuleEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialSourceConnection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "status": {
           "$ref": "#/$defs/MarketDataStatus"
         },
@@ -8699,6 +12237,22 @@
         "REALTIME",
         "DELAYED",
         "UNKNOWN"
+      ]
+    },
+    "MarketFinancialEvidence": {
+      "type": "object",
+      "properties": {
+        "brokerInstruments": {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        },
+        "companyEvents": {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "companyEvents",
+        "brokerInstruments"
       ]
     },
     "MarketFreshness": {
@@ -8754,7 +12308,17 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "askSize": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
         "bid": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "bidSize": {
           "type": "string",
           "maxLength": 64,
           "minLength": 1
@@ -8782,6 +12346,26 @@
     "MarketSnapshotProvenance": {
       "type": "object",
       "properties": {
+        "alpaca": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlpacaQuoteEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "binance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceSpotQuoteEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "entitlement": {
           "$ref": "#/$defs/MarketEntitlement"
         },
@@ -9275,6 +12859,12 @@
           ]
         },
         "quantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "remainingQuantity": {
           "type": [
             "string",
             "null"
@@ -11067,6 +14657,40 @@
         "environment"
       ]
     },
+    "QuoteCondition": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "maxLength": 4,
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "name"
+      ]
+    },
+    "QuoteCoverage": {
+      "type": "string",
+      "enum": [
+        "US_SIP",
+        "IEX"
+      ]
+    },
+    "QuoteDepthUnit": {
+      "type": "string",
+      "enum": [
+        "BASE",
+        "UNAVAILABLE"
+      ]
+    },
     "RankSpec": {
       "type": "object",
       "properties": {
@@ -11106,6 +14730,18 @@
           "$ref": "#/$defs/Workspace"
         },
         {
+          "$ref": "#/$defs/WorkspaceRetention"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceArchiveExportResult"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceArchivePreview"
+        },
+        {
+          "$ref": "#/$defs/WorkspaceArchiveRestoreResult"
+        },
+        {
           "$ref": "#/$defs/Snapshot"
         },
         {
@@ -11131,6 +14767,21 @@
         },
         {
           "$ref": "#/$defs/RiskPolicyState"
+        },
+        {
+          "$ref": "#/$defs/SpotProposalRules"
+        },
+        {
+          "$ref": "#/$defs/SpotCapacityInputs"
+        },
+        {
+          "$ref": "#/$defs/SpotCommissionInputs"
+        },
+        {
+          "$ref": "#/$defs/SpotFeeMarketProjection"
+        },
+        {
+          "$ref": "#/$defs/SpotOrderIntervalInputs"
         },
         {
           "$ref": "#/$defs/RiskDecision"
@@ -11166,10 +14817,31 @@
           "$ref": "#/$defs/DataSourceCatalog"
         },
         {
+          "$ref": "#/$defs/DataSourceConnection"
+        },
+        {
+          "$ref": "#/$defs/BinanceMarketSourceConnection"
+        },
+        {
+          "$ref": "#/$defs/CalendarConnection"
+        },
+        {
+          "$ref": "#/$defs/FinancialSourceConnection"
+        },
+        {
+          "$ref": "#/$defs/FxRequirements"
+        },
+        {
           "$ref": "#/$defs/MarketCatalog"
         },
         {
           "$ref": "#/$defs/MarketDetail"
+        },
+        {
+          "$ref": "#/$defs/HotQuoteProjection"
+        },
+        {
+          "$ref": "#/$defs/HotQuoteRelease"
         },
         {
           "$ref": "#/$defs/PortfolioSnapshot"
@@ -11224,6 +14896,9 @@
         },
         {
           "$ref": "#/$defs/ExecutionPreparationQueryResult"
+        },
+        {
+          "$ref": "#/$defs/ExecutionOrderLinks"
         },
         {
           "$ref": "#/$defs/ResolutionEvidenceLedger"
@@ -12184,16 +15859,22 @@
         "DAILY_REALIZED_LOSS",
         "OPEN_ORDER_COUNT",
         "RESERVED_CAPITAL",
+        "RESERVED_CAPACITY",
         "MARKET_ORDER",
         "MARKET_ORDER_SLIPPAGE",
         "PRICE_DEVIATION",
         "QUOTE_FRESHNESS",
+        "MARKET_DATA_USE",
         "MARKET_SESSION",
         "INSTRUMENT_RULES",
+        "CORPORATE_ACTION_COVERAGE",
+        "HISTORICAL_ADJUSTMENT",
         "LIVE_INACTIVITY",
         "CANCELLATION_ORDER",
         "CANCELLATION_CAPABILITY",
-        "SNAPSHOT_FRESHNESS"
+        "SNAPSHOT_FRESHNESS",
+        "CURRENCY_CONVERSION",
+        "SPOT_FEE_FX"
       ]
     },
     "RiskCheckOutcome": {
@@ -12291,6 +15972,66 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "spotCapacity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityInputs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spotCommission": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCommissionInputs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spotFeeFx": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFeeFxStatement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spotOrderIntervals": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotOrderIntervalInputs"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spotOwning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotOwningQualification"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spotRules": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotProposalRules"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "stateVersion": {
           "type": "string",
           "maxLength": 256,
@@ -12377,7 +16118,12 @@
         "CALENDAR",
         "DAILY_COUNTERS",
         "RESERVATIONS",
-        "INSTRUMENT_RULES"
+        "INSTRUMENT_RULES",
+        "CURRENCY_RATES",
+        "SPOT_CAPACITY",
+        "SPOT_ORDER_INTERVALS",
+        "SPOT_FEE_FX",
+        "SPOT_COMMISSION"
       ]
     },
     "RiskDecisionInputReference": {
@@ -12440,6 +16186,7 @@
         "EVIDENCE_MISSING",
         "EVIDENCE_STALE",
         "EVIDENCE_UNTRUSTED",
+        "DATA_USE_RIGHTS_UNVERIFIED",
         "ACCOUNT_UNAVAILABLE",
         "ACCOUNT_MISMATCH",
         "ACCOUNT_UNHEALTHY",
@@ -12452,15 +16199,22 @@
         "MARKET_CLOSED",
         "MARKET_HALTED",
         "INSTRUMENT_RULES_UNAVAILABLE",
+        "INSTRUMENT_RULES_REJECTED",
+        "CORPORATE_ACTION_COVERAGE_UNAVAILABLE",
+        "HISTORICAL_ADJUSTMENT_UNAVAILABLE",
         "COUNTER_UNAVAILABLE",
         "RESERVATION_UNAVAILABLE",
+        "RESERVED_CAPACITY",
         "CALENDAR_UNAVAILABLE",
         "CLOCK_UNCERTAIN",
         "NOT_APPLICABLE",
         "UNSUPPORTED_CONTEXT",
         "INVALID_PROPOSAL_VALUE",
         "ORDER_NOT_CANCELABLE",
-        "CANCELLATION_UNSUPPORTED"
+        "CANCELLATION_UNSUPPORTED",
+        "CURRENCY_CONVERSION_UNAVAILABLE",
+        "VALUATION_CURRENCY_MISMATCH",
+        "SPOT_FEE_FX_UNAVAILABLE"
       ]
     },
     "RiskDecisionStatus": {
@@ -13872,7 +17626,8 @@
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
             "binance-testnet-order-book",
-            "bitget-demo-order-attempt"
+            "bitget-demo-order-attempt",
+            "workspace-retention"
           ]
         },
         "lastSequence": {
@@ -13891,6 +17646,2874 @@
         "aggregateId",
         "projection",
         "lastSequence"
+      ]
+    },
+    "SpotCapacityBalance": {
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked"
+      ]
+    },
+    "SpotCapacityCounts": {
+      "type": "object",
+      "properties": {
+        "accountAlgoOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "accountIcebergOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "accountOpenOrderLists": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "accountOpenOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "classificationsComplete": {
+          "type": "boolean"
+        },
+        "listCoverageComplete": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "missingListLegs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "orderCoverageComplete": {
+          "type": "boolean"
+        },
+        "symbolAlgoOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "symbolIcebergOrders": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "symbolOpenOrderLists": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "symbolOpenOrders": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "symbolOpenOrders",
+        "symbolIcebergOrders",
+        "classificationsComplete",
+        "orderCoverageComplete"
+      ]
+    },
+    "SpotCapacityInputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "purposes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCapacityPurpose"
+          },
+          "maxItems": 3
+        },
+        "qualification": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "qualificationReason": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotCapacityStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "purposes",
+        "status",
+        "qualification",
+        "qualificationReason",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotCapacityObservation": {
+      "type": "object",
+      "properties": {
+        "atomic": {
+          "type": "boolean",
+          "const": false
+        },
+        "baseBalance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityBalance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "counts": {
+          "$ref": "#/$defs/SpotCapacityCounts"
+        },
+        "declaredCommission": {
+          "description": "The venue's already-validated declared commission rates, projected verbatim. Additive only;\nno delivered field changes meaning.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotDeclaredCommission"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCapacityPosition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providerObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/SpotCapacityQuality"
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCapacityRead"
+          },
+          "maxItems": 3,
+          "minItems": 2
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "walletBalances": {
+          "description": "Original selected BASE/QUOTE/BNB rows from the same authenticated account read.\nMissing rows remain missing; older captures omit this additive projection.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCapacityBalance"
+          },
+          "maxItems": 3
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "quality",
+        "atomic",
+        "counts",
+        "unresolvedObligations",
+        "reads"
+      ]
+    },
+    "SpotCapacityPosition": {
+      "type": "object",
+      "properties": {
+        "assetExposureComplete": {
+          "type": "boolean"
+        },
+        "selectedSymbolOpenBuyExecutedQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "selectedSymbolOpenBuyOriginalQuantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selectedSymbolOpenBuyOriginalQuantity",
+        "selectedSymbolOpenBuyExecutedQuantity",
+        "assetExposureComplete"
+      ]
+    },
+    "SpotCapacityPurpose": {
+      "type": "string",
+      "enum": [
+        "OPEN_ORDERS_ACCOUNT",
+        "OPEN_ORDERS_SYMBOL",
+        "BASE_BALANCES",
+        "OPEN_ORDER_LISTS"
+      ]
+    },
+    "SpotCapacityQuality": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY_SPOT_CAPACITY"
+      ]
+    },
+    "SpotCapacityRead": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "kind": {
+          "$ref": "#/$defs/SpotCapacityReadKind"
+        },
+        "latestProviderTransactionTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "latestProviderUpdateTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "oldestProviderTransactionTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "oldestProviderUpdateTimeMs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "startedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotCapacityReadKind": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT",
+        "OPEN_ORDERS_ACCOUNT",
+        "OPEN_ORDERS_SYMBOL",
+        "OPEN_ORDER_LISTS"
+      ]
+    },
+    "SpotCapacityStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_OBSERVED",
+        "OBSERVED",
+        "UNAVAILABLE",
+        "STALE"
+      ]
+    },
+    "SpotCommissionDiscount": {
+      "type": "object",
+      "properties": {
+        "discount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "discountAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "enabledForAccount": {
+          "type": "boolean"
+        },
+        "enabledForSymbol": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "enabledForAccount",
+        "enabledForSymbol",
+        "discountAsset",
+        "discount"
+      ]
+    },
+    "SpotCommissionInputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCommissionObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "qualification": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotCommissionStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "side",
+        "sourceVersion",
+        "status",
+        "qualification",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotCommissionObservation": {
+      "type": "object",
+      "properties": {
+        "chargingAssetQualified": {
+          "type": "boolean"
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "conditionalDiscountAsset": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "discount": {
+          "$ref": "#/$defs/SpotCommissionDiscount"
+        },
+        "extensionKeys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 32
+        },
+        "providerObservedAt": {
+          "description": "The database response supplies no provider observation timestamp.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quality": {
+          "$ref": "#/$defs/SpotCommissionQuality"
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotCommissionReceipt"
+          },
+          "maxItems": 2,
+          "minItems": 2
+        },
+        "receivedAsset": {
+          "description": "Received-asset branch, not a guaranteed fill-time fee currency.",
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "remoteAccountId": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "specialCommission": {
+          "$ref": "#/$defs/SpotCommissionRates"
+        },
+        "standardCommission": {
+          "$ref": "#/$defs/SpotCommissionRates"
+        },
+        "symbol": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "taxCommission": {
+          "$ref": "#/$defs/SpotCommissionRates"
+        },
+        "termsComplete": {
+          "type": "boolean"
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 4
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "remoteAccountId",
+        "symbol",
+        "quality",
+        "standardCommission",
+        "taxCommission",
+        "specialCommission",
+        "discount",
+        "termsComplete",
+        "receivedAsset",
+        "chargingAssetQualified",
+        "reads",
+        "extensionKeys",
+        "unresolvedObligations"
+      ]
+    },
+    "SpotCommissionQuality": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY_SYMBOL_COMMISSION"
+      ]
+    },
+    "SpotCommissionRates": {
+      "type": "object",
+      "properties": {
+        "buyer": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "maker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "seller": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "taker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "maker",
+        "taker",
+        "buyer",
+        "seller"
+      ]
+    },
+    "SpotCommissionReadKind": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_IDENTITY",
+        "SYMBOL_COMMISSION"
+      ]
+    },
+    "SpotCommissionReceipt": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "kind": {
+          "$ref": "#/$defs/SpotCommissionReadKind"
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "startedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotCommissionStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_OBSERVED",
+        "OBSERVED",
+        "UNAVAILABLE",
+        "STALE"
+      ]
+    },
+    "SpotCurrentFeeModel": {
+      "type": "object",
+      "properties": {
+        "bnbConversionReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeeConversionReference"
+          },
+          "maxItems": 2
+        },
+        "bnbFee": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeBnbScenario"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bnbFeeCandidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeeBnbScenario"
+          },
+          "maxItems": 2
+        },
+        "bnbFeeFailure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bnbFundingEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeFundingEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chargingCondition": {
+          "$ref": "#/$defs/ChargingCondition"
+        },
+        "class": {
+          "$ref": "#/$defs/FeeModelClass"
+        },
+        "discountedFeeIsExactlyZero": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "fallback": {
+          "$ref": "#/$defs/FeeFamilyScenario"
+        },
+        "fallbackCandidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FeeFamilyScenario"
+          },
+          "maxItems": 2
+        },
+        "fundingPlanPreview": {
+          "description": "Backend-derived, current-branch plan preview. It is captured in the same financial digest.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFundingPlanPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "grossReceived": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 2
+        },
+        "marketReference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeMarketReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "$ref": "#/$defs/FeeModelMethod"
+        },
+        "receivedAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "class",
+        "receivedAsset",
+        "grossReceived",
+        "fallback",
+        "chargingCondition",
+        "limitations"
+      ]
+    },
+    "SpotDeclaredCommission": {
+      "type": "object",
+      "properties": {
+        "buyer": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "extensionKeys": {
+          "description": "At most 16 unknown commission keys, sorted; the delivered unknown-key obligation is\nunaffected by this bound. They are never projected into a rate and never promoted into a\nhidden gate.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "maxItems": 16
+        },
+        "maker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "seller": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "taker": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "maker",
+        "taker",
+        "buyer",
+        "seller",
+        "extensionKeys"
+      ]
+    },
+    "SpotDepthCoverage": {
+      "type": "string",
+      "enum": [
+        "KNOWN_PRICE_BANDS"
+      ]
+    },
+    "SpotDepthLevel": {
+      "type": "object",
+      "properties": {
+        "price": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "price",
+        "quantity"
+      ]
+    },
+    "SpotFeeFxReasonCode": {
+      "description": "The single typed reason a fee/FX statement carries. The wire value is screaming-snake.",
+      "oneOf": [
+        {
+          "description": "Both statements are current and complete.",
+          "type": "string",
+          "const": "SPOT_FEE_FX_QUALIFIED"
+        },
+        {
+          "description": "The fee and FX evidence do not describe the same immutable intent.",
+          "type": "string",
+          "const": "SPOT_FEE_FX_EVIDENCE_MISMATCH"
+        },
+        {
+          "description": "No current exact-symbol commission observation is bound to the intent.",
+          "type": "string",
+          "const": "SPOT_FEE_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "No complete current conditional estimate qualifies while the fee asset is undeclared.",
+          "type": "string",
+          "const": "SPOT_FEE_CURRENCY_UNKNOWN"
+        },
+        {
+          "description": "Declared rates are present but not usable as an exact decimal basis.",
+          "type": "string",
+          "const": "SPOT_FEE_RATE_UNSUPPORTED"
+        },
+        {
+          "description": "No current proposal-scoped FX observation qualifies the required routes.",
+          "type": "string",
+          "const": "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "A required route's rate is missing, stale or otherwise unqualified.",
+          "type": "string",
+          "const": "SPOT_REQUIRED_FX_UNQUALIFIED"
+        },
+        {
+          "description": "A required route has no supported provider pair.",
+          "type": "string",
+          "const": "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE"
+        },
+        {
+          "description": "The provider result denomination differs from the workspace base currency.",
+          "type": "string",
+          "const": "VALUATION_CURRENCY_MISMATCH"
+        }
+      ]
+    },
+    "SpotFeeFxStatement": {
+      "description": "One exact statement of the reviewed intent's owning fee and genuinely-required FX.\nPrice-only policy valuation and funding/execution routes have separate qualification rules.\nThis statement carries no Arm, consent, dispatch or execution authority even when complete,\nand it is not a substitute for authenticated preflight.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "baseCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingBlocker": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "carriedLimitations": {
+          "description": "Standing provenance limitations of the consumed slices, carried verbatim.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 5
+        },
+        "currentFeeModel": {
+          "description": "S29.11 current scenario; it does not qualify absent funding or required FX.\nAbsent on older persisted captures, whose source-only meaning is preserved.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotCurrentFeeModel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currentFeeModelFailure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "declaredBuyerRate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredMakerRate": {
+          "description": "Historical account-level comparison rates from older captures. New statements leave these\nabsent; exact-symbol terms are preserved by the bound SpotCommission evidence input.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredSellerRate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredTakerRate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "expectedFee": {
+          "description": "The conservative expected fee, expressed in `fee_currency`. Never fabricated from an unknown\nfee currency, so it stays absent while `fee_currency` is `UNKNOWN`.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "expectedSpendQuote": {
+          "description": "The intent notional in its own `QUOTE` unit.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "feeCurrency": {
+          "description": "`UNKNOWN` when the venue does not genuinely declare the fee-charging asset.",
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "feeCurrencyOrigin": {
+          "description": "The declared origin of the fee currency, e.g. `ACCOUNT_DECLARED_FEE_ASSET` or `UNKNOWN`.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "feeEvidenceVersion": {
+          "description": "Bound fee-evidence version: a full 71-character `sha256:` digest.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "feeRateBasis": {
+          "description": "Historical account-level comparison basis, retained only when reading older captures.\nNew statements leave it absent; current fee modeling is bound to exact-symbol terms.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotFeeRateBasis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "maximumAuthorizedSpendQuote": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "proposalHash": {
+          "description": "The bound `sha256:` intent hash — a full 71 characters on the wire.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "reasonCode": {
+          "$ref": "#/$defs/SpotFeeFxReasonCode"
+        },
+        "routeEvidenceVersion": {
+          "description": "Bound route-evidence version: a full 71-character `sha256:` digest.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRequiredRoute"
+          },
+          "maxItems": 3
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "walletFundingEvidence": {
+          "description": "Exact BASE/QUOTE/BNB wallet rows bound to the current account-read receipt.\nOlder captures omit this additive evidence; retirement never reuses prior rows.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotWalletFundingEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workspaceBaseExpectedFee": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceBaseExpectedSpend": {
+          "description": "Present only when the corresponding required conversion is genuinely qualified.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "side",
+        "feeCurrency",
+        "feeCurrencyOrigin",
+        "baseCurrency",
+        "routes",
+        "outcome",
+        "reasonCode",
+        "reason",
+        "carriedLimitations",
+        "feeEvidenceVersion",
+        "routeEvidenceVersion"
+      ]
+    },
+    "SpotFeeMarketAcquire": {
+      "type": "object",
+      "properties": {
+        "expectedSourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedSourceVersion"
+      ]
+    },
+    "SpotFeeMarketProjection": {
+      "type": "object",
+      "properties": {
+        "connectionGeneration": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "generation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "leaseId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeMarketMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1024,
+          "minLength": 1
+        },
+        "reconnectAttempt": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 3,
+          "minimum": 0
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "snapshot": {
+          "description": "Current/raw fee inputs are protected ephemeral reads, never saved risk history.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MarketSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/HotQuoteStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceId",
+        "leaseId",
+        "generation",
+        "connectionGeneration",
+        "sourceVersion",
+        "sequence",
+        "reconnectAttempt",
+        "status",
+        "reason"
+      ]
+    },
+    "SpotFeeRateBasis": {
+      "description": "A maker/taker role label. Legacy `feeRateBasis` values on captured statements describe the\nhistorical account-comparison calculation; new owning statements leave that field absent.",
+      "type": "string",
+      "enum": [
+        "MAKER",
+        "TAKER"
+      ]
+    },
+    "SpotFundingPlanPreview": {
+      "description": "Review-bound preview of the native principal and the currently modeled fee branch.\nThe eventual reservation is still created only by explicit approval and atomic Prepare.",
+      "type": "object",
+      "properties": {
+        "currentFeeClaim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeeNativeClaimPreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fallbackFeeAmount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fallbackFeeAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "fallbackNetReceipt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "feeDisposition": {
+          "$ref": "#/$defs/FeeFundingDisposition"
+        },
+        "principalClaim": {
+          "$ref": "#/$defs/FeeNativeClaimPreview"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "principalClaim",
+        "feeDisposition",
+        "fallbackFeeAsset",
+        "fallbackFeeAmount",
+        "fallbackNetReceipt"
+      ]
+    },
+    "SpotMarketEnvironment": {
+      "type": "string",
+      "enum": [
+        "ORDINARY"
+      ]
+    },
+    "SpotOrderIntervalClock": {
+      "type": "object",
+      "properties": {
+        "localRoundTripBoundMs": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "serverTimeMs": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "serverTimeMs",
+        "localRoundTripBoundMs",
+        "startedAt",
+        "receivedAt"
+      ]
+    },
+    "SpotOrderIntervalCounter": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "interval": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "intervalNum": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "limit": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "rateLimitType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rateLimitType",
+        "interval",
+        "intervalNum",
+        "limit",
+        "count"
+      ]
+    },
+    "SpotOrderIntervalDefinition": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "intervalNum": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "limit": {
+          "type": "string",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "rateLimitType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "rateLimitType",
+        "interval",
+        "intervalNum",
+        "limit"
+      ]
+    },
+    "SpotOrderIntervalInputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "failure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotOrderIntervalObservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "providerWaitSeconds": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "qualification": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "qualificationReason": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "retirementReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "scope": {
+          "$ref": "#/$defs/SpotOrderIntervalScope"
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotCapacityStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "scope",
+        "status",
+        "qualification",
+        "qualificationReason",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotOrderIntervalObservation": {
+      "type": "object",
+      "properties": {
+        "atomic": {
+          "type": "boolean",
+          "const": false
+        },
+        "clock": {
+          "$ref": "#/$defs/SpotOrderIntervalClock"
+        },
+        "collectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "counters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotOrderIntervalCounter"
+          },
+          "maxItems": 32
+        },
+        "coverageComplete": {
+          "type": "boolean"
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotOrderIntervalDefinition"
+          },
+          "maxItems": 32
+        },
+        "providerObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotOrderIntervalRead"
+          },
+          "maxItems": 3,
+          "minItems": 1
+        },
+        "timeAssociation": {
+          "$ref": "#/$defs/SpotOrderIntervalTimeAssociation"
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "collectionId",
+        "atomic",
+        "declarations",
+        "counters",
+        "coverageComplete",
+        "unresolvedObligations",
+        "clock",
+        "timeAssociation",
+        "reads"
+      ]
+    },
+    "SpotOrderIntervalRead": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "kind": {
+          "$ref": "#/$defs/SpotOrderIntervalReadKind"
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "startedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "startedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotOrderIntervalReadKind": {
+      "type": "string",
+      "enum": [
+        "INTERVAL_DEFINITIONS",
+        "ACCOUNT_IDENTITY",
+        "ACCOUNT_INTERVAL_COUNTERS"
+      ]
+    },
+    "SpotOrderIntervalScope": {
+      "type": "string",
+      "enum": [
+        "ACCOUNT_ALL_KEYS_IPS_APIS"
+      ]
+    },
+    "SpotOrderIntervalTimeAssociation": {
+      "type": "string",
+      "enum": [
+        "DERIVED_UNCERTAIN"
+      ]
+    },
+    "SpotOwningQualification": {
+      "description": "One exact statement of whether, and how much of, the reviewed intent the venue would\ncurrently admit. It is explicitly execution-unqualified: the venue still recalculates its\norder-rate windows, and fees, required FX, authenticated preflight and private-stream\nreadiness remain separate owning work.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingBlocker": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bindingInterval": {
+          "description": "The declared bucket those remaining slots were read from.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "description": "Both bound evidence versions are `sha256:` digests, so the generated wire schema must\nadmit the full 71 characters the same way `proposal_hash` does.",
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "capacityObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "capacityUnit": {
+          "description": "The exact declared unit the capacity numbers are read in: QUOTE for a buy, BASE for a sell.",
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "carriedLimitations": {
+          "description": "Standing provenance limitations of the two consumed slices, carried verbatim.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 5
+        },
+        "declaredBaseFree": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredBaseLocked": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredProviderWaitSeconds": {
+          "description": "A standing venue-imposed cooldown, reported but never treated as this slice's gate.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "declaredSymbolOpenBuyQuantity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "declaredSymbolOpenOrders": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intervalObservedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "inventorySource": {
+          "description": "The declared fact each number was read from, so a reviewer can name the origin.",
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quotaSource": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "reasonCode": {
+          "$ref": "#/$defs/SpotOwningReasonCode"
+        },
+        "remainingOrderSlots": {
+          "description": "Exact remaining order-rate slots of the tightest declared bucket, when one binds.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "capacityUnit",
+        "outcome",
+        "reasonCode",
+        "reason",
+        "inventorySource",
+        "quotaSource",
+        "carriedLimitations",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotOwningReasonCode": {
+      "oneOf": [
+        {
+          "description": "Every declared capacity and interval fact is current, complete and consistent.",
+          "type": "string",
+          "const": "SPOT_OWNING_QUALIFIED"
+        },
+        {
+          "description": "The two evidence sets do not describe the same immutable intent.",
+          "type": "string",
+          "const": "SPOT_OWNING_EVIDENCE_MISMATCH"
+        },
+        {
+          "description": "No current declared capacity observation qualifies this intent.",
+          "type": "string",
+          "const": "SPOT_CAPACITY_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "The declared inventory is present but its coverage is not complete.",
+          "type": "string",
+          "const": "SPOT_CAPACITY_COVERAGE_INCOMPLETE"
+        },
+        {
+          "description": "No current declared interval observation qualifies this intent.",
+          "type": "string",
+          "const": "SPOT_INTERVAL_EVIDENCE_UNAVAILABLE"
+        },
+        {
+          "description": "A declared order-rate bucket has no remaining slot.",
+          "type": "string",
+          "const": "SPOT_INTERVAL_QUOTA_EXHAUSTED"
+        },
+        {
+          "description": "The interval observation was retired because its window association lapsed.",
+          "type": "string",
+          "const": "SPOT_INTERVAL_WINDOW_UNCERTAIN"
+        }
+      ]
+    },
+    "SpotPriceRangeDirection": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "maxLength": 4,
+          "minLength": 1
+        },
+        "enforced": {
+          "type": "boolean"
+        },
+        "lowerMultiplier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "upperMultiplier": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "direction",
+        "enforced"
+      ]
+    },
+    "SpotPriceRangePreview": {
+      "type": "object",
+      "properties": {
+        "boundsDigest": {
+          "description": "Digest of the snapshot bounds. Like `SpotRuleReference::digest`, it survives\ncapture so a saved review can still be traced to the bounds it was made against\neven though the bounds themselves are withheld.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "directions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotPriceRangeDirection"
+          },
+          "maxItems": 2
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "lowerBound": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotRuleReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "side": {
+          "$ref": "#/$defs/OrderSide"
+        },
+        "state": {
+          "$ref": "#/$defs/SpotPriceRangeState"
+        },
+        "unit": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "upperBound": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "side",
+        "unit",
+        "directions",
+        "explanation"
+      ]
+    },
+    "SpotPriceRangeState": {
+      "description": "Documented PRICE_RANGE state for one immutable Proposal. Every state is a snapshot\nexplanation, never placement authority or a promised fill.",
+      "oneOf": [
+        {
+          "description": "Scoped, complete execution-rule evidence has no PRICE_RANGE rule: not enforced.",
+          "type": "string",
+          "const": "NO_RULE"
+        },
+        {
+          "description": "The execution rule is present but its active schema is unknown or unsupported.",
+          "type": "string",
+          "const": "UNSUPPORTED_CONFIGURATION"
+        },
+        {
+          "description": "The selected side is missing at least one documented multiplier: not enforced.",
+          "type": "string",
+          "const": "NOT_ENFORCED_SELECTED_SIDE"
+        },
+        {
+          "description": "A market form states no execution price, so no placement-time comparison exists.",
+          "type": "string",
+          "const": "NO_STATED_EXECUTION_PRICE"
+        },
+        {
+          "description": "The selected side is enforced but no genuine execution reference was observed.",
+          "type": "string",
+          "const": "REFERENCE_MISSING"
+        },
+        {
+          "description": "The execution reference lookup failed, is stale or cannot be multiplied exactly.",
+          "type": "string",
+          "const": "REFERENCE_UNAVAILABLE"
+        },
+        {
+          "description": "The provider reported an explicit null reference price: not enforced.",
+          "type": "string",
+          "const": "REFERENCE_EXPLICIT_NULL"
+        },
+        {
+          "description": "A genuine current reference bounded this snapshot.",
+          "type": "string",
+          "const": "SNAPSHOT_AVAILABLE"
+        }
+      ]
+    },
+    "SpotProposalRules": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "baseAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "bindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "instrumentId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "materialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "observedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "priceRangePreview": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotPriceRangePreview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "quoteAsset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "referenceFailure": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "referencePurposes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 256
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRuleReference"
+          },
+          "maxItems": 2
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRuleEvaluation"
+          },
+          "maxItems": 272
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "unresolvedObligations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 272
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "instrumentId",
+        "baseAsset",
+        "quoteAsset",
+        "sourceVersion",
+        "outcome",
+        "rules",
+        "unresolvedObligations",
+        "references",
+        "referencePurposes",
+        "bindingVersion",
+        "stateVersion"
+      ]
+    },
+    "SpotRequiredRoute": {
+      "description": "One genuinely-required, purpose-scoped FX leg. A statement carries at most three: two explicit\npolicy-valuation legs plus a separate funding leg. `QUALIFIED` applies only to `purpose` and\nnever means provider permission or execution authority.",
+      "type": "object",
+      "properties": {
+        "conservativeCost": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "firstReceipt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "fromCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "providerPair": {
+          "description": "Present only when a supported bounded producer pair exists for this route. Its length bound\nmirrors `FxRouteRequirement.providerPair`, including the seven-character `USDTUSD` pair.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 7,
+          "minLength": 6
+        },
+        "providerQuality": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerTimestamp": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "purpose": {
+          "$ref": "#/$defs/SpotRequiredRoutePurpose"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/SpotRequiredRouteState"
+        },
+        "toCurrency": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "fromCurrency",
+        "toCurrency",
+        "state",
+        "reason"
+      ]
+    },
+    "SpotRequiredRoutePurpose": {
+      "description": "Why a required FX route exists for this intent.",
+      "type": "string",
+      "enum": [
+        "INTENT_POLICY",
+        "INTENT_FUNDING"
+      ]
+    },
+    "SpotRequiredRouteState": {
+      "description": "The declared state of one required FX route's evidence.",
+      "type": "string",
+      "enum": [
+        "QUALIFIED",
+        "UNQUALIFIED",
+        "UNSUPPORTED_ROUTE",
+        "EVIDENCE_UNAVAILABLE",
+        "CURRENCY_MISMATCH"
+      ]
+    },
+    "SpotRuleConstraint": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotRuleField"
+          },
+          "maxItems": 32
+        },
+        "knownSchema": {
+          "type": "boolean"
+        },
+        "origin": {
+          "$ref": "#/$defs/SpotRuleOrigin"
+        },
+        "ruleType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/SpotRuleScope"
+        },
+        "unsupportedFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "origin",
+        "ruleType",
+        "knownSchema",
+        "fields",
+        "unsupportedFields"
+      ]
+    },
+    "SpotRuleEvaluation": {
+      "type": "object",
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "origin": {
+          "$ref": "#/$defs/SpotRuleOrigin"
+        },
+        "outcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "reasonCode": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "ruleType": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/SpotRuleScope"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "origin",
+        "ruleType",
+        "applicable",
+        "outcome",
+        "reasonCode"
+      ]
+    },
+    "SpotRuleField": {
+      "type": "object",
+      "properties": {
+        "disabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "value": {
+          "$ref": "#/$defs/SpotRuleValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value",
+        "disabled"
+      ]
+    },
+    "SpotRuleOrigin": {
+      "type": "string",
+      "enum": [
+        "EXCHANGE_INFO",
+        "ACCOUNT_FILTERS",
+        "EXECUTION_RULES"
+      ]
+    },
+    "SpotRuleReference": {
+      "type": "object",
+      "properties": {
+        "digest": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "intervalMinutes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "maximum": 1440,
+          "minimum": 0
+        },
+        "kind": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "price": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "providerObservedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "receivedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "providerObservedAt",
+        "receivedAt",
+        "digest"
+      ]
+    },
+    "SpotRuleScope": {
+      "type": "string",
+      "enum": [
+        "SYMBOL",
+        "EXCHANGE",
+        "ASSET",
+        "EXECUTION"
+      ]
+    },
+    "SpotRuleValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "DECIMAL"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "INTEGER"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 20,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "BOOLEAN"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "ASSET"
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 16,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        }
+      ]
+    },
+    "SpotRulesQuery": {
+      "type": "object",
+      "properties": {
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId"
+      ]
+    },
+    "SpotRulesRefresh": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "proposalId",
+        "expectedStateVersion"
+      ]
+    },
+    "SpotWalletBalanceEvidence": {
+      "description": "One original account wallet row with active same-account claims for this asset applied once.",
+      "type": "object",
+      "properties": {
+        "asset": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "effectiveFree": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "free": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "localClaims": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "locked": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "asset",
+        "free",
+        "locked",
+        "localClaims"
+      ]
+    },
+    "SpotWalletFundingEvidence": {
+      "description": "Proposal/account-bound exact BASE/QUOTE/BNB wallet coverage from one account-read receipt.\nMissing holdings remain missing. This is descriptive local evidence, not execution authority.",
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "accountReadStartedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SpotWalletBalanceEvidence"
+          },
+          "maxItems": 3
+        },
+        "capacityBindingVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "collectionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "firstReceipt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "missingAssets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1
+          },
+          "maxItems": 3
+        },
+        "originalDigest": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "proposalHash": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "proposalId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "requiredAssets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1
+          },
+          "maxItems": 3
+        },
+        "ruleMaterialVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "minLength": 64
+        },
+        "sourceVersion": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/SpotWalletFundingStatus"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "requiredAssets",
+        "missingAssets",
+        "balances",
+        "workspaceId",
+        "proposalId",
+        "proposalHash",
+        "accountId",
+        "sourceVersion",
+        "capacityBindingVersion"
+      ]
+    },
+    "SpotWalletFundingStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_OBSERVED",
+        "COMPLETE",
+        "INCOMPLETE",
+        "UNAVAILABLE",
+        "RETIRED"
       ]
     },
     "StrategyCancel": {
@@ -14077,6 +20700,14 @@
     "StrategyRun": {
       "type": "object",
       "properties": {
+        "contextRefs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
         "createdAt": {
           "type": "string",
           "maxLength": 64,
@@ -14223,6 +20854,14 @@
     "StrategyRunRequest": {
       "type": "object",
       "properties": {
+        "contextRefs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
         "datasetId": {
           "type": "string",
           "maxLength": 128,
@@ -14263,6 +20902,14 @@
             "$ref": "#/$defs/StrategyParameter"
           },
           "maxItems": 32
+        },
+        "retryOfRunId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
         },
         "startAt": {
           "type": "string",
@@ -14535,7 +21182,8 @@
             "alpaca-paper-order-book",
             "binance-testnet-order-attempt",
             "binance-testnet-order-book",
-            "bitget-demo-order-attempt"
+            "bitget-demo-order-attempt",
+            "workspace-retention"
           ]
         },
         "lastSequence": {
@@ -14834,6 +21482,32 @@
         "status",
         "content",
         "startedAt"
+      ]
+    },
+    "ThreadLifecycle": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "threadId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "threadId",
+        "expectedStateVersion"
       ]
     },
     "ThreadList": {
@@ -16380,7 +23054,7 @@
         "storageSchemaVersion": {
           "type": "integer",
           "format": "uint32",
-          "maximum": 31,
+          "maximum": 38,
           "minimum": 1
         },
         "workspaceId": {
@@ -16399,6 +23073,309 @@
         "storageSchemaVersion"
       ]
     },
+    "WorkspaceArchiveCredentialCheck": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string",
+          "maxLength": 16,
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/WorkspaceArchiveCredentialStatus"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "connectionId",
+        "providerId",
+        "environment",
+        "label",
+        "status"
+      ]
+    },
+    "WorkspaceArchiveCredentialStatus": {
+      "type": "string",
+      "enum": [
+        "NOT_CHECKED",
+        "PRESENT_UNVERIFIED",
+        "MISSING",
+        "UNAVAILABLE"
+      ]
+    },
+    "WorkspaceArchiveDataCategory": {
+      "type": "object",
+      "properties": {
+        "categoryId": {
+          "$ref": "#/$defs/WorkspaceArchiveDataCategoryId"
+        },
+        "recordCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 4294967295,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "categoryId",
+        "recordCount"
+      ]
+    },
+    "WorkspaceArchiveDataCategoryId": {
+      "type": "string",
+      "enum": [
+        "ACCOUNTS",
+        "CONVERSATIONS",
+        "RESEARCH",
+        "STRATEGIES_AND_BACKTESTS",
+        "FINANCIAL_HISTORY"
+      ]
+    },
+    "WorkspaceArchiveExport": {
+      "type": "object",
+      "properties": {
+        "destinationPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "destinationPath"
+      ]
+    },
+    "WorkspaceArchiveExportResult": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "bytes",
+        "contentHash",
+        "warnings"
+      ]
+    },
+    "WorkspaceArchivePreview": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "maximum": 1073741824,
+          "minimum": 1
+        },
+        "capturedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "credentialChecks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkspaceArchiveCredentialCheck"
+          },
+          "maxItems": 256
+        },
+        "dataCategories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkspaceArchiveDataCategory"
+          },
+          "maxItems": 5,
+          "minItems": 5
+        },
+        "formatVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 1,
+          "minimum": 1
+        },
+        "manifestHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "memberCount": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 16,
+          "minimum": 1
+        },
+        "storageSchemaVersion": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 38,
+          "minimum": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "workspaceName": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "workspaceName",
+        "capturedAt",
+        "formatVersion",
+        "storageSchemaVersion",
+        "memberCount",
+        "bytes",
+        "manifestHash",
+        "warnings",
+        "dataCategories",
+        "credentialChecks"
+      ]
+    },
+    "WorkspaceArchivePreviewRequest": {
+      "type": "object",
+      "properties": {
+        "archivePath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "archivePath"
+      ]
+    },
+    "WorkspaceArchiveRestoreRequest": {
+      "type": "object",
+      "properties": {
+        "archivePath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "destinationParent": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "manifestHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "archivePath",
+        "destinationParent",
+        "manifestHash"
+      ]
+    },
+    "WorkspaceArchiveRestoreResult": {
+      "type": "object",
+      "properties": {
+        "backupPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "restoredPath": {
+          "type": "string",
+          "maxLength": 4096,
+          "minLength": 1
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1
+          },
+          "maxItems": 8
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "restoredPath",
+        "backupPath",
+        "warnings"
+      ]
+    },
     "WorkspaceQuery": {
       "type": "object",
       "properties": {
@@ -16411,6 +23388,144 @@
       "additionalProperties": false,
       "required": [
         "workspaceId"
+      ]
+    },
+    "WorkspaceRetention": {
+      "type": "object",
+      "properties": {
+        "artifactRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "cacheRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "lastAppliedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastDeletedArtifacts": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 256,
+          "minimum": 0
+        },
+        "lastDeletedCacheFiles": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "lastDeletedMarketRows": {
+          "type": "integer",
+          "format": "uint32",
+          "maximum": 100000,
+          "minimum": 0
+        },
+        "marketDataRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0
+        },
+        "stateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "lastDeletedArtifacts",
+        "lastDeletedCacheFiles",
+        "lastDeletedMarketRows",
+        "stateVersion"
+      ]
+    },
+    "WorkspaceRetentionQuery": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId"
+      ]
+    },
+    "WorkspaceRetentionUpdate": {
+      "type": "object",
+      "properties": {
+        "artifactRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "default": null,
+          "maximum": 3650,
+          "minimum": 1
+        },
+        "cacheRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "default": null,
+          "maximum": 3650,
+          "minimum": 1
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "marketDataRetentionDays": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint16",
+          "default": null,
+          "maximum": 3650,
+          "minimum": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
       ]
     }
   },

@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0063]: missing field `verified_at` in initializer of `DataSourceEntry`
+  --> src-tauri/src/binance_market.rs:32:5
+   |
+32 |     DataSourceEntry {
+   |     ^^^^^^^^^^^^^^^ missing `verified_at`
+
+For more information about this error, try `rustc --explain E0063`.
+error: could not compile `tradex` (lib) due to 1 previous error

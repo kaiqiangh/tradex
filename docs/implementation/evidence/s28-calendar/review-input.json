@@ -1,0 +1,32 @@
+{
+  "capturedAt": "2026-10-01T19:24:50.965182+00:00",
+  "baseline": "aa43091ea2eef732b5865b163cbeee3cac3e03c9",
+  "head": "aa43091ea2eef732b5865b163cbeee3cac3e03c9",
+  "diffCommand": "git diff aa43091ea2eef732b5865b163cbeee3cac3e03c9 --; separately inspect listed new source files",
+  "commitsSinceBaseline": [],
+  "sources": {
+    "shared/ipc-types.ts": "65ac960d72215fa895d67537a4444e37e706066b9386d8b6a3b4159833986aa7",
+    "shared/ipc-v1.schema.json": "a7cf0b15c810a1f9ad21f4e0f833a1d3fcb0b5d2fb73dc1a31c6539b176034d1",
+    "shared/ipc-validators.d.ts": "2064a984bf625b441153e72db19bbd9b98b55afa3fd1374a2b52311ec1d39208",
+    "shared/ipc-validators.js": "cae09e687b7694cd984bbd1cabf1584b82353df06a4fd003eacb12c667a22012",
+    "src-tauri/src/bin/ipc.rs": "6619722c714215c21bdb0bac8cd15a45dc1694c0c4514b6182e9bcc7cb11c8e1",
+    "src-tauri/src/calendar_source.rs": "58b5f1bbf14ecbcbb83319e5ea654c3c1db418b6f032b1abbdc412c379f5a365",
+    "src-tauri/src/lib.rs": "1a74dbdbe896e6e1a58156880c9a5d54c9dcf6188b79ce23ffd76c2ed995950d",
+    "src-tauri/src/main.rs": "948fb60dbd1ebadd458f0bc2b05ce13192f60a5b6905649d0184e667bc408e29",
+    "src-tauri/src/protocol.rs": "2f634f5a59c8430c8f8f3e4ebb9c57dc5ed58e30f5fdf779f31d355f3c39825f",
+    "src-tauri/src/provider_io.rs": "2ab546e9f8969614ea4bc8c8ca8352ede028020c76e4ccee10e43e7d5b3858ea",
+    "src-tauri/src/quote_source.rs": "d60d41bd38e50de29740bcaf5f6eda8e672a88f39029c4e166f2b3f4731845d5",
+    "src-tauri/src/storage.rs": "2e18fa0fe57a3e4372bb9c1d1b9ac74031324566c053c885a1b1a536d03302cd",
+    "src-tauri/src/time.rs": "f6a0428c66a0c8dfe3db8bac1ccc3d8a80f83fd821b0f46e63fcf51d13bd4c04",
+    "src-tauri/tests/calendar_source.rs": "e2ee6f66e0ae2bea975996d57326c5d511de1cf4d6ae617af8b92c139f95cbbd",
+    "src-tauri/tests/support/provider_fixtures.rs": "6244a5a322410003870ddbacb7e6419e240722c773dfb042dc27fc0c43049e5b",
+    "src-tauri/tests/watchlists.rs": "de0db24d8debaf7f81ad30c0b894b8bac7a5d0a0cba4e3e69aae26d3819138d1",
+    "src-tauri/tests/workspace.rs": "547440170d316c65ad6ef8eeecb3276326419c77a6734d2824bef901c3872a5f",
+    "src/CalendarSourceSettings.tsx": "db020a305fd0ef93c4ae0bfefd329143c8a086a5017820381590fb8520c8d9c9",
+    "src/DataSources.tsx": "7e06f7048abe9adf69d90d1338e8d3e8cb3f32b9bf13441b05d998dc5562058f",
+    "src/Markets.tsx": "453da1a9f3a0fbfb31f9be2ab0b5e2456631a84b79fdf424f11c0a92867b941f",
+    "src/client.ts": "2edb7060fbdacc1b0e8e00f9bfe113d5e309f5d06fee3d97219f217297c502c4",
+    "tests/projection.test.ts": "8be7d8036edde04d285a9b8f376e770769c0c9baa17b0424b11d025fc37909e2"
+  },
+  "nativeHostedEvidence": "Pending protected Keychain authentication; no real-provider PASS claimed"
+}

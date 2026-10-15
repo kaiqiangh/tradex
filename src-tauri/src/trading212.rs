@@ -131,6 +131,14 @@ pub(super) fn open_order(order: &Value) -> Result<OpenOrder> {
         _ => return Err(invalid()),
     };
     let limit_price = optional(order, "limitPrice")?;
+    let remaining_quantity = match (quantity.as_deref(), filled_quantity.as_deref()) {
+        (Some(quantity), Some(filled)) => {
+            let quantity = crate::provider_io::decimal_magnitude(quantity)?;
+            let filled = crate::provider_io::decimal_magnitude(filled)?;
+            crate::provider_io::decimal_subtract(&quantity, &filled).ok()
+        }
+        _ => None,
+    };
     let currency = if notional.is_some() || limit_price.is_some() || order.get("currency").is_some()
     {
         Some(currency(order)?)
@@ -147,6 +155,7 @@ pub(super) fn open_order(order: &Value) -> Result<OpenOrder> {
         quantity,
         notional,
         filled_quantity,
+        remaining_quantity,
         filled_value,
         currency,
         status,
@@ -258,7 +267,7 @@ pub(super) fn observe(
         ],
         ..PermissionReview::default()
     };
-    Ok(Observation { data: AccountData {
+    Ok(Observation { binance_trading_status: None, data: AccountData {
         remote_account_id: account_id(&account)?,
         account_type: "Invest / Stocks ISA — subtype unavailable".into(),
         currency: Some(account_currency.clone()),

@@ -1,0 +1,19 @@
+S29.11 / #135 AC4 + AC10 — partial synthetic producer-to-risk evidence
+Fixed review base: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+Current dev HEAD before this uncommitted slice: 015f4ba
+
+Command:
+cargo test --features integration-test --test binance_market_hot owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch -- --exact --nocapture
+
+Result:
+running 1 test
+test owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out
+
+The regression first confirms the complete discounted BNB current estimate remains UNAVAILABLE without a proposal-bound policy quote. It then configures and refreshes a test-only Alpaca USDT/USD source through public commands. A synthetic user-reported support context supports only POLICY_VALUATION; the source-use provenance remains USER_REPORTED_PROVIDER_SUPPORT and FX_DATA_USE_RIGHTS remains UNVERIFIED. The owning statement records workspaceBaseExpectedSpend=60.006 and the discounted BNB fee claim=0.0006120102; SPOT_FEE_FX, ORDER_NOTIONAL and RESERVED_CAPITAL pass. The overall RiskDecision remains UNAVAILABLE, ACCOUNT_ARMING remains UNAVAILABLE, the Binance account remains DISARMED and the approval list is empty.
+
+The test asserts the existing BNB internal-average-equivalence limitation. Fake external HTTP/vault fixtures and a loopback market peer are used. No real provider/account was accessed; no provider order call, approval, Arm, consent, Prepare, dispatch or order occurred. This does not establish actual Alpaca source-use or entitlement, positive owning-plan Prepare, Gateway preflight, settlement or responsive UI acceptance.
+
+Formatting and whitespace checks:
+cargo fmt --all -- --check — PASS
+git diff --check — PASS

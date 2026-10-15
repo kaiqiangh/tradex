@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.69s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-575b90bc4724c9bb)
+
+running 2 tests
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... ok
+test user_selects_saved_paper_calendar_without_authority_and_reopens_metadata_only ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s

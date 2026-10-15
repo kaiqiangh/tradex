@@ -1,0 +1,426 @@
+[
+  {
+    "file": "account-extensions-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "account-extensions-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "account-fields-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "account-fields-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "age-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "age-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "auth-faults-verification.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "ban-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "ban-red-final.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "ban-red.txt",
+    "classification": "compile_failure_not_product_red"
+  },
+  {
+    "file": "binance-hot-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "binance-hot-review-final.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "capacity-get-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "capacity-get-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "capacity-public-guards.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "capacity-read-green-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "capacity-read-green.txt",
+    "classification": "compile_failure_not_product_red"
+  },
+  {
+    "file": "capacity-read-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "capture-green-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "capture-green.txt",
+    "classification": "compile_failure_not_product_red"
+  },
+  {
+    "file": "capture-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "classification-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "classification-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "clock-ban-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "clock-ban-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "clock-original-json-green-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "clock-original-json-green.txt",
+    "classification": "failed_attempt_not_final_green"
+  },
+  {
+    "file": "clock-original-json-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "concurrent-ownership-verification.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "desktop-build-final.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "desktop-build-review-final.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "full-check-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "full-check-review-final.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "full-check.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "gateway-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "gateway-integration-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "gateway-review-final.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "inventory-bounds-verification.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "leg-identity-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "leg-identity-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "list-bounds-verification.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "list-provenance-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "list-provenance-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "list-shape-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "list-shape-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "lists-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "lists-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "order-flags-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "order-flags-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "order-times-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "order-times-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "order-types-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "order-types-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "originals-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "originals-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "parent-current.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "partial-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "partial-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "position-inputs-green-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "position-inputs-green.txt",
+    "classification": "compile_failure_not_product_red"
+  },
+  {
+    "file": "position-inputs-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "purpose-green-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "purpose-green.txt",
+    "classification": "compile_failure_not_product_red"
+  },
+  {
+    "file": "purpose-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "rate-limit-verification.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "rules-65.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "rules-68.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "rules-current-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "rules-current.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "schema-current-final.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "schema-generate-current.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "schema-generate.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "schema-next.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "stock-hot-final.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "stock-hot-review-final.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "typecheck-1.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "typecheck-current-final.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "typecheck-current.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "typecheck-next.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-capture-green.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-capture-typecheck.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-current-green.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-build.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-busy.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-captured.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-current.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-fault.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-prearm.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-final-recovery.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-frozen-attempt-1.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-frozen-attempt-2.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-frozen-build.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-frozen-captured.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-frozen-current.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-host-build.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-host-current-build.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-prearm-green.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "ui-review-final-build.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "ui-review-final-captured.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "ui-review-final-current.txt",
+    "classification": "current_final_verified_check_or_build"
+  },
+  {
+    "file": "ui-typecheck.txt",
+    "classification": "stage_or_attempt"
+  },
+  {
+    "file": "uid-budget-verification.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "unicode-inventory-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "unicode-inventory-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  },
+  {
+    "file": "vault-deadline-green.txt",
+    "classification": "passed_scenario_or_stage_log"
+  },
+  {
+    "file": "vault-deadline-red.txt",
+    "classification": "genuine_public_assertion_failure"
+  }
+]

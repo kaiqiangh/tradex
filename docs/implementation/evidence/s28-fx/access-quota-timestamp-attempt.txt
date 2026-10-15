@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.92s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota ... FAILED
+
+failures:
+
+---- fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota stdout ----
+
+thread 'fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota' (5410694) panicked at src-tauri/tests/financial_sources.rs:3780:13:
+assertion `left == right` failed: {"data":{"availabilityReason":"The provider response could not be validated. The prior current observation was retired.","capabilityStatuses":[{"capability":"FX_RATE_OBSERVATION","reason":"The provider response could not be validated. The prior current observation was retired.","status":"UNAVAILABLE"},{"capability":"TRANSACTION_FX_QUALIFICATION","reason":"An authenticated rate response does not establish transaction-grade entitlement, feed quality or permitted financial use.","status":"BLOCKED_EXTERNAL"},{"capability":"BROKER_CONVERSION_COSTS","reason":"Third-party rates do not establish the selected broker's executable funding conversion or fees.","status":"BLOCKED_EXTERNAL"},{"capability":"MONETARY_INPUT_COMPLETENESS","reason":"Currency rates cannot establish complete account monetary inputs.","status":"UNVERIFIED"}],"configured":true,"connectionId":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1","eligibleAccounts":[{"connectionId":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1","displayName":"Read-only source"}],"environment":"PAPER","fxRequirements":{"baseCurrency":"USD","materialVersion":"4037c0a58630d3dd0d5b1b4cd8db743f5744a4bd178ed836b216c1c4b53c0484","requirements":[{"accountVersion":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1:3","connectionId":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1","fromCurrency":"USD","need":"IDENTITY","purpose":"ACCOUNT_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"3533cfff-57f8-4c65-83ec-03036c9269e6:3","connectionId":"3533cfff-57f8-4c65-83ec-03036c9269e6","fromCurrency":"EUR","need":"EXTERNAL_RATE","providerPair":"EURUSD","purpose":"ACCOUNT_WORKSPACE","reason":"EUR to USD needs a qualified directional conversion. A rate read alone does not establish financial eligibility.","toCurrency":"USD"},{"accountVersion":"local-paper:a8835471-c7f0-45e2-a743-56dd47efef68:1","connectionId":"local-paper:a8835471-c7f0-45e2-a743-56dd47efef68","fromCurrency":"USD","need":"IDENTITY","purpose":"ACCOUNT_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1:3","connectionId":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1","fromCurrency":"USD","need":"IDENTITY","purpose":"ORDER_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"3533cfff-57f8-4c65-83ec-03036c9269e6:3","connectionId":"3533cfff-57f8-4c65-83ec-03036c9269e6","fromCurrency":"GBP","need":"EXTERNAL_RATE","purpose":"ORDER_WORKSPACE","reason":"This currency route is required but unsupported by the selected bounded FX producer. Currency parity is never assumed.","toCurrency":"USD"},{"accountVersion":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1:3","connectionId":"325ed2a0-46c8-4035-bd3b-f496a0eaacb1","fromCurrency":"USD","need":"IDENTITY","purpose":"POSITION_WORKSPACE","reason":"The monetary input and target have the same currency; no external rate is required.","toCurrency":"USD"},{"accountVersion":"3533cfff-57f8-4c65-83ec-03036c9269e6:3","connectionId":"3533cfff-57f8-4c65-83ec-03036c9269e6","fromCurrency":"EUR","need":"EXTERNAL_RATE","providerPair":"EURUSD","purpose":"POSITION_WORKSPACE","reason":"EUR to USD needs a qualified directional conversion. A rate read alone does not establish financial eligibility.","toCurrency":"USD"}],"workspaceId":"a8835471-c7f0-45e2-a743-56dd47efef68"},"kind":"FX","stateVersion":"FX:a8835471-c7f0-45e2-a743-56dd47efef68:1","status":"UNAVAILABLE","workspaceId":"a8835471-c7f0-45e2-a743-56dd47efef68"},"ok":true,"requestId":"fx-denied","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    fx_access_denials_stay_read_only_and_retry_respects_actual_provider_quota
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 34 filtered out; finished in 2.23s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

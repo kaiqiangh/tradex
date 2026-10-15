@@ -1,0 +1,13 @@
+Error: Error: Timed out after 3000ms waiting for selector internal:role=region[name="Hot quote subscription"s] >> internal:text="FAILED"s: Browser Use encountered an error interacting with this webpage: Error: Element is not attached
+    at <anonymous>:227:263
+    at <anonymous>:227:479
+    at <anonymous>:228:11
+    at <anonymous>:229:11
+locator.waitFor(visible) timed out for selector internal:role=region[name="Hot quote subscription"s] >> internal:text="FAILED"s
+Locator diagnostics: {"kind":"no_matches","action":"waitFor","locator":"internal:role=region[name=\"Hot quote subscription\"s] >> internal:text=\"FAILED\"s","matchCount":0,"matches":[],"visibleCount":0,"truncated":false}
+    at bl (/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua/dist/lib/js/oai_js_browser/dist/skill/scripts/browser-client.js:1:103734)
+    at e.actionError (/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua/dist/lib/js/oai_js_browser/dist/skill/scripts/browser-client.js:1:112361)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async e.waitFor (/Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua/dist/lib/js/oai_js_browser/dist/skill/scripts/browser-client.js:1:109764)
+    at async Module.checkBinanceHotRecoveryUI (/Users/kai/Desktop/my-repo/tradex/tests/binance-hot-recovery-ui.mjs:37:5)
+    at async /Users/kai/Desktop/my-repo/tradex/.node_repl_cell_161.mjs:45:291

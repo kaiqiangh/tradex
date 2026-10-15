@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.31s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding ... FAILED
+
+failures:
+
+failures:
+    current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.10s
+
+
+thread 'current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding' (10768236) panicked at src-tauri/tests/binance_rules.rs:104:5:
+assertion `left == right` failed
+  left: String("INSTRUMENT_RULES_UNAVAILABLE")
+ right: "INSTRUMENT_RULES_REJECTED"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding' (10768234) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding ... FAILED
+
+failures:
+
+failures:
+    current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `--test binance_rules`

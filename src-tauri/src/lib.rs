@@ -4,11 +4,14 @@ extern crate self as tradex;
 #[cfg(target_os = "macos")]
 pub mod alpaca_stream;
 pub mod backtest;
+pub mod binance_market;
 #[cfg(target_os = "macos")]
 pub mod binance_stream;
+pub mod calendar_source;
 pub mod capability;
 pub mod codex_runtime;
 pub mod data_sources;
+pub mod financial_sources;
 pub mod gateway;
 #[cfg(target_os = "macos")]
 pub mod gateway_process;
@@ -24,13 +27,24 @@ pub mod paper;
 pub mod portfolio;
 pub mod protocol;
 pub mod provider_io;
+pub(crate) mod provider_json;
 pub mod providers;
+pub mod quote_source;
 pub mod research;
 pub mod risk;
 pub mod screener;
+pub mod spot_capacity;
+pub mod spot_commission;
+pub mod spot_fee_fx;
+pub mod spot_fee_market;
+mod spot_fee_model;
+pub mod spot_order_intervals;
+pub mod spot_owning;
+pub mod spot_proposal_rules;
 mod storage;
 pub mod strategy;
 pub mod time;
+pub mod workspace_archive;
 
 use ::time::{Duration as TimeDuration, OffsetDateTime, format_description::well_known::Rfc3339};
 use capability::{CapabilityQuery, ResearchToolId};
@@ -55,13 +69,15 @@ use protocol::{
     OpenWorkspace, PaperOrderSubmit, PortfolioQuery, ResearchFinding, ResearchToolRequest, Result,
     RuntimeComponent, RuntimeStatus, ScreenerRequest, StrategyCancel, StrategyFailure,
     StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategyRunState,
-    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadModel, ThreadProviderAttempt,
-    ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
+    StrategySave, Subscribe, Thread, ThreadCreate, ThreadItem, ThreadLifecycle, ThreadModel,
+    ThreadProviderAttempt, ThreadQuery, ThreadTurn, TradeXError, Trading212DemoOrderAttemptQuery,
     Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderAttemptState,
     Trading212DemoOrderBook, Trading212DemoOrderBookAction, Trading212DemoOrderBookQuery,
     Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh,
     Trading212DemoOrderBookStatus, Trading212DemoOrderCancel, Trading212DemoOrderSubmit,
     Trading212DemoRateLimits, TurnCancel, TurnRetry, TurnSnapshot, TurnStart,
+    WorkspaceArchiveCredentialStatus, WorkspaceArchiveExport, WorkspaceArchivePreviewRequest,
+    WorkspaceArchiveRestoreRequest, WorkspaceRetentionQuery, WorkspaceRetentionUpdate,
 };
 use provider_io::{JobKind, ProviderJob, ProviderOutcome};
 use providers::*;
@@ -71,7 +87,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -85,6 +101,11 @@ pub struct StartupLiveRecoveryPlan {
     pub workspace_id: String,
     pub unresolved_attempts: Vec<protocol::ResolutionEvidenceRefresh>,
     pub account_ids: Vec<String>,
+}
+
+pub struct WorkspaceArchiveCredentialStatuses {
+    pub manifest_hash: String,
+    pub statuses: HashMap<String, WorkspaceArchiveCredentialStatus>,
 }
 
 struct PreparedTurn {
@@ -612,6 +633,7 @@ mod live_arming_tests {
         );
         let mut weaker_policy = current["data"]["policy"].clone();
         weaker_policy["maxSingleInstrumentExposurePercent"] = "20.5".into();
+        weaker_policy["maxDailyTradedNotional"] = "5000".into();
         let saved = dispatch(
             &mut control,
             "risk.save_policy",
@@ -622,6 +644,13 @@ mod live_arming_tests {
             }),
         );
         assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(saved["data"]["lastChange"]["weakened"], true, "{saved}");
+        assert!(
+            saved["data"]["lastChange"]["weakeningReasons"]
+                .as_array()
+                .is_some_and(|reasons| !reasons.is_empty()),
+            "a mixed policy update must still record its relaxation: {saved}"
+        );
         let after_weakening = listed_accounts(&mut control, &workspace);
         assert!(
             after_weakening
@@ -667,6 +696,54 @@ mod live_arming_tests {
             recovered_result.health.arming_reason,
             "ACCOUNT_HEALTH_DEGRADED"
         );
+    }
+
+    #[test]
+    fn tightening_policy_change_preserves_live_arming() {
+        let folder = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(folder.path().to_path_buf());
+        let workspace = dispatch(&mut control, "workspace.open", json!({}))["data"]["workspaceId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        configure_risk(&mut control, &workspace);
+        let account = seed_healthy_live_account(&mut control, &workspace);
+        dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace}),
+        );
+        arm_live_account(&mut control, &workspace, &account);
+
+        let current = dispatch(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace}),
+        );
+        let mut tighter_policy = current["data"]["policy"].clone();
+        tighter_policy["maxSingleInstrumentExposurePercent"] = "5.25".into();
+        let saved = dispatch(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace,
+                "expectedStateVersion":current["data"]["stateVersion"],
+                "policy":tighter_policy
+            }),
+        );
+
+        assert_eq!(saved["ok"], true, "{saved}");
+        assert_eq!(saved["data"]["lastChange"]["weakened"], false, "{saved}");
+        assert_eq!(
+            saved["data"]["lastChange"]["weakeningReasons"],
+            json!([]),
+            "a tightening-only update has no weakening reasons: {saved}"
+        );
+        let account = listed_accounts(&mut control, &workspace)
+            .into_iter()
+            .find(|item| item.connection_id == account.connection_id)
+            .expect("the affected workspace Live account remains persisted");
+        assert_eq!(account.health.arming, "ARMED");
     }
 
     #[test]
@@ -1670,8 +1747,70 @@ fn browser_fixture_dispatch(
     }
 }
 
+fn valid_bounded_text(value: &str, max: usize) -> bool {
+    !value.is_empty() && value.len() <= max && !value.chars().any(char::is_control)
+}
+
 fn provider_order_consumer_allowed(consumer: &str) -> bool {
     consumer == "main" || (cfg!(feature = "integration-test") && consumer == "stdio")
+}
+
+fn exact_live_place_refresh_order_id(
+    account: &AccountConnection,
+    proposal: &protocol::OrderProposal,
+    saved_order_id: &str,
+    requested_order_id: &str,
+) -> Option<String> {
+    if saved_order_id != requested_order_id {
+        return None;
+    }
+    if account.provider_id == "trading212" {
+        return provider_io::valid_live_cancel_order_id("trading212", saved_order_id)
+            .then(|| saved_order_id.to_owned());
+    }
+    let provider_symbol = market::instruments()
+        .into_iter()
+        .find(|instrument| instrument.instrument_id == proposal.fields.instrument_id)?
+        .providers
+        .into_iter()
+        .find(|mapping| mapping.provider_id == account.provider_id)?
+        .provider_symbol;
+    match account.provider_id.as_str() {
+        "binance" => {
+            let (symbol, numeric_order_id) = saved_order_id
+                .split_once(':')
+                .unwrap_or((&provider_symbol, saved_order_id));
+            if symbol != provider_symbol || !provider_io::valid_binance_order_id(numeric_order_id) {
+                return None;
+            }
+            Some(format!("{symbol}:{numeric_order_id}"))
+        }
+        "bitget" => {
+            let numeric_order_id = saved_order_id
+                .strip_prefix("normal:")
+                .unwrap_or(saved_order_id);
+            if !provider_io::valid_live_cancel_order_id(
+                "bitget",
+                &format!("normal:{numeric_order_id}"),
+            ) {
+                return None;
+            }
+            account
+                .data
+                .as_ref()?
+                .bitget_order_book
+                .as_ref()?
+                .orders
+                .iter()
+                .any(|order| {
+                    order.kind == "NORMAL"
+                        && order.provider_order_id == numeric_order_id
+                        && order.symbol == provider_symbol
+                })
+                .then(|| format!("normal:{numeric_order_id}"))
+        }
+        _ => None,
+    }
 }
 
 fn live_provider_id(environment: &protocol::ExecutionContext) -> Option<&'static str> {
@@ -1773,6 +1912,27 @@ fn capacity_evidence_freshness(
     protocol::CapacityFreshness::Current
 }
 
+fn live_buy_principal_capacity_amount(
+    proposal: &protocol::OrderProposal,
+    maximum_authorized_spend: Option<&str>,
+) -> Option<String> {
+    // Capacity follows the provider-native principal. BASE MARKET BUY has no fixed native QUOTE
+    // notional, so its current local spend cap supplies the reservation amount.
+    match (proposal.fields.order_type, proposal.fields.quantity.r#type) {
+        (protocol::OrderType::Market, protocol::OrderQuantityType::Quote) => {
+            Some(proposal.fields.quantity.value.clone())
+        }
+        (protocol::OrderType::Limit, protocol::OrderQuantityType::Base) => {
+            let limit = proposal.fields.limit_price.as_deref()?;
+            crate::portfolio::decimal_mul(&proposal.fields.quantity.value, limit).ok()
+        }
+        (protocol::OrderType::Market, protocol::OrderQuantityType::Base) => {
+            maximum_authorized_spend.map(str::to_owned)
+        }
+        _ => None,
+    }
+}
+
 fn unavailable_capacity_projection(
     proposal: &protocol::OrderProposal,
     account: &AccountConnection,
@@ -1816,7 +1976,7 @@ fn unavailable_capacity_projection(
         freshness,
         observed_at: account.last_successful_sync.clone(),
         requested_amount: if proposal.fields.side == protocol::OrderSide::Buy {
-            maximum_authorized_spend.map(str::to_owned)
+            live_buy_principal_capacity_amount(proposal, maximum_authorized_spend)
         } else {
             Some(proposal.fields.quantity.value.clone())
         },
@@ -1850,9 +2010,9 @@ fn live_place_capacity(
     let (capacity_key, amount, unit, available, committed, available_source, committed_source) =
         match proposal.fields.side {
             protocol::OrderSide::Buy => {
-                let amount = maximum_authorized_spend
+                let amount = live_buy_principal_capacity_amount(proposal, maximum_authorized_spend)
                     .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-                if crate::provider_io::decimal_cmp(amount, "0")? != std::cmp::Ordering::Greater {
+                if crate::provider_io::decimal_cmp(&amount, "0")? != std::cmp::Ordering::Greater {
                     return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
                 }
                 let balances = data
@@ -1900,7 +2060,7 @@ fn live_place_capacity(
                 };
                 (
                     format!("cash:{quote_currency}"),
-                    amount.to_owned(),
+                    amount,
                     quote_currency.to_owned(),
                     available,
                     committed,
@@ -2082,7 +2242,10 @@ fn is_approval_bound_risk_input(input: &&risk::RiskDecisionInputReference) -> bo
 }
 
 fn is_approval_bound_risk_check(check: &&risk::RiskCheckResult) -> bool {
-    check.check_id != risk::RiskCheckId::ReservedCapital
+    !matches!(
+        check.check_id,
+        risk::RiskCheckId::ReservedCapital | risk::RiskCheckId::ReservedCapacity
+    )
 }
 
 fn approval_review_digest(
@@ -2359,11 +2522,33 @@ fn empty_binance_testnet_order_book(
     })
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AccountObservationScope {
+    Ordinary,
+    ExactLiveOrder,
+}
+
 pub struct ControlPlane {
     default_workspace: PathBuf,
     store: Option<Store>,
     subscribers: HashMap<(String, String, String), EventSink>,
     data_source_observations: HashMap<(String, String), protocol::DataSourceEntry>,
+    calendar_observation: Option<calendar_source::CalendarObservation>,
+    calendar_failure: Option<String>,
+    calendar_request_sequence: u64,
+    financial_source_runtime: financial_sources::FinancialSourceRuntime,
+    spot_rule_runtime: spot_proposal_rules::Runtime,
+    spot_capacity_runtime: spot_capacity::Runtime,
+    spot_commission_runtime: spot_commission::Runtime,
+    spot_order_interval_runtime: spot_order_intervals::Runtime,
+    quote_source_epoch: String,
+    quote_connection_generation: String,
+    quote_source_probe_sequence: u64,
+    quote_source_access_binding: Option<quote_source::SourceReadBinding>,
+    quote_observations: HashMap<String, quote_source::AcceptedQuote>,
+    binance_market_observations: HashMap<String, binance_market::stream::Observation>,
+    hot_quote: Option<quote_source::hot::HotLeaseState>,
+    fee_quote: Option<quote_source::hot::HotLeaseState>,
     selected_local_paper_proposal: Option<(String, String)>,
     session: String,
     time: time::TimeService,
@@ -2371,6 +2556,8 @@ pub struct ControlPlane {
     pending_live_disarm: Option<(String, bool)>,
     #[cfg(test)]
     live_approval_fixture_enabled: bool,
+    #[cfg(any(test, feature = "integration-test"))]
+    live_approval_fixture_snapshot: Option<protocol::MarketSnapshot>,
 }
 
 impl ControlPlane {
@@ -2380,6 +2567,22 @@ impl ControlPlane {
             store: None,
             subscribers: HashMap::new(),
             data_source_observations: HashMap::new(),
+            calendar_observation: None,
+            calendar_failure: None,
+            calendar_request_sequence: 0,
+            financial_source_runtime: Default::default(),
+            spot_rule_runtime: Default::default(),
+            spot_capacity_runtime: Default::default(),
+            spot_commission_runtime: Default::default(),
+            spot_order_interval_runtime: Default::default(),
+            quote_source_epoch: uuid::Uuid::new_v4().to_string(),
+            quote_connection_generation: uuid::Uuid::new_v4().to_string(),
+            quote_source_probe_sequence: 0,
+            quote_source_access_binding: None,
+            quote_observations: HashMap::new(),
+            binance_market_observations: HashMap::new(),
+            hot_quote: None,
+            fee_quote: None,
             selected_local_paper_proposal: None,
             session: uuid::Uuid::new_v4().to_string(),
             time: time::TimeService::new(),
@@ -2387,11 +2590,25 @@ impl ControlPlane {
             pending_live_disarm: None,
             #[cfg(test)]
             live_approval_fixture_enabled: false,
+            #[cfg(any(test, feature = "integration-test"))]
+            live_approval_fixture_snapshot: None,
         }
     }
 
     pub fn dispatch(&mut self, request: Value) -> Value {
         self.dispatch_with_events(request, "headless", None)
+    }
+
+    pub fn workspace_archive_credential_references(
+        &self,
+        workspace_id: &str,
+        archive_path: &Path,
+    ) -> Result<(String, Vec<(String, String)>)> {
+        self.require_workspace(workspace_id)?;
+        self.store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?
+            .archive_credential_references(archive_path)
     }
 
     pub fn issue_live_dispatch_grant(
@@ -2406,7 +2623,7 @@ impl ControlPlane {
             .store
             .as_mut()
             .unwrap()
-            .expire_unsubmitted_approvals(&workspace_id, &now)?;
+            .expire_financial_approval_authority(&workspace_id, &now)?;
         for event in &expired {
             self.publish(event);
         }
@@ -2600,7 +2817,7 @@ impl ControlPlane {
             .store
             .as_mut()
             .unwrap()
-            .expire_unsubmitted_approvals(&workspace_id, &now)?;
+            .expire_financial_approval_authority(&workspace_id, &now)?;
         for event in &expired {
             self.publish(event);
         }
@@ -2835,6 +3052,50 @@ impl ControlPlane {
         self.time.advance_test_time(workspace_id, elapsed_ms)
     }
 
+    #[cfg(feature = "integration-test")]
+    pub fn set_live_approval_market_fixture(
+        &mut self,
+        workspace_id: &str,
+        instrument_id: &str,
+        revision: &str,
+    ) -> Result<protocol::MarketSnapshot> {
+        if std::env::var("TRADEX_LIVE_APPROVAL_FIXTURE").as_deref() != Ok("1") {
+            return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+        }
+        self.require_workspace(workspace_id)?;
+        if instrument_id != "equity:US:AAPL" {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let time_status = self.time.status(workspace_id)?;
+        let input = MarketGetQuery {
+            workspace_id: workspace_id.into(),
+            instrument_id: instrument_id.into(),
+            tier: MarketTier::Census,
+        };
+        let mut snapshot = market::live_approval_fixture_detail(
+            &input,
+            "trading212",
+            "NASDAQ",
+            &time_status.wall_clock,
+            &time_status.wall_clock,
+        )?
+        .snapshot
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+        let (market_snapshot_id, last_price, bid, ask) = match revision {
+            "INITIAL" => ("synthetic-live-approval-v1", "50000", "49999", "50001"),
+            "CHANGED" => ("synthetic-live-approval-v2", "50100", "50099", "50101"),
+            _ => return Err(TradeXError::new("IPC_PAYLOAD_INVALID")),
+        };
+        snapshot.provenance.market_snapshot_id = market_snapshot_id.into();
+        snapshot.provenance.provider_timestamp = time_status.wall_clock.clone();
+        snapshot.provenance.received_timestamp = time_status.wall_clock;
+        snapshot.last_price = Some(last_price.into());
+        snapshot.bid = Some(bid.into());
+        snapshot.ask = Some(ask.into());
+        self.live_approval_fixture_snapshot = Some(snapshot.clone());
+        Ok(snapshot)
+    }
+
     #[cfg(any(test, feature = "integration-test"))]
     pub fn seed_live_arming_fixture(
         &mut self,
@@ -2865,6 +3126,18 @@ impl ControlPlane {
         account.health.reason =
             "Synthetic Live arming fixture; no provider request was made.".into();
         account.health.arming_reason = "SYNTHETIC_FIXTURE".into();
+        // Compatibility for the pre-existing lower-level synthetic lifecycle
+        // tests only. S29 acceptance uses public provider reads, never this seed.
+        if provider_id == "binance" {
+            let now = storage::timestamp()?;
+            account.binance_trading_status = Some(providers::BinanceTradingStatus {
+                system_status: providers::BinanceSystemStatus::Normal,
+                api_trading_locked: false,
+                provider_updated_at: now.clone(),
+                planned_recovery_at: None,
+                observed_at: now,
+            });
+        }
         account.permissions.scope = "VERIFIED".into();
         account.permissions.detected = provider.required_permissions.clone();
         let remote_account_id = if provider_id == "trading212" {
@@ -2921,6 +3194,98 @@ impl ControlPlane {
             .map_err(|_| TradeXError::new("IPC_PAYLOAD_INVALID"))?,
         );
         account.last_successful_sync = Some(storage::timestamp()?);
+        self.persist_account(account)
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub fn seed_live_open_order_fixture(
+        &mut self,
+        workspace_id: &str,
+        connection_id: &str,
+        broker_order_id: &str,
+    ) -> Result<AccountConnection> {
+        self.require_workspace(workspace_id)?;
+        if broker_order_id.is_empty()
+            || broker_order_id.len() > 32
+            || !broker_order_id.bytes().all(|byte| byte.is_ascii_digit())
+            || !matches!(broker_order_id.parse::<i64>(), Ok(id) if id > 0)
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let mut account = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("WORKSPACE_NOT_OPEN"))?
+            .account(connection_id)?;
+        if account.workspace_id != workspace_id
+            || account.provider_id != "trading212"
+            || account.environment != "LIVE"
+            || !account.label.starts_with("SYNTHETIC · ")
+        {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let data = account
+            .data
+            .as_mut()
+            .ok_or_else(|| TradeXError::new("ACCOUNT_DATA_UNAVAILABLE"))?;
+        data.open_orders
+            .retain(|order| order.broker_order_id != broker_order_id);
+        if data.open_orders.len() >= 500 {
+            return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
+        }
+        data.open_orders.push(OpenOrder {
+            broker_order_id: broker_order_id.into(),
+            symbol: "AAPL_US_EQ".into(),
+            instrument_id: Some("equity:US:AAPL".into()),
+            side: "BUY".into(),
+            quantity: Some("1".into()),
+            notional: None,
+            filled_quantity: Some("0.25".into()),
+            remaining_quantity: Some("0.75".into()),
+            filled_value: Some("32.5".into()),
+            currency: Some("USD".into()),
+            status: "PARTIALLY_FILLED".into(),
+            limit_price: Some("130".into()),
+            kind: None,
+            trigger_price: None,
+        });
+        self.persist_account(account)
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub fn seed_authentication_failure_fixture(
+        &mut self,
+        workspace_id: &str,
+        provider_id: &str,
+        label: &str,
+    ) -> Result<AccountConnection> {
+        let mut account = self.seed_live_arming_fixture(workspace_id, provider_id, label)?;
+        account.connection_state = ConnectionState::Failed;
+        account.health.connection = "OFFLINE".into();
+        account.health.authentication = "INVALID".into();
+        account.health.private_stream = "NOT_CONFIGURED".into();
+        account.health.reconciliation = "NOT_RUN".into();
+        account.health.execution_eligibility = "BLOCKED".into();
+        account.health.arming = "DISARMED".into();
+        account.health.arming_reason = "ACCOUNT_HEALTH_DEGRADED".into();
+        account.health.reason = "Authentication failed. Reconnect credentials; Live execution remains disabled until account health is restored. Synthetic local state only; no provider request was made.".into();
+        self.persist_account(account)
+    }
+
+    #[cfg(any(test, feature = "integration-test"))]
+    pub fn seed_private_stream_disconnect_fixture(
+        &mut self,
+        workspace_id: &str,
+        provider_id: &str,
+        label: &str,
+    ) -> Result<AccountConnection> {
+        let mut account = self.seed_live_arming_fixture(workspace_id, provider_id, label)?;
+        account.health.private_stream = "DEGRADED".into();
+        account.health.reconciliation = "DEGRADED".into();
+        account.health.execution_eligibility = "BLOCKED".into();
+        account.health.arming = "DISARMED".into();
+        account.health.arming_reason = "ACCOUNT_HEALTH_DEGRADED".into();
+        account.health.reason = "Private stream disconnected. Reconcile the saved account state before continuing. Live execution remains disabled until account health is restored. Synthetic local state only; no provider request was made.".into();
         self.persist_account(account)
     }
 
@@ -3065,6 +3430,9 @@ impl ControlPlane {
             capacity_key: "cash:USDT".into(),
             amount,
             unit: capacity.unit.clone(),
+            asset_claims: Vec::new(),
+            fee_settlement_plan: None,
+            asset_capacities: Vec::new(),
             notional: notional.clone(),
             notional_currency,
             workspace_notional: Some(notional),
@@ -3162,6 +3530,9 @@ impl ControlPlane {
     }
 
     pub fn disarm_live_for_safety(&mut self, reason: &str) -> Result<()> {
+        if matches!(reason, "OS_SLEEP" | "SESSION_INACTIVE" | "SESSION_RESUMED") {
+            quote_source::hot::retire_for_session(self);
+        }
         self.persist_live_disarm(reason, true)
     }
 
@@ -3231,7 +3602,7 @@ impl ControlPlane {
             .store
             .as_mut()
             .unwrap()
-            .expire_unsubmitted_approvals(&workspace_id, &time.wall_clock)?;
+            .expire_financial_approval_authority(&workspace_id, &time.wall_clock)?;
         for event in &events {
             self.publish(event);
         }
@@ -3282,6 +3653,17 @@ impl ControlPlane {
         sink: Option<EventSink>,
         runtime_access: Option<codex_runtime::RuntimeAccess>,
     ) -> Value {
+        self.dispatch_with_credential_statuses(request, consumer, sink, runtime_access, None)
+    }
+
+    pub fn dispatch_with_credential_statuses(
+        &mut self,
+        request: Value,
+        consumer: &str,
+        sink: Option<EventSink>,
+        runtime_access: Option<codex_runtime::RuntimeAccess>,
+        credential_statuses: Option<&WorkspaceArchiveCredentialStatuses>,
+    ) -> Value {
         let id = request
             .get("requestId")
             .and_then(Value::as_str)
@@ -3294,7 +3676,13 @@ impl ControlPlane {
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
             return self.dispatch_data_source_probe(request);
         }
-        match self.execute(request, consumer, sink, runtime_access.as_ref()) {
+        match self.execute(
+            request,
+            consumer,
+            sink,
+            runtime_access.as_ref(),
+            credential_statuses,
+        ) {
             Ok((data, version)) => {
                 let mut reply = json!({"requestId":id,"schemaVersion":1,"ok":true,"data":data});
                 if let Some(version) = version {
@@ -3323,6 +3711,7 @@ impl ControlPlane {
         consumer: &str,
         sink: Option<EventSink>,
         runtime_access: Option<&codex_runtime::RuntimeAccess>,
+        credential_statuses: Option<&WorkspaceArchiveCredentialStatuses>,
     ) -> Result<(Value, Option<String>)> {
         match value.get("schemaVersion").and_then(Value::as_u64) {
             Some(1) => (),
@@ -3368,6 +3757,24 @@ impl ControlPlane {
                     let event = self.store.as_mut().unwrap().record_open()?;
                     let workspace_id = event.aggregate_id.clone();
                     self.time.reset(&workspace_id);
+                    self.calendar_observation = None;
+                    self.calendar_failure = None;
+                    self.calendar_request_sequence = 0;
+                    self.financial_source_runtime = Default::default();
+                    self.spot_rule_runtime = Default::default();
+                    self.spot_capacity_runtime = Default::default();
+                    self.spot_commission_runtime = Default::default();
+                    self.spot_order_interval_runtime = Default::default();
+                    self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
+                    self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
+                    self.quote_source_probe_sequence = 0;
+                    self.quote_source_access_binding = None;
+                    self.quote_observations.clear();
+                    self.binance_market_observations.clear();
+                    self.hot_quote = None;
+                    self.fee_quote = None;
+                    self.data_source_observations
+                        .retain(|(_, source), _| source != "OD-001");
                     self.publish(&event);
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     Ok((json!(event.payload), Some(version)))
@@ -3409,6 +3816,24 @@ impl ControlPlane {
                     let version = format!("{}:{}", event.aggregate_id, event.sequence);
                     self.subscribers.clear();
                     self.session = uuid::Uuid::new_v4().to_string();
+                    self.calendar_observation = None;
+                    self.calendar_failure = None;
+                    self.calendar_request_sequence = 0;
+                    self.financial_source_runtime = Default::default();
+                    self.spot_rule_runtime = Default::default();
+                    self.spot_capacity_runtime = Default::default();
+                    self.spot_commission_runtime = Default::default();
+                    self.spot_order_interval_runtime = Default::default();
+                    self.quote_source_epoch = uuid::Uuid::new_v4().to_string();
+                    self.quote_connection_generation = uuid::Uuid::new_v4().to_string();
+                    self.quote_source_probe_sequence = 0;
+                    self.quote_source_access_binding = None;
+                    self.quote_observations.clear();
+                    self.binance_market_observations.clear();
+                    self.hot_quote = None;
+                    self.fee_quote = None;
+                    self.data_source_observations
+                        .retain(|(_, source), _| source != "OD-001");
                     Ok((json!(event.payload), Some(version)))
                 }
             }
@@ -3417,6 +3842,77 @@ impl ControlPlane {
                 self.require_workspace(&input.workspace_id)?;
                 let status = self.time.status(&input.workspace_id)?;
                 Ok((json!(status), None))
+            }
+            "workspace.archive.backup" => {
+                let input: WorkspaceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self.store.as_ref().unwrap().backup_workspace_archive()?;
+                Ok((json!(result), None))
+            }
+            "workspace.archive.export" => {
+                let input: WorkspaceArchiveExport = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .export_workspace_archive(Path::new(&input.destination_path))?;
+                Ok((json!(result), None))
+            }
+            "workspace.archive.preview" => {
+                let input: WorkspaceArchivePreviewRequest = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let mut result = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .preview_workspace_archive(Path::new(&input.archive_path))?;
+                let credential_statuses = credential_statuses
+                    .filter(|statuses| statuses.manifest_hash == result.manifest_hash);
+                for check in &mut result.credential_checks {
+                    if let Some(status) = credential_statuses
+                        .and_then(|statuses| statuses.statuses.get(&check.connection_id))
+                    {
+                        check.status = *status;
+                    }
+                }
+                Ok((json!(result), None))
+            }
+            "workspace.archive.restore" => {
+                let input: WorkspaceArchiveRestoreRequest = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let credential_statuses = credential_statuses
+                    .filter(|statuses| statuses.manifest_hash == input.manifest_hash)
+                    .map(|statuses| &statuses.statuses);
+                let result = self.store.as_ref().unwrap().restore_workspace_archive(
+                    Path::new(&input.archive_path),
+                    Path::new(&input.destination_parent),
+                    &input.manifest_hash,
+                    credential_statuses,
+                )?;
+                Ok((json!(result), None))
+            }
+            "workspace.retention.get" => {
+                let input: WorkspaceRetentionQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self.store.as_ref().unwrap().workspace_retention()?;
+                Ok((json!(result), None))
+            }
+            "workspace.retention.set" => {
+                let input: WorkspaceRetentionUpdate = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self
+                    .store
+                    .as_mut()
+                    .unwrap()
+                    .save_workspace_retention(&input)?;
+                Ok((json!(result), Some(result.state_version.clone())))
+            }
+            "workspace.retention.apply" => {
+                let input: WorkspaceRetentionQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let result = self.store.as_mut().unwrap().apply_workspace_retention()?;
+                Ok((json!(result), Some(result.state_version.clone())))
             }
             "time.revalidate" => {
                 let input: WorkspaceQuery = payload(request.payload)?;
@@ -3477,6 +3973,42 @@ impl ControlPlane {
                 let decision =
                     self.evaluate_risk_decision(&input.workspace_id, &input.proposal_id)?;
                 Ok((json!(decision), Some(decision.state_version.clone())))
+            }
+            "trade.spot_order_intervals.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_order_intervals::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
+            }
+            "trade.spot_commission.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_commission::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
+            }
+            "trade.spot_capacity.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_capacity::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
+            }
+            "trade.spot_rules.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: spot_proposal_rules::SpotRulesQuery = payload(request.payload)?;
+                let result = spot_proposal_rules::get(self, &input)?;
+                let version = result.state_version.clone();
+                Ok((json!(result), Some(version)))
             }
             "trade.request_approval" => {
                 if !provider_order_consumer_allowed(consumer) {
@@ -3565,6 +4097,7 @@ impl ControlPlane {
                     status: protocol::FinancialApprovalStatus::Issued,
                     invalidation_reason: None,
                     consumed_at: None,
+                    expiry: None,
                     state_version: String::new(),
                 };
                 let (approval, events) = self.store.as_mut().unwrap().issue_financial_approval(
@@ -3616,6 +4149,23 @@ impl ControlPlane {
                             .map(|saved| saved.state_version.clone())
                     });
                 Ok((json!(result), version))
+            }
+            "trade.execution.order_links" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::ExecutionOrderLinksQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let account = self.store.as_ref().unwrap().account(&input.account_id)?;
+                if account.workspace_id != input.workspace_id {
+                    return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+                }
+                let links = self.store.as_ref().unwrap().execution_order_links(
+                    &input.workspace_id,
+                    &input.account_id,
+                    &input.broker_order_ids,
+                )?;
+                Ok((json!(links), None))
             }
             "trade.resolution_evidence" => {
                 if !provider_order_consumer_allowed(consumer) {
@@ -3760,12 +4310,19 @@ impl ControlPlane {
                         .into_iter()
                         .last();
                     let review = self.build_approval_review(&proposal, latest)?;
+                    // A capacity-only change does not invalidate the user's approval. The
+                    // final reservation transaction still enforces current capacity, while
+                    // the same approval may be retried if funds become available again.
+                    let reconciliation_eligible = review.eligible
+                        || (review.blockers.len() == 1
+                            && review.blockers[0].starts_with("ReservedCapacity:")
+                            && review.risk_decision.status == risk::RiskDecisionStatus::Allowed);
                     let now = self.time.status(&input.workspace_id)?.wall_clock;
                     let events = self.store.as_mut().unwrap().reconcile_financial_approvals(
                         &input.workspace_id,
                         &input.proposal_id,
                         Some(&review.review_digest),
-                        review.eligible,
+                        reconciliation_eligible,
                         review
                             .blockers
                             .first()
@@ -3838,6 +4395,7 @@ impl ControlPlane {
                     status: protocol::FinancialApprovalStatus::Issued,
                     invalidation_reason: None,
                     consumed_at: None,
+                    expiry: None,
                     state_version: String::new(),
                 };
                 let (approval, events) = self
@@ -4074,6 +4632,10 @@ impl ControlPlane {
             "thread.create" => {
                 let input: ThreadCreate = payload(request.payload)?;
                 self.create_thread(input)
+            }
+            "thread.archive" | "thread.restore" => {
+                let archived = request.command == "thread.archive";
+                self.set_thread_archived(request.payload, archived)
             }
             "turn.start" => {
                 let input: TurnStart = payload(request.payload)?;
@@ -4459,6 +5021,44 @@ impl ControlPlane {
                 let run = self.cancel_backtest(input)?;
                 Ok((json!(run), Some(run.state_version.clone())))
             }
+            "data.calendar.connection" | "data.calendar.configure" | "data.calendar.disconnect" => {
+                calendar_source::metadata(self, request, consumer)
+            }
+            "data.actions.connection"
+            | "data.actions.configure"
+            | "data.actions.disconnect"
+            | "data.instrument.connection"
+            | "data.instrument.configure"
+            | "data.instrument.disconnect"
+            | "data.fx.connection"
+            | "data.fx.configure"
+            | "data.fx.attest_local_use"
+            | "data.fx.disconnect"
+            | "data.binance_rules.connection"
+            | "data.binance_rules.configure"
+            | "data.binance_rules.disconnect" => {
+                financial_sources::metadata(self, request, consumer)
+            }
+            "data.fx.requirements" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: protocol::FxRequirementsQuery = payload(request.payload)?;
+                let requirements = financial_sources::fx_requirements(self, &input)?;
+                Ok((json!(requirements), None))
+            }
+            "data.binance_market.connection"
+            | "data.binance_market.configure"
+            | "data.binance_market.disconnect" => binance_market::metadata(self, request, consumer),
+            "data.source.connection" => {
+                let input: DataSourceQuery = payload(request.payload)?;
+                self.require_workspace(&input.workspace_id)?;
+                let connection = self.quote_source_connection(&input.workspace_id)?;
+                Ok((json!(connection), Some(connection.state_version)))
+            }
+            "data.source.configure" | "data.source.disconnect" | "data.source.cleanup" => {
+                quote_source::metadata_only(self, request, consumer)
+            }
             "data.source.catalog" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -4482,6 +5082,20 @@ impl ControlPlane {
                 let sources = self.data_source_sources(&input.workspace_id);
                 let catalog = market::catalog(&input, &sources)?;
                 Ok((json!(catalog), None))
+            }
+            "trade.spot_fee_market.get" => {
+                if !provider_order_consumer_allowed(consumer) {
+                    return Err(TradeXError::new("IPC_ACCESS_DENIED"));
+                }
+                let input: crate::protocol::HotQuoteQuery = payload(request.payload)?;
+                Ok((
+                    json!(binance_market::stream::fee_projection(self, input)?),
+                    None,
+                ))
+            }
+            "market.hot.get" => {
+                let input: crate::protocol::HotQuoteQuery = payload(request.payload)?;
+                Ok((json!(quote_source::hot::projection(self, input)?), None))
             }
             "market.get" => {
                 let input: MarketGetQuery = payload(request.payload)?;
@@ -5363,12 +5977,12 @@ impl ControlPlane {
         let accounts = self.store.as_ref().unwrap().accounts()?;
         let mut catalog = capability::context_catalog(&accounts)?;
         let strategies = self.store.as_ref().unwrap().strategies()?;
-        if !strategies.versions.is_empty() {
-            catalog
-                .empty_states
-                .retain(|state| state.kind != "strategy");
-            for version in strategies.versions.iter().take(256) {
-                catalog.entries.push(capability::ContextCatalogEntry {
+        catalog.append_bounded(
+            "strategy",
+            strategies
+                .versions
+                .iter()
+                .map(|version| capability::ContextCatalogEntry {
                     context_ref: protocol::ThreadContextRef {
                         kind: "strategy".into(),
                         id: version.strategy_version_id.clone(),
@@ -5380,29 +5994,50 @@ impl ControlPlane {
                     read_only: true,
                     available: true,
                     availability_reason: None,
-                });
-            }
-        }
+                })
+                .collect(),
+        );
         if capability::synthetic_research_fixture_enabled() {
-            catalog
-                .empty_states
-                .retain(|state| state.kind != "artifact");
-            catalog.entries.push(capability::ContextCatalogEntry {
-                context_ref: capability::synthetic_research_artifact_context(),
-                label: "Synthetic research artifact".into(),
-                provider_id: None,
-                environment: None,
-                read_only: true,
-                available: true,
-                availability_reason: None,
-            });
+            catalog.append_bounded(
+                "artifact",
+                vec![capability::ContextCatalogEntry {
+                    context_ref: capability::synthetic_research_artifact_context(),
+                    label: "Synthetic research artifact".into(),
+                    provider_id: None,
+                    environment: None,
+                    read_only: true,
+                    available: true,
+                    availability_reason: None,
+                }],
+            );
         }
+        catalog.append_bounded(
+            "instrument",
+            market::instruments()
+                .into_iter()
+                .map(|instrument| capability::ContextCatalogEntry {
+                    context_ref: capability::instrument_context_ref(
+                        &input.workspace_id,
+                        &instrument.instrument_id,
+                    ),
+                    label: format!(
+                        "{} · {} · {}",
+                        instrument.symbol, instrument.display_name, instrument.instrument_id
+                    ),
+                    provider_id: None,
+                    environment: None,
+                    read_only: true,
+                    available: true,
+                    availability_reason: None,
+                })
+                .collect(),
+        );
         Ok(catalog)
     }
 
     fn begin_strategy(
         &mut self,
-        input: StrategyRunRequest,
+        mut input: StrategyRunRequest,
     ) -> Result<(PreparedStrategy, StrategyRun)> {
         self.require_workspace(&input.workspace_id)?;
         strategy::validate_run_request(&input)?;
@@ -5415,6 +6050,62 @@ impl ControlPlane {
             && expected != version.source_hash
         {
             return Err(TradeXError::new("STRATEGY_HASH_MISMATCH"));
+        }
+        let retry_source = input
+            .retry_of_run_id
+            .as_deref()
+            .map(|run_id| self.store.as_ref().unwrap().strategy_run(run_id))
+            .transpose()?;
+        capability::validate_contexts(&input.context_refs)?;
+        if input
+            .context_refs
+            .iter()
+            .any(|context| context.kind == "instrument" && context.id != input.instrument_id)
+        {
+            return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+        }
+        let retrying_legacy_run_without_context_refs = retry_source
+            .as_ref()
+            .is_some_and(|previous| previous.context_refs.is_empty())
+            && input.context_refs.is_empty();
+        if !input
+            .context_refs
+            .iter()
+            .any(|context| context.kind == "instrument")
+            && !retrying_legacy_run_without_context_refs
+        {
+            input.context_refs.push(capability::instrument_context_ref(
+                &input.workspace_id,
+                &input.instrument_id,
+            ));
+        }
+        if input.context_refs.len() > 32 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        input.context_refs.sort_by(|left, right| {
+            (&left.kind, &left.id, &left.hash).cmp(&(&right.kind, &right.id, &right.hash))
+        });
+        let store = self.store.as_ref().unwrap();
+        let accounts = store.accounts()?;
+        let artifacts = store.artifacts()?.artifacts;
+        let strategies = store.strategies()?.versions;
+        capability::validate_catalog_refs_with_artifacts_and_strategies(
+            &input.workspace_id,
+            &input.context_refs,
+            &accounts,
+            &artifacts,
+            &strategies,
+            capability::synthetic_research_fixture_enabled(),
+        )?;
+        for context in input
+            .context_refs
+            .iter()
+            .filter(|context| context.kind == "backtest")
+        {
+            let run = store.backtest_run(&context.id)?;
+            if run.request_hash != context.hash {
+                return Err(TradeXError::new("TURN_CONTEXT_INVALID"));
+            }
         }
         let parameters = if input.parameters.is_empty() {
             version.definition.parameters.clone()
@@ -5434,13 +6125,39 @@ impl ControlPlane {
             }
             input.parameters.clone()
         };
+        if let Some(previous) = retry_source.as_ref() {
+            if !matches!(
+                previous.state,
+                StrategyRunState::Failed | StrategyRunState::Cancelled
+            ) || previous.strategy_version_id != version.strategy_version_id
+                || previous.strategy_hash != version.source_hash
+                || previous.instrument_id != input.instrument_id
+                || previous.dataset_id != input.dataset_id
+                || previous.start_at != input.start_at
+                || previous.end_at != input.end_at
+                || previous.context_refs != input.context_refs
+                || previous.parameters != parameters
+            {
+                return Err(TradeXError::new("STRATEGY_RETRY_INVALID"));
+            }
+        }
         let time = self.time.status(&input.workspace_id)?;
         let fixture = strategy::fixture_enabled();
         if time.confidence != protocol::TimeConfidence::Trusted && !fixture {
             return Err(TradeXError::new("STRATEGY_TIME_UNTRUSTED"));
         }
+        let observed_at = retry_source
+            .as_ref()
+            .map(|previous| previous.observed_at.clone())
+            .unwrap_or_else(|| time.observed_at.clone());
         let request_hash =
-            strategy::run_identity_hash(&version, &input, &parameters, &time.observed_at)?;
+            strategy::run_identity_hash(&version, &input, &parameters, &observed_at)?;
+        if retry_source
+            .as_ref()
+            .is_some_and(|previous| previous.request_hash != request_hash)
+        {
+            return Err(TradeXError::new("STRATEGY_RETRY_INVALID"));
+        }
         let run_id = uuid::Uuid::new_v4().to_string();
         let now = storage::timestamp()?;
         let fixture_label = fixture.then(|| "TRADEX_STRATEGY_FIXTURE".to_owned());
@@ -5453,7 +6170,8 @@ impl ControlPlane {
             dataset_id: input.dataset_id.clone(),
             start_at: input.start_at.clone(),
             end_at: input.end_at.clone(),
-            observed_at: time.observed_at.clone(),
+            observed_at: observed_at.clone(),
+            context_refs: input.context_refs.clone(),
             parameters,
             state: StrategyRunState::Queued,
             signal: None,
@@ -5469,7 +6187,7 @@ impl ControlPlane {
             input,
             version,
             run: run.clone(),
-            observed_at: time.observed_at,
+            observed_at,
         };
         Ok((prepared, run))
     }
@@ -5869,6 +6587,50 @@ impl ControlPlane {
         Ok((json!(thread), Some(version)))
     }
 
+    fn set_thread_archived(
+        &mut self,
+        input: Value,
+        archived: bool,
+    ) -> Result<(Value, Option<String>)> {
+        let input: ThreadLifecycle = payload(input)?;
+        self.require_workspace(&input.workspace_id)?;
+        validate_aggregate("thread", &input.thread_id)?;
+        if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let mut thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
+        if thread.state_version != input.expected_state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        let status = if archived {
+            protocol::ThreadStatus::Archived
+        } else {
+            protocol::ThreadStatus::Active
+        };
+        if thread.status == status {
+            return Err(TradeXError::new("THREAD_STATUS_CONFLICT"));
+        }
+        if thread
+            .turns
+            .iter()
+            .any(|turn| turn.status == protocol::TurnStatus::Running)
+        {
+            return Err(TradeXError::new("TURN_ALREADY_RUNNING"));
+        }
+        thread.status = status;
+        let event = self
+            .store
+            .as_mut()
+            .unwrap()
+            .save_thread(thread, "thread.updated")?;
+        let DomainProjection::Thread(thread) = &event.payload else {
+            unreachable!()
+        };
+        let result = (json!(thread), Some(thread.state_version.clone()));
+        self.publish(&event);
+        Ok(result)
+    }
+
     fn begin_turn(&mut self, input: TurnStart) -> Result<(PreparedTurn, Thread)> {
         self.require_workspace(&input.workspace_id)?;
         if input.expected_state_version.is_empty() || input.expected_state_version.len() > 256 {
@@ -5883,6 +6645,9 @@ impl ControlPlane {
         let existing = self.store.as_ref().unwrap().thread(&input.thread_id)?;
         if existing.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if existing.status == protocol::ThreadStatus::Archived {
+            return Err(TradeXError::new("THREAD_ARCHIVED"));
         }
         if existing
             .turns
@@ -6064,6 +6829,9 @@ impl ControlPlane {
         let thread = self.store.as_ref().unwrap().thread(&input.thread_id)?;
         if thread.state_version != input.expected_state_version {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if thread.status == protocol::ThreadStatus::Archived {
+            return Err(TradeXError::new("THREAD_ARCHIVED"));
         }
         if thread
             .turns
@@ -7146,7 +7914,9 @@ impl ControlPlane {
     }
 
     fn live_arming_blocker(&self, account: &AccountConnection) -> Option<&'static str> {
-        if let Some(code) = Self::live_account_health_blocker(account) {
+        if let Some(code) =
+            Self::live_account_health_blocker(account, AccountObservationScope::Ordinary)
+        {
             return Some(code);
         }
         if !self
@@ -7203,7 +7973,10 @@ impl ControlPlane {
             .collect()
     }
 
-    fn live_account_health_blocker(account: &AccountConnection) -> Option<&'static str> {
+    fn live_account_health_blocker(
+        account: &AccountConnection,
+        scope: AccountObservationScope,
+    ) -> Option<&'static str> {
         if account.environment != "LIVE" {
             return Some("LIVE_ACCOUNT_REQUIRED");
         }
@@ -7218,6 +7991,11 @@ impl ControlPlane {
                 account.health.private_stream.as_str(),
                 "DEGRADED" | "AUTH_FAILED" | "STOPPED"
             )
+        {
+            return Some("ACCOUNT_UNHEALTHY");
+        }
+        if scope == AccountObservationScope::Ordinary
+            && !storage::timestamp().is_ok_and(|now| account.binance_trading_state_is_current(&now))
         {
             return Some("ACCOUNT_UNHEALTHY");
         }
@@ -7245,7 +8023,12 @@ impl ControlPlane {
     }
 
     fn persist_account(&mut self, account: AccountConnection) -> Result<AccountConnection> {
-        self.persist_account_with_live_order_settlements(account, Vec::new(), None)
+        self.persist_account_with_live_order_settlements(
+            account,
+            Vec::new(),
+            None,
+            AccountObservationScope::Ordinary,
+        )
     }
 
     fn persist_account_with_live_order_settlements(
@@ -7253,6 +8036,7 @@ impl ControlPlane {
         mut account: AccountConnection,
         settlements: Vec<provider_io::LiveOrderObservation>,
         live_cancel_order_observation: Option<(String, provider_io::LiveOrderObservation)>,
+        observation_scope: AccountObservationScope,
     ) -> Result<AccountConnection> {
         let previous = self
             .store
@@ -7267,7 +8051,7 @@ impl ControlPlane {
                     != account.data.as_ref().map(|data| &data.remote_account_id);
             let disarm_reason = if identity_or_permission_changed {
                 Some("CREDENTIAL_OR_PERMISSION_CHANGED")
-            } else if Self::live_account_health_blocker(&account).is_some() {
+            } else if Self::live_account_health_blocker(&account, observation_scope).is_some() {
                 Some("ACCOUNT_HEALTH_DEGRADED")
             } else {
                 None
@@ -7389,12 +8173,81 @@ impl ControlPlane {
         data_sources::entries()
             .into_iter()
             .map(|source| {
-                self.data_source_observations
+                if source.source_id == binance_market::SOURCE_ID {
+                    return binance_market::connection(self, workspace_id).map(|connection| connection.source).unwrap_or_else(|_| {
+                        let mut unavailable = source;
+                        unavailable.status = protocol::DataSourceStatus::Unavailable;
+                        unavailable.availability_reason = "The saved public Spot source could not be read. Reopen or repair the workspace; no quote authority is available.".into();
+                        unavailable
+                    });
+                }
+                if source.source_id == "OD-001" {
+                    return quote_source::configured_entry(self, workspace_id).unwrap_or_else(|_| {
+                        let mut unavailable=source;
+                        unavailable.status=protocol::DataSourceStatus::Unavailable;
+                        unavailable.availability_reason="The configured quote source could not be read. Reload or reopen the workspace before using market data.".into();
+                        unavailable
+                    });
+                }
+                let source = self.data_source_observations
                     .get(&(workspace_id.to_owned(), source.source_id.clone()))
                     .cloned()
-                    .unwrap_or(source)
+                    .unwrap_or(source);
+                if source.source_id == "OD-005" {
+                    financial_sources::catalog_entry(self, calendar_source::catalog_entry(self, workspace_id, source))
+                } else {
+                    source
+                }
             })
             .collect()
+    }
+
+    fn quote_source_connection(
+        &self,
+        workspace_id: &str,
+    ) -> Result<protocol::DataSourceConnection> {
+        let store = self
+            .store
+            .as_ref()
+            .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?;
+        let saved = store.quote_source()?;
+        let configured = saved.feed.is_some() && saved.credential.is_some();
+        let source = quote_source::configured_entry(self, workspace_id)?;
+        Ok(protocol::DataSourceConnection {
+            state_version: saved.state_version(workspace_id),
+            workspace_id: workspace_id.into(),
+            source_id: "OD-001".into(),
+            configured,
+            status: source.status,
+            availability_reason: source.availability_reason,
+            account_id: saved.account_id().map(str::to_owned),
+            credential_kind: saved
+                .credential
+                .as_ref()
+                .map(|credential| match credential {
+                    quote_source::SavedSourceCredential::ExistingAccount { .. } => {
+                        protocol::DataSourceCredentialKind::ExistingAccount
+                    }
+                    quote_source::SavedSourceCredential::Dedicated { .. } => {
+                        protocol::DataSourceCredentialKind::Dedicated
+                    }
+                }),
+            cleanup_pending: !store.quote_source_pending_cleanup()?.is_empty(),
+            feed: saved.feed,
+            eligible_accounts: store
+                .accounts()?
+                .into_iter()
+                .filter(|account| {
+                    account.provider_id == "alpaca"
+                        && account.connection_state == ConnectionState::Connected
+                        && account.health.credential == "CONFIGURED"
+                })
+                .map(|account| protocol::DataSourceAccountChoice {
+                    connection_id: account.connection_id,
+                    display_name: account.label,
+                })
+                .collect(),
+        })
     }
 
     fn current_portfolio_snapshot(
@@ -7402,6 +8255,16 @@ impl ControlPlane {
         workspace_id: &str,
         fixture: bool,
     ) -> Result<protocol::PortfolioSnapshot> {
+        // An explicit source choice permanently retires the legacy portfolio fixture,
+        // including after disconnect. Source reads cannot manufacture monetary authority.
+        let fixture = fixture
+            && self
+                .store
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))?
+                .financial_source(protocol::FinancialSourceKind::Fx)?
+                .generation
+                == 0;
         let time_status = self.time.status(workspace_id)?;
         let store = self
             .store
@@ -7440,11 +8303,48 @@ impl ControlPlane {
             instrument_id: instrument_id.into(),
             tier: tier.clone(),
         };
-        let source = market::source_id_for_instrument(instrument_id, tier)
-            .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id));
+        let source = if input.instrument_id.starts_with("crypto:")
+            && binance_market::selected_once(self)?
+            && *tier != MarketTier::Cold
+        {
+            sources
+                .iter()
+                .find(|entry| entry.source_id == binance_market::SOURCE_ID)
+        } else {
+            market::source_id_for_instrument(instrument_id, tier)
+                .and_then(|source_id| sources.iter().find(|entry| entry.source_id == source_id))
+        };
         let calendar_source = sources.iter().find(|entry| entry.source_id == "OD-005");
         let time_status = self.time.status(workspace_id)?;
-        market::detail_with_fixture(&input, source, calendar_source, &time_status, fixture)
+        let configured =
+            source.is_some_and(|source| source.source_id == "OD-001" && source.configured);
+        let calendar_configured = input.instrument_id.starts_with("equity:")
+            && self
+                .store
+                .as_ref()
+                .unwrap()
+                .calendar_source()?
+                .connection_id
+                .is_some();
+        let financial_selected = (input.instrument_id.starts_with("equity:")
+            && financial_sources::selected_once(self)?)
+            || (input.instrument_id.starts_with("crypto:")
+                && (financial_sources::spot_rules_selected_once(self)?
+                    || binance_market::selected_once(self)?));
+        let mut detail = market::detail_with_fixture(
+            &input,
+            source,
+            calendar_source,
+            &time_status,
+            fixture && !configured && !calendar_configured && !financial_selected,
+        )?;
+        if configured {
+            quote_source::project_quote(self, &time_status, &mut detail);
+        }
+        calendar_source::project(self, &time_status, &mut detail);
+        financial_sources::project(self, &mut detail)?;
+        binance_market::stream::project(self, &time_status, &mut detail);
+        Ok(detail)
     }
 
     fn approval_market_detail_for(
@@ -7459,7 +8359,42 @@ impl ControlPlane {
                 instrument_id: proposal.fields.instrument_id.clone(),
                 tier: MarketTier::Census,
             };
-            if live_provider_id(&proposal.fields.environment).is_some()
+            let synthetic_simulation_context = account.is_some_and(|account| {
+                matches!(
+                    (
+                        &proposal.fields.environment,
+                        account.provider_id.as_str(),
+                        account.environment.as_str()
+                    ),
+                    (
+                        protocol::ExecutionContext::Trading212Demo,
+                        "trading212",
+                        "DEMO"
+                    ) | (protocol::ExecutionContext::AlpacaPaper, "alpaca", "PAPER")
+                )
+            });
+            if (live_provider_id(&proposal.fields.environment).is_some()
+                || synthetic_simulation_context)
+                && !(input.instrument_id.starts_with("crypto:")
+                    && (financial_sources::spot_rules_selected_once(self)?
+                        || binance_market::selected_once(self)?))
+                && !(input.instrument_id.starts_with("equity:")
+                    && financial_sources::selected_once(self)?)
+                && self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .calendar_source()?
+                    .connection_id
+                    .is_none()
+                && !(market::source_id_for_instrument(
+                    &proposal.fields.instrument_id,
+                    &MarketTier::Census,
+                ) == Some("OD-001")
+                    && self
+                        .data_source_sources(&proposal.workspace_id)
+                        .iter()
+                        .any(|source| source.source_id == "OD-001" && source.configured))
                 && (std::env::var("TRADEX_LIVE_APPROVAL_FIXTURE").as_deref() == Ok("1") || {
                     #[cfg(test)]
                     {
@@ -7472,13 +8407,22 @@ impl ControlPlane {
                 })
             {
                 let account = account.ok_or_else(|| TradeXError::new("ACCOUNT_NOT_FOUND"))?;
-                return market::live_approval_fixture_detail(
+                let mut detail = market::live_approval_fixture_detail(
                     &input,
                     &account.provider_id,
                     &proposal.fields.venue,
                     &self.time.status(&proposal.workspace_id)?.wall_clock,
                     &proposal.created_at,
-                );
+                )?;
+                if let Some(snapshot) = &self.live_approval_fixture_snapshot {
+                    detail.snapshot = Some(snapshot.clone());
+                }
+                if synthetic_simulation_context && let Some(snapshot) = detail.snapshot.as_mut() {
+                    snapshot.provenance.venue = Some(proposal.fields.venue.clone());
+                    snapshot.bid_size = Some("2".into());
+                    snapshot.ask_size = Some("2".into());
+                }
+                return Ok(detail);
             }
         }
         #[cfg(not(any(test, feature = "integration-test")))]
@@ -7525,7 +8469,7 @@ impl ControlPlane {
         policy: Option<risk::RiskPolicyState>,
     ) -> Result<risk::RiskDecision> {
         self.build_risk_evaluation(proposal, policy)
-            .map(|(decision, _, _, _)| decision)
+            .map(|(decision, _, _, _, _, _)| decision)
     }
 
     fn build_risk_evaluation(
@@ -7537,6 +8481,8 @@ impl ControlPlane {
         Option<AccountConnection>,
         Option<protocol::MarketDetail>,
         protocol::TimeStatus,
+        Option<protocol::FxReviewEvidence>,
+        Option<protocol::CapacityProjection>,
     )> {
         let workspace_id = proposal.workspace_id.as_str();
         let unsupported_bitget_demo =
@@ -7564,11 +8510,88 @@ impl ControlPlane {
             Some(self.approval_market_detail_for(proposal, account.as_ref())?)
         };
         let time_status = self.time.status(workspace_id)?;
+        let fee_market_query = self.fee_quote.as_ref().and_then(|lease| {
+            let projection = lease.projection();
+            (projection.instrument_id == crate::spot_fee_market::INTERNAL_ID).then(|| {
+                protocol::HotQuoteQuery {
+                    workspace_id: projection.workspace_id.clone(),
+                    lease_id: projection.lease_id.clone(),
+                    generation: projection.generation.clone(),
+                }
+            })
+        });
+        let fee_market = fee_market_query
+            .and_then(|query| binance_market::stream::fee_projection(self, query).ok());
         let active_reservations = self
             .store
             .as_ref()
             .unwrap()
             .active_execution_reservations(workspace_id)?;
+        let maximum_authorized_spend = if proposal.fields.order_type == protocol::OrderType::Market
+        {
+            proposal.fields.maximum_spend.clone()
+        } else {
+            proposal_value(proposal, market.as_ref())
+        };
+        let capacity_projection = if matches!(
+            proposal.fields.environment,
+            protocol::ExecutionContext::Trading212Live
+                | protocol::ExecutionContext::BinanceLive
+                | protocol::ExecutionContext::BitgetLive
+        ) {
+            match (account.as_ref(), market.as_ref()) {
+                (Some(account), Some(market)) => {
+                    let freshness = capacity_evidence_freshness(account, &time_status.wall_clock);
+                    if freshness == protocol::CapacityFreshness::Current {
+                        match live_place_capacity(
+                            proposal,
+                            account,
+                            market,
+                            maximum_authorized_spend.as_deref(),
+                            &time_status.wall_clock,
+                        ) {
+                            Ok(mut capacity) => {
+                                let mut reserved = "0".to_owned();
+                                for active in active_reservations.iter().filter(|active| {
+                                    active.account_id == account.connection_id
+                                        && active.capacity_key == capacity.capacity_key
+                                }) {
+                                    reserved =
+                                        crate::portfolio::decimal_add(&reserved, &active.amount)?;
+                                }
+                                let available =
+                                    capacity.projection.available.as_deref().ok_or_else(|| {
+                                        TradeXError::new("RISK_EVIDENCE_UNAVAILABLE")
+                                    })?;
+                                capacity.projection.reserved = Some(reserved.clone());
+                                capacity.projection.effective_available = Some(
+                                    crate::provider_io::decimal_subtract(available, &reserved)?,
+                                );
+                                Some(capacity.projection)
+                            }
+                            Err(_) => Some(unavailable_capacity_projection(
+                                proposal,
+                                account,
+                                market,
+                                maximum_authorized_spend.as_deref(),
+                                protocol::CapacityFreshness::Unavailable,
+                            )),
+                        }
+                    } else {
+                        Some(unavailable_capacity_projection(
+                            proposal,
+                            account,
+                            market,
+                            maximum_authorized_spend.as_deref(),
+                            freshness,
+                        ))
+                    }
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
         let base_currency = self.store.as_ref().unwrap().base_currency()?;
         let mut existing_reserved_capital = Some("0".to_owned());
         if policy
@@ -7598,7 +8621,7 @@ impl ControlPlane {
             .as_ref()
             .map(|market| market.instrument.instrument_id.clone())
             .unwrap_or_else(|| proposal.fields.instrument_id.clone());
-        let inputs = vec![
+        let mut inputs = vec![
             risk::input_reference(
                 risk::RiskDecisionInputKind::Policy,
                 policy.as_ref().map_or_else(
@@ -7648,18 +8671,306 @@ impl ControlPlane {
                 &active_reservations,
             )?,
         ];
-        let decision = risk::evaluate(
+        let currency_evidence = financial_sources::review_context(self, proposal)?;
+        if let Some(context) = &currency_evidence {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::CurrencyRates,
+                format!("currency-rates:{}", context.requirements.material_version),
+                context.source.observed_at.clone(),
+                context,
+            )?);
+        }
+        let owning_spot_required = proposal.fields.environment
+            == protocol::ExecutionContext::BinanceLive
+            && financial_sources::spot_rules_selected_once(self)?;
+        let spot_rules = if owning_spot_required {
+            spot_proposal_rules::get(
+                self,
+                &spot_proposal_rules::SpotRulesQuery {
+                    workspace_id: workspace_id.into(),
+                    proposal_id: proposal.proposal_id.clone(),
+                },
+            )
+            .ok()
+        } else {
+            None
+        };
+        let spot_capacity = if spot_rules.is_some() {
+            spot_capacity::get(
+                self,
+                &spot_proposal_rules::SpotRulesQuery {
+                    workspace_id: workspace_id.into(),
+                    proposal_id: proposal.proposal_id.clone(),
+                },
+            )
+            .ok()
+        } else {
+            None
+        };
+        let spot_commission = if spot_rules.is_some() {
+            spot_commission::get(
+                self,
+                &spot_proposal_rules::SpotRulesQuery {
+                    workspace_id: workspace_id.into(),
+                    proposal_id: proposal.proposal_id.clone(),
+                },
+            )
+            .ok()
+        } else {
+            None
+        };
+        let spot_order_intervals = if spot_rules.is_some() {
+            spot_order_intervals::get(
+                self,
+                &spot_proposal_rules::SpotRulesQuery {
+                    workspace_id: workspace_id.into(),
+                    proposal_id: proposal.proposal_id.clone(),
+                },
+            )
+            .ok()
+        } else {
+            None
+        };
+        // The owning admission statement is derived from the same two read-only observations the
+        // review already carries. It withholds admission whenever any declared fact is missing,
+        // incomplete, contradictory or exhausted; it never grants authority of its own.
+        let spot_owning = match (&spot_capacity, &spot_order_intervals) {
+            (Some(capacity), Some(intervals)) => {
+                spot_owning::qualify(capacity, intervals, proposal.fields.side).ok()
+            }
+            _ => None,
+        };
+        // Build the current branch from the same bound exact-symbol terms, selected account and
+        // trusted market inputs before deriving the owning statement. The statement may use a
+        // complete current model to qualify its estimate, while retaining UNKNOWN for the actual
+        // future fee asset. Account-level commission comparisons remain historical.
+        let (wallet_funding_evidence, current_fee_model, current_fee_model_failure) =
+            match (&spot_capacity, &spot_commission) {
+                (Some(capacity), Some(commission)) => {
+                    let wallet = spot_fee_model::wallet_funding_evidence(
+                        proposal,
+                        capacity,
+                        &active_reservations,
+                    );
+                    match spot_fee_model::current_fallback(
+                        commission,
+                        proposal,
+                        capacity,
+                        &active_reservations,
+                        &wallet,
+                        spot_fee_model::MarketInputs {
+                            detail: market.as_ref(),
+                            fee_market: fee_market.as_ref(),
+                            clock: &time_status,
+                            policy: policy.as_ref().map(|state| &state.policy),
+                        },
+                    ) {
+                        Ok(model) => (Some(wallet), Some(model), None),
+                        Err(error) => (Some(wallet), None, Some(error.code)),
+                    }
+                }
+                (Some(capacity), None) => (
+                    Some(spot_fee_model::wallet_funding_evidence(
+                        proposal,
+                        capacity,
+                        &active_reservations,
+                    )),
+                    None,
+                    None,
+                ),
+                _ => (None, None, None),
+            };
+        // The owning fee and genuinely-required execution-FX statement consumes the exact-symbol
+        // commission input, derived current branch and the same capacity/rule/FX seams carried by
+        // this review.
+        let mut spot_fee_fx = match &spot_capacity {
+            Some(capacity) => {
+                let (fx_requirements, fx_observation) =
+                    financial_sources::proposal_fx_evidence(self, proposal)?;
+                spot_fee_fx::derive(
+                    capacity,
+                    spot_fee_fx::SpotFeeFxSources {
+                        commission: spot_commission.as_ref(),
+                        source_use_assessment: currency_evidence
+                            .as_ref()
+                            .and_then(|context| context.source.source_use_assessment.as_ref()),
+                        current_fee_model: current_fee_model.as_ref(),
+                        wallet_funding_evidence: wallet_funding_evidence.as_ref(),
+                    },
+                    &fx_requirements,
+                    fx_observation.as_ref(),
+                    proposal,
+                    proposal.fields.side,
+                    &base_currency,
+                )
+                .ok()
+                .flatten()
+            }
+            None => None,
+        };
+        if let Some(statement) = &mut spot_fee_fx {
+            statement.wallet_funding_evidence = wallet_funding_evidence;
+            statement.current_fee_model = current_fee_model;
+            statement.current_fee_model_failure = current_fee_model_failure;
+        }
+        if let Some(commission) = &spot_commission {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::SpotCommission,
+                proposal.proposal_id.clone(),
+                commission
+                    .observation
+                    .as_ref()
+                    .and_then(|o| o.reads.first())
+                    .map(|r| r.received_at.clone()),
+                commission,
+            )?);
+        }
+        if let Some(intervals) = &spot_order_intervals {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::SpotOrderIntervals,
+                proposal.proposal_id.clone(),
+                intervals
+                    .observation
+                    .as_ref()
+                    .and_then(|o| o.reads.first())
+                    .map(|r| r.received_at.clone()),
+                intervals,
+            )?);
+        }
+        if let Some(capacity) = &spot_capacity {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::SpotCapacity,
+                proposal.proposal_id.clone(),
+                capacity
+                    .observation
+                    .as_ref()
+                    .and_then(|o| o.reads.first())
+                    .map(|r| r.received_at.clone()),
+                capacity,
+            )?);
+        }
+        if let Some(rules) = &spot_rules {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::InstrumentRules,
+                proposal.proposal_id.clone(),
+                rules.observed_at.clone(),
+                rules,
+            )?);
+        }
+        // The fee/FX statement is approval-bound as a value: a genuine change to exact-symbol fee
+        // material or a required rate changes this input's digest. Receipt-only commission refreshes
+        // retain their independent provenance without creating a new financial-material digest.
+        if let Some(statement) = &spot_fee_fx {
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::SpotFeeFx,
+                proposal.proposal_id.clone(),
+                spot_commission
+                    .as_ref()
+                    .and_then(|commission| commission.observation.as_ref())
+                    .and_then(|observation| observation.reads.first())
+                    .map(|read| read.received_at.clone()),
+                statement,
+            )?);
+        }
+        let mut decision = risk::evaluate(
             proposal,
             policy.as_ref(),
             account.as_ref(),
             portfolio.as_ref(),
+            owning_spot_required,
+            spot_fee_fx
+                .as_ref()
+                .and_then(|statement| statement.workspace_base_expected_spend.as_deref()),
             market.as_ref(),
             &time_status,
             inputs,
             existing_reserved_capital.as_deref(),
+            capacity_projection.as_ref(),
             storage::timestamp()?,
         );
-        Ok((decision, account, market, time_status))
+        if let Some(rules) = &spot_rules {
+            if let Some(check) = decision
+                .checks
+                .iter_mut()
+                .find(|check| check.check_id == risk::RiskCheckId::InstrumentRules)
+            {
+                check.outcome = rules.outcome.clone();
+                check.reason_code = match rules.outcome {
+                    risk::RiskCheckOutcome::Pass => risk::RiskDecisionReasonCode::WithinLimit,
+                    risk::RiskCheckOutcome::Reject => {
+                        risk::RiskDecisionReasonCode::InstrumentRulesRejected
+                    }
+                    risk::RiskCheckOutcome::Unavailable => {
+                        risk::RiskDecisionReasonCode::InstrumentRulesUnavailable
+                    }
+                };
+                check.reason = match rules.outcome {
+                    risk::RiskCheckOutcome::Reject => "Current exact per-Proposal Spot rules reject this unchanged intent; inspect the captured per-rule explanation.",
+                    risk::RiskCheckOutcome::Pass => "Every applicable bound Spot rule is satisfied. Rights, quotes, fees/FX and authenticated immediate preflight remain independent.",
+                    risk::RiskCheckOutcome::Unavailable => "Per-Proposal static results are captured, but applicable missing reference, dynamic or unsupported obligations remain unavailable.",
+                }.into();
+            }
+            decision.status = risk::RiskDecisionStatus::from_checks(&decision.checks);
+        }
+        decision.spot_capacity = spot_capacity;
+        decision.spot_order_intervals = spot_order_intervals;
+        decision.spot_owning = spot_owning;
+        decision.spot_fee_fx = spot_fee_fx;
+        decision.spot_commission = spot_commission;
+        decision.spot_rules = spot_rules.map(|mut captured| {
+            for reference in &mut captured.references {
+                reference.price = None;
+            }
+            if let Some(preview) = &mut captured.price_range_preview {
+                preview.lower_bound = None;
+                preview.upper_bound = None;
+                if let Some(reference) = &mut preview.reference {
+                    reference.price = None;
+                }
+            }
+            captured
+        });
+        if owning_spot_required {
+            let check = match decision.spot_fee_fx.as_ref() {
+                Some(statement) => risk::RiskCheckResult {
+                    check_id: risk::RiskCheckId::SpotFeeFx,
+                    outcome: statement.outcome,
+                    reason_code: match (statement.outcome, statement.reason_code) {
+                        (risk::RiskCheckOutcome::Pass, _) => {
+                            risk::RiskDecisionReasonCode::WithinLimit
+                        }
+                        (_, crate::spot_fee_fx::SpotFeeFxReasonCode::ValuationCurrencyMismatch) => {
+                            risk::RiskDecisionReasonCode::ValuationCurrencyMismatch
+                        }
+                        _ => risk::RiskDecisionReasonCode::SpotFeeFxUnavailable,
+                    },
+                    reason: statement.reason.clone(),
+                },
+                None => risk::RiskCheckResult {
+                    check_id: risk::RiskCheckId::SpotFeeFx,
+                    outcome: risk::RiskCheckOutcome::Unavailable,
+                    reason_code: risk::RiskDecisionReasonCode::SpotFeeFxUnavailable,
+                    reason: "The current owning Spot fee/FX statement is unavailable; risk cannot substitute a separate currency projection.".into(),
+                },
+            };
+            decision.checks.push(check);
+        } else if currency_evidence.is_some() {
+            decision.checks.push(risk::RiskCheckResult {
+                check_id: risk::RiskCheckId::CurrencyConversion,
+                outcome: risk::RiskCheckOutcome::Unavailable,
+                reason_code: risk::RiskDecisionReasonCode::CurrencyConversionUnavailable,
+                reason: "Required cross-currency or unknown monetary inputs lack qualified conversion, explicit directional rounding and exact broker funding/cost evidence. Read-only rates cannot authorize execution.".into(),
+            });
+        }
+        decision.status = risk::RiskDecisionStatus::from_checks(&decision.checks);
+        Ok((
+            decision,
+            account,
+            market,
+            time_status,
+            currency_evidence,
+            capacity_projection,
+        ))
     }
 
     fn build_cancellation_review(
@@ -7958,11 +9269,19 @@ impl ControlPlane {
             return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
         }
         let policy = self.store.as_ref().unwrap().risk_or_new()?;
-        let (current_decision, account, market, time_status) =
-            self.build_risk_evaluation(proposal, policy.clone())?;
+        let (
+            current_decision,
+            account,
+            market,
+            time_status,
+            currency_evidence,
+            capacity_projection,
+        ) = self.build_risk_evaluation(proposal, policy.clone())?;
         let defer_reservation_recheck = bound_decision.is_some();
         let bound = bound_decision.unwrap_or_else(|| current_decision.clone());
-        // A bound approval defers the mutable reservation limit to S23's preparation transaction.
+        // A bound review tolerates reservation-snapshot changes for decision identity, but the
+        // current capacity check below still blocks approval when current available funds are short.
+        // PREPARE remains the atomic reservation boundary for races after this read.
         let bound_inputs = bound
             .inputs
             .iter()
@@ -8000,16 +9319,70 @@ impl ControlPlane {
             .checks
             .iter()
             .filter(|check| {
-                (!defer_reservation_recheck || is_approval_bound_risk_check(check))
+                (!defer_reservation_recheck
+                    || is_approval_bound_risk_check(check)
+                    || check.check_id == risk::RiskCheckId::ReservedCapacity)
                     && check.outcome != risk::RiskCheckOutcome::Pass
             })
             .map(|check| format!("{:?}: {}", check.check_id, check.reason))
             .collect();
-        if !decision_matches {
+        // A decision that was already rejected or unavailable has no prior approval
+        // binding to invalidate. Report the current failed checks directly; reserve
+        // RISK_DECISION_CHANGED for an earlier ALLOWED review that no longer matches.
+        if bound.status == risk::RiskDecisionStatus::Allowed && !decision_matches {
             blockers.push(
                 "RISK_DECISION_CHANGED: Current risk checks differ from the reviewed decision."
                     .into(),
             );
+        }
+        // The owning Spot admission gate is part of the reviewed decision: when the venue's own
+        // declared capacity or order-rate evidence does not currently admit this intent, the
+        // review is not eligible and the blocker names the single binding fact.
+        let owning_required = proposal.fields.environment
+            == protocol::ExecutionContext::BinanceLive
+            && financial_sources::spot_rules_selected_once(self)?;
+        if owning_required {
+            match current_decision.spot_owning.as_ref() {
+                Some(qualification) if qualification.outcome == risk::RiskCheckOutcome::Pass => {}
+                Some(qualification) => blockers.push(format!(
+                    "{}: {}",
+                    qualification
+                        .binding_blocker
+                        .as_deref()
+                        .unwrap_or("SPOT_OWNING_QUALIFICATION_BLOCKED"),
+                    qualification.reason
+                )),
+                None => blockers.push(
+                    "SPOT_OWNING_QUALIFICATION_UNAVAILABLE: The venue's declared capacity and order-rate evidence cannot currently qualify this intent."
+                        .into(),
+                ),
+            }
+        }
+        // S29.9 — the fee and genuinely-required execution conversion statement is part of the
+        // reviewed decision under exactly the same activation condition as the owning gate above.
+        // Reuse the already-computed `owning_required`; a missing statement fails closed, and a
+        // present-but-not-PASS statement contributes exactly one typed, single-line blocker.
+        if owning_required {
+            match current_decision.spot_fee_fx.as_ref() {
+                Some(statement) if statement.outcome == risk::RiskCheckOutcome::Pass => {}
+                Some(statement) => blockers.push(format!(
+                    "{}: {}",
+                    statement
+                        .binding_blocker
+                        .as_deref()
+                        .unwrap_or("SPOT_FEE_FX_QUALIFICATION_BLOCKED"),
+                    statement.reason
+                )),
+                // Defensive only, and unreachable on the delivered seam: `spot_capacity` is always
+                // `Some` for a valid Spot intent (its rules are captured lazily), so a statement is
+                // always derived whenever `owning_required` holds. This mirrors the equally
+                // unreachable `SPOT_OWNING_QUALIFICATION_UNAVAILABLE` arm of the sibling S29.8 gate
+                // above and is kept as insurance if a future seam ever withholds the capacity input.
+                None => blockers.push(
+                    "SPOT_FEE_FX_QUALIFICATION_UNAVAILABLE: The venue's declared fee and genuinely-required execution-conversion evidence cannot currently qualify this intent."
+                        .into(),
+                ),
+            }
         }
         if self.time.require_trusted().is_err() {
             blockers.push("CLOCK_UNTRUSTED: Synchronize system time before Live approval.".into());
@@ -8043,66 +9416,16 @@ impl ControlPlane {
             blockers.push("LIVE_MARKET_EVIDENCE_UNAVAILABLE: Current provider quote and tradability are required.".into());
         }
         let expected_spend = proposal_value(proposal, market.as_ref());
-        let maximum_authorized_spend = if proposal.fields.order_type == protocol::OrderType::Market
-        {
-            proposal.fields.maximum_spend.clone()
-        } else {
-            proposal_value(proposal, market.as_ref())
-        };
-        let capacity_projection = match (account.as_ref(), market.as_ref()) {
-            (Some(account), Some(market)) => {
-                let freshness = capacity_evidence_freshness(account, &time_status.wall_clock);
-                if freshness == protocol::CapacityFreshness::Current {
-                    match live_place_capacity(
-                        proposal,
-                        account,
-                        market,
-                        maximum_authorized_spend.as_deref(),
-                        &time_status.wall_clock,
-                    ) {
-                        Ok(mut capacity) => {
-                            let reservations = self
-                                .store
-                                .as_ref()
-                                .unwrap()
-                                .active_execution_reservations(&proposal.workspace_id)?;
-                            let mut reserved = "0".to_owned();
-                            for active in reservations.iter().filter(|active| {
-                                active.account_id == account.connection_id
-                                    && active.capacity_key == capacity.capacity_key
-                            }) {
-                                reserved =
-                                    crate::portfolio::decimal_add(&reserved, &active.amount)?;
-                            }
-                            let available = capacity
-                                .projection
-                                .available
-                                .as_deref()
-                                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-                            capacity.projection.reserved = Some(reserved.clone());
-                            capacity.projection.effective_available =
-                                Some(crate::provider_io::decimal_subtract(available, &reserved)?);
-                            Some(capacity.projection)
-                        }
-                        Err(_) => Some(unavailable_capacity_projection(
-                            proposal,
-                            account,
-                            market,
-                            maximum_authorized_spend.as_deref(),
-                            protocol::CapacityFreshness::Unavailable,
-                        )),
-                    }
-                } else {
-                    Some(unavailable_capacity_projection(
-                        proposal,
-                        account,
-                        market,
-                        maximum_authorized_spend.as_deref(),
-                        freshness,
-                    ))
-                }
+        let maximum_authorized_spend = match proposal.fields.order_type {
+            protocol::OrderType::Market => proposal.fields.maximum_spend.clone(),
+            protocol::OrderType::Limit if proposal.fields.side == protocol::OrderSide::Buy => {
+                proposal
+                    .fields
+                    .maximum_spend
+                    .clone()
+                    .or_else(|| expected_spend.clone())
             }
-            _ => None,
+            protocol::OrderType::Limit => expected_spend.clone(),
         };
         let quote_age_ms = quote_age_ms(&time_status, market.as_ref());
         if expected_spend.is_none() || maximum_authorized_spend.is_none() {
@@ -8136,6 +9459,18 @@ impl ControlPlane {
                 "MARKET_MAXIMUM_AUTHORIZATION_EXCEEDED: Expected market order value exceeds the maximum authorized value.".into(),
             );
         }
+        if proposal.fields.order_type == protocol::OrderType::Limit
+            && proposal.fields.side == protocol::OrderSide::Buy
+            && let (Some(expected), Some(maximum)) = (
+                expected_spend.as_deref(),
+                maximum_authorized_spend.as_deref(),
+            )
+            && crate::provider_io::decimal_cmp(expected, maximum)? == std::cmp::Ordering::Greater
+        {
+            blockers.push(
+                "MAXIMUM_AUTHORIZED_SPEND_EXCEEDED: Limit order principal exceeds the explicit maximum authorized spend.".into(),
+            );
+        }
         blockers.sort();
         blockers.dedup();
         blockers.truncate(32);
@@ -8148,6 +9483,19 @@ impl ControlPlane {
             .ok()
         });
         let decision_for_review = bound.clone();
+        let estimated_slippage_percent = risk::market_order_slippage(
+            proposal,
+            market.as_ref(),
+            &time_status,
+            policy
+                .as_ref()
+                .map_or(risk::DEFAULT_STALE_QUOTE_THRESHOLD_SECONDS, |policy| {
+                    policy.policy.stale_quote_threshold_seconds
+                }),
+        )
+        .and_then(|(numerator, denominator)| {
+            crate::portfolio::decimal_div(&numerator, &denominator).ok()
+        });
         let review_digest = approval_review_digest(
             proposal,
             account.as_ref(),
@@ -8163,6 +9511,7 @@ impl ControlPlane {
             account: account.map(Box::new),
             market: Box::new(market.ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?),
             risk_decision: Box::new(decision_for_review),
+            currency_evidence,
             review_digest,
             eligible: blockers.is_empty()
                 && (defer_reservation_recheck
@@ -8172,10 +9521,11 @@ impl ControlPlane {
             expected_spend,
             maximum_authorized_spend,
             spread,
-            // No trusted Live fee or size-aware slippage estimator is available yet.
+            // No trusted Live fee estimator is available yet.
             estimated_fees: None,
-            estimated_slippage_percent: None,
+            estimated_slippage_percent,
             capacity_projection,
+            spot_fee_fx: current_decision.spot_fee_fx.clone(),
             reviewed_at: time_status.wall_clock,
         })
     }
@@ -8237,16 +9587,25 @@ impl ControlPlane {
                     .find(|decision| decision.decision_id == approval.risk_decision_id)
                     .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
                 let review = self.build_approval_review(&proposal, Some(bound_decision))?;
-                if !review.eligible
-                    || review.review_digest != approval.review_digest
-                    || review.risk_decision.decision_id != approval.risk_decision_id
-                    || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
-                    || review.risk_decision.policy_version != Some(approval.policy_version)
-                    || review.account.as_ref().is_none_or(|account| {
-                        account.connection_id != attempt.account_id
-                            || account.state_version != attempt.account_state_version
-                    })
-                {
+                let review_digest_matches = review.review_digest == approval.review_digest;
+                let risk_decision_matches = review.risk_decision.decision_id
+                    == approval.risk_decision_id
+                    && review.risk_decision.status == risk::RiskDecisionStatus::Allowed
+                    && review.risk_decision.policy_version == Some(approval.policy_version);
+                let account_matches = review.account.as_ref().is_some_and(|account| {
+                    account.connection_id == attempt.account_id
+                        && account.state_version == attempt.account_state_version
+                });
+                if !review.eligible {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                if !review_digest_matches {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                if !risk_decision_matches {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                if !account_matches {
                     return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
                 }
                 Ok(review.review_digest)
@@ -8386,7 +9745,16 @@ impl ControlPlane {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
         let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
-        if !review.eligible
+        // Capacity is intentionally not approval-bound. If it became insufficient after
+        // consent, let the atomic preparation transaction persist the typed capacity refusal;
+        // every other changed or unavailable approval input must still stop here.
+        let capacity_only_rejection = !review.eligible
+            && review.blockers.len() == 1
+            && review.blockers[0].starts_with("ReservedCapacity:")
+            && review.review_digest == approval.review_digest
+            && review.risk_decision.decision_id == approval.risk_decision_id
+            && review.risk_decision.status == risk::RiskDecisionStatus::Allowed;
+        if (!review.eligible && !capacity_only_rejection)
             || review.review_digest != approval.review_digest
             || review.risk_decision.decision_id != approval.risk_decision_id
             || review.risk_decision.status != risk::RiskDecisionStatus::Allowed
@@ -8417,6 +9785,44 @@ impl ControlPlane {
             .clone()
             .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
         let unit = capacity.projection.unit.clone();
+        let fee_settlement_plan = review
+            .spot_fee_fx
+            .as_ref()
+            .and_then(|statement| statement.current_fee_model.as_ref())
+            .and_then(|model| model.funding_plan_preview.clone());
+        let asset_claims = match fee_settlement_plan.as_ref() {
+            Some(plan) => {
+                if plan.principal_claim.asset != unit || plan.principal_claim.amount != amount {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                if plan.fee_disposition
+                    == spot_fee_model::FeeFundingDisposition::ConditionalInputsRequired
+                {
+                    return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                }
+                let mut claims = vec![protocol::ExecutionReservationAssetClaim {
+                    asset: plan.principal_claim.asset.clone(),
+                    amount: plan.principal_claim.amount.clone(),
+                    purpose: protocol::ExecutionReservationClaimPurpose::Principal,
+                }];
+                if let Some(fee) = &plan.current_fee_claim {
+                    claims.push(protocol::ExecutionReservationAssetClaim {
+                        asset: fee.asset.clone(),
+                        amount: fee.amount.clone(),
+                        purpose: protocol::ExecutionReservationClaimPurpose::Fee,
+                    });
+                }
+                claims
+            }
+            None if review.spot_fee_fx.is_some() => {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            None => vec![protocol::ExecutionReservationAssetClaim {
+                asset: unit.clone(),
+                amount: amount.clone(),
+                purpose: protocol::ExecutionReservationClaimPurpose::Principal,
+            }],
+        };
         let notional = review
             .maximum_authorized_spend
             .as_deref()
@@ -8490,8 +9896,11 @@ impl ControlPlane {
             instrument_id: proposal.fields.instrument_id.clone(),
             side: proposal.fields.side,
             capacity_key,
-            amount,
-            unit,
+            amount: amount.clone(),
+            unit: unit.clone(),
+            asset_claims,
+            fee_settlement_plan,
+            asset_capacities: Vec::new(),
             notional,
             notional_currency,
             workspace_notional,
@@ -8722,6 +10131,36 @@ impl ControlPlane {
                     "No persisted risk policy is available; proposal generation does not approve or execute orders.".into(),
                 ),
             };
+        #[cfg(feature = "integration-test")]
+        let market = if let Some(snapshot) = self
+            .live_approval_fixture_snapshot
+            .as_ref()
+            .filter(|snapshot| snapshot.instrument_id == instrument_id)
+        {
+            let time_status = self.time.status(workspace_id)?;
+            let input = MarketGetQuery {
+                workspace_id: workspace_id.into(),
+                instrument_id: instrument_id.into(),
+                tier: MarketTier::Census,
+            };
+            let mut detail = market::live_approval_fixture_detail(
+                &input,
+                "trading212",
+                "NASDAQ",
+                &time_status.wall_clock,
+                &snapshot.provenance.provider_timestamp,
+            )?;
+            detail.snapshot = Some(snapshot.clone());
+            detail
+        } else {
+            self.market_detail_for(
+                workspace_id,
+                instrument_id,
+                &protocol::MarketTier::Census,
+                false,
+            )?
+        };
+        #[cfg(not(feature = "integration-test"))]
         let market = self.market_detail_for(
             workspace_id,
             instrument_id,
@@ -9224,70 +10663,143 @@ impl ControlPlane {
         }
         let input: protocol::LiveOrderRefreshRequest = payload(request.payload)?;
         self.require_workspace(&input.workspace_id)?;
-        let now = self.time.status(&input.workspace_id)?.wall_clock;
-        let history = self.store.as_mut().unwrap().cancellation_approval_history(
-            &input.workspace_id,
-            &input.account_id,
-            Some(&input.broker_order_id),
-            &now,
-        )?;
-        let approval = history
-            .approvals
-            .iter()
-            .find(|approval| approval.approval_id == input.approval_id)
-            .ok_or_else(|| TradeXError::new("TRADE_APPROVAL_NOT_FOUND"))?;
-        let (intent_id, intent_hash, approved_order_id) = match &approval.intent {
-            protocol::FinancialApprovalIntent::Cancel {
-                cancellation_intent_id,
-                intent_hash,
-                broker_order_id,
-                ..
-            } => (
-                cancellation_intent_id.as_str(),
-                intent_hash.as_str(),
-                broker_order_id.as_str(),
-            ),
-            _ => return Err(TradeXError::new("TRADE_APPROVAL_NOT_FOUND")),
-        };
-        if approval.status != protocol::FinancialApprovalStatus::Consumed
-            || approval.workspace_id != input.workspace_id
-            || approval.account_id != input.account_id
-            || approved_order_id != input.broker_order_id
-        {
-            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-        }
-        let preparation = self
-            .store
-            .as_ref()
-            .unwrap()
-            .execution_preparation_for_approval(&input.workspace_id, &input.approval_id)?
-            .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
-        let attempt = preparation.attempt;
-        if attempt.operation != protocol::FinancialOperation::Cancel
-            || attempt.intent_id != intent_id
-            || attempt.intent_hash != intent_hash
-            || attempt.approval_id != input.approval_id
-            || attempt.account_id != input.account_id
-            || attempt.dispatch_disposition
-                != Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
-            || !matches!(
-                attempt.state,
-                protocol::ExecutionAttemptState::Rejected
-                    | protocol::ExecutionAttemptState::UnknownReconciling
-                    | protocol::ExecutionAttemptState::CancelPending
-            )
-            || attempt
-                .broker_order_id
-                .as_deref()
-                .is_some_and(|order_id| order_id != input.broker_order_id)
-        {
-            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
-        }
         let account = self.current_account(
             &input.workspace_id,
             &input.account_id,
             &input.expected_state_version,
         )?;
+        let now = self.time.status(&input.workspace_id)?.wall_clock;
+        let cancellation_history = self.store.as_mut().unwrap().cancellation_approval_history(
+            &input.workspace_id,
+            &input.account_id,
+            Some(&input.broker_order_id),
+            &now,
+        )?;
+        let store = self.store.as_ref().unwrap();
+        let cancellation_approval = cancellation_history
+            .approvals
+            .iter()
+            .find(|approval| approval.approval_id == input.approval_id);
+        let (attempt_id, approval_environment, attempt_environment, provider_order_id) =
+            if let Some(approval) = cancellation_approval {
+                let (intent_id, intent_hash, approved_order_id) = match &approval.intent {
+                    protocol::FinancialApprovalIntent::Cancel {
+                        cancellation_intent_id,
+                        intent_hash,
+                        broker_order_id,
+                        ..
+                    } => (
+                        cancellation_intent_id.as_str(),
+                        intent_hash.as_str(),
+                        broker_order_id.as_str(),
+                    ),
+                    _ => return Err(TradeXError::new("TRADE_APPROVAL_NOT_FOUND")),
+                };
+                if approval.status != protocol::FinancialApprovalStatus::Consumed
+                    || approval.workspace_id != input.workspace_id
+                    || approval.account_id != input.account_id
+                    || approved_order_id != input.broker_order_id
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let preparation = store
+                    .execution_preparation_for_approval(&input.workspace_id, &input.approval_id)?
+                    .ok_or_else(|| TradeXError::new("EXECUTION_DISPATCH_NOT_READY"))?;
+                let attempt = preparation.attempt;
+                if attempt.operation != protocol::FinancialOperation::Cancel
+                    || attempt.intent_id != intent_id
+                    || attempt.intent_hash != intent_hash
+                    || attempt.approval_id != input.approval_id
+                    || attempt.account_id != input.account_id
+                    || attempt.dispatch_disposition
+                        != Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
+                    || !matches!(
+                        attempt.state,
+                        protocol::ExecutionAttemptState::Rejected
+                            | protocol::ExecutionAttemptState::UnknownReconciling
+                            | protocol::ExecutionAttemptState::CancelPending
+                    )
+                    || attempt.broker_order_id.as_deref() != Some(input.broker_order_id.as_str())
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                (
+                    attempt.attempt_id.clone(),
+                    approval.environment.clone(),
+                    attempt.environment.clone(),
+                    input.broker_order_id.clone(),
+                )
+            } else {
+                let preparation = store
+                    .execution_preparation_for_approval(&input.workspace_id, &input.approval_id)?
+                    .ok_or_else(|| TradeXError::new("TRADE_APPROVAL_NOT_FOUND"))?;
+                let attempt = preparation.attempt;
+                let place_approval = store
+                    .financial_approval_history(&input.workspace_id, &attempt.intent_id)?
+                    .approvals
+                    .into_iter()
+                    .find(|approval| approval.approval_id == input.approval_id)
+                    .ok_or_else(|| TradeXError::new("TRADE_APPROVAL_NOT_FOUND"))?;
+                let intent_matches = matches!(
+                    &place_approval.intent,
+                    protocol::FinancialApprovalIntent::PlaceOrder { proposal_id, proposal_hash }
+                        if proposal_id == &attempt.intent_id && proposal_hash == &attempt.intent_hash
+                );
+                let proposal = store.order_proposal(&attempt.intent_id)?;
+                let exact_provider_order_id =
+                    attempt
+                        .broker_order_id
+                        .as_deref()
+                        .and_then(|saved_order_id| {
+                            exact_live_place_refresh_order_id(
+                                &account,
+                                &proposal,
+                                saved_order_id,
+                                &input.broker_order_id,
+                            )
+                        });
+                if !intent_matches
+                    || attempt.operation != protocol::FinancialOperation::PlaceOrder
+                    || attempt.approval_id != input.approval_id
+                    || attempt.account_id != input.account_id
+                    || exact_provider_order_id.is_none()
+                    || attempt.dispatch_disposition
+                        != Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
+                    || place_approval.status != protocol::FinancialApprovalStatus::Consumed
+                    || place_approval.workspace_id != input.workspace_id
+                    || place_approval.account_id != input.account_id
+                    || place_approval.environment != attempt.environment
+                    || proposal.workspace_id != input.workspace_id
+                    || proposal.proposal_id != attempt.intent_id
+                    || proposal.proposal_hash != attempt.intent_hash
+                    || proposal.fields.account_id.as_deref() != Some(input.account_id.as_str())
+                    || proposal.fields.environment != attempt.environment
+                    || preparation
+                        .reservation
+                        .as_deref()
+                        .is_none_or(|reservation| {
+                            reservation.status != protocol::ExecutionReservationStatus::Active
+                                || reservation.attempt_id != attempt.attempt_id
+                                || reservation.account_id != input.account_id
+                        })
+                    || preparation
+                        .live_order_settlement
+                        .as_deref()
+                        .is_some_and(|settlement| {
+                            settlement.status == protocol::LiveOrderSettlementStatus::Settled
+                        })
+                {
+                    return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+                }
+                let exact_provider_order_id = exact_provider_order_id
+                    .ok_or_else(|| TradeXError::new("STATE_VERSION_CONFLICT"))?;
+                (
+                    attempt.attempt_id.clone(),
+                    place_approval.environment.clone(),
+                    attempt.environment.clone(),
+                    exact_provider_order_id,
+                )
+            };
         let expected_environment = match account.provider_id.as_str() {
             "trading212" => protocol::ExecutionContext::Trading212Live,
             "binance" => protocol::ExecutionContext::BinanceLive,
@@ -9295,12 +10807,9 @@ impl ControlPlane {
             _ => return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED")),
         };
         if account.environment != "LIVE"
-            || approval.environment != expected_environment
-            || attempt.environment != expected_environment
-            || !provider_io::valid_live_cancel_order_id(
-                &account.provider_id,
-                &input.broker_order_id,
-            )
+            || approval_environment != expected_environment
+            || attempt_environment != expected_environment
+            || !provider_io::valid_live_cancel_order_id(&account.provider_id, &provider_order_id)
         {
             return Err(TradeXError::new("PROVIDER_LIVE_UNSUPPORTED"));
         }
@@ -9320,8 +10829,8 @@ impl ControlPlane {
         Ok(Some(self.account_provider_refresh_job(
             account,
             JobKind::LiveOrderRefresh {
-                order_id: input.broker_order_id,
-                attempt_id: attempt.attempt_id.clone(),
+                order_id: provider_order_id,
+                attempt_id,
             },
             request.request_id,
         )))
@@ -9492,6 +11001,26 @@ impl ControlPlane {
             "onboarding.complete",
             json!({"workspaceId":workspace_id,"expectedStateVersion":risk["stateVersion"]}),
         )?;
+        Ok(())
+    }
+
+    #[cfg(feature = "integration-test")]
+    pub fn seed_browser_deepseek_route_fixture(&mut self, workspace_id: &str) -> Result<()> {
+        self.require_workspace(workspace_id)?;
+        let route = model::ModelRoute {
+            provider: model::ModelProvider::Deepseek,
+            model_id: "deepseek-v4-flash".into(),
+            thinking_type: Some(model::ThinkingType::Disabled),
+            verified_at: Some("2026-10-13T00:00:00Z".into()),
+        };
+        let store = self.store.as_mut().unwrap();
+        let mut state = store.model()?;
+        state.deepseek.configured = true;
+        state.deepseek.status = model::ModelHealth::Ready;
+        state.deepseek.routes = vec![route];
+        state.deepseek.last_verified_at = Some("2026-10-13T00:00:00Z".into());
+        let event = store.save_model(state, "model.provider.changed")?;
+        self.publish(&event);
         Ok(())
     }
 
@@ -11447,15 +12976,24 @@ impl ControlPlane {
                 JobKind::LiveOrderRefresh {
                     order_id,
                     attempt_id,
-                } => Some((
-                    attempt_id.clone(),
-                    observed
+                } => {
+                    let preparation = self
+                        .store
+                        .as_ref()
+                        .unwrap()
+                        .execution_preparation_for_attempt(&job.account.workspace_id, attempt_id)?;
+                    let exact_observation = observed
                         .live_order_settlements
                         .iter()
                         .find(|item| item.provider_order_id == *order_id)
                         .cloned()
-                        .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?,
-                )),
+                        .ok_or_else(|| TradeXError::new("PROVIDER_DATA_INCOMPLETE"))?;
+                    if preparation.attempt.operation == protocol::FinancialOperation::Cancel {
+                        Some((attempt_id.clone(), exact_observation))
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             };
             let mut old_scope = a.permissions.clone();
@@ -11467,15 +13005,32 @@ impl ControlPlane {
             if a.connection_state != ConnectionState::Connected || !unchanged_scope {
                 a.connection_state = ConnectionState::ReviewRequired;
             }
+            if let Some(status) = observed.binance_trading_status {
+                a.binance_trading_status = Some(status);
+            }
             a.data = Some(observed.data);
             a.last_successful_sync = Some(storage::timestamp()?);
             a.health.connection = "ONLINE".into();
             a.health.authentication = "VALID".into();
             a.health.reason = "Read-only account data loaded. Trading, private streams and reconciliation are not configured.".into();
+            // Successful exact Live order reads do not refresh account trading
+            // diagnostics. Keep their pre-existing protective CANCEL contract;
+            // identity, permission, authentication and other degradation checks
+            // remain active. The scope comes from the prepared job, not the UI.
+            let observation_scope = if a.environment == "LIVE"
+                && matches!(
+                    &job.kind,
+                    JobKind::CancellationIntentRefresh(_) | JobKind::LiveOrderRefresh { .. }
+                ) {
+                AccountObservationScope::ExactLiveOrder
+            } else {
+                AccountObservationScope::Ordinary
+            };
             self.persist_account_with_live_order_settlements(
                 a,
                 observed.live_order_settlements,
                 live_cancel_order_observation,
+                observation_scope,
             )
         })();
         match result {
@@ -12007,6 +13562,292 @@ mod thread_tests {
         })
     }
 
+    fn create_chatgpt_thread(control: &mut ControlPlane, workspace_id: &str, title: &str) -> Value {
+        let route = model::ModelRoute {
+            provider: model::ModelProvider::Chatgpt,
+            model_id: "gpt-5.6-sol".into(),
+            thinking_type: None,
+            verified_at: Some("2026-09-25T00:00:00Z".into()),
+        };
+        let mut model_state = control.store.as_ref().unwrap().model().unwrap();
+        model_state.chatgpt.configured = true;
+        model_state.chatgpt.status = model::ModelHealth::Ready;
+        model_state.chatgpt.routes = vec![route.clone()];
+        model_state.default_route = Some(route.selection());
+        model_state.current_route = Some(route);
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .save_model(model_state, "model.provider.changed")
+            .unwrap();
+
+        control.dispatch(request(
+            "thread.create",
+            json!({
+                "workspaceId": workspace_id,
+                "title": title,
+                "defaultAgentMode": "ASK",
+                "defaultExecutionContext": "NONE_READ_ONLY",
+                "model": {"provider":"CHATGPT","modelId":"gpt-5.6-sol"},
+                "linkedContexts": []
+            }),
+        ))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn begin_turn_emits_only_user_text_and_research_marker_to_runtime() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        assert_eq!(opened["ok"], true, "{opened}");
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        let created = create_chatgpt_thread(&mut control, &workspace_id, "Local source boundary");
+        assert_eq!(created["ok"], true, "{created}");
+
+        let context = capability::instrument_context_ref(&workspace_id, "equity:US:AAPL");
+        let attached_contexts = vec![context.clone()];
+        let invocation = json!({"toolId":"public_market_read","query":"AAPL"});
+        let research = capability::with_synthetic_research_fixture_for_test(false, || {
+            control.dispatch(request(
+                "research.run",
+                json!({
+                    "workspaceId": workspace_id,
+                    "agentMode": "ASK",
+                    "executionContext": "NONE_READ_ONLY",
+                    "attachedContexts": attached_contexts,
+                    "toolId": "public_market_read",
+                    "query": "AAPL"
+                }),
+            ))
+        });
+        assert_eq!(research["ok"], true, "{research}");
+        let research_result = research["data"].clone();
+        assert_eq!(research_result["sourceId"], "OD-001");
+        assert_eq!(research_result["payload"]["state"], "UNAVAILABLE");
+        let marker = research_result["marker"].as_str().unwrap().to_owned();
+        let research_payload_reason = research_result["payload"]["reason"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        let (prepared, thread) = control
+            .begin_turn(
+                serde_json::from_value(json!({
+                    "workspaceId": workspace_id,
+                    "threadId": created["data"]["threadId"],
+                    "expectedStateVersion": created["data"]["stateVersion"],
+                    "message": "Summarize the selected local research result.",
+                    "agentMode": "ASK",
+                    "executionContext": "NONE_READ_ONLY",
+                    "attachedContexts": attached_contexts,
+                    "researchInvocation": invocation,
+                    "researchResult": research_result
+                }))
+                .unwrap(),
+            )
+            .unwrap();
+
+        // The Control Plane retains local refs and the typed result in the durable turn.
+        let stored_turn = thread.turns.last().unwrap();
+        assert_eq!(
+            stored_turn.snapshot.attached_contexts,
+            vec![context.clone()]
+        );
+        assert!(stored_turn.items.iter().any(|item| {
+            item.item_type == "research_result"
+                && item
+                    .research_result
+                    .as_ref()
+                    .is_some_and(|result| result.marker == marker)
+        }));
+
+        // The application builder supplies only the user message and bounded marker to the
+        // process adapter; it does not attach local refs or the typed research payload.
+        assert_eq!(
+            prepared.runtime_request.message,
+            "Summarize the selected local research result."
+        );
+        assert_eq!(
+            prepared.runtime_request.research_marker.as_deref(),
+            Some(marker.as_str())
+        );
+        let request_debug = format!("{:?}", prepared.runtime_request);
+        assert!(!request_debug.contains(&context.id));
+        assert!(!request_debug.contains(&context.hash));
+        assert!(!request_debug.contains(&research_payload_reason));
+
+        let (outbound, _) = codex_runtime::capture_turn_start_for_test(
+            &prepared.runtime_request,
+            directory.path(),
+            "fake-codex",
+        );
+        let outbound_json = outbound.to_string();
+        assert_eq!(outbound["method"], "turn/start");
+        assert_eq!(
+            outbound["params"]["input"][0]["text"],
+            format!(
+                "{}\nResearch result marker: {}",
+                prepared.runtime_request.message, marker
+            )
+        );
+        assert!(outbound_json.contains(&marker));
+        assert!(!outbound_json.contains(&context.id));
+        assert!(!outbound_json.contains(&context.hash));
+        assert!(!outbound_json.contains(&research_payload_reason));
+        assert!(!outbound_json.contains("\"contextRefs\""));
+        assert!(!outbound_json.contains("\"sourceId\""));
+        assert!(!outbound_json.contains("\"payload\""));
+    }
+
+    #[cfg(all(unix, feature = "integration-test"))]
+    #[test]
+    fn begin_turn_keeps_available_synthetic_crypto_quotes_local() {
+        capability::with_synthetic_research_fixture_for_test(true, || {
+            let directory = tempfile::tempdir().unwrap();
+            let mut control = ControlPlane::new(directory.path().join("workspace"));
+            let opened = control.dispatch(request("workspace.open", json!({})));
+            assert_eq!(opened["ok"], true, "{opened}");
+            let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+            let created =
+                create_chatgpt_thread(&mut control, &workspace_id, "Synthetic quote boundary");
+            assert_eq!(created["ok"], true, "{created}");
+
+            let context = capability::synthetic_research_artifact_context();
+            let attached_contexts = vec![context.clone()];
+            let query = "Read synthetic crypto spot venue quotes";
+            let invocation = json!({
+                "toolId": "public_market_read",
+                "focus": "CRYPTO_SPOT",
+                "query": query
+            });
+            let research = control.dispatch(request(
+                "research.run",
+                json!({
+                    "workspaceId": workspace_id,
+                    "agentMode": "ASK",
+                    "executionContext": "NONE_READ_ONLY",
+                    "attachedContexts": attached_contexts,
+                    "toolId": "public_market_read",
+                    "focus": "CRYPTO_SPOT",
+                    "query": query
+                }),
+            ));
+            assert_eq!(research["ok"], true, "{research}");
+            let research_result = research["data"].clone();
+            assert_eq!(research_result["sourceId"], "control-plane:market");
+            assert_eq!(research_result["payload"]["state"], "AVAILABLE");
+            assert_eq!(
+                research_result["payload"]["fixtureLabel"],
+                "SYNTHETIC_INTEGRATION_FIXTURE"
+            );
+            assert_eq!(
+                research_result["payload"]["spotVenues"][0]["bid"],
+                "60000.00"
+            );
+            assert_eq!(
+                research_result["payload"]["spotVenues"][0]["ask"],
+                "60010.00"
+            );
+            assert_eq!(
+                research_result["payload"]["spotVenues"][0]["spread"],
+                "10.00"
+            );
+            assert_eq!(
+                research_result["payload"]["spotVenues"][0]["depth"],
+                "1250000"
+            );
+            let marker = research_result["marker"].as_str().unwrap().to_owned();
+
+            let (prepared, thread) = control
+                .begin_turn(
+                    serde_json::from_value(json!({
+                        "workspaceId": workspace_id,
+                        "threadId": created["data"]["threadId"],
+                        "expectedStateVersion": created["data"]["stateVersion"],
+                        "message": "Summarize the selected local crypto spot research result.",
+                        "agentMode": "ASK",
+                        "executionContext": "NONE_READ_ONLY",
+                        "attachedContexts": attached_contexts,
+                        "researchInvocation": invocation,
+                        "researchResult": research_result
+                    }))
+                    .unwrap(),
+                )
+                .unwrap();
+
+            let stored_turn = thread.turns.last().unwrap();
+            assert_eq!(
+                stored_turn.snapshot.attached_contexts,
+                vec![context.clone()]
+            );
+            let stored_result = stored_turn
+                .items
+                .iter()
+                .find(|item| item.item_type == "research_result")
+                .and_then(|item| item.research_result.as_ref())
+                .expect("typed research result should remain in the local turn");
+            assert_eq!(stored_result.marker, marker);
+            assert_eq!(
+                stored_result.payload.spot_venues[0].bid.as_deref(),
+                Some("60000.00")
+            );
+            assert_eq!(
+                stored_result.payload.spot_venues[0].ask.as_deref(),
+                Some("60010.00")
+            );
+            assert_eq!(
+                stored_result.payload.spot_venues[0].spread.as_deref(),
+                Some("10.00")
+            );
+            assert_eq!(
+                stored_result.payload.spot_venues[0].depth.as_deref(),
+                Some("1250000")
+            );
+
+            assert_eq!(
+                prepared.runtime_request.message,
+                "Summarize the selected local crypto spot research result."
+            );
+            assert_eq!(
+                prepared.runtime_request.research_marker.as_deref(),
+                Some(marker.as_str())
+            );
+            let (outbound, _) = codex_runtime::capture_turn_start_for_test(
+                &prepared.runtime_request,
+                directory.path(),
+                "fake-codex-crypto-egress",
+            );
+            let outbound_json = outbound.to_string();
+            assert_eq!(outbound["method"], "turn/start");
+            assert_eq!(
+                outbound["params"]["input"][0]["text"],
+                format!(
+                    "{}\nResearch result marker: {}",
+                    prepared.runtime_request.message, marker
+                )
+            );
+            assert!(outbound_json.contains(&marker));
+            for private_value in [
+                &context.id,
+                &context.hash,
+                "control-plane:market",
+                "spotVenues",
+                "60000.00",
+                "60010.00",
+                "10.00",
+                "1250000",
+                "SYNTHETIC_INTEGRATION_FIXTURE",
+            ] {
+                assert!(
+                    !outbound_json.contains(private_value),
+                    "leaked {private_value}"
+                );
+            }
+        });
+    }
+
     #[test]
     fn account_research_scope_keeps_unselected_accounts_out() {
         let first = AccountConnection::new(
@@ -12212,7 +14053,7 @@ mod thread_tests {
         drop(control);
         let mut reopened = ControlPlane::new(workspace_path);
         let reopened_workspace = reopened.dispatch(request("workspace.open", json!({})));
-        assert_eq!(reopened_workspace["ok"], true);
+        assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
         let listed_again = reopened.dispatch(request(
             "thread.list",
             json!({ "workspaceId": workspace_id }),
@@ -12254,7 +14095,11 @@ mod thread_tests {
         assert_eq!(catalog["ok"], true);
         let fixture_enabled = capability::synthetic_research_fixture_enabled();
         let entries = catalog["data"]["entries"].as_array().unwrap();
-        assert_eq!(entries.len(), 1 + usize::from(fixture_enabled));
+        let instruments = market::instruments();
+        assert_eq!(
+            entries.len(),
+            1 + instruments.len() + usize::from(fixture_enabled)
+        );
         assert_eq!(entries[0]["providerId"], "local-paper");
         assert_eq!(entries[0]["environment"], "LOCAL");
         assert_eq!(entries[0]["available"], true);
@@ -12273,10 +14118,32 @@ mod thread_tests {
         let empty_states = catalog["data"]["emptyStates"].as_array().unwrap();
         assert!(!empty_states.iter().any(|state| state["kind"] == "account"));
         assert!(
-            empty_states
+            !empty_states
                 .iter()
                 .any(|state| state["kind"] == "instrument")
         );
+        for instrument in instruments {
+            let entry = entries
+                .iter()
+                .find(|entry| entry["contextRef"]["id"] == instrument.instrument_id)
+                .unwrap();
+            assert_eq!(
+                entry["contextRef"],
+                serde_json::to_value(capability::instrument_context_ref(
+                    workspace_id,
+                    &instrument.instrument_id
+                ))
+                .unwrap()
+            );
+            assert_eq!(entry["available"], true);
+            assert_eq!(entry["readOnly"], true);
+            assert!(
+                entry["label"]
+                    .as_str()
+                    .unwrap()
+                    .contains(&instrument.instrument_id)
+            );
+        }
         assert!(empty_states.iter().any(|state| state["kind"] == "strategy"));
         assert!(empty_states.iter().any(|state| state["kind"] == "backtest"));
         assert_eq!(
@@ -12293,6 +14160,69 @@ mod thread_tests {
             unknown_workspace["error"]["code"],
             "IPC_AGGREGATE_NOT_FOUND"
         );
+    }
+
+    #[test]
+    fn context_catalog_combines_metadata_with_a_visible_capacity_limit() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut control = ControlPlane::new(directory.path().join("workspace"));
+        let opened = control.dispatch(request("workspace.open", json!({})));
+        let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+        for count in 1..=256 {
+            let saved = control.dispatch(request(
+                "strategy.save_version",
+                json!({
+                    "workspaceId":workspace_id,
+                    "definition":{
+                        "name":format!("Catalog boundary {count}"),
+                        "source":"signal = HOLD\nreturn signal",
+                        "language":"python","runtime":"sandbox-v1","parameters":[]
+                    }
+                }),
+            ));
+            assert_eq!(saved["ok"], true, "{saved}");
+            if [252, 255, 256].contains(&count) {
+                let catalog = control.dispatch(request(
+                    "context.catalog",
+                    json!({"workspaceId":workspace_id}),
+                ));
+                assert_eq!(catalog["ok"], true, "{catalog}");
+                let entries = catalog["data"]["entries"].as_array().unwrap();
+                assert_eq!(entries.len(), capability::MAX_CONTEXT_CATALOG_ENTRIES);
+                assert_eq!(
+                    entries
+                        .iter()
+                        .filter(|entry| entry["contextRef"]["kind"] == "account")
+                        .count(),
+                    1
+                );
+                assert_eq!(
+                    entries
+                        .iter()
+                        .filter(|entry| entry["contextRef"]["kind"] == "strategy")
+                        .count(),
+                    count.min(255)
+                );
+                let states = catalog["data"]["emptyStates"].as_array().unwrap();
+                assert!(states.len() <= 5);
+                assert!(states.iter().any(|state| {
+                    state["kind"] == "instrument"
+                        && state["availabilityReason"]
+                            .as_str()
+                            .unwrap()
+                            .contains("Context catalog limit (256)")
+                }));
+                if count == 256 {
+                    assert!(states.iter().any(|state| {
+                        state["kind"] == "strategy"
+                            && state["availabilityReason"]
+                                .as_str()
+                                .unwrap()
+                                .contains("showing 255 of 256")
+                    }));
+                }
+            }
+        }
     }
 
     #[cfg(feature = "integration-test")]
@@ -13290,6 +15220,22 @@ mod thread_tests {
             .execute("DROP TABLE execution_dispatch_grants", [])
             .unwrap();
         migration_database
+            .execute_batch("DROP TABLE quote_source_config; DROP TABLE quote_source_config_audit; DROP TABLE quote_source_owned_credentials;")
+            .unwrap();
+        migration_database
+            .execute_batch(
+                "DROP TABLE calendar_source_config; DROP TABLE calendar_source_config_audit; DROP TABLE financial_source_config; DROP TABLE financial_source_config_audit;",
+            )
+            .unwrap();
+        migration_database
+            .execute_batch(
+                "DROP TABLE binance_market_source_config; DROP TABLE binance_market_source_config_audit;",
+            )
+            .unwrap();
+        migration_database
+            .execute("DROP TABLE workspace_retention", [])
+            .unwrap();
+        migration_database
             .pragma_update(None, "user_version", 8)
             .unwrap();
         drop(migration_database);
@@ -13356,6 +15302,21 @@ mod thread_tests {
                 fixture_label: None,
             },
         };
+        let mut raw_market_result = result.clone();
+        raw_market_result.result_id = "research-result-with-raw-market".into();
+        raw_market_result.payload.focus = Some(protocol::ResearchFocus::CryptoSpot);
+        raw_market_result.payload.spot_venues = vec![protocol::ResearchSpotVenue {
+            venue: protocol::ResearchSpotVenueId::Binance,
+            state: protocol::ResearchResultState::Available,
+            selected: true,
+            bid: Some("60000.00".into()),
+            ask: Some("60010.00".into()),
+            spread: Some("10.00".into()),
+            depth: Some("1250000".into()),
+            quote_age: Some("2s".into()),
+            provenance: result.payload.evidence[0].clone(),
+            limitation: None,
+        }];
         thread.turns.push(ThreadTurn {
             turn_id: turn_id.clone(),
             status: protocol::TurnStatus::Completed,
@@ -13382,6 +15343,16 @@ mod thread_tests {
                     content: "A bounded source-backed conclusion.".into(),
                     source_id: Some("OD-001".into()),
                     research_result: Some(result),
+                    started_at: now.clone(),
+                    completed_at: Some(now.clone()),
+                },
+                ThreadItem {
+                    item_id: "raw-market-item".into(),
+                    item_type: "research_result".into(),
+                    status: protocol::ItemStatus::Completed,
+                    content: "Raw crypto quote research result.".into(),
+                    source_id: Some("OD-001".into()),
+                    research_result: Some(raw_market_result),
                     started_at: now.clone(),
                     completed_at: Some(now.clone()),
                 },
@@ -13517,6 +15488,62 @@ mod thread_tests {
         let export_text = std::fs::read_to_string(export_path).unwrap();
         assert!(export_text.contains("AAPL research thesis"));
         assert!(!export_text.contains("sk-"));
+
+        let raw_market_artifact = control.dispatch(request(
+            "artifact.save",
+            json!({
+                "workspaceId": workspace_id,
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "itemId": "raw-market-item",
+                "kind": "RESEARCH",
+                "title": "Raw crypto quote evidence"
+            }),
+        ));
+        assert_eq!(raw_market_artifact["ok"], true, "{raw_market_artifact}");
+        let raw_market_id = raw_market_artifact["data"]["artifactId"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let locally_retained = control.dispatch(request(
+            "artifact.get",
+            json!({"workspaceId": workspace_id, "artifactId": raw_market_id}),
+        ));
+        assert_eq!(locally_retained["ok"], true, "{locally_retained}");
+        assert_eq!(
+            locally_retained["data"]["content"]["researchResult"]["payload"]["spotVenues"][0]["bid"],
+            "60000.00",
+            "Local artifact detail retains original quote evidence"
+        );
+        let raw_market_export_path = directory.path().join("raw-market-evidence.json");
+        let raw_market_export = control.dispatch(request(
+            "artifact.export",
+            json!({
+                "workspaceId": workspace_id,
+                "artifactId": raw_market_id,
+                "destinationPath": raw_market_export_path,
+            }),
+        ));
+        assert_eq!(
+            raw_market_export["ok"], false,
+            "Raw quote evidence must remain local: {raw_market_export}"
+        );
+        assert_eq!(
+            raw_market_export["error"]["code"], "ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED",
+            "{raw_market_export}"
+        );
+        assert_eq!(
+            raw_market_export["error"]["category"], "PERMISSION_ERROR",
+            "The local-only export boundary is a deliberate permission refusal: {raw_market_export}"
+        );
+        assert!(
+            raw_market_export["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("kept in the local workspace"),
+            "The refusal should tell the user where the original evidence remains available: {raw_market_export}"
+        );
+        assert!(!raw_market_export_path.exists());
         assert_eq!(
             control
                 .store
@@ -13592,8 +15619,40 @@ mod thread_tests {
         assert_eq!(reopened_list["ok"], true);
         assert_eq!(
             reopened_list["data"]["artifacts"].as_array().unwrap().len(),
-            1
+            2
         );
+        let reopened_raw_detail = reopened.dispatch(request(
+            "artifact.get",
+            json!({"workspaceId": workspace_id, "artifactId": raw_market_id}),
+        ));
+        assert_eq!(reopened_raw_detail["ok"], true, "{reopened_raw_detail}");
+        assert_eq!(
+            reopened_raw_detail["data"]["content"]["researchResult"]["payload"]["spotVenues"][0]["bid"],
+            "60000.00",
+            "A workspace reopen preserves the original local quote evidence"
+        );
+        let reopened_raw_export_path = directory.path().join("raw-market-after-reopen.json");
+        let reopened_raw_export = reopened.dispatch(request(
+            "artifact.export",
+            json!({
+                "workspaceId": workspace_id,
+                "artifactId": raw_market_id,
+                "destinationPath": reopened_raw_export_path,
+            }),
+        ));
+        assert_eq!(
+            reopened_raw_export["ok"], false,
+            "Reopened raw quote evidence must remain local: {reopened_raw_export}"
+        );
+        assert_eq!(
+            reopened_raw_export["error"]["code"], "ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED",
+            "{reopened_raw_export}"
+        );
+        assert_eq!(
+            reopened_raw_export["error"]["category"], "PERMISSION_ERROR",
+            "{reopened_raw_export}"
+        );
+        assert!(!reopened_raw_export_path.exists());
         drop(reopened);
         let database =
             rusqlite::Connection::open(workspace_path.join("workspace.sqlite3")).unwrap();
@@ -14060,7 +16119,6 @@ mod live_approval_tests {
             }),
         );
         assert_eq!(review["ok"], true, "{review}");
-        assert_eq!(review["data"]["eligible"], true, "{review}");
         (
             folder,
             control,
@@ -14498,6 +16556,9 @@ mod live_approval_tests {
             capacity_key: "cash:USDT".into(),
             amount: capacity.requested_amount.clone().unwrap(),
             unit: capacity.unit.clone(),
+            asset_claims: Vec::new(),
+            fee_settlement_plan: None,
+            asset_capacities: Vec::new(),
             notional: review["expectedSpend"].as_str().unwrap_or("500").into(),
             notional_currency: "USDT".into(),
             workspace_notional: Some("500".into()),
@@ -14613,6 +16674,11 @@ mod live_approval_tests {
                         "canTrade":true,"canWithdraw":false,"canDeposit":false
                     }),
                 ),
+                "/sapi/v1/system/status" => (200, json!({"status":0})),
+                "/sapi/v1/account/apiTradingStatus" => (
+                    200,
+                    json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64}}),
+                ),
                 "/sapi/v1/account/apiRestrictions" => (
                     200,
                     json!({
@@ -14625,6 +16691,13 @@ mod live_approval_tests {
                 ),
                 "/api/v3/openOrders" => (200, json!([])),
                 "/api/v3/allOrders" => (200, json!([self.order.clone()])),
+                "/api/v3/myTrades" => (
+                    200,
+                    self.order
+                        .get("trades")
+                        .cloned()
+                        .unwrap_or_else(|| json!([])),
+                ),
                 "/api/v3/order" if self.order_status == 400 => {
                     (400, json!({"code":-2013,"msg":"Order does not exist."}))
                 }
@@ -15081,6 +17154,7 @@ mod live_approval_tests {
             quantity: Some("0.01".into()),
             notional: None,
             filled_quantity: Some("0".into()),
+            remaining_quantity: Some("0.01".into()),
             filled_value: None,
             currency: None,
             status: "CANCELED".into(),
@@ -15860,6 +17934,9 @@ mod live_approval_tests {
         .into_iter()
         .enumerate()
         {
+            // Each page re-authenticates this same fixture account. Observe the
+            // real shared summary interval; financial test time cannot reset it.
+            std::thread::sleep(std::time::Duration::from_millis(5100));
             let attempt = control
                 .store
                 .as_ref()
@@ -16249,6 +18326,111 @@ mod live_approval_tests {
         );
         assert_eq!(saved["ok"], true, "{saved}");
         saved["data"].clone()
+    }
+
+    #[test]
+    fn material_draft_edit_invalidates_issued_approval_and_requires_fresh_review() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let draft_id = proposal["draftId"].as_str().unwrap();
+        let draft = dispatch_main(
+            &mut control,
+            "trade.draft.get",
+            json!({"workspaceId":workspace_id,"draftId":draft_id}),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let mut fields = draft["data"]["fields"].clone();
+        fields["quantity"]["value"] = "0.005".into();
+        let updated = dispatch_main(
+            &mut control,
+            "trade.save_draft",
+            json!({
+                "workspaceId":workspace_id,
+                "draftId":draft_id,
+                "expectedStateVersion":draft["data"]["stateVersion"],
+                "fields":fields,
+            }),
+        );
+        assert_eq!(updated["ok"], true, "{updated}");
+        assert_eq!(updated["data"]["draftVersion"], 2, "{updated}");
+
+        let old_proposal = dispatch_main(
+            &mut control,
+            "trade.proposal.get",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(old_proposal["ok"], true, "{old_proposal}");
+        assert_eq!(old_proposal["data"]["status"], "INVALIDATED");
+        assert_eq!(old_proposal["data"]["fields"]["quantity"]["value"], "0.01");
+        assert_eq!(
+            old_proposal["data"]["proposalHash"],
+            proposal["proposalHash"]
+        );
+        assert_eq!(old_proposal["data"]["history"][1]["event"], "DRAFT_CHANGED");
+
+        let old_approvals = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(old_approvals["ok"], true, "{old_approvals}");
+        assert_eq!(
+            old_approvals["data"]["approvals"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            old_approvals["data"]["approvals"][0]["approvalId"],
+            approval["data"]["approvalId"]
+        );
+        assert_eq!(
+            old_approvals["data"]["approvals"][0]["status"],
+            "INVALIDATED"
+        );
+        assert_eq!(
+            old_approvals["data"]["approvals"][0]["invalidationReason"],
+            "PROPOSAL_CHANGED"
+        );
+
+        let replacement = dispatch_main(
+            &mut control,
+            "trade.generate_proposal",
+            json!({"workspaceId":workspace_id,"draftId":draft_id,"expectedDraftVersion":2}),
+        );
+        assert_eq!(replacement["ok"], true, "{replacement}");
+        assert_eq!(replacement["data"]["status"], "NEEDS_APPROVAL");
+        assert_eq!(replacement["data"]["fields"]["quantity"]["value"], "0.005");
+        assert_ne!(replacement["data"]["proposalId"], proposal["proposalId"]);
+        assert_ne!(
+            replacement["data"]["proposalHash"],
+            proposal["proposalHash"]
+        );
+        let replacement_approvals = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":replacement["data"]["proposalId"]}),
+        );
+        assert_eq!(replacement_approvals["ok"], true, "{replacement_approvals}");
+        assert!(
+            replacement_approvals["data"]["approvals"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
@@ -16685,6 +18867,14 @@ mod live_approval_tests {
             approval_history["data"]["approvals"][0]["status"],
             "CONSUMED"
         );
+        assert_eq!(
+            approval_history["data"]["approvals"][0]["expiry"]["reservationDisposition"],
+            "RELEASED"
+        );
+        assert_eq!(
+            approval_history["data"]["approvals"][0]["expiry"]["executionAttemptId"],
+            attempt_id
+        );
 
         let (_folder, mut control, workspace_id, _account, proposal, review) =
             reviewed_live_capacity_fixture();
@@ -16718,6 +18908,10 @@ mod live_approval_tests {
             approval_history["data"]["approvals"][0]["status"],
             "EXPIRED"
         );
+        assert_eq!(
+            approval_history["data"]["approvals"][0]["expiry"]["reservationDisposition"],
+            "NONE"
+        );
         assert!(
             control
                 .store
@@ -16727,6 +18921,277 @@ mod live_approval_tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn approval_ttl_after_dispatch_keeps_submitted_states_and_capacity() {
+        for state in [
+            protocol::ExecutionAttemptState::Submitting,
+            protocol::ExecutionAttemptState::Accepted,
+            protocol::ExecutionAttemptState::UnknownReconciling,
+            protocol::ExecutionAttemptState::Rejected,
+        ] {
+            let (_folder, mut control, workspace_id, _account, proposal, review) =
+                reviewed_live_capacity_fixture();
+            let (approval, prepare_request, prepared) = issue_and_prepare_live_place(
+                &mut control,
+                &workspace_id,
+                &proposal,
+                &review,
+                "approval-ttl-after-dispatch",
+            );
+            let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+            let approval_id = approval["data"]["approvalId"].as_str().unwrap();
+            let grant = control
+                .issue_live_dispatch_grant(attempt_id, "gateway-session")
+                .unwrap();
+            control
+                .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+                .unwrap();
+            if state != protocol::ExecutionAttemptState::Submitting {
+                control
+                    .complete_live_execution_submission(
+                        attempt_id,
+                        &provider_io::LiveDispatchOutcome {
+                            state,
+                            broker_order_id: (state == protocol::ExecutionAttemptState::Accepted)
+                                .then(|| "901".into()),
+                            provider_status: (state == protocol::ExecutionAttemptState::Accepted)
+                                .then(|| "NEW".into()),
+                            error_code: match state {
+                                protocol::ExecutionAttemptState::UnknownReconciling => {
+                                    Some("ORDER_STATUS_UNKNOWN".into())
+                                }
+                                protocol::ExecutionAttemptState::Rejected => {
+                                    Some("PROVIDER_ORDER_REJECTED".into())
+                                }
+                                _ => None,
+                            },
+                        },
+                    )
+                    .unwrap();
+            }
+            let before_expiry = control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_for_approval(&workspace_id, approval_id)
+                .unwrap()
+                .unwrap();
+            let before_approval = dispatch_main(
+                &mut control,
+                "trade.approval.list",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            );
+
+            advance_test_time_past_approval(
+                &mut control,
+                &workspace_id,
+                approval["data"]["expiresAt"].as_str().unwrap(),
+            );
+            control.expire_live_arming().unwrap();
+            control.expire_live_arming().unwrap();
+            let after_expiry = control
+                .store
+                .as_ref()
+                .unwrap()
+                .execution_preparation_for_approval(&workspace_id, approval_id)
+                .unwrap()
+                .unwrap();
+            assert_eq!(after_expiry.attempt.state, state);
+            assert_eq!(
+                after_expiry.attempt.dispatch_disposition,
+                Some(protocol::ExecutionDispatchDisposition::MayHaveSubmitted)
+            );
+            assert_eq!(
+                after_expiry.attempt.state_version,
+                before_expiry.attempt.state_version
+            );
+            assert_eq!(
+                after_expiry.reservation.as_ref().unwrap().status,
+                before_expiry.reservation.as_ref().unwrap().status
+            );
+            assert_eq!(
+                after_expiry.reservation.as_ref().unwrap(),
+                before_expiry.reservation.as_ref().unwrap()
+            );
+            let history = dispatch_main(
+                &mut control,
+                "trade.approval.list",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            );
+            let expired_approval = &history["data"]["approvals"][0];
+            assert_eq!(expired_approval["status"], "CONSUMED");
+            assert_eq!(
+                expired_approval["consumedAt"],
+                before_approval["data"]["approvals"][0]["consumedAt"]
+            );
+            let expiry = &expired_approval["expiry"];
+            assert_eq!(expiry["scope"], "approval");
+            assert_eq!(expiry["authority"], "TRUSTED_TIME_SERVICE");
+            assert_eq!(expiry["authorityReference"], approval_id);
+            assert_eq!(expiry["expiresAt"], approval["data"]["expiresAt"]);
+            let already_released = state == protocol::ExecutionAttemptState::Rejected;
+            assert_eq!(
+                expiry["reservationDisposition"],
+                if already_released {
+                    "ALREADY_RELEASED"
+                } else {
+                    "RETAINED"
+                }
+            );
+            assert_eq!(expiry["executionAttemptId"], attempt_id);
+            assert_eq!(
+                expiry["reservationId"],
+                after_expiry.reservation.as_ref().unwrap().reservation_id
+            );
+            assert_eq!(
+                expiry["reservationStateVersion"],
+                after_expiry.reservation.as_ref().unwrap().state_version
+            );
+            let replayed = dispatch_main(&mut control, "trade.execution.prepare", prepare_request);
+            assert_eq!(replayed["ok"], true, "{replayed}");
+            assert_eq!(replayed["data"]["attempt"]["attemptId"], attempt_id);
+            assert_eq!(
+                replayed["data"]["reservation"]["status"],
+                if already_released {
+                    "RELEASED"
+                } else {
+                    "ACTIVE"
+                }
+            );
+
+            let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+            let delivered = events.clone();
+            let sink: EventSink = std::sync::Arc::new(move |event| {
+                delivered.lock().unwrap().push(event.event_type.clone());
+                true
+            });
+            let replay = control
+                .store
+                .as_mut()
+                .unwrap()
+                .replay(
+                    "execution-reservation",
+                    &after_expiry.reservation.as_ref().unwrap().reservation_id,
+                    0,
+                    &sink,
+                )
+                .unwrap();
+            let expected_reservation_events = if already_released {
+                vec!["trade.reservation.created", "trade.reservation.released"]
+            } else {
+                vec!["trade.reservation.created"]
+            };
+            assert_eq!(
+                replay.replayed_count as usize,
+                expected_reservation_events.len()
+            );
+            assert_eq!(*events.lock().unwrap(), expected_reservation_events);
+            events.lock().unwrap().clear();
+            let approval_events = control
+                .store
+                .as_mut()
+                .unwrap()
+                .replay("financial-approval", approval_id, 0, &sink)
+                .unwrap();
+            assert_eq!(approval_events.replayed_count, 3);
+            assert_eq!(
+                *events.lock().unwrap(),
+                vec![
+                    "trade.approval.issued",
+                    "trade.approval.consumed",
+                    "trade.approval.expired"
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn approval_expiry_audit_waits_for_trusted_time() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "expiry-clock-trust",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let approval_id = approval["data"]["approvalId"].as_str().unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "gateway-session")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "gateway-session")
+            .unwrap();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, approval_id)
+            .unwrap()
+            .unwrap();
+        let clock = control.time.status(&workspace_id).unwrap();
+        let deadline =
+            OffsetDateTime::parse(approval["data"]["expiresAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+        control.time.reset(&workspace_id);
+        control.time.set_test_time(
+            deadline.unix_timestamp_nanos() / 1_000_000 + 1,
+            clock.monotonic_ms + 31_000,
+        );
+        assert_eq!(
+            control.time.status(&workspace_id).unwrap().confidence,
+            protocol::TimeConfidence::ClockUncertain
+        );
+        let uncertain = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(uncertain["ok"], true, "{uncertain}");
+        assert_eq!(uncertain["data"]["approvals"][0]["status"], "CONSUMED");
+        assert!(uncertain["data"]["approvals"][0].get("expiry").is_none());
+        // Safety disarming resets TimeService and clears the synthetic reading.
+        // Reapply the future reading before the explicit trust revalidation.
+        control.time.set_test_time(
+            deadline.unix_timestamp_nanos() / 1_000_000 + 1,
+            clock.monotonic_ms + 31_000,
+        );
+        let time = dispatch_main(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(time["data"]["confidence"], "TRUSTED", "{time}");
+        let trusted = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(
+            trusted["data"]["approvals"][0]["expiry"]["authority"],
+            "TRUSTED_TIME_SERVICE"
+        );
+        assert_eq!(
+            trusted["data"]["approvals"][0]["expiry"]["reservationDisposition"],
+            "RETAINED"
+        );
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, approval_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(after.attempt.state_version, before.attempt.state_version);
+        assert_eq!(
+            after.attempt.state,
+            protocol::ExecutionAttemptState::Submitting
+        );
+        assert_eq!(after.reservation, before.reservation);
     }
 
     pub(super) fn reviewed_live_capacity_fixture() -> (
@@ -16844,6 +19309,7 @@ mod live_approval_tests {
             &job,
             provider_io::ProviderOutcome {
                 observation: Some(provider_io::Observation {
+                    binance_trading_status: None,
                     data: account.data.clone().unwrap(),
                     permissions: account.permissions.clone(),
                     live_order_settlements: vec![settlement],
@@ -16944,9 +19410,21 @@ mod live_approval_tests {
             )
             .unwrap()
             .unwrap();
+        let partial_settlement = after_partial.live_order_settlement.as_ref().unwrap();
+        assert_eq!(partial_settlement.initial_asset_claims.len(), 1);
+        assert_eq!(partial_settlement.initial_asset_claims[0].asset, "USD");
+        assert_eq!(
+            partial_settlement.initial_asset_claims[0].amount,
+            original_amount
+        );
         assert_eq!(
             after_partial.reservation.as_ref().unwrap().amount,
             crate::provider_io::decimal_subtract(&original_amount, "100.25").unwrap()
+        );
+        assert_eq!(
+            after_partial.reservation.as_ref().unwrap().asset_claims[0].amount,
+            after_partial.reservation.as_ref().unwrap().amount,
+            "Settlement must keep the principal claim synchronized with its remaining scalar allowance"
         );
         let partial_sequence = after_partial
             .reservation
@@ -17076,6 +19554,11 @@ mod live_approval_tests {
             incomplete.reservation.as_ref().unwrap().amount,
             crate::provider_io::decimal_subtract(&original_amount, "100.25").unwrap()
         );
+        assert_eq!(
+            incomplete.reservation.as_ref().unwrap().asset_claims[0].amount,
+            incomplete.reservation.as_ref().unwrap().amount,
+            "Incomplete fee evidence must retain the same frozen principal claim"
+        );
 
         let terminal_at = (OffsetDateTime::parse(&first_at, &Rfc3339).unwrap()
             + TimeDuration::seconds(2))
@@ -17130,6 +19613,19 @@ mod live_approval_tests {
         assert_eq!(
             terminal.reservation.as_ref().unwrap().amount,
             crate::provider_io::decimal_subtract(&original_amount, "100.25").unwrap()
+        );
+        assert_eq!(
+            terminal.reservation.as_ref().unwrap().asset_claims[0].amount,
+            terminal.reservation.as_ref().unwrap().amount,
+            "Terminal settlement must preserve the final claim amount while releasing it"
+        );
+        assert_eq!(
+            terminal
+                .live_order_settlement
+                .as_ref()
+                .unwrap()
+                .initial_asset_claims,
+            partial_settlement.initial_asset_claims
         );
         assert!(
             control
@@ -17210,6 +19706,547 @@ mod live_approval_tests {
         assert_eq!(
             saved["data"]["preparation"]["liveOrderSettlement"]["providerOrderId"],
             "7000000000"
+        );
+    }
+
+    #[test]
+    fn multileg_settlement_fixture_replays_and_releases_only_broker_terminal_remainders() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (approval, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "s29-multileg-settlement-fixture",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let reservation_id = prepared["data"]["reservation"]["reservationId"]
+            .as_str()
+            .unwrap();
+        let original_amount = prepared["data"]["reservation"]["amount"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "s29-multileg-settlement-fixture")
+            .unwrap();
+        control
+            .begin_live_execution_submission(&grant.grant_id, "s29-multileg-settlement-fixture")
+            .unwrap();
+        control
+            .complete_live_execution_submission(
+                attempt_id,
+                &provider_io::LiveDispatchOutcome {
+                    state: protocol::ExecutionAttemptState::Accepted,
+                    broker_order_id: Some("7000000001".into()),
+                    provider_status: Some("NEW".into()),
+                    error_code: None,
+                },
+            )
+            .unwrap();
+
+        // This test-only fixture adds the already-modeled outgoing fee claim so
+        // storage lifecycle behavior can be exercised before positive owning
+        // Prepare evidence is available. It is not AC6 or ticket acceptance.
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .replace_execution_reservation_claims_fixture(
+                &workspace_id,
+                &reservation_id,
+                vec![
+                    protocol::ExecutionReservationAssetClaim {
+                        asset: "USD".into(),
+                        amount: original_amount.clone(),
+                        purpose: protocol::ExecutionReservationClaimPurpose::Principal,
+                    },
+                    protocol::ExecutionReservationAssetClaim {
+                        asset: "BNB".into(),
+                        amount: "0.004".into(),
+                        purpose: protocol::ExecutionReservationClaimPurpose::Fee,
+                    },
+                ],
+            )
+            .unwrap();
+
+        let observed_at = storage::timestamp().unwrap();
+        let partial = provider_io::LiveOrderObservation {
+            provider_order_id: "7000000001".into(),
+            raw_status: "PARTIALLY_FILLED".into(),
+            disposition: protocol::LiveOrderDisposition::Working,
+            order_quantity: None,
+            filled_quantity: Some("1".into()),
+            remaining_quantity: None,
+            filled_value: Some("100".into()),
+            fees: Some(vec![protocol::LiveOrderFee {
+                asset: "BNB".into(),
+                amount: "0.001".into(),
+            }]),
+            trade_facts_complete: true,
+            trade_facts: vec![protocol::LiveOrderTradeFact {
+                provider_trade_id: "trade-bnb-1".into(),
+                quantity: "1".into(),
+                value: "100".into(),
+                fees: vec![protocol::LiveOrderFee {
+                    asset: "BNB".into(),
+                    amount: "0.001".into(),
+                }],
+                provider_executed_at: None,
+            }],
+            provider_observed_at: Some(observed_at.clone()),
+            source: "fixture.multileg.live.orders".into(),
+        };
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            partial.clone(),
+        );
+        let after_partial = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        let settlement = after_partial.live_order_settlement.as_ref().unwrap();
+        assert_eq!(settlement.initial_asset_claims.len(), 2);
+        assert_eq!(settlement.initial_asset_claims[0].amount, original_amount);
+        assert_eq!(settlement.initial_asset_claims[1].asset, "BNB");
+        let remaining = &after_partial.reservation.as_ref().unwrap().asset_claims;
+        assert_eq!(
+            remaining[0].amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100").unwrap()
+        );
+        assert_eq!(remaining[1].asset, "BNB");
+        assert_eq!(remaining[1].amount, "0.003");
+        let partial_sequence = settlement.state_version.clone();
+        let reservation_sequence = after_partial
+            .reservation
+            .as_ref()
+            .unwrap()
+            .state_version
+            .clone();
+
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            partial.clone(),
+        );
+        let replay = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            replay.live_order_settlement.as_ref().unwrap().state_version,
+            partial_sequence
+        );
+        assert_eq!(
+            replay.reservation.as_ref().unwrap().state_version,
+            reservation_sequence
+        );
+
+        let unknown_at = (OffsetDateTime::parse(&observed_at, &Rfc3339).unwrap()
+            + TimeDuration::seconds(1))
+        .format(&Rfc3339)
+        .unwrap();
+        let mut unknown = partial.clone();
+        unknown.raw_status = "FUTURE_STATUS".into();
+        unknown.disposition = protocol::LiveOrderDisposition::Unknown;
+        unknown.provider_observed_at = Some(unknown_at.clone());
+        refresh_live_order_settlement(&mut control, &workspace_id, &account.connection_id, unknown);
+        let held = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            held.live_order_settlement
+                .as_ref()
+                .unwrap()
+                .unresolved_reason
+                .as_deref(),
+            Some("ORDER_STATUS_UNRESOLVED")
+        );
+        assert_eq!(
+            held.reservation.as_ref().unwrap().asset_claims[1].amount,
+            "0.003"
+        );
+        assert_eq!(
+            held.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+
+        let terminal_at = (OffsetDateTime::parse(&unknown_at, &Rfc3339).unwrap()
+            + TimeDuration::seconds(1))
+        .format(&Rfc3339)
+        .unwrap();
+        let mut terminal = partial;
+        terminal.raw_status = "CANCELED".into();
+        terminal.disposition = protocol::LiveOrderDisposition::Terminal;
+        terminal.provider_observed_at = Some(terminal_at);
+        refresh_live_order_settlement(
+            &mut control,
+            &workspace_id,
+            &account.connection_id,
+            terminal.clone(),
+        );
+        let settled = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            settled.live_order_settlement.as_ref().unwrap().status,
+            protocol::LiveOrderSettlementStatus::Settled
+        );
+        assert_eq!(
+            settled.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        assert_eq!(
+            settled.reservation.as_ref().unwrap().asset_claims[1].amount,
+            "0.003",
+            "Only provider-confirmed BNB fees reduce the BNB claim; unused remainder is released"
+        );
+        assert!(
+            control
+                .store
+                .as_ref()
+                .unwrap()
+                .active_execution_reservations(&workspace_id)
+                .unwrap()
+                .iter()
+                .all(|reservation| reservation.reservation_id != reservation_id)
+        );
+    }
+
+    #[test]
+    fn consumed_binance_place_refresh_settles_exact_provider_trade_facts_read_only() {
+        let (_folder, mut control, workspace_id, _, proposal, review) =
+            reviewed_live_fixture_with_numeric_binance_id(true);
+        let (attempt_id, account) = confirm_unknown_binance_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "7000000002",
+        );
+        let preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, &attempt_id)
+            .unwrap();
+        let approval_id = preparation.attempt.approval_id.clone();
+        let reservation_id = preparation
+            .reservation
+            .as_ref()
+            .unwrap()
+            .reservation_id
+            .clone();
+        let request_broker_order_id = preparation.attempt.broker_order_id.clone().unwrap();
+        let original_amount = preparation.reservation.as_ref().unwrap().amount.clone();
+        let provider_order_id = "BTCUSDT:7000000002";
+
+        // Synthetic fee claim keeps this integration receipt scoped to AC7
+        // settlement; it does not prove multi-asset Prepare or owning AC6.
+        control
+            .store
+            .as_mut()
+            .unwrap()
+            .replace_execution_reservation_claims_fixture(
+                &workspace_id,
+                &reservation_id,
+                vec![
+                    protocol::ExecutionReservationAssetClaim {
+                        asset: "USDT".into(),
+                        amount: original_amount.clone(),
+                        purpose: protocol::ExecutionReservationClaimPurpose::Principal,
+                    },
+                    protocol::ExecutionReservationAssetClaim {
+                        asset: "BNB".into(),
+                        amount: "0.004".into(),
+                        purpose: protocol::ExecutionReservationClaimPurpose::Fee,
+                    },
+                ],
+            )
+            .unwrap();
+
+        let update_time = OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+        let trade_time = update_time;
+        let make_http = |status: &str, update_time: i128| BinanceLiveResolutionHttp {
+            remote_account_id: account.data.as_ref().unwrap().remote_account_id.clone(),
+            order_status: 200,
+            order: json!({
+                "orderId":7000000002u64,
+                "symbol":"BTCUSDT",
+                "clientOrderId":provider_io::binance_live_client_order_id(&attempt_id).unwrap(),
+                "side":"BUY",
+                "type":"LIMIT",
+                "timeInForce":"GTC",
+                "origQty":"0.01",
+                "origQuoteOrderQty":"0.00000000",
+                "price":"50000.00000000",
+                "executedQty":"0.002",
+                "cummulativeQuoteQty":"100",
+                "status":status,
+                "time":update_time,
+                "updateTime":update_time,
+                "trades":[{
+                    "id":777,
+                    "orderId":7000000002u64,
+                    "symbol":"BTCUSDT",
+                    "qty":"0.002",
+                    "quoteQty":"100",
+                    "commission":"0.001",
+                    "commissionAsset":"BNB",
+                    "time":trade_time
+                }]
+            }),
+            calls: Default::default(),
+        };
+        let refresh = |control: &mut ControlPlane, http: &BinanceLiveResolutionHttp| {
+            let current_account = control
+                .store
+                .as_ref()
+                .unwrap()
+                .account(&account.connection_id)
+                .unwrap();
+            let job = control
+                .prepare_provider_for(
+                    &request(
+                        "trade.live_order.refresh",
+                        json!({
+                            "workspaceId":workspace_id,
+                            "accountId":current_account.connection_id,
+                            "approvalId":approval_id,
+                            "brokerOrderId":request_broker_order_id,
+                            "expectedStateVersion":current_account.state_version,
+                        }),
+                    ),
+                    "main",
+                )
+                .unwrap()
+                .unwrap();
+            let outcome = job.run(
+                &ResolutionVault,
+                |_| unreachable!("read-only refresh does not capture credentials"),
+                http,
+                || control.provider_job_current(&job),
+            );
+            assert!(outcome.error.is_none(), "{:?}", outcome.error);
+            control.complete_provider(&job, outcome)
+        };
+
+        for mismatched_order_id in ["7000000003", "ETHUSDT:7000000002"] {
+            let current_account = control
+                .store
+                .as_ref()
+                .unwrap()
+                .account(&account.connection_id)
+                .unwrap();
+            let rejected = control.prepare_provider_for(
+                &request(
+                    "trade.live_order.refresh",
+                    json!({
+                        "workspaceId":workspace_id,
+                        "accountId":current_account.connection_id,
+                        "approvalId":approval_id,
+                        "brokerOrderId":mismatched_order_id,
+                        "expectedStateVersion":current_account.state_version,
+                    }),
+                ),
+                "main",
+            );
+            let error = match rejected {
+                Err(error) => error,
+                Ok(_) => panic!("renderer-selected or mismatched order ID was accepted"),
+            };
+            assert_eq!(error.code, "STATE_VERSION_CONFLICT");
+        }
+
+        let partial_http = make_http("PARTIALLY_FILLED", update_time);
+        let partial = refresh(&mut control, &partial_http);
+        assert_eq!(partial["ok"], true, "{partial}");
+        let partial_saved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &approval_id)
+            .unwrap()
+            .unwrap();
+        let partial_settlement = partial_saved.live_order_settlement.as_ref().unwrap();
+        assert_eq!(partial_settlement.provider_order_id, provider_order_id);
+        assert_eq!(
+            partial_settlement.status,
+            protocol::LiveOrderSettlementStatus::Working
+        );
+        assert_eq!(partial_settlement.source, "binance.live.exact-order");
+        assert_eq!(partial_settlement.provider_trade_count, 1);
+        assert_eq!(partial_settlement.fees.as_ref().unwrap()[0].asset, "BNB");
+        assert_eq!(partial_settlement.fees.as_ref().unwrap()[0].amount, "0.001");
+        assert_eq!(
+            partial_saved.reservation.as_ref().unwrap().asset_claims[0].amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100").unwrap()
+        );
+        assert_eq!(
+            partial_saved.reservation.as_ref().unwrap().asset_claims[1].amount,
+            "0.003"
+        );
+        assert!(
+            partial_http
+                .calls
+                .borrow()
+                .iter()
+                .all(|(_, method, _)| { *method == provider_io::ProviderHttpMethod::Get })
+        );
+        assert!(partial_http.calls.borrow().iter().any(|(_, _, path)| {
+            path.starts_with("/api/v3/myTrades?symbol=BTCUSDT&orderId=7000000002")
+        }));
+
+        let replay_http = make_http("PARTIALLY_FILLED", update_time);
+        let replay = refresh(&mut control, &replay_http);
+        assert_eq!(replay["ok"], true, "{replay}");
+        let replay_saved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &approval_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            replay_saved.reservation.as_ref().unwrap().asset_claims[0].amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100").unwrap(),
+            "replaying cumulative fill facts cannot debit principal twice"
+        );
+        assert_eq!(
+            replay_saved.reservation.as_ref().unwrap().asset_claims[1].amount,
+            "0.003",
+            "replaying cumulative fee facts cannot debit the fee claim twice"
+        );
+
+        let unknown_http = make_http("FUTURE_STATUS", update_time + 1);
+        let unknown = refresh(&mut control, &unknown_http);
+        assert_eq!(unknown["ok"], true, "{unknown}");
+        let unknown_saved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &approval_id)
+            .unwrap()
+            .unwrap();
+        let unknown_settlement = unknown_saved.live_order_settlement.as_ref().unwrap();
+        assert_eq!(
+            unknown_settlement.status,
+            protocol::LiveOrderSettlementStatus::Incomplete
+        );
+        assert_eq!(
+            unknown_settlement.unresolved_reason.as_deref(),
+            Some("ORDER_STATUS_UNRESOLVED")
+        );
+        assert_eq!(
+            unknown_saved.reservation.as_ref().unwrap().asset_claims[0].amount,
+            crate::provider_io::decimal_subtract(&original_amount, "100").unwrap(),
+            "an unknown provider status cannot release held principal"
+        );
+        assert_eq!(
+            unknown_saved.reservation.as_ref().unwrap().asset_claims[1].amount,
+            "0.003",
+            "an unknown provider status cannot release the fee remainder"
+        );
+
+        let terminal_http = make_http("CANCELED", update_time + 2);
+        let terminal = refresh(&mut control, &terminal_http);
+        assert_eq!(terminal["ok"], true, "{terminal}");
+        let terminal_saved = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(&workspace_id, &approval_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            terminal_saved
+                .live_order_settlement
+                .as_ref()
+                .unwrap()
+                .status,
+            protocol::LiveOrderSettlementStatus::Settled,
+            "terminal settlement: {:?}",
+            terminal_saved.live_order_settlement
+        );
+        assert_eq!(
+            terminal_saved.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Released
+        );
+        assert_eq!(
+            terminal_saved.reservation.as_ref().unwrap().asset_claims[1].amount,
+            "0.003"
+        );
+        assert!(
+            terminal_http
+                .calls
+                .borrow()
+                .iter()
+                .all(|(_, method, _)| { *method == provider_io::ProviderHttpMethod::Get })
+        );
+    }
+
+    #[test]
+    fn live_place_refresh_derives_binance_symbol_only_from_saved_proposal() {
+        let (_folder, _control, _workspace_id, account, proposal, _review) =
+            reviewed_live_fixture_with_numeric_binance_id(false);
+        let proposal: protocol::OrderProposal = serde_json::from_value(proposal).unwrap();
+        assert_eq!(
+            exact_live_place_refresh_order_id(&account, &proposal, "7000000003", "7000000003")
+                .as_deref(),
+            Some("BTCUSDT:7000000003")
+        );
+        assert_eq!(
+            exact_live_place_refresh_order_id(
+                &account,
+                &proposal,
+                "BTCUSDT:7000000003",
+                "BTCUSDT:7000000003",
+            )
+            .as_deref(),
+            Some("BTCUSDT:7000000003")
+        );
+        assert!(
+            exact_live_place_refresh_order_id(
+                &account,
+                &proposal,
+                "ETHUSDT:7000000003",
+                "ETHUSDT:7000000003",
+            )
+            .is_none()
+        );
+        assert!(
+            exact_live_place_refresh_order_id(&account, &proposal, "7000000003", "7000000004",)
+                .is_none()
         );
     }
 
@@ -17875,6 +20912,11 @@ mod live_approval_tests {
         );
         assert_eq!(prepared["data"]["reservation"]["unit"], "USD", "{prepared}");
         assert_eq!(
+            prepared["data"]["reservation"]["assetClaims"],
+            json!([{"asset":"USD","amount":"500","purpose":"PRINCIPAL"}]),
+            "New PLACE reservations should expose their trusted native principal claim as a vector while retaining the legacy scalar fields: {prepared}"
+        );
+        assert_eq!(
             prepared["data"]["reservation"]["effectiveAvailable"], "500",
             "{prepared}"
         );
@@ -17904,6 +20946,11 @@ mod live_approval_tests {
             recovered["data"]["preparation"]["reservation"]["reservationId"],
             prepared["data"]["reservation"]["reservationId"],
             "{recovered}"
+        );
+        assert_eq!(
+            recovered["data"]["preparation"]["reservation"]["assetClaims"],
+            prepared["data"]["reservation"]["assetClaims"],
+            "The persisted claim vector must survive a public history read: {recovered}"
         );
         assert_eq!(recovered["data"]["rejections"], json!([]), "{recovered}");
         let replay = dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
@@ -18102,7 +21149,7 @@ mod live_approval_tests {
 
     #[test]
     fn accepted_live_place_persists_trading212_order_identity() {
-        let (_folder, mut control, workspace_id, _account, proposal, review) =
+        let (_folder, mut control, workspace_id, account, proposal, review) =
             reviewed_live_capacity_fixture();
         let (_, _, prepared) = issue_and_prepare_live_place(
             &mut control,
@@ -18152,6 +21199,45 @@ mod live_approval_tests {
         assert_eq!(
             accepted.reservation.as_ref().unwrap().status,
             protocol::ExecutionReservationStatus::Active
+        );
+
+        let links = dispatch_main(
+            &mut control,
+            "trade.execution.order_links",
+            json!({
+                "workspaceId":workspace_id,
+                "accountId":account.connection_id,
+                "brokerOrderIds":["901", "9010", "1901"],
+            }),
+        );
+        assert_eq!(links["ok"], true, "{links}");
+        assert_eq!(links["data"]["workspaceId"], workspace_id, "{links}");
+        assert_eq!(links["data"]["accountId"], account.connection_id, "{links}");
+        assert_eq!(
+            links["data"]["links"].as_array().unwrap().len(),
+            1,
+            "{links}"
+        );
+        assert_eq!(links["data"]["links"][0]["brokerOrderId"], "901", "{links}");
+        assert_eq!(
+            links["data"]["links"][0]["executionAttemptId"], attempt_id,
+            "{links}"
+        );
+        assert_eq!(
+            links["data"]["links"][0]["proposalId"], proposal["proposalId"],
+            "{links}"
+        );
+        assert_eq!(
+            links["data"]["links"][0]["reservation"]["amount"], "500",
+            "{links}"
+        );
+        assert_eq!(
+            links["data"]["links"][0]["reservation"]["unit"], "USD",
+            "{links}"
+        );
+        assert_eq!(
+            links["data"]["links"][0]["reservation"]["status"], "ACTIVE",
+            "{links}"
         );
     }
 
@@ -18528,31 +21614,72 @@ mod live_approval_tests {
     }
 
     #[test]
-    fn live_place_preparation_capacity_failure_leaves_approval_and_ledger_unchanged() {
-        let (_folder, mut control, workspace_id, _account, proposal, review) =
-            reviewed_live_capacity_fixture_with_available("400");
-        assert_eq!(review["capacityProjection"]["available"], "400");
-        assert_eq!(review["capacityProjection"]["effectiveAvailable"], "400");
-        let approval = dispatch_main(
+    fn live_place_preparation_capacity_race_persists_rejection_and_preserves_approval() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture_with_available("900");
+        assert_eq!(review["capacityProjection"]["available"], "900");
+        assert_eq!(review["capacityProjection"]["effectiveAvailable"], "900");
+        let first_approval = dispatch_main(
             &mut control,
             "trade.approve",
             approval_action(&workspace_id, &proposal, &review),
         );
-        assert_eq!(approval["ok"], true, "{approval}");
-        let prepared = dispatch_main(
+        assert_eq!(first_approval["ok"], true, "{first_approval}");
+
+        let second_proposal = live_proposal(&mut control, &workspace_id, &account);
+        let second_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId": workspace_id,
+                "proposalId": second_proposal["proposalId"],
+            }),
+        );
+        assert_eq!(second_review["ok"], true, "{second_review}");
+        assert_eq!(second_review["data"]["eligible"], true, "{second_review}");
+        let second_approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &second_proposal, &second_review["data"]),
+        );
+        assert_eq!(second_approval["ok"], true, "{second_approval}");
+
+        let first_prepared = dispatch_main(
             &mut control,
             "trade.execution.prepare",
             json!({
                 "workspaceId": workspace_id,
-                "approvalId": approval["data"]["approvalId"],
-                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
-                "idempotencyKey": "prepare-live-place-over-capacity",
+                "approvalId": first_approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": first_approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-first-capacity-race",
                 "confirmed": true,
             }),
         );
-        assert_eq!(prepared["ok"], false, "{prepared}");
-        assert_eq!(prepared["error"]["code"], "RISK_REJECTED", "{prepared}");
-        let approval_id = approval["data"]["approvalId"].as_str().unwrap();
+        assert_eq!(first_prepared["ok"], true, "{first_prepared}");
+
+        let approval_id = second_approval["data"]["approvalId"].as_str().unwrap();
+        let second_prepare_request = json!({
+            "workspaceId": workspace_id,
+            "approvalId": approval_id,
+            "expectedApprovalStateVersion": second_approval["data"]["stateVersion"],
+            "idempotencyKey": "prepare-second-capacity-race",
+            "confirmed": true,
+        });
+        let rejected = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            second_prepare_request.clone(),
+        );
+        assert_eq!(rejected["ok"], false, "{rejected}");
+        assert_eq!(rejected["error"]["code"], "RISK_REJECTED", "{rejected}");
+        assert_eq!(
+            rejected["error"]["reason"], "RESERVED_CAPACITY",
+            "{rejected}"
+        );
+        assert_eq!(
+            rejected["error"]["capacityContext"]["effectiveAvailable"], "400",
+            "{rejected}"
+        );
         assert!(
             control
                 .store
@@ -18560,12 +21687,13 @@ mod live_approval_tests {
                 .unwrap()
                 .execution_preparation_for_idempotency_key(
                     &workspace_id,
-                    approval["data"]["approvalId"].as_str().unwrap(),
-                    "prepare-live-place-over-capacity",
+                    approval_id,
+                    "prepare-second-capacity-race",
                 )
                 .unwrap()
                 .is_none()
         );
+
         let restored_rejection = dispatch_main(
             &mut control,
             "trade.execution.preparation.get",
@@ -18594,7 +21722,7 @@ mod live_approval_tests {
         );
         assert_eq!(
             restored_rejection["data"]["rejections"][0]["capacityContext"]["capacityProjection"]["available"],
-            "400"
+            "900"
         );
         assert_eq!(
             restored_rejection["data"]["rejections"][0]["capacityContext"]["capacityProjection"]["freshness"],
@@ -18602,18 +21730,13 @@ mod live_approval_tests {
         );
         assert_ne!(
             restored_rejection["data"]["rejections"][0]["idempotencyDigest"],
-            "prepare-live-place-over-capacity"
+            "prepare-second-capacity-race"
         );
+
         let repeated = dispatch_main(
             &mut control,
             "trade.execution.prepare",
-            json!({
-                "workspaceId": workspace_id,
-                "approvalId": approval_id,
-                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
-                "idempotencyKey": "prepare-live-place-over-capacity",
-                "confirmed": true,
-            }),
+            second_prepare_request,
         );
         assert_eq!(repeated["ok"], false, "{repeated}");
         assert_eq!(repeated["error"]["reason"], "RESERVED_CAPACITY");
@@ -18650,56 +21773,34 @@ mod live_approval_tests {
             .unwrap();
         assert_eq!(replay.replayed_count, 1);
         assert_eq!(*deliveries.lock().unwrap(), 1);
-        let db = rusqlite::Connection::open(
-            control
-                .store
-                .as_ref()
-                .unwrap()
-                .path
-                .join("workspace.sqlite3"),
-        )
-        .unwrap();
-        let foreign_keys = db
-            .prepare("PRAGMA foreign_key_list(execution_attempts)")
-            .unwrap()
-            .query_map([], |_| Ok(()))
-            .unwrap()
-            .count();
-        assert!(foreign_keys >= 3);
+
         let unchanged_proposal = control
             .store
             .as_ref()
             .unwrap()
-            .order_proposal(proposal["proposalId"].as_str().unwrap())
+            .order_proposal(second_proposal["proposalId"].as_str().unwrap())
             .unwrap();
         assert_eq!(
             unchanged_proposal.status,
             protocol::OrderProposalStatus::NeedsApproval
         );
         assert_eq!(unchanged_proposal.history.len(), 1);
-        assert!(
-            control
-                .store
-                .as_ref()
-                .unwrap()
-                .active_execution_reservations(&workspace_id)
-                .unwrap()
-                .is_empty()
-        );
-        let approval_snapshot = control
+        let reservations = control
             .store
-            .as_mut()
+            .as_ref()
             .unwrap()
-            .snapshot_for("financial-approval", approval_id)
+            .active_execution_reservations(&workspace_id)
             .unwrap();
-        let DomainProjection::FinancialApproval(saved_approval) = approval_snapshot.projection
-        else {
-            panic!("wrong approval projection");
-        };
-        assert_eq!(
-            saved_approval.status,
-            protocol::FinancialApprovalStatus::Issued
+        assert_eq!(reservations.len(), 1);
+        assert_eq!(reservations[0].amount, "500");
+
+        let approval_history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":second_proposal["proposalId"]}),
         );
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert_eq!(approval_history["data"]["approvals"][0]["status"], "ISSUED");
     }
 
     #[test]
@@ -18970,57 +22071,50 @@ mod live_approval_tests {
             "trade.request_approval",
             json!({"workspaceId": workspace_id, "proposalId": proposal["proposalId"]}),
         );
-        assert_eq!(review["data"]["eligible"], true, "{review}");
-        let approval = dispatch_main(
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["eligible"], false, "{review}");
+        assert_eq!(review["data"]["riskDecision"]["status"], "REJECTED");
+        assert_eq!(review["data"]["capacityProjection"]["available"], "1000");
+        assert_eq!(review["data"]["capacityProjection"]["reserved"], "500");
+        assert_eq!(
+            review["data"]["capacityProjection"]["effectiveAvailable"],
+            "500"
+        );
+        let capacity_check = review["data"]["riskDecision"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == "RESERVED_CAPACITY")
+            .unwrap();
+        assert_eq!(capacity_check["outcome"], "REJECT", "{capacity_check}");
+        assert_eq!(capacity_check["reasonCode"], "RESERVED_CAPACITY");
+        assert!(
+            review["data"]["blockers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|blocker| blocker
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("ReservedCapacity:")))
+        );
+
+        let approval_history = dispatch_main(
             &mut control,
-            "trade.approve",
-            approval_action(&workspace_id, &proposal, &review["data"]),
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
         );
-        assert_eq!(approval["ok"], true, "{approval}");
-        let rejected = dispatch_main(
-            &mut control,
-            "trade.execution.prepare",
-            json!({
-                "workspaceId": workspace_id,
-                "approvalId": approval["data"]["approvalId"],
-                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
-                "idempotencyKey": "prepare-second-capacity",
-                "confirmed": true,
-            }),
+        assert_eq!(approval_history["ok"], true, "{approval_history}");
+        assert!(
+            approval_history["data"]["approvals"]
+                .as_array()
+                .unwrap()
+                .is_empty()
         );
-        assert_eq!(rejected["ok"], false, "{rejected}");
-        assert_eq!(rejected["error"]["code"], "RISK_REJECTED", "{rejected}");
-        assert_eq!(
-            rejected["error"]["reason"], "RESERVED_CAPACITY",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["source"], "BROKER_AVAILABLE",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["capacityLimit"], "1000",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["requestedAmount"], "600",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["existingReservations"], "500",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["effectiveAvailable"], "500",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["capacityProjection"]["reserved"], "500",
-            "{rejected}"
-        );
-        assert_eq!(
-            rejected["error"]["capacityContext"]["capacityProjection"]["effectiveAvailable"], "500",
-            "{rejected}"
+        assert!(
+            approval_history["data"]["rejections"]
+                .as_array()
+                .unwrap()
+                .is_empty()
         );
         let reservations = control
             .store
@@ -19204,6 +22298,111 @@ mod live_approval_tests {
     }
 
     #[test]
+    fn rejected_capacity_review_uses_specific_blocker_and_allowed_change_stays_distinct() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture_with_available("750");
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            json!({
+                "workspaceId": workspace_id,
+                "approvalId": approval["data"]["approvalId"],
+                "expectedApprovalStateVersion": approval["data"]["stateVersion"],
+                "idempotencyKey": "prepare-capacity-review-specific-blocker",
+                "confirmed": true,
+            }),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        assert_eq!(prepared["data"]["attempt"]["state"], "RESERVED");
+        assert_eq!(prepared["data"]["reservation"]["status"], "ACTIVE");
+
+        let blocked_proposal = live_proposal(&mut control, &workspace_id, &account);
+        let blocked_review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({"workspaceId":workspace_id,"proposalId":blocked_proposal["proposalId"]}),
+        );
+        assert_eq!(blocked_review["ok"], true, "{blocked_review}");
+        assert_eq!(
+            blocked_review["data"]["eligible"], false,
+            "{blocked_review}"
+        );
+        assert_eq!(blocked_review["data"]["riskDecision"]["status"], "REJECTED");
+        let capacity_check = blocked_review["data"]["riskDecision"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == "RESERVED_CAPACITY")
+            .unwrap();
+        assert_eq!(capacity_check["outcome"], "REJECT", "{capacity_check}");
+        assert_eq!(capacity_check["reasonCode"], "RESERVED_CAPACITY");
+        assert!(
+            capacity_check["reason"]
+                .as_str()
+                .unwrap()
+                .contains("effective available capacity")
+        );
+        assert!(
+            blocked_review["data"]["blockers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|blocker| blocker
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("ReservedCapacity:")))
+        );
+        assert!(
+            !blocked_review["data"]["blockers"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|blocker| blocker
+                    .as_str()
+                    .is_some_and(|value| value.starts_with("RISK_DECISION_CHANGED:")))
+        );
+
+        let (
+            _allowed_folder,
+            mut allowed_control,
+            _allowed_workspace,
+            mut allowed_account,
+            allowed_proposal,
+            allowed_review,
+        ) = reviewed_live_capacity_fixture();
+        let bound_decision: risk::RiskDecision =
+            serde_json::from_value(allowed_review["riskDecision"].clone()).unwrap();
+        let typed_proposal = allowed_control
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(allowed_proposal["proposalId"].as_str().unwrap())
+            .unwrap();
+        allowed_account.label.push_str(" updated");
+        allowed_control.persist_account(allowed_account).unwrap();
+        let changed_review = allowed_control
+            .build_approval_review(&typed_proposal, Some(bound_decision))
+            .unwrap();
+        assert_eq!(
+            changed_review.risk_decision.status,
+            risk::RiskDecisionStatus::Allowed
+        );
+        assert!(
+            changed_review
+                .blockers
+                .iter()
+                .any(|blocker| { blocker.starts_with("RISK_DECISION_CHANGED:") }),
+            "{}",
+            changed_review.blockers.join(" | ")
+        );
+    }
+
+    #[test]
     fn live_place_reservations_are_scoped_to_the_bound_account() {
         let (_folder, mut control, workspace_id, first_account, first_proposal, first_review) =
             reviewed_live_capacity_fixture();
@@ -19317,6 +22516,325 @@ mod live_approval_tests {
                 .len(),
             2
         );
+    }
+
+    fn reviewed_trading212_market_fixture(
+        maximum: &str,
+    ) -> (tempfile::TempDir, ControlPlane, String, Value, Value) {
+        let (folder, mut control, workspace_id, account, _, _) = reviewed_live_capacity_fixture();
+        let policy = dispatch(
+            &mut control,
+            "risk.get_policy",
+            json!({"workspaceId":workspace_id}),
+        );
+        let mut updated = policy["data"]["policy"].clone();
+        updated["marketOrdersEnabled"] = true.into();
+        updated["maxMarketOrderSlippagePercent"] = maximum.into();
+        let saved = dispatch(
+            &mut control,
+            "risk.save_policy",
+            json!({
+                "workspaceId":workspace_id,"expectedStateVersion":policy["data"]["stateVersion"],"policy":updated,
+            }),
+        );
+        assert_eq!(saved["ok"], true, "{saved}");
+        let draft = dispatch(
+            &mut control,
+            "trade.save_draft",
+            json!({"workspaceId":workspace_id,"fields":{
+                "accountId":account.connection_id,"venue":"XNAS","environment":"TRADING212_LIVE",
+                "instrumentId":"equity:US:AAPL","side":"BUY","orderType":"MARKET",
+                "quantity":{"type":"BASE","value":"0.001"},"maximumSpend":"51","timeInForce":"DAY",
+            }}),
+        );
+        assert_eq!(draft["ok"], true, "{draft}");
+        let proposal = dispatch(
+            &mut control,
+            "trade.generate_proposal",
+            json!({
+                "workspaceId":workspace_id,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1,
+            }),
+        );
+        assert_eq!(proposal["ok"], true, "{proposal}");
+        control.time.set_test_time(
+            OffsetDateTime::parse(proposal["data"]["createdAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap()
+                .unix_timestamp_nanos()
+                / 1_000_000
+                + 10,
+            130,
+        );
+        let current = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({
+                "workspaceId":workspace_id,"connectionId":account.connection_id,
+                "expectedStateVersion":current.state_version,"confirmed":true,
+            }),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let review = dispatch_main(
+            &mut control,
+            "trade.request_approval",
+            json!({
+                "workspaceId":workspace_id,"proposalId":proposal["data"]["proposalId"],
+            }),
+        );
+        assert_eq!(review["ok"], true, "{review}");
+        assert_eq!(review["data"]["estimatedSlippagePercent"], "0.002");
+        assert_eq!(review["data"]["expectedSpend"], "50.001");
+        (
+            folder,
+            control,
+            workspace_id,
+            proposal["data"].clone(),
+            review["data"].clone(),
+        )
+    }
+
+    #[test]
+    fn bounded_trading212_market_approval_reserves_its_exact_maximum() {
+        let (_folder, mut control, workspace_id, proposal, review) =
+            reviewed_trading212_market_fixture("5");
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "s28-bounded-market",
+        );
+        assert_eq!(prepared["data"]["reservation"]["amount"], "51");
+        assert_eq!(prepared["data"]["reservation"]["status"], "ACTIVE");
+    }
+
+    #[test]
+    fn market_approval_rejects_invalid_depth_and_changed_quote_consent() {
+        for (field, value) in [
+            ("askSize", Value::Null),
+            ("askSize", json!("0")),
+            ("askSize", json!("-1")),
+            ("askSize", json!("NaN")),
+            ("askSize", json!("0.0009")),
+            ("bid", json!("0")),
+            ("ask", json!("49998")),
+            ("instrumentId", json!("equity:US:MSFT")),
+            ("source", json!("")),
+            ("marketSnapshotId", json!("")),
+            ("venue", json!("XNYS")),
+        ] {
+            let (_folder, mut control, workspace_id, proposal, review) =
+                reviewed_trading212_market_fixture("5");
+            let mut snapshot = review["market"]["snapshot"].clone();
+            if matches!(field, "source" | "marketSnapshotId" | "venue") {
+                snapshot["provenance"][field] = value;
+            } else {
+                snapshot[field] = value;
+            }
+            control.live_approval_fixture_snapshot =
+                Some(serde_json::from_value(snapshot).unwrap());
+            let current = dispatch_main(
+                &mut control,
+                "trade.request_approval",
+                json!({
+                    "workspaceId":workspace_id,"proposalId":proposal["proposalId"],
+                }),
+            );
+            assert_eq!(current["ok"], true, "{current}");
+            assert_eq!(current["data"]["eligible"], false, "{current}");
+            assert_eq!(current["data"]["estimatedSlippagePercent"], Value::Null);
+            let issued = dispatch_main(
+                &mut control,
+                "trade.approve",
+                approval_action(&workspace_id, &proposal, &review),
+            );
+            assert_eq!(issued["ok"], false, "{issued}");
+            assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+        }
+        let (_folder, mut control, workspace_id, proposal, review) =
+            reviewed_trading212_market_fixture("5");
+        let mut snapshot = review["market"]["snapshot"].clone();
+        snapshot["askSize"] = "2".into();
+        control.live_approval_fixture_snapshot = Some(serde_json::from_value(snapshot).unwrap());
+        let issued = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(
+            issued["ok"], false,
+            "An otherwise sufficient changed depth must invalidate consent: {issued}"
+        );
+        assert_no_approval_or_order_attempt(&control, &workspace_id, &proposal);
+    }
+
+    #[test]
+    fn market_quote_depth_is_revalidated_at_preparation_and_dispatch() {
+        for at_dispatch in [false, true] {
+            let (_folder, mut control, workspace_id, proposal, review) =
+                reviewed_trading212_market_fixture("5");
+            let approved = dispatch_main(
+                &mut control,
+                "trade.approve",
+                approval_action(&workspace_id, &proposal, &review),
+            );
+            assert_eq!(approved["ok"], true, "{approved}");
+            let prepare =
+                prepare_payload(&workspace_id, &approved["data"], "s28-depth-revalidation");
+            let prepared = if at_dispatch {
+                let result =
+                    dispatch_main(&mut control, "trade.execution.prepare", prepare.clone());
+                assert_eq!(result["ok"], true, "{result}");
+                Some(result)
+            } else {
+                None
+            };
+            let mut snapshot = review["market"]["snapshot"].clone();
+            snapshot["askSize"] = "2".into();
+            control.live_approval_fixture_snapshot =
+                Some(serde_json::from_value(snapshot).unwrap());
+            if let Some(prepared) = prepared {
+                assert!(
+                    control
+                        .issue_live_dispatch_grant(
+                            prepared["data"]["attempt"]["attemptId"].as_str().unwrap(),
+                            "s28-gateway",
+                        )
+                        .is_err(),
+                    "Changed depth must never authorize dispatch"
+                );
+            } else {
+                let result = dispatch_main(&mut control, "trade.execution.prepare", prepare);
+                assert_eq!(result["ok"], false, "{result}");
+                let current = dispatch_main(
+                    &mut control,
+                    "trade.execution.preparation.get",
+                    json!({
+                        "workspaceId":workspace_id,"approvalId":approved["data"]["approvalId"],
+                    }),
+                );
+                assert_eq!(current["ok"], true, "{current}");
+                assert_eq!(current["data"]["preparation"], Value::Null);
+            }
+        }
+    }
+
+    #[test]
+    fn matching_prepare_revalidation_preserves_the_issued_approval_expiry() {
+        let (_folder, mut control, workspace_id, proposal, review) =
+            reviewed_trading212_market_fixture("5");
+        let approved = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approved["ok"], true, "{approved}");
+        let approval_id = approved["data"]["approvalId"].as_str().unwrap();
+        let original_expiry = approved["data"]["expiresAt"].clone();
+        let issued_at =
+            OffsetDateTime::parse(approved["data"]["issuedAt"].as_str().unwrap(), &Rfc3339)
+                .unwrap();
+
+        // Revalidate the same immutable review later in its original lifetime. Preparation must
+        // consume this approval without extending its expiry or minting replacement consent.
+        let later = issued_at.unix_timestamp_nanos() / 1_000_000 + 5_000;
+        control.time.set_test_time(later, 5_100);
+        let prepared = dispatch_main(
+            &mut control,
+            "trade.execution.prepare",
+            prepare_payload(&workspace_id, &approved["data"], "matching-review-expiry"),
+        );
+        assert_eq!(prepared["ok"], true, "{prepared}");
+        assert_eq!(
+            prepared["data"]["attempt"]["reviewDigest"], approved["data"]["reviewDigest"],
+            "Matching fresh revalidation retains the exact reviewed material"
+        );
+
+        let history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        let saved = history["data"]["approvals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["approvalId"] == approval_id)
+            .unwrap();
+        assert_eq!(saved["status"], "CONSUMED", "{history}");
+        assert_eq!(
+            saved["expiresAt"], original_expiry,
+            "Matching revalidation cannot extend the original approval lifetime"
+        );
+    }
+
+    #[test]
+    fn market_slippage_compares_the_exact_policy_boundary_and_side_depth() {
+        for (maximum, outcome) in [("0.002", "PASS"), ("0.00199999", "REJECT")] {
+            let (_folder, _control, _workspace_id, _proposal, review) =
+                reviewed_trading212_market_fixture(maximum);
+            assert_eq!(review["eligible"], outcome == "PASS", "{review}");
+            let check = review["riskDecision"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "MARKET_ORDER_SLIPPAGE")
+                .unwrap();
+            assert_eq!(check["outcome"], outcome, "{review}");
+        }
+        for (side, outcome) in [("BUY", "PASS"), ("SELL", "UNAVAILABLE")] {
+            let (_folder, mut control, workspace_id, proposal, review) =
+                reviewed_trading212_market_fixture("5");
+            let mut fields = proposal["fields"].clone();
+            fields["side"] = side.into();
+            let draft = dispatch(
+                &mut control,
+                "trade.save_draft",
+                json!({"workspaceId":workspace_id,"fields":fields}),
+            );
+            assert_eq!(draft["ok"], true, "{draft}");
+            let changed = dispatch(
+                &mut control,
+                "trade.generate_proposal",
+                json!({
+                    "workspaceId":workspace_id,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1,
+                }),
+            );
+            assert_eq!(changed["ok"], true, "{changed}");
+            control.time.set_test_time(
+                OffsetDateTime::parse(changed["data"]["createdAt"].as_str().unwrap(), &Rfc3339)
+                    .unwrap()
+                    .unix_timestamp_nanos()
+                    / 1_000_000
+                    + 10,
+                150,
+            );
+            let mut snapshot = review["market"]["snapshot"].clone();
+            snapshot["bidSize"] = Value::Null;
+            control.live_approval_fixture_snapshot =
+                Some(serde_json::from_value(snapshot).unwrap());
+            let current = dispatch_main(
+                &mut control,
+                "trade.request_approval",
+                json!({
+                    "workspaceId":workspace_id,"proposalId":changed["data"]["proposalId"],
+                }),
+            );
+            assert_eq!(current["ok"], true, "{current}");
+            let check = current["data"]["riskDecision"]["checks"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|check| check["checkId"] == "MARKET_ORDER_SLIPPAGE")
+                .unwrap();
+            assert_eq!(check["outcome"], outcome, "{current}");
+        }
     }
 
     #[test]
@@ -19437,6 +22955,7 @@ mod live_approval_tests {
             quantity: Some("0.001".into()),
             notional: Some("50".into()),
             filled_quantity: Some("0".into()),
+            remaining_quantity: Some("0.001".into()),
             filled_value: Some("0".into()),
             currency: Some("USDT".into()),
             status: "OPEN".into(),
@@ -19831,6 +23350,356 @@ mod live_approval_tests {
             None,
         );
     }
+
+    #[test]
+    fn workspace_restore_invalidates_issued_live_approval_and_keeps_accounts_disarmed() {
+        let (_folder, mut control, workspace_id, account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("approval-restore.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({
+                "workspaceId": workspace_id,
+                "destinationPath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({"workspaceId":workspace_id,"archivePath":archive_path.to_string_lossy()}),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let credential_check = preview["data"]["credentialChecks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(credential_check["status"], "NOT_CHECKED");
+        let credential_statuses = WorkspaceArchiveCredentialStatuses {
+            manifest_hash: preview["data"]["manifestHash"].as_str().unwrap().to_owned(),
+            statuses: HashMap::from([(
+                account.connection_id.clone(),
+                WorkspaceArchiveCredentialStatus::Missing,
+            )]),
+        };
+        let restored = control.dispatch_with_credential_statuses(
+            request(
+                "workspace.archive.restore",
+                json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+                "destinationParent": archive_path.parent().unwrap().join("restored").to_string_lossy(),
+                "manifestHash": preview["data"]["manifestHash"],
+                }),
+            ),
+            "main",
+            None,
+            None,
+            Some(&credential_statuses),
+        );
+        assert_eq!(restored["ok"], true, "{restored}");
+        let reopened = dispatch_main(
+            &mut control,
+            "workspace.open",
+            json!({"path":restored["data"]["restoredPath"]}),
+        );
+        assert_eq!(reopened["ok"], true, "{reopened}");
+
+        let history = dispatch_main(
+            &mut control,
+            "trade.approval.list",
+            json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(history["ok"], true, "{history}");
+        let restored_approval = history["data"]["approvals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["approvalId"] == approval["data"]["approvalId"])
+            .unwrap();
+        assert_eq!(restored_approval["status"], "INVALIDATED");
+        assert_eq!(
+            restored_approval["invalidationReason"],
+            "WORKSPACE_RESTORED"
+        );
+
+        let accounts = dispatch_main(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(accounts["ok"], true, "{accounts}");
+        let restored_account = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(restored_account["health"]["arming"], "DISARMED");
+        assert_eq!(restored_account["health"]["reconciliation"], "STALE");
+        assert_eq!(restored_account["health"]["credential"], "MISSING");
+        assert_eq!(restored_account["connectionState"], "FAILED");
+    }
+
+    #[test]
+    fn workspace_archive_contains_account_reference_but_no_credential_values() {
+        let (_folder, mut control, workspace_id, account, _proposal, _review) =
+            reviewed_live_capacity_fixture();
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("secret-scan.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({
+                "workspaceId": workspace_id,
+                "destinationPath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+
+        let secrets = provider_io::Credentials::new(vec![
+            "synthetic-archive-api-key".into(),
+            "synthetic-archive-api-secret".into(),
+        ])
+        .unwrap()
+        .values()
+        .unwrap();
+        let archive = std::fs::read(&archive_path).unwrap();
+        assert!(secrets.iter().all(|secret| {
+            !archive
+                .windows(secret.len())
+                .any(|window| window == secret.as_bytes())
+        }));
+        let credential_reference = account.credential_ref();
+        assert!(
+            archive
+                .windows(credential_reference.len())
+                .any(|window| window == credential_reference.as_bytes())
+        );
+
+        let expected_accounts = control.store.as_ref().unwrap().accounts().unwrap().len() as u64;
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let account_records = preview["data"]["dataCategories"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|category| category["categoryId"] == "ACCOUNTS")
+            .unwrap()["recordCount"]
+            .as_u64()
+            .unwrap();
+        assert_eq!(account_records, expected_accounts);
+    }
+
+    #[test]
+    fn workspace_archive_credential_statuses_are_bound_to_manifest_hash() {
+        let (_folder, mut control, workspace_id, account, _proposal, _review) =
+            reviewed_live_capacity_fixture();
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("credential-status-binding.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({
+                "workspaceId": workspace_id,
+                "destinationPath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+            }),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let manifest_hash = preview["data"]["manifestHash"].as_str().unwrap().to_owned();
+        let stale_statuses = WorkspaceArchiveCredentialStatuses {
+            manifest_hash: "0".repeat(64),
+            statuses: HashMap::from([(
+                account.connection_id.clone(),
+                WorkspaceArchiveCredentialStatus::Missing,
+            )]),
+        };
+
+        let checked_preview = control.dispatch_with_credential_statuses(
+            request(
+                "workspace.archive.preview",
+                json!({
+                    "workspaceId": workspace_id,
+                    "archivePath": archive_path.to_string_lossy(),
+                }),
+            ),
+            "main",
+            None,
+            None,
+            Some(&stale_statuses),
+        );
+        assert_eq!(checked_preview["ok"], true, "{checked_preview}");
+        let preview_status = checked_preview["data"]["credentialChecks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["connectionId"] == account.connection_id)
+            .unwrap()["status"]
+            .as_str()
+            .unwrap();
+        assert_eq!(preview_status, "NOT_CHECKED");
+
+        let restored = control.dispatch_with_credential_statuses(
+            request(
+                "workspace.archive.restore",
+                json!({
+                    "workspaceId": workspace_id,
+                    "archivePath": archive_path.to_string_lossy(),
+                    "destinationParent": archive_path.parent().unwrap().join("stale-credential-restore").to_string_lossy(),
+                    "manifestHash": manifest_hash,
+                }),
+            ),
+            "main",
+            None,
+            None,
+            Some(&stale_statuses),
+        );
+        assert_eq!(restored["ok"], true, "{restored}");
+        let reopened = dispatch_main(
+            &mut control,
+            "workspace.open",
+            json!({"path":restored["data"]["restoredPath"]}),
+        );
+        assert_eq!(reopened["ok"], true, "{reopened}");
+        let accounts = dispatch_main(
+            &mut control,
+            "account.list",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(accounts["ok"], true, "{accounts}");
+        let restored_account = accounts["data"]["accounts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["connectionId"] == account.connection_id)
+            .unwrap();
+        assert_eq!(restored_account["health"]["credential"], "UNCHECKED");
+    }
+
+    #[test]
+    fn workspace_restore_retains_unknown_execution_and_reservation_records() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_bitget_live_fixture();
+        let approval = dispatch_main(
+            &mut control,
+            "trade.approve",
+            approval_action(&workspace_id, &proposal, &review),
+        );
+        assert_eq!(approval["ok"], true, "{approval}");
+        let capacity: protocol::CapacityProjection =
+            serde_json::from_value(review["capacityProjection"].clone()).unwrap();
+        let attempt = control
+            .seed_bitget_live_unknown_attempt_fixture(
+                &workspace_id,
+                proposal["proposalId"].as_str().unwrap(),
+                approval["data"]["approvalId"].as_str().unwrap(),
+                capacity,
+            )
+            .unwrap();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert!(before.reservation.is_some());
+
+        let archive_path = control
+            .store
+            .as_ref()
+            .unwrap()
+            .path
+            .join("unknown-restore.tradex");
+        let exported = dispatch_main(
+            &mut control,
+            "workspace.archive.export",
+            json!({"workspaceId":workspace_id,"destinationPath":archive_path.to_string_lossy()}),
+        );
+        assert_eq!(exported["ok"], true, "{exported}");
+        let preview = dispatch_main(
+            &mut control,
+            "workspace.archive.preview",
+            json!({"workspaceId":workspace_id,"archivePath":archive_path.to_string_lossy()}),
+        );
+        assert_eq!(preview["ok"], true, "{preview}");
+        let restored = dispatch_main(
+            &mut control,
+            "workspace.archive.restore",
+            json!({
+                "workspaceId": workspace_id,
+                "archivePath": archive_path.to_string_lossy(),
+                "destinationParent": archive_path.parent().unwrap().join("restored-unknown").to_string_lossy(),
+                "manifestHash": preview["data"]["manifestHash"],
+            }),
+        );
+        assert_eq!(restored["ok"], true, "{restored}");
+        let reopened = dispatch_main(
+            &mut control,
+            "workspace.open",
+            json!({"path":restored["data"]["restoredPath"]}),
+        );
+        assert_eq!(reopened["ok"], true, "{reopened}");
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_approval(
+                &workspace_id,
+                approval["data"]["approvalId"].as_str().unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(after.attempt.attempt_id, attempt.attempt_id);
+        assert!(after.reservation.is_some());
+        assert_eq!(
+            after.attempt.state,
+            protocol::ExecutionAttemptState::UnknownReconciling
+        );
+    }
 }
 
 #[cfg(test)]
@@ -20049,6 +23918,10 @@ mod cancellation_approval_tests {
                     "canDeposit":true,
                     "balances":[{"asset":"BTC","free":"1","locked":"0"}],
                 }),
+                "/sapi/v1/system/status" => json!({"status":0}),
+                "/sapi/v1/account/apiTradingStatus" => {
+                    json!({"data":{"isLocked":false,"plannedRecoverTime":0,"updateTime":1547630471725u64}})
+                }
                 "/sapi/v1/account/apiRestrictions" => json!({
                     "enableReading":true,
                     "enableWithdrawals":false,
@@ -20330,6 +24203,7 @@ mod cancellation_approval_tests {
             quantity: Some("0.25".into()),
             notional: None,
             filled_quantity: Some("0.1".into()),
+            remaining_quantity: Some("0.15".into()),
             filled_value: None,
             currency: Some("USDT".into()),
             status: "PARTIALLY_FILLED".into(),
@@ -20389,6 +24263,7 @@ mod cancellation_approval_tests {
             quantity: Some("1".into()),
             notional: None,
             filled_quantity: Some("0".into()),
+            remaining_quantity: Some("1".into()),
             filled_value: Some("0".into()),
             currency: Some("GBP".into()),
             status: "NEW".into(),
@@ -20464,6 +24339,7 @@ mod cancellation_approval_tests {
         let connection = job.connection();
         let outcome = provider_io::ProviderOutcome {
             observation: Some(provider_io::Observation {
+                binance_trading_status: None,
                 data: connection.data.clone().unwrap(),
                 permissions: connection.permissions.clone(),
                 live_order_settlements: Vec::new(),
@@ -20788,6 +24664,9 @@ mod cancellation_approval_tests {
             .unwrap();
 
         let http = SyntheticTrading212Http::default();
+        // The startup/read fixtures share an external account identity. Honor
+        // the actual summary cooldown before the first exact-order refresh.
+        std::thread::sleep(std::time::Duration::from_millis(5100));
         let partial = refresh_trading212_live_order(
             &mut control,
             &workspace_id,
@@ -20815,6 +24694,7 @@ mod cancellation_approval_tests {
         );
         assert_eq!(partial_observation.source, "trading212.live.order-detail");
 
+        std::thread::sleep(std::time::Duration::from_millis(5100));
         let result = refresh_trading212_live_order(
             &mut control,
             &workspace_id,
@@ -20940,6 +24820,7 @@ mod cancellation_approval_tests {
                 quantity: Some("0.01".into()),
                 notional: None,
                 filled_quantity: Some("0".into()),
+                remaining_quantity: Some("0.01".into()),
                 filled_value: Some("0".into()),
                 currency: Some("USDT".into()),
                 status: "NEW".into(),
@@ -21262,6 +25143,9 @@ mod cancellation_approval_tests {
             capacity_key: "cash:USDT".into(),
             amount,
             unit: capacity.unit.clone(),
+            asset_claims: Vec::new(),
+            fee_settlement_plan: None,
+            asset_capacities: Vec::new(),
             notional: notional.clone(),
             notional_currency: notional_currency.clone(),
             workspace_notional: Some(notional),
@@ -21340,6 +25224,7 @@ mod cancellation_approval_tests {
             quantity: Some("0.01".into()),
             notional: None,
             filled_quantity: Some("0".into()),
+            remaining_quantity: Some("0.01".into()),
             filled_value: Some("0".into()),
             currency: Some("USDT".into()),
             status: "LIVE".into(),
@@ -22010,6 +25895,7 @@ mod cancellation_approval_tests {
                 quantity: Some("-5".into()),
                 notional: None,
                 filled_quantity: Some("-1.25".into()),
+                remaining_quantity: Some("-3.75".into()),
                 filled_value: Some("12.5".into()),
                 currency: Some("USD".into()),
                 status: "PARTIALLY_FILLED".into(),
@@ -22043,6 +25929,62 @@ mod cancellation_approval_tests {
             "previousIntentId":intent_id,
             "expectedStateVersion":account.state_version,
         })
+    }
+
+    #[test]
+    fn expired_binance_diagnostic_does_not_degrade_an_exact_cancel_observation() {
+        // Lower-level compatibility regression using the existing synthetic
+        // lifecycle fixture, not S29 public financial acceptance. No approval,
+        // preparation, Gateway dispatch or provider mutation is performed.
+        let (_folder, mut control, workspace_id, account) = fixture();
+        let armed = dispatch_main(
+            &mut control,
+            "account.arm",
+            json!({"workspaceId":workspace_id,"connectionId":account.connection_id,
+                "expectedStateVersion":account.state_version,"confirmed":true}),
+        );
+        assert_eq!(armed["ok"], true, "{armed}");
+        let account = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(30_100));
+        assert!(!account.binance_trading_state_is_current(&storage::timestamp().unwrap()));
+        let clock = control.time.status(&workspace_id).unwrap();
+        control.time.set_test_time(
+            OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000 + 10_000,
+            clock.monotonic_ms.saturating_add(30_100),
+        );
+        let revalidated = dispatch(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId":workspace_id}),
+        );
+        assert_eq!(revalidated["data"]["confidence"], "TRUSTED");
+        let review = request_review(
+            &mut control,
+            &workspace_id,
+            &account,
+            None,
+            "BTCUSDT:9007199254740995",
+        );
+        assert_eq!(review["account"]["health"]["arming"], "ARMED", "{review}");
+        assert_eq!(
+            review["account"]["binanceTradingStatus"],
+            serde_json::to_value(&account.binance_trading_status).unwrap()
+        );
+        // Ordinary account persistence still consumes the expired diagnostic.
+        let current = control
+            .store
+            .as_ref()
+            .unwrap()
+            .account(&account.connection_id)
+            .unwrap();
+        let ordinary = control.persist_account(current).unwrap();
+        assert_eq!(ordinary.health.arming, "DISARMED");
+        assert_eq!(ordinary.health.arming_reason, "ACCOUNT_HEALTH_DEGRADED");
     }
 
     #[test]
@@ -22190,6 +26132,7 @@ mod cancellation_approval_tests {
             &changed_snapshot,
             provider_io::ProviderOutcome {
                 observation: Some(provider_io::Observation {
+                    binance_trading_status: None,
                     data: connection.data.clone().unwrap(),
                     permissions: connection.permissions.clone(),
                     live_order_settlements: Vec::new(),
@@ -22599,6 +26542,7 @@ mod cancellation_approval_tests {
             &job,
             provider_io::ProviderOutcome {
                 observation: Some(provider_io::Observation {
+                    binance_trading_status: None,
                     data: connection.data.clone().unwrap(),
                     permissions: connection.permissions.clone(),
                     live_order_settlements: Vec::new(),
@@ -25162,7 +29106,7 @@ mod risk_tests {
         drop(control);
         let mut reopened = ControlPlane::new(path.clone());
         let reopened_workspace = command(&mut reopened, "workspace.open", json!({}));
-        assert_eq!(reopened_workspace["ok"], true);
+        assert_eq!(reopened_workspace["ok"], true, "{reopened_workspace}");
         let reopened_risk = command(
             &mut reopened,
             "risk.get_policy",
@@ -25401,10 +29345,8 @@ mod risk_tests {
         drop(control);
 
         let mut reopened = ControlPlane::new(path);
-        assert_eq!(
-            command(&mut reopened, "workspace.open", json!({}))["ok"],
-            true
-        );
+        let opened = command(&mut reopened, "workspace.open", json!({}));
+        assert_eq!(opened["ok"], true, "{opened}");
         let restored = command(
             &mut reopened,
             "risk.get_policy",

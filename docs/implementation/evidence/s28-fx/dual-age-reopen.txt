@@ -1,0 +1,8 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.66s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-4c98a3a0735e964e)
+
+running 1 test
+test provider_age_expires_fx_before_a_recent_receipt_and_reopen_keeps_only_selection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.13s

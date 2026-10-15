@@ -1,0 +1,7 @@
+S29.11 public RED -> GREEN behavior: route-qualified Proposal valuation supplies owning monetary risk without historical FX fallback.
+
+Command: cargo test --test binance_rules intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth -- --exact --nocapture
+
+RED result before implementation: FAILED at the public RiskDecision assertion because the exact current, source-use-qualified BUY USDT/USD policy route did not populate `SpotFeeFxStatement.workspaceBaseExpectedSpend`; expected `60.006` from `60 USDT × ask 1.0001`, received null. The configured workspace-base `ORDER_NOTIONAL` guard therefore had no owning amount to consume.
+
+The scenario used a disposable RuleRig workspace and synthetic HTTP/vault fixtures. Its Support reference is a test-only placeholder and does not verify actual Alpaca rights. No real account/provider was read or written; no approval, Arm, consent, Prepare, dispatch or order was performed.

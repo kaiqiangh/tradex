@@ -1,0 +1,29 @@
+S29.9 T02 test-first RED
+========================
+
+Run against the T01 contract layer only (commit 41ff396), where
+`spot_fee_fx::derive` always returns `Ok(None)` and the S29.9 gate has no statement to bind.
+
+Command:
+    cargo test -p tradex --test binance_rules owning_fee_fx -- --test-threads=1
+
+Result (exit 101):
+    test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 94 filtered out
+
+    test owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact ... FAILED
+    test owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers ... FAILED
+    test owning_fee_fx_stays_visible_when_capacity_evidence_is_absent ... FAILED
+
+Why each case fails under the skeleton (no statement produced, no gate blocker added):
+
+    owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers
+        src-tauri/tests/binance_rules.rs:6107  "The fee/FX statement must be present"
+
+    owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact
+        src-tauri/tests/binance_rules.rs:6195  "The single binding fact must be named"
+        (no blocker starts with SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE)
+
+    owning_fee_fx_stays_visible_when_capacity_evidence_is_absent
+        src-tauri/tests/binance_rules.rs:6231  "A missing observation must still surface a statement, never silence it"
+
+Both the present-statement path and the gate path are therefore demonstrated to depend on T02.

@@ -1,0 +1,13 @@
+{
+  "source": "1d207478968db23e6753a7f5d243a7380df21af4",
+  "branch": "dev",
+  "command": "npm run desktop:build",
+  "ordinaryBuild": true,
+  "integrationFixtures": false,
+  "providerRead": false,
+  "financialMutation": false,
+  "success": true,
+  "gatewaySha256": "9f40db103d1409236641fabb12e12660076ac2dac035134900e8f08dd6d83e7d",
+  "nativeSha256": "58819807d08fbd2efbbf3cbf4ec83681d3170d273b1e970f44cfdc50ed400b43",
+  "nativeContainsPinnedGatewaySha256": true
+}

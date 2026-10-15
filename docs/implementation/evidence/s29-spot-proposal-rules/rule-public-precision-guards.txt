@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.23s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed ... FAILED
+
+failures:
+
+failures:
+    proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 37 filtered out; finished in 0.10s
+
+
+thread 'proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed' (10818902) panicked at src-tauri/tests/binance_rules.rs:1664:9:
+assertion `left == right` failed: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"ORDER_DECIMAL_INVALID","field":"quantity","message":"Enter a decimal amount without exponent notation.","remediationActions":[{"id":"edit_order_amount","label":"Review order amount"}],"retryable":false},"ok":false,"requestId":"spot-rules","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed' (10818900) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed ... FAILED
+
+failures:
+
+failures:
+    proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 37 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `--test binance_rules`

@@ -1,0 +1,3 @@
+npm notice run tradex@0.1.0 typecheck
+npm notice run tsc --noEmit
+src/FinancialEvidencePanel.tsx(25,75): error TS2339: Property 'orderFormFlags' does not exist on type '{ accountCanTrade: boolean; accountPermissions: string[]; accountRequiresSelfTradePrevention?: boolean | null | undefined; accountType: string; admissionBlockers: string[]; allowedSelfTradePreventionModes: string[]; ... 25 more ...; unresolvedObligations: string[]; }'.

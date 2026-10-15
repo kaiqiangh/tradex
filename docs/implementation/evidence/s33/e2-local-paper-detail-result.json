@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "screenId": "E2",
+  "title": "Provider-specific Account Detail",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IN_PROGRESS",
+  "capturedAt": "2026-10-14T17:59:20Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 113,
+    "sha256": "244a25b52a002deb32f3fa53ba3805e16262f6b7feb85d04c367ff55c2394625"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "No new E2 helper; visible assertions and responsive measurements were performed directly in CUA",
+    "route": "Inspected the selected Local Paper account detail after the E2 reload; checked 1280x800, 768x900, and 390x844, then restored the browser's default viewport."
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "pageHeading": "Accounts",
+    "providerVariantsTested": [
+      {
+        "providerId": "local-paper",
+        "environment": "LOCAL",
+        "accountType": "LOCAL_PAPER",
+        "remoteAccountId": "tradex-simulation:7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+        "connection": "ONLINE",
+        "authentication": "NOT_REQUIRED",
+        "credential": "NOT_REQUIRED",
+        "privateStream": "NOT_CONFIGURED",
+        "reconciliation": "LOCAL_PROJECTION",
+        "executionEligibility": "SIMULATION_ONLY",
+        "arming": "NOT_APPLICABLE",
+        "armingReason": "NOT_ARMED",
+        "lastSuccessfulSyncDisplayed": "14/10/2026, 18:03:39",
+        "lastPrivateStreamEventDisplayed": "Not yet",
+        "riskPolicy": "Configured"
+      }
+    ],
+    "simulationDisclosure": "TRADEX_SIMULATION; TradeX simulation; not provider truth; not Live execution.",
+    "balances": [
+      {
+        "asset": "USD",
+        "available": "100000",
+        "total": "100000",
+        "reserved": "0",
+        "inPies": "Unavailable",
+        "effectiveAvailable": "Not computed"
+      }
+    ],
+    "positionsEmptyState": "No positions in the Local Paper simulation.",
+    "openOrdersEmptyState": "No open orders in the Local Paper simulation.",
+    "localPaperSummary": {
+      "startingCash": "100000 USD",
+      "cash": "100000 USD",
+      "reserved": "0 USD",
+      "positions": 0,
+      "openOrders": 0,
+      "fills": 0,
+      "quoteSource": "LOCAL_DETERMINISTIC"
+    },
+    "providerEmptyStateCopyPreserved": {
+      "positions": "No positions returned by the provider.",
+      "openOrders": "No open orders returned by the provider.",
+      "existingAssertion": "tests/order-draft-ui.mjs:254 (inspected, not run)"
+    },
+    "providerActionOrCredentialEntryActivated": false,
+    "responsive": [
+      {
+        "width": 1280,
+        "height": 800,
+        "documentClientWidth": 1265,
+        "documentScrollWidth": 1265,
+        "horizontalOverflow": false
+      },
+      {
+        "width": 768,
+        "height": 900,
+        "documentClientWidth": 753,
+        "documentScrollWidth": 753,
+        "horizontalOverflow": false
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "documentClientWidth": 375,
+        "documentScrollWidth": 375,
+        "horizontalOverflow": false
+      }
+    ]
+  },
+  "commandLog": {
+    "cursorStart": 3966,
+    "cursorEnd": 4076,
+    "commandCount": 110,
+    "counts": {
+      "account.list": 68,
+      "domain.subscribe": 4,
+      "paper.get": 2,
+      "provider.list_definitions": 2,
+      "runtime.status": 34
+    },
+    "forbiddenSideEffectCount": 0,
+    "note": "Only local account/simulation projections, the static provider catalog, and passive runtime/domain reads were observed; no provider connect/probe/refresh, account mutation, credential entry, Live authorization, Gateway, or financial action ran."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": "NOT_INSTRUMENTED",
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "Only the built-in Local Paper variant was directly rendered. Alpaca Paper, Trading 212 Demo/Live, Binance Testnet/Live, and Bitget Demo/Live were not activated or read; real provider integrations remain skipped/open.",
+    "K2-K5 provide separate synthetic failure/recovery projections, not the complete E2 provider/environment matrix or real account data.",
+    "The USD 100000 balance is simulation state, not provider truth. In Pies is unavailable and effective availability is not computed in this simulation projection.",
+    "External HTTP, browser console warnings/errors, and page errors were not instrumented in this direct CUA replay.",
+    "Native VoiceOver, full S02, broader S33, and provider lifecycle remain open; E2 remains IN_PROGRESS."
+  ]
+}

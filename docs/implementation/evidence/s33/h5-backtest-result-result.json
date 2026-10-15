@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "screenId": "H5",
+  "title": "Backtest Result",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/BacktestRunPanel.tsx": "f130799f979b13c63c89c31ed016c5243e512cbd8f3e1281653d1aea0a64ae2c",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/backtest.rs": "33565402a1da282aabc159ba5d58a791937ed953a341c5e61deab34588bc0840",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-backtest-result-screen-playwright.js": "de82547ae2ee4918e66051b318c9af26c476b398591d0de6083a2a1f78ea5301",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-backtest-result-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "27283102-fe43-4433-86fc-fa091bed243e",
+  "strategyVersionId": "872035a3-cfd2-4a6a-9d76-e98be291ac18",
+  "runId": "01810970-d72f-436a-b4e1-86a9e48767df",
+  "requestHash": "56b460888881bd8aeb3d83c6eb06f24d8f7c9d8fbcb16cd9f8fe37759832b4de",
+  "fixtureBoundary": "TRADEX_BACKTEST_FIXTURE=1; synthetic successful backtest only",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "metrics": {
+    "Return": "0.015",
+    "Sharpe": "1.5",
+    "Sortino": "2",
+    "Max drawdown": "0.005",
+    "Win rate": "1",
+    "Profit factor": "2",
+    "Turnover": "0.01",
+    "Trades": "1"
+  },
+  "equityCurveRows": 2,
+  "tradeRows": 1,
+  "reproducibilityManifest": {
+    "expanded": true,
+    "guardCheckDetails": 6,
+    "limitationsVisible": true,
+    "manifestHashVisible": true
+  },
+  "commandCounts": {
+    "account.activity": 1,
+    "strategy.save_version": 1,
+    "backtest.run": 1,
+    "backtest.cancel": 0,
+    "unexpectedCommands": 0,
+    "externalHttpRequests": 0
+  },
+  "screenshots": [
+    "backtest-result-390.png"
+  ],
+  "scopeLimits": [
+    "Only local synthetic history fixture data was used; this does not verify production history data.",
+    "No provider integration or execution action was used.",
+    "H5 is a local S33 screen slice and does not complete production data acceptance, remaining screens, S33, or issue #141."
+  ]
+}

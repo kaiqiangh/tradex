@@ -1,0 +1,11 @@
+S29.11 model-runtime outbound boundary — 2026-10-12
+
+Focused commands:
+- `cargo test -p tradex --lib process_adapter_sends_only_user_text_and_research_marker_to_model_runtime -- --nocapture`: 1 passed, 0 failed.
+- `cargo test -p tradex --lib begin_turn_emits_only_user_text_and_research_marker_to_runtime -- --nocapture`: 1 passed, 0 failed.
+
+The first regression checks the actual process-adapter serializer against a local fake Codex App Server using a directly constructed `RuntimeRequest`. The second exercises one full local application path: it creates a workspace/thread, attaches the AAPL instrument context, derives a typed `OD-001` research result in `UNAVAILABLE` state, calls the real `ControlPlane::begin_turn`, then sends that prepared request through the process adapter to the fake server and captures JSON-RPC `turn/start`. The durable thread retains its attached context and typed research result; the captured model frame contains only the user message and result marker, with no context id/hash or typed payload fields.
+
+This covers one synthetic unavailable result and one instrument context. It does not read a real provider or raw provider observation, establish provider entitlement/source-use, prove every application/cache/export boundary, or reach positive owning-plan Prepare/settlement. Alpaca Support has not replied. Real-account source-use remains `UNRESOLVED`; `FX_DATA_USE_RIGHTS` remains `UNVERIFIED`; #135 and #134 remain OPEN.
+
+The earlier serializer-only harness initially timed out because its fake JSONL server emitted an escaped literal newline. The harness was corrected to emit actual frame delimiters. No production runtime behavior was changed; the added process-adapter entry point is compiled only for tests.

@@ -1,0 +1,53 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "K7",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:39:29.114Z",
+  "test": "tests/error-recovery.test.ts",
+  "testSha256": "2377ad09bdf4f8dc1bf2bce31a33298b9aff06bb8d084ac32e00aa40c4ad1521",
+  "tests": 11,
+  "passed": 11,
+  "failed": 0,
+  "skipped": 0,
+  "canonicalCodes": [
+    "AUTH_ERROR",
+    "PERMISSION_ERROR",
+    "RATE_LIMITED",
+    "NETWORK_ERROR",
+    "UNSUPPORTED_CAPABILITY",
+    "MARKET_CLOSED",
+    "INSTRUMENT_HALTED",
+    "INVALID_ORDER",
+    "INSUFFICIENT_FUNDS",
+    "RISK_REJECTED",
+    "RISK_EVIDENCE_UNAVAILABLE",
+    "SUBMISSION_REJECTED",
+    "SUBMISSION_AMBIGUOUS",
+    "STREAM_DISCONNECTED",
+    "STATE_STALE",
+    "RECONCILIATION_REQUIRED",
+    "MODEL_UNAVAILABLE",
+    "QUOTA_EXCEEDED",
+    "OAUTH_EXPIRED",
+    "INTERNAL_ERROR"
+  ],
+  "renderAssertions": [
+    "all 20 codes have nonempty title/message/action",
+    "all 20 render role=alert aria-live=polite canonical aria-label and data-error-code",
+    "all 20 include a Next step action",
+    "wire error mappings resolve to canonical categories",
+    "unknown/malformed errors fall back to INTERNAL_ERROR without raw code/message/secret disclosure"
+  ],
+  "browserCoverage": [
+    "K3 authentication failure",
+    "K4 private-stream disconnect",
+    "K5 rate limit",
+    "K6 untrusted time"
+  ],
+  "limitations": [
+    "SSR/component and unit coverage, not browser interaction for all 20 variants.",
+    "No real provider/model error response was used."
+  ],
+  "overallSurfaceStatus": "IMPLEMENTED_UNVERIFIED"
+}

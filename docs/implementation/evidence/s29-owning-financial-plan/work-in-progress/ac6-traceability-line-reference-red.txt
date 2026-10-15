@@ -1,0 +1,7 @@
+S29.11 AC6 traceability check — RED before reference refresh
+Date: 2026-10-11
+
+Command: python3 scripts/check_requirements.py
+Observed: AssertionError: FR-001
+Cause: normative PRD edits moved requirement rows while docs/implementation/requirements.csv retained prior line numbers (FR-001 recorded line 2830; current row is line 2838). The traceability checker correctly refused the stale source pointer.
+Scope: source line references only; no product behavior assertion.

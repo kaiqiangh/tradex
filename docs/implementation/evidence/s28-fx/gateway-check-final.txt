@@ -1,0 +1,30 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 23.47s
+     Running tests/order_gateway.rs (target/debug/deps/order_gateway-c34a68db02c5c2c8)
+
+running 23 tests
+test launches_the_pinned_gateway_over_a_private_session_and_stops_it ... ok
+test local_provider_tests::real_child_does_not_contact_provider_after_expired_grant_is_rejected ... ok
+test local_provider_tests::real_child_keeps_a_lost_place_response_unknown_after_exactly_one_post ... ok
+test local_provider_tests::real_child_rejects_a_different_live_account_before_reading_or_mutating_the_order ... ok
+test local_provider_tests::real_child_fails_closed_on_binance_account_mismatch_and_unsupported_order ... ok
+test local_provider_tests::real_child_records_place_rejection_after_exactly_one_post ... ok
+test local_provider_tests::real_child_preserves_exact_live_sell_and_limit_request_fields ... ok
+test local_provider_tests::real_child_sends_one_exact_live_place_to_the_loopback_fake_provider ... ok
+test local_provider_tests::real_child_sends_one_signed_exact_binance_spot_live_cancel ... ok
+test local_provider_tests::real_child_keeps_cancel_rejection_and_lost_acknowledgement_distinct ... ok
+test local_provider_tests::real_child_result_persistence_failure_cannot_replay_the_provider_post ... ok
+test local_provider_tests::real_child_sends_one_signed_exact_bitget_classic_spot_live_cancel ... ok
+test local_provider_tests::real_child_shares_429_cooldown_without_replaying_the_mutation ... ok
+test local_provider_tests::bitget_cancel_rejection_and_lost_response_are_terminal_without_replay_after_restart ... ok
+test rejects_a_gateway_that_does_not_echo_the_current_session_credential ... ok
+test rejects_a_gateway_with_an_incompatible_protocol_version ... ok
+test rejects_an_oversized_handshake_frame_before_reading_its_body ... ok
+test refuses_to_launch_an_executable_that_does_not_match_its_pin ... ok
+test local_provider_tests::real_child_treats_a_mismatched_place_identity_as_unknown_without_retry ... ok
+test local_provider_tests::real_child_preserves_binance_cancel_rejection_and_unknown_without_replay ... ok
+test local_provider_tests::real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement ... ok
+test local_provider_tests::real_child_rejects_unbounded_or_invalid_live_market_intents_before_provider_io ... ok
+test local_provider_tests::real_child_stops_before_submitting_for_changed_terminal_or_malformed_orders ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.35s

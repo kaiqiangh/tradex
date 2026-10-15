@@ -1,0 +1,5 @@
+NOT PASS
+
+One P2 AC1 Spec defect remains: monetary balance routes are omitted. AC1 requires routes from actually required monetary consumers; User Story3 names portfolio aggregation of actual monetary inputs. financial_sources.rs:176 enumerates positions/orders but skips balances, while portfolio.rs:369 consumes each balance asset/amount as native currency/value. An unknown-primary Spot account omits its named USDT→USD holding route; an actual EUR balance cannot add EURUSD to refresh pairs. Derive balance requirements without inventing primary currency/parity, synchronize contracts and add public-seam regression.
+
+Original price-token P2 is resolved by RawValue validation. No additional actionable parsing/lifecycle/binding/captured-consent/authority defect found. All34 source and19 ordinary runtime hashes matched at review; final checks17Node/385Rust, integration424Rust, Gateway23;39ignored unverified. Hosted denial is sanitized; HTTP403 is a mapping inference. No tests/build/UI/providers or mutations performed by reviewer. AC12 delivery still pending; financial parents remain unsupported/open.

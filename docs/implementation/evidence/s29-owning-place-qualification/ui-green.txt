@@ -1,0 +1,76 @@
+S29.8 — Owning Binance Spot Live PLACE qualification from exact capacity and interval inputs
+GREEN on the actual React surface, after the code and fixture corrections recorded in ui-red.txt.
+
+Command: node tradex-spot-owning-runner.mjs /tmp/tx-s298/ui.json shots
+Server:  cd /Users/kai/Desktop/my-repo/tradex && TRADEX_SOURCE_ONLY_FIXTURE=1 \
+         TRADEX_BINANCE_RULE_HTTP_FIXTURE=1 TRADEX_LIVE_APPROVAL_FIXTURE=1 npm run dev:browser
+Observed at 2026-10-09 23:03 IST, on a freshly restarted dev server (the shared Rust process state
+does not carry across rounds), after the declared-origin wording change described in the amendment
+at the end of this file.
+
+  { "passed": true, "error": null }
+  console errors: []
+
+The gateway to this run is the unmodified tests/spot-owning-admission-ui.mjs, driven through the
+same CUA-shaped surface the other slices use (tab.playwright, tab.getAXState as a real
+stabilisation step, browser.capabilities.get('viewport')). Only the external HTTP producer and
+the vault are fake. Every figure below is produced by the real dispatcher over a real temporary
+SQLite workspace.
+
+1. The saved admission statement (1280/768/390, no overflow).
+
+  The venue's own declared figures admit this intent: 50 further orders (ORDERS 50/1 HOUR).
+
+The number and its binding declared bucket are asserted on one line. Also asserted in the same
+statement: the declared origin of every reported figure, "This statement is read in USDT; USDT is
+not USD.", the tighter-bucket derivation with "never decremented locally and never rolled forward to
+a new window", the declared symbol open-order count, the declared symbol open-buy quantity with
+"it is never read as available balance", the declared BASE free/locked figures with "never
+subtracted a second time", the declared provider cooldown with "not this qualification's gate",
+both observation times with the interval counter timestamp stated as absent, the five standing
+provenance limitations listed as how the evidence was obtained rather than as a coverage gap,
+both bound evidence versions as digests, and the saved-assessment sentence. The statement
+contains zero buttons and zero text inputs, and the exact account is still DISARMED throughout.
+
+2. The single typed blocker and the pre-arm capture.
+
+  spot interval quota exhausted: The venue's declared order-rate window has no remaining slot,
+  so it would not admit another order now.
+
+With the venue's own counter already at its declared limit and inventory coverage still
+complete, the statement names that one fact, states "This is not a smaller number.", reports
+"None can be relied on" for the slots, and still reports the declared facts beside it. The
+approval review returns eligible=false with a SPOT_INTERVAL_QUOTA_EXHAUSTED blocker, and the
+pre-arm Confirm Live arming dialog shows the same captured statement, "Approval remains blocked:
+... SPOT_INTERVAL_QUOTA_EXHAUSTED", zero controls and no enabled arm button. The saved PASS
+statement is textually unchanged by the later assessment.
+
+3. Recovery.
+
+A fresh bound observation of the venue's own counter restores "50 further orders (ORDERS
+50/1 HOUR)". History keeps every statement that was relied on: the blocked assessment and the
+original statement both remain readable, and the oldest statement is byte-identical to the one
+first relied on. Arm was never performed; the account is DISARMED at the end of every phase.
+
+Asserted at keyboard 1280/768/390, body and panel scrollWidth within the viewport in both the
+in-page and the pre-arm states.
+
+Archived: ui.json (full report), ui-admission-region-1280.png, ui-prearm-region-1280.png,
+ui-prearm-region-390.png, ui-recovered-region-1280.png.
+
+Amendment (independent Spec review, declared origin of each number). The published PRD, UI Spec
+and Backend §41.48 all require the statement to name "the declared origin of each number", and
+the first GREEN rendered one combined origin line naming both reads without saying which figures
+came from which. That made the published wording only approximately true on the real surface.
+The statement now renders two explicit origin rows — "Declared origin · open-order and balance
+inventory" (the declared open-order count, the symbol open-buy quantity, the BASE free/locked
+figures and the capacity observation time) and "Declared origin · order-rate counters" (the
+remaining slots, the binding declared bucket, any standing cooldown and the interval observation
+time) — so every reported number is attributed to the venue read that declared it. The change is
+renderer-only: no command, payload, generated validator or Control Plane value changed, so no IPC
+regeneration was required. The harness assertion was split into the two exact rows, and this
+record is from the re-run on a freshly restarted server. Asserted again at 1280/768/390 with no
+overflow in the in-page and pre-arm states.
+
+Not established here: no native launch, no provider-hosted financial acceptance, no physical
+lifecycle, no main delivery. The parent, map, S28, S17 and physical S27 gates remain OPEN.

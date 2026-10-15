@@ -1,0 +1,50 @@
+{
+  "sourceCommit": "b4d137a7b3064218da4a9e5e1147a980a7d0e810",
+  "criteria": [
+    {
+      "id": "AC1",
+      "requirement": "Trusted commands/derived purpose/binding/authority rejection",
+      "evidence": "binance_rules.rs public-get/scope/authority/binding cases",
+      "status": "VERIFIED_SOURCE_SLICE"
+    },
+    {
+      "id": "AC2",
+      "requirement": "Fixed signed reads/UID+IP/time/vault/deadline/shared cooldown/no lock or mutation",
+      "evidence": "binance_rules.rs signature/UID/418/429/quota/vault/lateness; Gateway23",
+      "status": "VERIFIED_SOURCE_SLICE"
+    },
+    {
+      "id": "AC3",
+      "requirement": "Strict originals/precision/bounds/duplicates/unknown/partial/foreign/list/times",
+      "evidence": "binance_rules.rs original JSON/order/list/account/inventory/Unicode/time cases",
+      "status": "VERIFIED_SOURCE_SLICE"
+    },
+    {
+      "id": "AC4",
+      "requirement": "No cached renewal/current retirement/late/reopen/failure recovery",
+      "evidence": "binance_rules.rs age/capture/newer refresh/changed binding/vault cases",
+      "status": "VERIFIED_SOURCE_SLICE"
+    },
+    {
+      "id": "AC5",
+      "requirement": "Current/captured/prearm and keyboard/widths/error/busy/recovery/history",
+      "evidence": "ui-review-final-report.json and actual replay helper",
+      "status": "VERIFIED_SOURCE_SLICE"
+    },
+    {
+      "id": "AC6",
+      "requirement": "Qualification always unavailable/no independent gate upgrade",
+      "evidence": "public rule/capacity assertions plus current/captured/prearm; Gateway regressions",
+      "status": "VERIFIED_SOURCE_SLICE"
+    },
+    {
+      "id": "AC7",
+      "requirement": "Checks/build/IPC/bilingual/serial review/source remote tracker",
+      "evidence": "checks-review-final.json;desktop-build-review-final-inputs.json;code-review-final.md; delivery pending",
+      "status": "VERIFIED_SOURCE_SLICE"
+    }
+  ],
+  "parentAcceptance": false,
+  "delivery": "delivery-final.json",
+  "ticketState": "CLOSED"
+}

@@ -1,0 +1,45 @@
+{
+  "stage": "Verified remote/committed-source/evidence and native hierarchy before issue closure",
+  "verifiedAt": "2026-10-10T14:56:37.246617+00:00",
+  "deliveryCommit": "3d507c0d79c8a35fa0106382c0dce4c3e5eee80e",
+  "sourceCommit": "a3127a51ace0f8f71bfa8648f25b6a1f6306bd1f",
+  "contractCommit": "ba82e59d06000f991bd2ddefc9e36236bfde507c",
+  "remote": {
+    "refs/heads/dev": "3d507c0d79c8a35fa0106382c0dce4c3e5eee80e",
+    "refs/heads/main": "5312ec006ae3e7fc14cead3f7173604588a6ed59"
+  },
+  "sourceInputsVerified": 172,
+  "committedEvidenceFilesVerified": 57,
+  "nativeChildren": {
+    "121": [
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      129,
+      130,
+      132
+    ],
+    "132": [
+      133
+    ]
+  },
+  "completedDependencies": [
+    {
+      "number": 123,
+      "state": "closed"
+    },
+    {
+      "number": 131,
+      "state": "closed"
+    }
+  ],
+  "openBlockers": 0,
+  "prototypeChanged": false,
+  "mainChanged": false,
+  "localGate": "8 checks/build/pin/frozen UI/serial review PASS",
+  "financialQualification": false,
+  "ci": "No .github workflow in delivered tree; local results are not CI"
+}

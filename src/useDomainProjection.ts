@@ -8,9 +8,11 @@ import type { Projection } from './projection.ts';
 export function useDomainProjection<T extends DomainProjection>(kind: 'workspace' | 'account' | 'model-gateway' | 'model' | 'risk' | 'thread', id: string | undefined, read: (value: unknown) => Projection<T>) {
   const queryClient = useQueryClient();
   const [projection, setProjection] = useState<Projection<T> | null>(null);
+  const [readySnapshotAt, setReadySnapshotAt] = useState<number>();
   const [streamError, setStreamError] = useState<unknown>(null);
   const snapshot = useQuery({
-    queryKey: [kind, id], enabled: Boolean(id),
+    // This snapshot seeds the event projection; remounting another observer must not restart it.
+    queryKey: [kind, id], enabled: Boolean(id), staleTime: Infinity,
     queryFn: () => request('domain.snapshot', { aggregateType: kind, aggregateId: id! }),
   });
   useEffect(() => {
@@ -32,9 +34,9 @@ export function useDomainProjection<T extends DomainProjection>(kind: 'workspace
         if (error instanceof Error && error.message.startsWith('IPC_SEQUENCE')) void queryClient.invalidateQueries({ queryKey: [kind, id] });
       }
     }, fail).then(close => {
-      if (active) { stop = close; ready = true; setProjection(current); } else close();
+      if (active) { stop = close; ready = true; setProjection(current); setReadySnapshotAt(snapshot.dataUpdatedAt); } else close();
     }).catch(fail);
     return () => { active = false; stop(); };
   }, [snapshot.data, snapshot.dataUpdatedAt, snapshot.isError, kind, id, queryClient, read]);
-  return { data: projection?.snapshot.aggregateId === id ? projection?.snapshot.projection : undefined, error: snapshot.error ?? streamError, reload: () => snapshot.refetch() };
+  return { data: projection?.snapshot.aggregateId === id ? projection?.snapshot.projection : undefined, error: snapshot.error ?? streamError, reloading: snapshot.isFetching || readySnapshotAt !== snapshot.dataUpdatedAt || !projection, reload: () => snapshot.refetch() };
 }

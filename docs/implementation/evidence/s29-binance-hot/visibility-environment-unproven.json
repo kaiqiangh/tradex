@@ -1,0 +1,10 @@
+{
+  "iabTabSwitchDocumentVisibility": "visible",
+  "iabBrowserHideDocumentVisibility": "visible",
+  "chromeControlledTabVisibility": "visible",
+  "nativeChromeBlankSelected": true,
+  "externalConnections": 15,
+  "externalClosedConnections": 14,
+  "result": "UNPROVEN",
+  "syntheticVisibilityEvent": false
+}

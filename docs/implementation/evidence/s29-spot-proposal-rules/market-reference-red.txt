@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.51s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'base_market_notional_requests_its_required_reference_and_keeps_base_units' (10395850) panicked at src-tauri/tests/binance_rules.rs:198:5:
+assertion `left == right` failed: Market BASE requires notional valuation: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"REFERENCE_PRICE_NOT_REQUIRED","message":"The control plane could not complete this operation.","remediationActions":[{"id":"reload_snapshot","label":"Reload state"}],"retryable":false},"ok":false,"requestId":"market-reference","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test base_market_notional_requests_its_required_reference_and_keeps_base_units ... FAILED
+
+failures:
+
+failures:
+    base_market_notional_requests_its_required_reference_and_keeps_base_units
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

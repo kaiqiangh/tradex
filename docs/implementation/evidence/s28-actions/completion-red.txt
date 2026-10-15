@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.29s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test malformed_or_ambiguous_query_completion_retires_the_previous_snapshot ... FAILED
+
+failures:
+
+---- malformed_or_ambiguous_query_completion_retires_the_previous_snapshot stdout ----
+
+thread 'malformed_or_ambiguous_query_completion_retires_the_previous_snapshot' (2385724) panicked at src-tauri/tests/financial_sources.rs:490:9:
+assertion `left == right` failed: Ambiguous completion was accepted: {"corporate_actions":{}}: {"data":{"availabilityReason":"Authenticated known events are current as a bounded process-date query only. Complete prospective action coverage and historical adjustment remain unsupported.","capabilityStatuses":[{"capability":"KNOWN_ACTIONS","reason":"Authenticated known events are current as a bounded process-date query only. Complete prospective action coverage and historical adjustment remain unsupported.","status":"AVAILABLE"},{"capability":"ACTION_QUERY_COMPLETION","reason":"Pagination exhaustion applies only to the returned processing-date query, not prospective event completeness.","status":"AVAILABLE"},{"capability":"COMPLETE_ACTION_COVERAGE","reason":"The provider documents processing delays and no immediate-announcement completeness guarantee. An empty query cannot certify no pending action or complete delisting coverage.","status":"BLOCKED_EXTERNAL"},{"capability":"HISTORICAL_ADJUSTMENT","reason":"Known events do not prove historical prices were adjusted; actual history provenance is still required.","status":"UNVERIFIED"}],"configured":true,"connectionId":"b6d697db-48ad-46a2-a58a-dfb579d4ed59","eligibleAccounts":[{"connectionId":"b6d697db-48ad-46a2-a58a-dfb579d4ed59","displayName":"Read-only source"}],"environment":"PAPER","evidence":{"actions":[],"binding":{"accountVersion":"b6d697db-48ad-46a2-a58a-dfb579d4ed59:3","bindingVersion":"65bb7a6b8b323e746dcba171356fdc3970f499eaa4d90f88aa19d2d1fe183f80","connectionId":"b6d697db-48ad-46a2-a58a-dfb579d4ed59","sourceVersion":"CORPORATE_ACTIONS:a59313a9-aea1-4bc1-9b36-01e5bd7486cd:1"},"coverageEnd":"2026-11-02","coverageStart":"2026-09-03","kind":"CORPORATE_ACTIONS","materialVersion":"71197d9b5e69ae9bb600e7ff543b50b953781f8df0ee04ffc2e5dcebad76671c","observedAt":"2026-10-03T07:16:34.824Z","queryComplete":true},"kind":"CORPORATE_ACTIONS","observedAt":"2026-10-03T07:16:34.824Z","stateVersion":"CORPORATE_ACTIONS:a59313a9-aea1-4bc1-9b36-01e5bd7486cd:1","status":"AVAILABLE","workspaceId":"a59313a9-aea1-4bc1-9b36-01e5bd7486cd"},"ok":true,"requestId":"query-completeness","schemaVersion":1}
+  left: String("AVAILABLE")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    malformed_or_ambiguous_query_completion_retires_the_previous_snapshot
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

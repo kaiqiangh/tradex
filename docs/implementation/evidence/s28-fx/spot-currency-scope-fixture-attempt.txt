@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test spot_intent_keeps_usdt_distinct_and_unknown_funding_currency_without_reading_a_key ... FAILED
+
+failures:
+
+---- spot_intent_keeps_usdt_distinct_and_unknown_funding_currency_without_reading_a_key stdout ----
+
+thread 'spot_intent_keeps_usdt_distinct_and_unknown_funding_currency_without_reading_a_key' (5418120) panicked at src-tauri/tests/financial_sources.rs:49:5:
+assertion `left == right` failed
+  left: String("VERIFIED")
+ right: "UNVERIFIED"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    spot_intent_keeps_usdt_distinct_and_unknown_funding_currency_without_reading_a_key
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

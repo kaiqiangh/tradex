@@ -14,6 +14,9 @@ use std::{
 };
 use zeroize::Zeroizing;
 
+#[cfg(all(test, unix))]
+use std::path::Path;
+
 const MAX_FRAME_BYTES: usize = 65_536;
 const MAX_PENDING_FRAMES: usize = 64;
 const DEFAULT_TIMEOUT_SECS: u64 = 20;
@@ -121,6 +124,58 @@ pub fn run(
     run_cancellable(request, access, &cancelled, emit).map(|_| ())
 }
 
+#[cfg(all(test, unix))]
+pub(crate) fn capture_turn_start_for_test(
+    request: &RuntimeRequest,
+    directory: &Path,
+    executable_name: &str,
+) -> (Value, Vec<RuntimeEvent>) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let executable = directory.join(executable_name);
+    let captured_turn = directory.join(format!("{executable_name}-turn-start.json"));
+    let shell_path = format!(
+        "'{}'",
+        captured_turn.display().to_string().replace('\'', "'\"'\"'")
+    );
+    let script = format!(
+        r#"#!/bin/sh
+while IFS= read -r line; do
+  case "$line" in
+    *'"method":"initialize"'*) printf '%s\n' '{{"jsonrpc":"2.0","id":1,"result":{{}}}}' ;;
+    *'"method":"thread/start"'*) printf '%s\n' '{{"jsonrpc":"2.0","id":2,"result":{{"threadId":"fake-thread"}}}}' ;;
+    *'"method":"turn/start"'*)
+      printf '%s\n' "$line" > {shell_path}
+      printf '%s\n' '{{"jsonrpc":"2.0","id":3,"result":{{"turnId":"fake-turn"}}}}'
+      printf '%s\n' '{{"method":"turn/started","params":{{}}}}'
+      printf '%s\n' '{{"method":"item/started","params":{{"item":{{"id":"item-1","type":"agent_message"}}}}}}'
+      printf '%s\n' '{{"method":"item/completed","params":{{"item":{{"id":"item-1","type":"agent_message","text":"OK"}}}}}}'
+      printf '%s\n' '{{"method":"turn/completed","params":{{}}}}' ;;
+  esac
+done
+"#,
+        shell_path = shell_path
+    );
+    fs::write(&executable, script).unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
+
+    let config = AppServerConfig {
+        executable,
+        timeout: Duration::from_secs(3),
+    };
+    let access = RuntimeAccess::for_gateway("test-key").unwrap();
+    let cancelled = AtomicBool::new(false);
+    let mut events = Vec::new();
+    run_process(&config, request, &access, &cancelled, &mut |event| {
+        events.push(event);
+        Ok(())
+    })
+    .unwrap();
+    let outbound: Value =
+        serde_json::from_str(&fs::read_to_string(captured_turn).unwrap()).unwrap();
+    (outbound, events)
+}
+
 pub fn run_cancellable(
     request: &RuntimeRequest,
     access: Option<&RuntimeAccess>,
@@ -156,7 +211,7 @@ fn run_fake(
         .codex_thread_id
         .clone()
         .unwrap_or_else(|| format!("codex-thread-{}", &uuid::Uuid::new_v4().to_string()[..8]));
-    let frames = [
+    let mut frames = vec![
         RuntimeEvent::ThreadStarted {
             key: "thread/started:1".into(),
             thread_id: codex_thread_id,
@@ -164,6 +219,91 @@ fn run_fake(
         RuntimeEvent::TurnStarted {
             key: "turn/started:1".into(),
         },
+    ];
+    if scenario == "tool-failure-once" && request.codex_thread_id.is_none() {
+        frames.extend([
+            RuntimeEvent::ItemStarted {
+                key: "item/started:tool-call-failure".into(),
+                item_id: "item-tool-call-failure".into(),
+                item_type: "tool_call".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:tool-call-failure".into(),
+                item_id: "item-tool-call-failure".into(),
+                item_type: "tool_call".into(),
+                delta: "Synthetic read-only tool fixture: no tool was executed and no financial state was mutated; MODEL_UNAVAILABLE before a result.".into(),
+            },
+        ]);
+        for event in frames {
+            if cancelled.load(Ordering::Acquire) {
+                return Ok(RuntimeOutcome::Cancelled);
+            }
+            emit(event)?;
+            for _ in 0..10 {
+                if cancelled.load(Ordering::Acquire) {
+                    return Ok(RuntimeOutcome::Cancelled);
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+        return Err(TradeXError::new("MODEL_UNAVAILABLE"));
+    }
+    if scenario == "research-plan-tools" {
+        frames.extend([
+            RuntimeEvent::ItemStarted {
+                key: "item/started:plan-1".into(),
+                item_id: "item-plan-1".into(),
+                item_type: "plan".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:plan-1".into(),
+                item_id: "item-plan-1".into(),
+                item_type: "plan".into(),
+                delta: "SYNTHETIC PLAN: read the typed result; summarize its findings; preserve its source limitations.".into(),
+            },
+            RuntimeEvent::ItemCompleted {
+                key: "item/completed:plan-1".into(),
+                item_id: "item-plan-1".into(),
+                item_type: "plan".into(),
+                content: None,
+            },
+            RuntimeEvent::ItemStarted {
+                key: "item/started:tool-call-1".into(),
+                item_id: "item-tool-call-1".into(),
+                item_type: "tool_call".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:tool-call-1".into(),
+                item_id: "item-tool-call-1".into(),
+                item_type: "tool_call".into(),
+                delta: "SYNTHETIC TOOL EVENT EXAMPLE: public_market_read · EQUITY; not executed by runtime.".into(),
+            },
+            RuntimeEvent::ItemCompleted {
+                key: "item/completed:tool-call-1".into(),
+                item_id: "item-tool-call-1".into(),
+                item_type: "tool_call".into(),
+                content: None,
+            },
+            RuntimeEvent::ItemStarted {
+                key: "item/started:tool-result-1".into(),
+                item_id: "item-tool-result-1".into(),
+                item_type: "tool_result".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:tool-result-1".into(),
+                item_id: "item-tool-result-1".into(),
+                item_type: "tool_result".into(),
+                delta: "SYNTHETIC TOOL RESULT EXAMPLE: no second research command; local fixture only.".into(),
+            },
+            RuntimeEvent::ItemCompleted {
+                key: "item/completed:tool-result-1".into(),
+                item_id: "item-tool-result-1".into(),
+                item_type: "tool_result".into(),
+                content: None,
+            },
+        ]);
+    }
+    frames.extend([
         RuntimeEvent::ItemStarted {
             key: "item/started:1".into(),
             item_id: "item-agent-1".into(),
@@ -190,7 +330,7 @@ fn run_fake(
         RuntimeEvent::TurnCompleted {
             key: "turn/completed:1".into(),
         },
-    ];
+    ]);
     for (index, event) in frames.into_iter().enumerate() {
         if cancelled.load(Ordering::Acquire) {
             return Ok(RuntimeOutcome::Cancelled);
@@ -861,6 +1001,55 @@ mod tests {
     fn bounded_frame_reader_rejects_an_unterminated_oversized_frame() {
         let mut reader = std::io::Cursor::new(vec![b'x'; MAX_FRAME_BYTES + 1]);
         assert_eq!(read_frame(&mut reader), Err("oversized".into()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn process_adapter_sends_only_user_text_and_research_marker_to_model_runtime() {
+        let directory = tempfile::tempdir().unwrap();
+
+        // This local fixture contributes only a bounded marker to the preconstructed
+        // RuntimeRequest below; source collection and request construction are not under test.
+        let local_source_values = json!({
+            "bp": "60000.12500000",
+            "ap": "60001.25000000",
+            "rawResponse": "raw-market-response-secret"
+        });
+        let local_json = serde_json::to_string(&local_source_values).unwrap();
+        use sha2::Digest;
+        let digest = sha2::Sha256::digest(local_json.as_bytes());
+        let marker = format!("research:v1:sha256:{}", hex::encode(digest));
+        let request = RuntimeRequest {
+            codex_thread_id: None,
+            model: ThreadModel {
+                provider: "CHATGPT".into(),
+                model_id: "gpt-5.6-sol".into(),
+                thinking_type: None,
+            },
+            message: "Summarize the selected local research result.".into(),
+            research_marker: Some(marker.clone()),
+        };
+        let (outbound, events) =
+            capture_turn_start_for_test(&request, directory.path(), "fake-codex-egress");
+        let outbound_json = outbound.to_string();
+        assert_eq!(outbound["method"], "turn/start");
+        assert_eq!(
+            outbound["params"]["input"][0]["text"],
+            format!("{}\nResearch result marker: {}", request.message, marker)
+        );
+        assert!(outbound_json.contains(&marker));
+        assert!(!outbound_json.contains("\"bp\""));
+        assert!(!outbound_json.contains("\"ap\""));
+        assert!(!outbound_json.contains("\"rawResponse\""));
+        assert!(!outbound_json.contains("60000.12500000"));
+        assert!(!outbound_json.contains("60001.25000000"));
+        assert!(!outbound_json.contains("raw-market-response-secret"));
+        assert!(!outbound_json.contains("attachedContexts"));
+        assert!(local_json.contains("raw-market-response-secret"));
+        assert!(matches!(
+            events.last(),
+            Some(RuntimeEvent::TurnCompleted { .. })
+        ));
     }
 
     #[cfg(unix)]

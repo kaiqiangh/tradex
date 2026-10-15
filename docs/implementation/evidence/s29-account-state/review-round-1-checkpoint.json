@@ -1,0 +1,97 @@
+{
+  "baseline": "fe20d0aae1c0eea9df43c1e24f32199a92ff30b9",
+  "implementation": "24207a664bb5934934879c699e08a56861c9d93f",
+  "sourceHashes": {
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "c984cf0a29a452803c2e3812221e2d378abb86c082519c361c89ecdaacf5da9e",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "30e9ae61665af1757e7b8520c635352fcaf6d015b25746af65b027ffbf71855f",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "a0942a376b5db5962e243a17657c36b3f948de6ed83bf32afbbd621e714be2b4",
+    "docs/implementation/README.md": "541a7e77930a6cdc1f9da56f032933119213dab40690374b10e6dcbe53946298",
+    "docs/implementation/s29-binance-live-plan.md": "b175336a80f347fd59a6c827cb7e28061439d0ee2ad5a6d4fc1a83a930de287d",
+    "docs/implementation/s29-binance-live-plan_zh.md": "01b89e7409918672f1f7a457eb6a35bae350a783b775ae62eeca90482332b41b",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "50d02cdd273727e7fb8bf3268f3d0d06bb1553782774641ce59cb942c682bb59",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "48410c698fd5d67bb12ce9dcd40ced81d4dfc6eac9f1e58bfd9f5bf490617d84",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "16451982764c986f7c8119eeda37b2053c6e9c028ece882e1caa2bbe0ea6cbc1",
+    "shared/ipc-types.ts": "9ebeaf0c1bb3a3ed6158ed8e3f0515f35c502c80eb3a58a74315b12b954c4a5c",
+    "shared/ipc-v1.schema.json": "658858e94b779d16fae87348cca4a08f6a5d85f870ed520b4ec2333f7b5ca066",
+    "shared/ipc-validators.d.ts": "79d48506a64e493b2ad91488bb277a95ef45f438475e2e8b54ae929a00822cd6",
+    "shared/ipc-validators.js": "1252fe7d0d82bd262135bfec5d0ad3678118813211294e94feb1c09f75857bab",
+    "src-tauri/src/bin/ipc.rs": "0195b4a394262e1aa6081eac0996eaf8c98c456eb99a20ac7a4c1d0066d9b43e",
+    "src-tauri/src/binance.rs": "aa664591e844b1abec3d4d160448dc7a252c943d8f4c648376736641e9f9a46c",
+    "src-tauri/src/bitget.rs": "51a187bf971a178e44340318fc4ebe22ea90b44ffb4e767a53ee49da5adb4a7c",
+    "src-tauri/src/lib.rs": "42840b110bca263ccb18c083675b981792f362a3e1a864bed676aa0b55c4f891",
+    "src-tauri/src/paper.rs": "0da245fcf9886012c2cb1214cc87036d50183f93794e32be1d8c03a92c908509",
+    "src-tauri/src/provider_io.rs": "856ba2ae6862db6120c1c377cdf677dbdfbd477652a803c9a21e5ba777b24b87",
+    "src-tauri/src/providers.rs": "b7ebde455608efebfdfda243e75d9f47556f38f61fdeefaab344b95ef06a507a",
+    "src-tauri/src/risk.rs": "3697142e6fb3748b4c8fd1d7c6152800d31150a96f41ec420ba7a7d9cedcdfc9",
+    "src-tauri/src/trading212.rs": "52b5147bd6f72405630581d7b009b66bd2bcc294f03224d2c9fc14bee69a5296",
+    "src-tauri/tests/binance.rs": "ce9787de68a1a2c4b6954b09071cc63d726a435a4207bb1a9747512f5a9a88e5",
+    "src-tauri/tests/support/provider_fixtures.rs": "0a8a274846b01f73f799e29e51b98f48ff541d46a2b5eb80d94a314bb1fb0ef5",
+    "src/Accounts.tsx": "3f35b2f40859ea7280f554899c97465b9b5832276f7033eb3d698c6e72b9b726"
+  },
+  "checks": {
+    "ordinaryRust": {
+      "passed": 392,
+      "failed": 0,
+      "ignored": 39
+    },
+    "node": {
+      "passed": 17,
+      "failed": 0
+    },
+    "integrationRust": {
+      "passed": 431,
+      "failed": 0,
+      "ignored": 39
+    },
+    "gateway": {
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "noRealProviderRequests": true,
+  "noNewFinancialAuthoritySeed": true,
+  "nativeRuntimeAcceptance": false,
+  "prototypeCodeChanged": false,
+  "parent121Complete": false,
+  "rawEvidenceHashes": {
+    "token-red.txt": "6ab4600cf2190ca5a37f2cbf7fa1ce6cea32ea25b06b488da075cb0e306dd3ff",
+    "status-matrix.txt": "29b48c6ce87c52ca237c74cb82b09bf6b5030888aa3ae8899ca4ccf89e1987d4",
+    "desktop-build-inputs.json": "85537eae2bc93064bb7f2093fb10bcf0c6f772480cfbeb7826bdf3974712c892",
+    "full-check-legacy-fixture-gap.txt": "0e28dc2e9f68392240ecf80b9f427dfbc367d027a2b2733217756a2871eadd42",
+    "final-ui.json": "df488dccbf8931144426c1d20c8795fba76777164c31d9cb75d2d1b1d1c23797",
+    "normal-green.txt": "7628417ef01975a34b901b146a765b9400656682d87ebbc9e98222646fe4098b",
+    "final-check.txt": "32a6611b94d9a3ec5cb242d48389affaf3193c933736bca2d27609d9173821be",
+    "gateway-check.txt": "f89e5687d56d2ba209e0a2948fa8438289faeb47675a080252741593438612de",
+    "browser-build.txt": "0a78c0c0ed71932a0e430e7688b2dbd5a669b8913df43879c0f1f17577443d83",
+    "final-maintenance-390.jpg": "e570b2e9e2babe40aae289eaec30f79f0ca605946d93baafeb17da54cbef4c07",
+    "desktop-build.txt": "f824b08fb5310044d3f3f57415d6081821732b1d725a6056d753dcc4eed37a29",
+    "browser-build-first-attempt.txt": "6cb3863c61b745499a55d579a492d8498f818a2f113d767e22bd3d0d7ac41837",
+    "full-check.txt": "8f24534944acec39d69ad36a265abeffe9624c94707a360e89a34cc43359dd25",
+    "integration-check.txt": "93d194b133b873ebe658e160ec66d413aaee698038e839f867fcc0bf12b83715",
+    "schema-generate.txt": "42d68802f1e39f9d6209fadae717512f42d9ff422795540db2ea115d1eb84166",
+    "ui.json": "c3aa4126b3218cf436592792388bc7d6f88dad83804a4124fea6812b5f7dfb8a",
+    "final-browser-build.txt": "45f75b19e5718ce74d75d27dc949e2b0cc21908a1e53dca4d31c24e03ebe8e09",
+    "token-green.txt": "69cbad7cf3a438329d0235f4565374a19819fc3ece1ca745dd35c976e6ec2c02",
+    "normal-red.txt": "71ce6da9d8deb79d7366676a011ead5ec02a9baf0a2c9cea6a35b1210faa3173",
+    "full-check-http-fixture-gap.txt": "8e28075f2a6dd1fca627ad3fd65e582f331a960933e16191fa916dda6d1bd7b0",
+    "obsolete-result.txt": "1b8ce89397e6a5ad7748e4a29cef0f429dac967df6cb13aeee84317b992045ec",
+    "typecheck.txt": "eb16313de4f55a373d0c191b0ab8cb209ded56eac6783223a03114a356035d10",
+    "maintenance-390.jpg": "f2f19731bacd23c25802c907930c174f2571242806129ce0a1766294bb00826b",
+    "normal-oracle-correction.txt": "c54b1b4bdd23ef66bfe6e4b2636ce1a3e64ce412689fff569e6a7ecfcfdaad7c"
+  },
+  "reviews": {
+    "baseline": "fe20d0aae1c0eea9df43c1e24f32199a92ff30b9",
+    "candidate": "24207a664bb5934934879c699e08a56861c9d93f",
+    "standards": {
+      "status": "PASS",
+      "hardFindings": 0,
+      "actionableSmellFindings": 0
+    },
+    "spec": {
+      "status": "NOT PASS",
+      "findings": 1,
+      "finding": "Exact CANCEL persistence accidentally consumes expired trading-state diagnostic"
+    }
+  }
+}

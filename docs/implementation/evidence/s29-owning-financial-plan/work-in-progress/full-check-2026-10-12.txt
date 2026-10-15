@@ -1,0 +1,12 @@
+# S29.11 full workspace check — 2026-10-12
+
+- Branch: `dev`.
+- Command: `npm run check`.
+- Exit status: 0.
+- `npm run schema:check`: passed; Rust, JSON Schema, and TypeScript agree.
+- `npm run build`: passed; TypeScript check and Vite production build completed. Vite emitted the existing large-chunk advisory (>500 kB).
+- `npm run test:unit`: 21 passed, 0 failed.
+- `cargo test --workspace`: passed. Rust library: 270 passed. Spot rules: 123 passed. Financial sources: 41 passed, 3 existing ignored. Other invoked workspace suites passed; existing ignored integration tests remained ignored under their checked-in reasons. Test-fixture dead-code warnings were emitted.
+- `python3 scripts/check_requirements.py`: passed; 203 requirements, 70 screens, 13 QA scenarios, and 23 baseline files.
+
+This is local test/build/traceability evidence. It does not establish actual Alpaca source-use permission, a successful real provider observation, Binance fee-market producer evidence, or the positive owning Spot approval/Prepare/reservation/settlement path. The RevC unknown future `commissionAsset` gate remains in force. No issue state or acceptance checkbox changed; #135 and #134 remain OPEN with 4/14 #135 criteria checked. No real provider/account read or financial action occurred during this check.

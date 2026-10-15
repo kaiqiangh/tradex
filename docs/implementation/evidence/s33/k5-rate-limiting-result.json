@@ -1,0 +1,69 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "K5",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:36:45.216Z",
+  "workspace": "9e368b2e-0bce-4086-988f-faaab1069e94",
+  "fixture": "account.refresh UI request intercepted before Rust with RATE_LIMITED; no provider request",
+  "test": "tests/s33-rate-limiting-playwright.js",
+  "testSha256": "b6fae69d24379e1d853ae3e1ee4e4a973cc2835d73ae3d77e41531e74ba4f309",
+  "interceptedCommands": [
+    {
+      "command": "account.refresh",
+      "connectionId": "d8d4ca23-2e8f-4fc6-aecd-a17f909658cd"
+    }
+  ],
+  "recovery": "Back off low-priority provider traffic until cooldown; keep execution reconciliation highest priority; retry after cooldown.",
+  "rawSyntheticErrorEchoed": false,
+  "liveArmDisabled": true,
+  "responsive": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "recoveryVisible": true,
+      "accountIdentityVisible": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "recoveryVisible": true,
+      "accountIdentityVisible": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "recoveryVisible": true,
+      "accountIdentityVisible": true
+    }
+  ],
+  "commands": [
+    "account.arming.fixture.seed",
+    "account.activity",
+    "provider.list_definitions",
+    "domain.snapshot",
+    "account.list",
+    "paper.get",
+    "domain.subscribe",
+    "domain.subscribe",
+    "domain.snapshot",
+    "domain.subscribe",
+    "trade.cancel_approval.list",
+    "account.list",
+    "domain.snapshot",
+    "account.list",
+    "domain.subscribe",
+    "trade.cancel_approval.list"
+  ],
+  "unexpectedCommands": [],
+  "forbiddenCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshot": "docs/implementation/evidence/s33/rate-limit-390.png",
+  "screenshotSha256": "722e946426641a41442b405b83537b88615e8f6d2d0d61b8718abe35b4b6f212",
+  "limits": [
+    "No provider Retry-After header, cooldown duration, runtime backoff, reconciliation-priority scheduler, or real provider integration was exercised."
+  ],
+  "overallSurfaceStatus": "IMPLEMENTED_UNVERIFIED"
+}

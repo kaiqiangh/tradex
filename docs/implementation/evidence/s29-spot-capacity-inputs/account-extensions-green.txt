@@ -1,0 +1,15 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.83s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+
+running 1 test
+test capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.20s
+
+test capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.47s
+

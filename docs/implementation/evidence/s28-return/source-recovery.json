@@ -1,0 +1,45 @@
+{
+  "recordedAt": "2026-10-07T09:23:51.124Z",
+  "scope": "Current audit observations; recording time does not renew provider or first-receipt times",
+  "baseline": "6a81d2ed63f9fba5f774b2abd8900cca776d7b67",
+  "calendar": {
+    "authenticatedCurrentXnasCalendarObserved": true,
+    "noOtherCapabilityPromotion": true,
+    "currentEligibilityMustStillRecheckAge": true
+  },
+  "knownActions": {
+    "queryCompletionNoticeObserved": true,
+    "retainedObservationUnavailableAtSampling": true,
+    "completeActionCoverage": "BLOCKED_EXTERNAL",
+    "historicalAdjustment": "UNVERIFIED",
+    "eventDetailsArchived": false
+  },
+  "brokerInstruments": {
+    "quality": "TEN_MINUTE_METADATA",
+    "firstReceiptLabel": "2026-10-07T09:21:18.724Z",
+    "currentTradability": "BLOCKED_EXTERNAL",
+    "exchangeHalts": "BLOCKED_EXTERNAL",
+    "canonicalIdentityQualification": false,
+    "rawInstrumentRowsArchived": false,
+    "availableAfterReadObserved": true,
+    "availableAtLaterSampling": false,
+    "laterStatus": "UNAVAILABLE",
+    "laterReason": "This observation expired or no longer matches the account/time binding. Check account and time, then refresh the selected source."
+  },
+  "fx": {
+    "status": "UNAVAILABLE",
+    "reason": "The provider denied access to the requested read-only endpoint. This response does not establish the account's broader permissions.",
+    "firstReceiptPublished": false,
+    "firstReceiptLabel": "Not checked",
+    "rawHttpStatusArchived": false,
+    "http403Classification": "Inferred from reviewed mapping only",
+    "rateOrFinancialQualificationPromoted": false
+  },
+  "account": {
+    "connectionState": "CONNECTED",
+    "permissionScope": "UNVERIFIED",
+    "arming": "DISARMED"
+  },
+  "noArmApprovalPrepareOrProviderMutationActionsPerformed": true,
+  "privateValuesArchived": false
+}

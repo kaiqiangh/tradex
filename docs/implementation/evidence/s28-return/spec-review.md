@@ -1,0 +1,7 @@
+NOT PASS — original116 acceptance incomplete; auditdiff accurately records it.
+
+Confirmed audit defects0. Blocking original-ticket acceptance gaps1: AC4 positive financial path. No scopecreep/wrongbehavior confirmed. AC4 requires observations consumed/revalidated through existing approval/risk/preparation/dispatch bindings. Positive issuedapproval→Prepare→Gateway remainsunproven; no suchactions recorded. Preview/rejection cannotcomplete it (acceptance-audit.md:5,16).
+
+Prerequisites missing/partial: PRD verifiedcredentialscope; currentFAILED/STALE,UNVERIFIED,DISARMED,pendingKeychain; successfulreads cannot satisfy lib.rs:7317. PRD:1795 IEX/delayed/unknown/mismatchedcoverage cannotmeetexecutioncheck; IEXauth/Hotacks noactualcurrentquoteatsampling; freshboundcalendar stillneeded (prerequisites.md:16). Backend:3006 directorymembershipnotcurrenttradability; ordinaryrisk.rs:2042/2077 preserve unavailablecompleteactions/adjustment and exactaccount/identity/venue. Backend:3030 readavailabilitynottransactionqualification; requiredqualifiedFX/directionalrounding/brokerfundingcosts/completeinputs missing (lib.rs:7884).
+
+Paired additionsagree;7checkpoint hashesmatch;22operations17paths inventory;116/117OPEN,118–120CLOSED, distinctfromfinancialacceptance. Readonlysource/evidence/GitHubreview; no tests/build/UI/provider/mutations. Capturednative/processbindings notindependentlyresampledliveproof.

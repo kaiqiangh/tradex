@@ -1,0 +1,12 @@
+{
+  "builtAt": "2026-10-01T19:15:00.319623+00:00",
+  "app": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-calendar-native-ryskijt5/TradeX.app",
+  "baseline": "aa43091ea2eef732b5865b163cbeee3cac3e03c9",
+  "worktreeSource": "Uncommitted calendar ticket #118 sources; delivery hashes recorded separately",
+  "integrationFeature": false,
+  "ordinaryReleaseSha256": "09973c5b5c115503321db99c4707d8b0ad613d0f37d543ea44befaedb2232f61",
+  "signedBinarySha256": "84609d7abcab6297002ff29eeaad58290ac892557532f460f814e26460a91786",
+  "gatewaySha256": "974723a8dcff258137ebaaedec578bb2fd58fe35d143ec9c5d1b2b1ee954b9f1",
+  "gatewayCopySha256": "974723a8dcff258137ebaaedec578bb2fd58fe35d143ec9c5d1b2b1ee954b9f1",
+  "signing": "Local ad-hoc validation bundle, not distribution signing; Gateway untouched to retain pin"
+}

@@ -1,0 +1,158 @@
+{
+  "result": "PASS",
+  "capturedAt": "2026-10-14T15:51:49Z",
+  "branch": "dev",
+  "reviewBaseline": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "scenario": "TRADEX_FAKE_APP_SERVER_SCENARIO=tool-failure-once",
+  "fixtureOnly": true,
+  "test": {
+    "path": "tests/s33-b6-tool-turn-states-playwright.js",
+    "sha256": "e78d67c469aa005f139354b5e66f81a6e7d3d84668de3759f9d8c1917c98b79a"
+  },
+  "sourceTestDigest": {
+    "files": 108,
+    "sha256": "7ff0d26f0096650985e8c11e8c1795c901f2ea08e1de095bd68368eb3965e63c"
+  },
+  "toolLifecycle": [
+    "STARTED",
+    "STREAMING",
+    "FAILED"
+  ],
+  "turnStates": [
+    "FAILED",
+    "COMPLETED",
+    "CANCELLED"
+  ],
+  "modelRecovery": {
+    "errorCode": "MODEL_UNAVAILABLE",
+    "canonicalAlert": true,
+    "nextStep": "Review model"
+  },
+  "retry": {
+    "busyLabel": "Retrying…",
+    "createsNewTurn": true,
+    "failedTurnRetained": true
+  },
+  "cancel": {
+    "activeTurnEndsCancelled": true,
+    "cancelledTurnOffersRetry": true
+  },
+  "commands": {
+    "turn.start": 2,
+    "turn.retry": 1,
+    "turn.cancel": 1,
+    "forbidden": 0
+  },
+  "commandNames": [
+    "account.activity",
+    "account.list",
+    "agent.capabilities",
+    "context.catalog",
+    "domain.snapshot",
+    "domain.subscribe",
+    "runtime.status",
+    "thread.create",
+    "thread.list",
+    "turn.cancel",
+    "turn.retry",
+    "turn.start",
+    "workspace.open",
+    "workspace.ready.fixture"
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "consoleErrors": 0,
+  "responsive": [
+    {
+      "width": 1280,
+      "documentScrollWidth": 1280
+    },
+    {
+      "width": 768,
+      "documentScrollWidth": 768
+    },
+    {
+      "width": 390,
+      "documentScrollWidth": 390
+    }
+  ],
+  "interruptedPersistence": {
+    "rustTest": "turn_runtime_tests::reopening_workspace_reconciles_persisted_running_turn",
+    "result": "PASS",
+    "passed": 1
+  },
+  "recoveryUnitTests": {
+    "result": "PASS",
+    "passed": 11,
+    "failed": 0
+  },
+  "buildChecks": {
+    "typecheck": "PASS",
+    "productionBuild": "PASS",
+    "integrationRustBuild": "PASS",
+    "requirementsInventory": "PASS",
+    "diffCheck": "PASS",
+    "fileManifest": "PASS",
+    "productionChunkWarning": "Existing Vite warning: the main JavaScript chunk exceeds 500 kB."
+  },
+  "strictClippy": {
+    "result": "FAIL",
+    "mode": "-D warnings",
+    "issues": 1128,
+    "examples": [
+      "clippy::unused_unit at src-tauri/src/binance_market/stream.rs:645",
+      "clippy::result_large_err across existing Result<_, TradeXError> functions"
+    ]
+  },
+  "notExercised": [
+    "real model inference or provider endpoints",
+    "OAuth reauthorization",
+    "quota cooldown behavior",
+    "native VoiceOver",
+    "interrupted-state browser rendering",
+    "complete S33 acceptance"
+  ],
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/b6-tool-turn-failed-390.png",
+      "sha256": "90d30b64838f574f3de15330207128b98339820c42304f72966526ddf0035982",
+      "lastRefreshedAt": "2026-10-14T16:16:19Z"
+    }
+  ],
+  "postB9SharedTurnTimelineRegression": {
+    "result": "PASS",
+    "capturedAt": "2026-10-14T16:16:19Z",
+    "test": {
+      "path": "tests/s33-b6-tool-turn-states-playwright.js",
+      "sha256": "e78d67c469aa005f139354b5e66f81a6e7d3d84668de3759f9d8c1917c98b79a"
+    },
+    "sourceTestDigest": {
+      "files": 108,
+      "sha256": "13e95836477f49f221823bd2fb0825cc04d3723d46dda341a5ffb2aa0883397f"
+    },
+    "service": "Rust-backed local integration Vite on 127.0.0.1:1426 with tool-failure-once synthetic fixture",
+    "turnStates": [
+      "FAILED",
+      "COMPLETED",
+      "CANCELLED"
+    ],
+    "toolLifecycle": [
+      "STARTED",
+      "STREAMING",
+      "FAILED"
+    ],
+    "turnStartCommands": 2,
+    "turnRetryCommands": 1,
+    "turnCancelCommands": 1,
+    "forbiddenCommands": 0,
+    "externalRequests": 0,
+    "pageErrors": 0,
+    "consoleErrors": 0,
+    "responsiveWidths": [
+      1280,
+      768,
+      390
+    ],
+    "note": "Regression after B9 added ordered provider-attempt rendering to the shared Turn timeline; B6 retry and cancellation behavior remains intact."
+  }
+}

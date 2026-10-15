@@ -1,0 +1,218 @@
+Serial public-source scenario proof; each case runs in a fresh application process. In-process runtime budgets are unchanged. Shared cross-source/workspace limits have their own dedicated process-boundary test.
+Case 1/24: a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.49s
+
+Case 2/24: a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 1.14s
+
+Case 3/24: a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.67s
+
+Case 4/24: a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.68s
+
+Case 5/24: a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 1.14s
+
+Case 6/24: bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 1.26s
+
+Case 7/24: bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.61s
+
+Case 8/24: cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.47s
+
+Case 9/24: configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.06s
+
+Case 10/24: eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.47s
+
+Case 11/24: five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.70s
+
+Case 12/24: material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.67s
+
+Case 13/24: obsolete_update_ids_do_not_hide_malformed_original_depth_values
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test obsolete_update_ids_do_not_hide_malformed_original_depth_values ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.49s
+
+Case 14/24: original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 3.05s
+
+Case 15/24: overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 1.09s
+
+Case 16/24: provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.49s
+
+Case 17/24: public_depth_provenance_binds_runtime_scope_and_bounded_known_material
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.67s
+
+Case 18/24: real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.47s
+
+Case 19/24: repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 3.50s
+
+Case 20/24: session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 3.60s
+
+Case 21/24: skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.59s
+
+Case 22/24: source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.88s
+
+Case 23/24: stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.47s
+
+Case 24/24: unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.67s
+
+All24 public source scenarios PASS serially in isolated application processes. This is not a single-process full-suite or UI/native/financial acceptance.

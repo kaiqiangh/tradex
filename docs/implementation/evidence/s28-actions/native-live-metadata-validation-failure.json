@@ -1,0 +1,18 @@
+{
+  "observedAt": "2026-10-03T19:58:00.515Z",
+  "ordinaryApp": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-actions-auth-deadline-native-ckritrb7/TradeX.app",
+  "sourceCommit": "32c2a0b99e52b7f7c6e2da667141fa1b62d64eb6",
+  "desktopControlRecovered": true,
+  "existingTrading212LiveReadAndConfirmation": true,
+  "permissionScope": "UNVERIFIED",
+  "arming": "DISARMED",
+  "timeSync": "TRUSTED",
+  "instrumentRefresh": "UNAVAILABLE",
+  "reason": "The provider response could not be validated. The prior current observation was retired.",
+  "firstReceipt": "Not checked",
+  "metadataPublished": false,
+  "credentialsArchived": false,
+  "providerBodiesArchived": false,
+  "privateAccountValuesArchived": false,
+  "financialMutation": false
+}

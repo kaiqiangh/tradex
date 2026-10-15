@@ -1,0 +1,7 @@
+{
+  "kind": "HARNESS_MODE_MISMATCH",
+  "expected": "On-demand quote250.1234567890123456789 without active Hot",
+  "actual": "Enabled external Hot fixture had newer quote250.7234567890123456789",
+  "productRedClaimed": false,
+  "correctHotScenarioPassed": true
+}

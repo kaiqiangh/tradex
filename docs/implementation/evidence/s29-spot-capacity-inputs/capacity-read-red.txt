@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.71s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification ... FAILED
+
+failures:
+
+failures:
+    explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.10s
+
+
+thread 'explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification' (10930114) panicked at src-tauri/tests/binance_rules.rs:105:5:
+assertion `left == right` failed: Authenticated capacity input read is unavailable: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"capacity-read","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification' (10930111) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification ... FAILED
+
+failures:
+
+failures:
+    explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

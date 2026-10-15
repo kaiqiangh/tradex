@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.41s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it ... FAILED
+
+failures:
+
+failures:
+    capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 45 filtered out; finished in 3.34s
+
+
+thread 'capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it' (11035269) panicked at src-tauri/tests/binance_rules.rs:422:5:
+assertion `left == right` failed: Finishing the final HTTP read renewed the earlier account receipt: {"data":{"accountId":"a6f3a4d6-2b56-4ff2-9b98-f2928b25ffef","baseAsset":"BTC","bindingVersion":"sha256:e99e0391c632b5ea9a812dba7c0d08121dedc31929c8c8a5646593b8ab5fc2a5","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"73fd8e23-c173-4551-8989-afda9a549453","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":null,"accountOpenOrders":"2","classificationsComplete":true,"listCoverageComplete":null,"missingListLegs":null,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":null,"symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderUpdateTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T07:52:22.997Z","startedAt":"2026-10-09T07:52:22.993Z"},{"digest":"1eefa5f66af0d0dae007a968e6225ed0c3fce1bc7c7a11e01c3baacae6de49ec","kind":"OPEN_ORDERS_ACCOUNT","latestProviderUpdateTimeMs":"1700000000000","oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T07:52:26.208Z","startedAt":"2026-10-09T07:52:22.998Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:75525ea884d5ff9213d74873f9da3e61895effc86263b93eba93af53e2f17117","proposalId":"proposal:0535c6a1-8bf2-4712-b4e4-8b34e92b1eab","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"29a359946688a7a04ba3961ba583677adaba707dffa7cde5d6d63d917c0b3e77","sourceVersion":"BINANCE_SPOT_RULES:d14933d1-c17c-4e4d-afe7-bc97157e7cc4:1","stateVersion":"sha256:d8e08bb0a5f6dfe4279ef63938eb56d77d275768a2f7d84ed380388cd457e93a","status":"OBSERVED","workspaceId":"d14933d1-c17c-4e4d-afe7-bc97157e7cc4"},"ok":true,"requestId":"capacity-age","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "STALE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it' (11035267) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it ... FAILED
+
+failures:
+
+failures:
+    capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 45 filtered out; finished in 3.58s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

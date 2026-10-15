@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.69s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... FAILED
+
+failures:
+
+---- original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms stdout ----
+
+thread 'original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms' (8984541) panicked at src-tauri/tests/binance_rules.rs:850:5:
+assertion `left == right` failed
+  left: Null
+ right: Object {"allowTrailingStop": Bool(true), "amendAllowed": Bool(true), "cancelReplaceAllowed": Bool(false), "icebergAllowed": Bool(true), "ocoAllowed": Bool(false), "opoAllowed": Bool(false), "otoAllowed": Bool(true), "pegInstructionsAllowed": Bool(false)}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `--test binance_rules`

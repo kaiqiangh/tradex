@@ -1,0 +1,14 @@
+AC7 consumed PLACE refresh — synthetic browser follow-up, 2026-10-11
+
+Environment: the integration-only IPC/Gateway build and the dedicated localhost Vite browser fixture at 127.0.0.1:1430. The page used a disposable TradeX workspace, synthetic Trading 212 account/credential, fake provider HTTP, and fake order Gateway. The saved accepted PLACE/order 901 was already present from the prior isolated UI setup; this follow-up performed only read-only exact-order refreshes and did not create another Gateway write.
+
+Observed sequence:
+
+- Before the read fixture was seeded, Refresh exact order displayed: “The provider has not established this order's status. Refresh this exact order; do not submit it again.” The visible message did not name Alpaca.
+- After the integration-only fixture seeded order 901 as PARTIALLY_FILLED, the same keyboard-operable Refresh exact order control displayed the read-only success status and the saved settlement panel showed raw PARTIALLY_FILLED, 0.004 filled units, value 200, fees Incomplete/no zero assumed, and remaining commitment 400 of 400. Public preparation query showed attempt PARTIALLY_FILLED, settlement INCOMPLETE, feesComplete=false, reservation ACTIVE with a 400 USD principal claim.
+- The fake Gateway inspector retained exactly one POST to `/api/v0/equity/orders/limit`; the exact-order refresh added no Gateway mutation.
+- The refresh region stayed inside the viewport at 1280, 768, and 390 CSS px. The document scroll width equalled the viewport at all three widths.
+
+Validation: `npm run check` completed successfully after this slice: IPC schema check, TypeScript/production build, 18 frontend unit tests, `cargo test --workspace` (263 Rust library tests passed; every executed integration suite passed; existing ignored tests remained ignored), and traceability for 203 requirements, 70 screens, 13 QA scenarios, and 23 baseline files. Vite retains its 5,633.99 kB minified JS chunk warning. `cargo fmt --all -- --check`, `node --check tests/live-approval-ui.mjs`, and `git diff --check` passed. The integration-only command was compiled and exercised by the local browser fixture.
+
+This is synthetic UI evidence only. No real Alpaca or Trading 212 account/provider was read or written, and no real order was submitted. Alpaca Support has not replied: real-account source-use remains UNRESOLVED and `FX_DATA_USE_RIGHTS` remains UNVERIFIED. AC7, GitHub #135 and parent #134 remain OPEN; this does not establish ordinary producer-to-Prepare acceptance, real source rights, or whole-ticket acceptance.

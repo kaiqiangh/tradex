@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 26.65s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 1 test
+
+thread 'risk::tests::spot_fee_fx_input_digest_ignores_wallet_read_receipts_but_binds_balances_and_claims' (16292085) panicked at src-tauri/src/risk.rs:3085:9:
+assertion `left == right` failed
+  left: "sha256:6a7882a7d20e3d1405ea8406c9695846b59c4e834e992627b853b4d59ba38c31"
+ right: "sha256:b6c0d14ce50300eda50e8e367589d2539d9bfe3edbdf3cdfad2e0b9b7f04da73"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test risk::tests::spot_fee_fx_input_digest_ignores_wallet_read_receipts_but_binds_balances_and_claims ... FAILED
+
+failures:
+
+failures:
+    risk::tests::spot_fee_fx_input_digest_ignores_wallet_read_receipts_but_binds_balances_and_claims
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 253 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tradex --lib`

@@ -14,8 +14,8 @@ export async function checkPortfolioUI(tab, browser) {
     const localAccountText = await localAccountRow.innerText();
     assert.match(localAccountText, /LOCAL_PAPER/);
     assert.match(localAccountText, /TRADEX_SIMULATION/);
-    assert.match(localAccountText, /not provider truth/);
-    assert.match(localAccountText, /not Live execution/);
+    assert.match(localAccountText, /TradeX simulation/);
+    assert.match(localAccountText, /CONNECTED/);
     await ui.getByRole('button', { name: '+ New Thread', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'What would you like to research?', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: '@ Context', exact: true }).press('Enter');
@@ -38,10 +38,9 @@ export async function checkPortfolioUI(tab, browser) {
     const localPaper = /LOCAL_PAPER/.test(summaryText);
     if (localPaper) {
       assert.match(summaryText, /LOCAL_PAPER/);
-      assert.match(summaryText, /not provider truth/);
-      assert.match(summaryText, /not Live execution/);
+      assert.match(summaryText, /not provider truth or Live execution/);
       assert.match(await ui.getByText(/Live risk: Blocked/).innerText(), /TRADEX_SIMULATION_NOT_LIVE/);
-      assert.match(await ui.getByText(/TradeX simulation/).first().innerText(), /TRADEX_SIMULATION/);
+      assert.match(summaryText, /TRADEX_SIMULATION · LOCAL_PAPER/);
       observed.push('Local Paper identity, simulation disclosure, empty projection and blocked Live risk render in the Rust-backed Portfolio path.');
     } else {
       assert.match(summaryText, /Degraded/);
@@ -56,6 +55,7 @@ export async function checkPortfolioUI(tab, browser) {
       assert.match(await holdings.innerText(), /Local Paper/);
       assert.match(await holdings.innerText(), /100000 USD/);
       assert.match(await provenance.innerText(), /USD -> USD/);
+      assert.match(await ui.getByText('No fills in the Local Paper simulation.', { exact: true }).innerText(), /No fills in the Local Paper simulation\./);
     } else {
       assert.match(await provenance.innerText(), /USDT -> USD/);
       assert.match(await provenance.innerText(), /USDT is not USD/);

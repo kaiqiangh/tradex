@@ -1,0 +1,38 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.94s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 15 tests
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+test authentication_reflections_are_rejected_before_typed_projection ... ok
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+test clock_revalidation_and_reopen_retire_active_rule_evidence ... ok
+test collected_constraints_name_the_unresolved_per_order_obligations ... ok
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... ok
+test elapsed_receipt_expires_rules_without_renewing_retained_evidence ... ok
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... ok
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... ok
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+test rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64 ... ok
+test unpopulated_permission_sets_never_grant_account_admission ... FAILED
+
+failures:
+
+---- unpopulated_permission_sets_never_grant_account_admission stdout ----
+
+thread 'unpopulated_permission_sets_never_grant_account_admission' (9377497) panicked at src-tauri/tests/binance_rules.rs:845:5:
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    unpopulated_permission_sets_never_grant_account_admission
+
+test result: FAILED. 14 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.53s
+
+error: test failed, to rerun pass `--test binance_rules`

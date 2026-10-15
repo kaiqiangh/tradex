@@ -31,9 +31,9 @@ test('the UI applies only contiguous supported events and ignores exact duplicat
 });
 
 test('workspace snapshots accept the current storage schema version', () => {
-  const current = { ...workspace, storageSchemaVersion: 31 };
-  assert.equal(fromSnapshot({ ...snapshot, projection: current }).snapshot.projection.storageSchemaVersion, 31);
-  assert.throws(() => fromSnapshot({ ...snapshot, projection: { ...current, storageSchemaVersion: 32 } }));
+  const current = { ...workspace, storageSchemaVersion: 38 };
+  assert.equal(fromSnapshot({ ...snapshot, projection: current }).snapshot.projection.storageSchemaVersion, 38);
+  assert.throws(() => fromSnapshot({ ...snapshot, projection: { ...current, storageSchemaVersion: 39 } }));
 });
 
 test('generated result schema rejects false success, mixed envelopes and foreign payloads', () => {
@@ -47,6 +47,15 @@ test('generated result schema rejects false success, mixed envelopes and foreign
     { ...good, data: { ...workspace, workspaceId: '' } },
     { ...good, stateVersion: null },
   ]) assert.throws(() => decode('ResultEnvelope', invalid));
+});
+
+test('Spot FX route schema accepts the bounded seven-character USDTUSD provider pair', () => {
+  const route = {
+    purpose: 'INTENT_POLICY', fromCurrency: 'USDT', toCurrency: 'USD', providerPair: 'USDTUSD',
+    state: 'EVIDENCE_UNAVAILABLE', reason: 'No current quote is bound to this intent.',
+  } as const;
+  assert.deepEqual(decode('SpotRequiredRoute', route), route);
+  assert.throws(() => decode('SpotRequiredRoute', { ...route, providerPair: 'USDTUSDX' }));
 });
 
 test('research venue schema keeps unavailable values nullable and rejects numeric zero', () => {
@@ -282,4 +291,14 @@ test('Trading 212 Demo order books replay exact cumulative observations under De
   assert.throws(() => applyEvent(initial, { ...event, eventType: 'alpaca.paper.order.book.changed' }));
   assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, remoteAccountId: 'other-account' } }));
   assert.throws(() => applyEvent(initial, { ...event, payload: { ...event.payload, environment: 'LIVE' } }));
+});
+
+test('managed Hot quote replies pass the public envelope and reject foreign lease fields', () => {
+  const data = { workspaceId: 'workspace-one', sourceId: 'OD-001', instrumentId: 'equity:US:AAPL', leaseId: 'lease-one', generation: 'generation-one', connectionGeneration: 'connection-one', reconnectAttempt: 0, sourceVersion: 'data:workspace-one:1', sequence: 0, status: 'AUTHENTICATING', authenticated: false, subscribed: false, reason: 'Waiting for provider authentication confirmation.' };
+  const envelope = { requestId: 'hot-one', schemaVersion: 1, ok: true, data };
+  assert.deepEqual(decode('ResultEnvelope', envelope), envelope);
+  assert.deepEqual(decode('HotQuoteProjection', data), data);
+  for (const bad of [{ ...data, generation: '' }, { ...data, sequence: 9007199254740992 }, { ...data, key: 'renderer-supplied-secret' }]) assert.throws(() => decode('ResultEnvelope', { ...envelope, data: bad }));
+  const released = { workspaceId: 'workspace-one', leaseId: 'lease-one', generation: 'generation-one', released: true, status: 'CLOSED' };
+  assert.deepEqual(decode('ResultEnvelope', { ...envelope, data: released }), { ...envelope, data: released });
 });

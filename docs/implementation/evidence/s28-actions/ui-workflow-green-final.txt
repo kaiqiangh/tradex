@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-03",
+  "provider": "external fixtures",
+  "observed": [
+    "Both saved accounts were connected through public UI, acknowledged as UNVERIFIED; Live remained DISARMED.",
+    "Saved-reference CAS, unsaved refresh lock, 26-row paging, partial date-only records and exact decimals are visible; independent blockers remain.",
+    "Both source widgets and evidence stay within 390/768/1280px layouts.",
+    "Repeated broker refresh is denied by the actual-account monotonic quota; sanitized error and Reload are available.",
+    "Trusted-time expiry preserves original receipt/material as unavailable; reload reopens the workspace, keeps saved selection and retires process evidence without renewing authority.",
+    "Disconnect keeps borrowed account records and credentials; no permission promotion, arming or order mutation occurred."
+  ]
+}

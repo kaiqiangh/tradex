@@ -1,0 +1,25 @@
+{
+  "diagnosticOnly": true,
+  "reviewedImplementationCommit": "32c2a0b99e52b7f7c6e2da667141fa1b62d64eb6",
+  "locationOnlyFailure": "financial_sources.rs extended session opening validation",
+  "semanticObservation": {
+    "eventCount": 126,
+    "extendedPhaseRepeated": false,
+    "failingEventType": "AFTER_HOURS_OPEN",
+    "precedingEventTypes": [
+      "AFTER_HOURS_OPEN",
+      "OPEN",
+      "PRE_MARKET_OPEN"
+    ],
+    "regularCloseAtSameInstant": false,
+    "regularWasOpen": true,
+    "secondsSinceRegularTransition": 23400,
+    "secondsUntilNextRegularClose": null
+  },
+  "selectedSchedule": true,
+  "providerBodiesOrTimestampsArchived": false,
+  "credentialsOrPrivateAccountValuesArchived": false,
+  "financialMutation": false,
+  "acceptancePass": false,
+  "officialSessionContext": "https://helpcentre.trading212.com/hc/en-us/articles/13574400364445-24-5-Trading-Invest-Stocks-ISA"
+}

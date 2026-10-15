@@ -1,0 +1,10 @@
+PASS — Standards axis. No hard documented-standard breaches found; two nonblocking smell judgments.
+
+1. Possible Duplicated Code: src/CalendarSourceSettings.tsx:21 and line34 repeat onSourceChange() followed by catalog/detail invalidation. Extract a shared post-change helper so selection/disconnect and refresh keep their projection updates synchronized.
+2. Possible Data Clumps / Primitive Obsession: src-tauri/src/calendar_source.rs:283 represents session intervals as Option<(OffsetDateTime, OffsetDateTime)>; the same start/end pair travels through parsing, version serialization and session projection. Consider a small named UTC interval type with validated construction and containment methods. This would make interval meaning and invariants clearer without changing the wire contract.
+
+Paired Backend41.38, Frontend13.23, UI14.22 and implementation documents preserve credential ownership,30-second freshness, independent capability and financial authority boundaries. Source/schema/adapter changes follow Backend-owned wire architecture; spread is not itself Shotgun Surgery. Only selection/audit metadata are persisted; saved credentials are borrowed; sensitive header construction is shared; vault/provider work is outside the Control Plane lock. Public tests use normal account connection and external responses, retaining UNVERIFIED permissions and separate arming.
+
+Baseline aa43091ea2eef732b5865b163cbeee3cac3e03c9 equals HEAD; commit list empty. Reviewed nonempty worktree diff and untracked calendar files. Generated-validator mechanics/tool-enforced checks excluded. No edits, tests/build/UI/network performed; evidence inspected without independent rerun. Hosted native access awaits Keychain; positive financial acceptance unverified. This is not a Spec acceptance verdict.
+
+Standards:0 hard breaches,2 advisories. Serial Spec may begin.

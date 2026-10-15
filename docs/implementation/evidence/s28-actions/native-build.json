@@ -1,0 +1,11 @@
+{
+  "builtAt": "2026-10-03T10:36:48.611518+00:00",
+  "app": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-actions-native-m52nlv76/TradeX.app",
+  "baseline": "946a6d0049863a59b93628fb5c6e070bb1860d26",
+  "integrationFeature": false,
+  "ordinaryReleaseSha256": "0ee6ce99e24c918a117a1a6c1d6f724337c66ffb9315eca228c3ca9ebcd11400",
+  "signedBinarySha256": "b312eda8d082bc662b92e83187ce1278557c604513ac425a2686d4a8386f9947",
+  "gatewaySha256": "9d8b4be40416ddbb36ad975efd44d5ad20ba6417458141267da3ff20d108872d",
+  "gatewayCopySha256": "9d8b4be40416ddbb36ad975efd44d5ad20ba6417458141267da3ff20d108872d",
+  "signing": "Local ad-hoc validation bundle, not distribution signing; gateway bytes retain the compiled pin"
+}

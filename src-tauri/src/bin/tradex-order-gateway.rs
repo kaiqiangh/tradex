@@ -6,7 +6,10 @@ use std::{
 };
 use tradex::{
     order_gateway::{GatewayDispatchIntent, GatewayDispatchPackage},
-    provider_io::{BrokerHttp, CredentialVault, Credentials, PrivilegedLiveOperation},
+    provider_io::{
+        BrokerHttp, CredentialVault, Credentials, PrivilegedLiveOperation, ProviderEndpoint,
+        ProviderHttp, ProviderHttpMethod, ProviderHttpResponse, ProviderRateLimit,
+    },
 };
 use zeroize::Zeroizing;
 
@@ -77,6 +80,84 @@ fn run() -> io::Result<()> {
     }
 }
 
+// Summary admission belongs to the parent process. Report the actual read
+// completion before preparation can request SUBMITTING, including failures.
+struct GatewaySummaryHttp<'a, H> {
+    inner: &'a H,
+    channel: std::cell::RefCell<&'a mut UnixStream>,
+    credential: &'a str,
+    attempt_id: &'a str,
+    grant_id: &'a str,
+}
+
+impl<H: ProviderHttp> ProviderHttp for GatewaySummaryHttp<'_, H> {
+    fn get(
+        &self,
+        endpoint: ProviderEndpoint,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+    ) -> tradex::protocol::Result<Vec<u8>> {
+        self.inner.get(endpoint, path, headers)
+    }
+
+    fn request(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> tradex::protocol::Result<ProviderHttpResponse> {
+        self.request_with_rate_limit(endpoint, method, path, headers, body)
+            .map(|(response, _)| response)
+    }
+
+    fn request_with_rate_limit(
+        &self,
+        endpoint: ProviderEndpoint,
+        method: ProviderHttpMethod,
+        path: &str,
+        headers: reqwest::header::HeaderMap,
+        body: Option<&Value>,
+    ) -> tradex::protocol::Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
+        let result = self
+            .inner
+            .request_with_rate_limit(endpoint, method, path, headers, body);
+        if endpoint == ProviderEndpoint::Trading212Live
+            && method == ProviderHttpMethod::Get
+            && path == "/api/v0/equity/account/summary"
+        {
+            let (status, limit) = result
+                .as_ref()
+                .map(|(response, limit)| (response.status, limit.as_ref()))
+                .unwrap_or((0, None));
+            let mut channel = self.channel.borrow_mut();
+            let failure = || tradex::protocol::TradeXError::new("GATEWAY_PROCESS_FAILED");
+            send_authenticated(
+                &mut channel,
+                self.credential,
+                "summary_read_completed",
+                json!({
+                    "attemptId":self.attempt_id,"grantId":self.grant_id,"status":status,
+                    "remaining":limit.and_then(|limit| limit.remaining),
+                    "resetAt":limit.and_then(|limit| limit.reset_at.as_deref()),
+                    "retryAfterSeconds":limit.and_then(|limit| limit.retry_after_seconds)
+                }),
+            )
+            .map_err(|_| failure())?;
+            let reply = read_authenticated(&mut channel, self.credential).map_err(|_| failure())?;
+            if !exact_keys(&reply, &["kind", "attemptId", "grantId"])
+                || reply.get("kind").and_then(Value::as_str) != Some("summary_read_recorded")
+                || reply.get("attemptId").and_then(Value::as_str) != Some(self.attempt_id)
+                || reply.get("grantId").and_then(Value::as_str) != Some(self.grant_id)
+            {
+                return Err(failure());
+            }
+        }
+        result
+    }
+}
+
 fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io::Result<()> {
     send_authenticated(
         channel,
@@ -137,6 +218,14 @@ fn dispatch(channel: &mut UnixStream, credential: &str, attempt_id: &str) -> io:
 
     #[cfg(target_os = "macos")]
     let prepared = {
+        let summary_http = GatewaySummaryHttp {
+            inner: &http,
+            channel: std::cell::RefCell::new(channel),
+            credential,
+            attempt_id,
+            grant_id: &package.grant.grant_id,
+        };
+        let http = summary_http;
         match &package.intent {
             GatewayDispatchIntent::Place(proposal) => {
                 tradex::provider_io::prepare_trading212_live_mutation(

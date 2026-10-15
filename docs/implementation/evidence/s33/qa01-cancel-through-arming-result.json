@@ -1,0 +1,79 @@
+{
+  "result": "PASS",
+  "scenario": "QA-01",
+  "slice": "F10 Live Cancellation",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "workingTreeDigest": {
+    "scope": "changed and new files under src/, src-tauri/, and tests/",
+    "files": 97,
+    "sha256": "46e0dd45ecdef51b73be952e0b75b039185e1513db98dfcaff6367b62dee6871"
+  },
+  "runDate": "2026-10-14",
+  "workspaceId": "3ad2b990-1a71-4b71-8ae9-31a9184f3845",
+  "account": {
+    "provider": "trading212",
+    "environment": "LIVE",
+    "syntheticLabelPrefix": "S26.2 T212 Live S33 QA-01",
+    "connectionId": "6cc2985e-b091-470f-9a63-5cd2a9584f31",
+    "providerOrderId": "9007199254740996"
+  },
+  "fixtureBoundary": "Disposable Rust-backed workspace, synthetic Trading 212 account/order and local fake Order Gateway only; no real credentials or provider endpoint.",
+  "test": {
+    "path": "tests/s33-qa01-cancel-through-arming-playwright.js",
+    "sha256": "b6c239dcefbdc26d2c7245835c04bc19e4555137539b3b925840f69da541ea5b"
+  },
+  "sourceHashes": {
+    "src/Accounts.tsx": "f068df5c75224f2f24518d1a312a13beebdd0bf9210c621bb6edd4d92996a887"
+  },
+  "preApprovalFillRace": {
+    "intentInvalidationReason": "ORDER_NOT_CANCELLABLE",
+    "terminalOrderRemovedFromOpenOrders": true,
+    "approvals": 0,
+    "rejections": 0,
+    "gatewayRequests": 0
+  },
+  "armAndReject": {
+    "sameIntentIdAfterExplicitArm": true,
+    "sameIntentHashAfterExplicitArm": true,
+    "riskDecision": "ALLOWED",
+    "rejectionPersistedAgainstIntent": true
+  },
+  "approvedCancellation": {
+    "operation": "CANCEL",
+    "intentId": "cancel:551aaf3a-1c68-4559-a7bf-845434e65f44",
+    "intentHash": "sha256:2359f22811c0c680faa8e541ad7b8dc637c09ffad3ed62003723976fa5fa4109",
+    "remainingQuantity": "0.75",
+    "preparationState": "CANCEL_PENDING",
+    "proposalId": null,
+    "reservationId": null,
+    "placeCapacityReservation": null,
+    "gatewayMutation": {
+      "method": "DELETE",
+      "path": "/api/v0/equity/orders/9007199254740996",
+      "count": 1
+    },
+    "approvalCardViewport": {
+      "width": 390,
+      "documentHorizontalOverflow": false,
+      "screenshot": {
+        "path": "docs/implementation/evidence/s33/qa01-cancel-pending-390.png",
+        "bytes": 46136
+      }
+    }
+  },
+  "providerConfirmedFillRace": {
+    "attemptState": "CANCEL_PENDING",
+    "providerStatus": "FILLED",
+    "disposition": "TERMINAL",
+    "remainingQuantity": "0",
+    "gatewayDeleteCountAfterRefresh": 1
+  },
+  "externalHttpRequests": 0,
+  "consoleErrors": 0,
+  "pageErrors": 0,
+  "rateLimitHandling": "The test allows one five-second shared Trading 212 read interval after approval so the Gateway account-summary read can proceed while the 30-second approval remains valid.",
+  "limitations": [
+    "Synthetic local fixtures do not verify real Trading 212 authentication, rate limits, provider responses, or live order behavior.",
+    "QA-02 through QA-13, native VoiceOver, full 70-screen acceptance, and overall S33 acceptance remain open."
+  ]
+}

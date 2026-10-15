@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-10-01T07:40:48.169353+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "delivery": "Uncommitted #116 quote/risk stage, external synthetic vault/HTTP and actual loopback WebSocket tests only. Current native saved-account display is separate from pending fresh provider reads.",
+  "checks": {
+    "defaultRustTargeted": "22 passed",
+    "relatedLibraryRegressions": "3 passed: exact slippage, full timestamp precision, disarmed/untrusted time/stale market approval",
+    "integrationSourceAndHot": "23 passed: 12 source plus 11 actual TCP Hot",
+    "desktopCheckAndBuild": "PASS",
+    "schemaTypeFmtDiffPlanningTraceFinalIntegrationBuild": "PASS",
+    "publicUI": "No new approval-provenance UI proof in this stage"
+  },
+  "redEvidence": [
+    "Fresh authoritative quote-only SIP was rejected because lastPrice was absent",
+    "Legacy opt-in Live fixture replaced the explicitly selected source in public risk/review"
+  ],
+  "verifiedCases": [
+    "Valid current SIP quote freshness and displayed-depth slippage pass without last trade",
+    "Exact expected BUY spend is 500.4 for ask 250.2 and quantity 2",
+    "IEX/delayed/non-regular/insufficient-depth/policy-stale quotes remain non-executable",
+    "Foreign venue rejected before proposal creation",
+    "Source changes alter review material for the same immutable proposal",
+    "Last-trade-dependent limit-price deviation remains unavailable",
+    "Independent arming/calendar/tradability gates block approval; history empty; zero broker writes",
+    "Explicit source supersedes legacy opt-in fixture in separate-process regression"
+  ],
+  "nativeObservation": {
+    "mode": "ordinary desktop feature build, no integration feature or synthetic provider/vault",
+    "signedTemporaryAppPath": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-quote-native-6ki1_xqb/TradeX.app",
+    "status": "Saved accounts restored; fresh Alpaca read pending current macOS Keychain authentication. Sample confirms SecItemCopyMatching. No fresh account/provider PASS.",
+    "unsignedDesktopSha256": "7bd528206b29574733e3849937d963f1e3f4d2589183516cb12fdb87d3a91729",
+    "signedDesktopSha256": "653c975ae60e01f076fcd8c388c718fad12868066516e08d0b1b8edc3911aa60"
+  },
+  "remaining": [
+    "Approval provenance UI evidence and remaining producer fault/cancellation/metadata/clock cases",
+    "Current ordinary native Keychain authentication and hosted selected-feed/quote/Hot read evidence",
+    "Positive Prepare/dispatch consent evidence without bypassing independent original S28 gates",
+    "Final full-ticket suite and serial Standards then Spec review",
+    "Original S28 financial gates/map acceptance; S17/S27 still open and scheduling-skipped"
+  ],
+  "runtimeBinarySha256": "6b29aac448067a78191530a1639b3fd53846ee8d167b2c10c28b4df5602078b5",
+  "sha256": {
+    "src-tauri/src/risk.rs": "65737e728df33743e2438b35710aff5ce24543f9303e399495b48f38681bfb14",
+    "src-tauri/src/lib.rs": "56d73cab6230074f07ed99333c4110862566c94559d183d4767d663d0245482e",
+    "src-tauri/src/quote_source.rs": "c76fed08d9402b018d61b07480d508a516ffe1ea721792cd48b32dcf291a1a4b",
+    "src-tauri/src/quote_source/hot.rs": "2c525ae2ccfe7e330908c1cb35a41291f71b7785ee1c5d99c360e55508cbddfb",
+    "src-tauri/src/main.rs": "2a8be8e34253e98c1b28dcf6654efd6f5f89bdd830ecbdc43f9b705930d26e11",
+    "src-tauri/tests/data_sources.rs": "a58988821e6ff998f572b2b18d9c95386c79cb395bff177a1e3796a9c50d2e24",
+    "src-tauri/tests/quote_hot.rs": "e52a643084f9c0b29c018b6b52b36bd6c22c96b0c1006e5dfb428a745c1059f3",
+    "docs/TradeX_PRD_v1.0_RevC.md": "dd0a7737604ce0bdc39dde33c52a7ca760483b84567267ed00ff0a2a65169cea",
+    "docs/zh/TradeX_PRD_v1.0_RevC_zh.md": "32cf80c6bca84df0f68eb68da704aab158c980dbea978019f7eaf92e44ac6e11",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "39e46143b8fbf29a3d1dbe54648b853e20c87ecd9cae4643069a66dc65b5a307",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "91c9e4764128f03332ec650aaec094c2a3878317db8e0ad3dae79a63e6e01071",
+    "docs/implementation/s28-alpaca-production-quotes.md": "56bbd5188cdcebc98845cb171fa6cc3ec5f20fefad4addd6c966bc3107fe9419",
+    "docs/implementation/s28-alpaca-production-quotes_zh.md": "3f53571ae8887acb40ca0e584329ce5b14e5f684055257815b9b1c3bba31fe90",
+    "docs/implementation/evidence/s28-source-progress/quote-risk-check.txt": "0838ddde9f6f1f98c1305a05397ee623d339e687bd0cf8723b0291700f1fa89d"
+  }
+}

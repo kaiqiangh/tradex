@@ -1,0 +1,38 @@
+S29.11 AC5 prerequisite investigation — 2026-10-12
+
+Official Binance Spot WebSocket API account documentation:
+https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/ws-api/account
+
+Additional Binance Support fee guidance:
+https://www.binance.com/en/support/faq/detail/115000583311
+https://www.binance.com/en-ZA/support/faq/detail/e85d6e703b874674840122196b89780a
+
+The pre-trade `account.commission` response documents standard, tax and special
+rates plus the BNB discount flags, `discountAsset`, and discount multiplier. It
+does not declare the asset that a future fill will actually debit. The same
+official page's `myTrades` response includes `commission` and `commissionAsset`
+for completed trades. This confirms the RevC distinction: the pre-trade current
+fee model is a scenario, while the actual fill asset is post-trade evidence.
+
+The support guidance describes received-asset fees by default, discounted BNB
+when BNB deduction applies, original fees when BNB is insufficient, and warns
+that the pre-fill estimate is reference-only because final filled amounts are
+not known. This supports considering a disclosed conditional-outcome set, but it
+is neither a unique pre-fill fee-asset declaration nor a guaranteed fee cap.
+
+AC5 already has public evidence for the exact BASE/QUOTE/BNB rows, original
+free/locked values, the account-read start/first-receipt/digest, account and
+Proposal binding, and retirement on missing/duplicate rows. The public
+`owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch`
+test currently observes zero local claims. Active same-account claim subtraction
+is covered only by the private helper test
+`active_non_bnb_place_reservation_keeps_discounted_bnb_funding_unresolved`.
+
+The public path cannot create a new active Binance reservation while the future
+fee asset is unknown: the owning statement stays unavailable and
+`trade.execution.prepare` requires an eligible, current approval. Constructing
+or inserting a reservation directly would violate the ticket's no-seeded-finance
+rule. Therefore this investigation does not satisfy AC5 and must not be used to
+check its acceptance box. The actual Alpaca account/source-use also remains
+UNRESOLVED and `FX_DATA_USE_RIGHTS` remains UNVERIFIED; no real provider/account
+read or financial action was performed.

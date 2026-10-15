@@ -1,0 +1,35 @@
+
+running 1 test
+
+running 1 test
+test interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope ... FAILED
+
+failures:
+
+failures:
+    interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 84 filtered out; finished in 0.13s
+
+test interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope ... FAILED
+
+failures:
+
+failures:
+    interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 84 filtered out; finished in 0.38s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.28s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope' (11839338) panicked at src-tauri/tests/binance_rules.rs:115:5:
+assertion failed: fresh.iter().any(|p|
+        p == "/api/v3/exchangeInfo?symbol=ETHUSDT&showPermissionSets=true")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope' (11839333) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_eth_proposal_uses_derived_eth_definitions_and_the_same_account_wide_counter_scope
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

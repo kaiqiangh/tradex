@@ -1,0 +1,30 @@
+{
+  "planningHead": "1d24523158674d2763d50bee49150e8ff9d808d6",
+  "reviewBaseline": "2368e22122b2028e92f4c3352c2f08fe80e1344a",
+  "sourceState": "uncommitted implementation worktree",
+  "runtimeFiles": {
+    "src-tauri/src/spot_proposal_rules.rs": "38a40abc5474ae64da297453fdfcba14608405e747430bda5d788f08a433c76c",
+    "src-tauri/src/lib.rs": "9478cf560f70903da01f0516a5f8af2cd64d43d5690a6623dceee350fe7b3aec",
+    "src-tauri/src/binance.rs": "3b9e47f7429c3eb54324ff6000bf1730962f8dfa7a31676fa9709d865b367479",
+    "src-tauri/src/financial_sources.rs": "81d85191609b059a818927d57a4e92157877bad816900b406df4e4bdf8fc2249",
+    "src-tauri/src/protocol.rs": "73d89be9dcc49ee665229cd218acf6f2bbbe25e91762668ebf62e0ee4d757aca",
+    "src-tauri/src/risk.rs": "6c462b7c7059447b75848aee5e009edca68a94a15a0b9035ba1d7fd1f0691a73",
+    "src-tauri/src/main.rs": "7abdf14b74879fcd33ecaae6844450096f19dc4e34f400571e880f655c2c3fd7",
+    "src-tauri/src/bin/ipc.rs": "cd482008e6001e54833997f9f34b0e244b7520be3ffe04e798188cd49af1d98c",
+    "src-tauri/tests/binance_rules.rs": "8d2ac8e24db0bcba4b4e766b1aa38ed77b06abcf69f03da737cbc78bea954486",
+    "src-tauri/tests/support/provider_fixtures.rs": "e3e7a9d4a95404006aa6280accac1ca9e1e02b5d4f1a33e87c83865ecc6491eb",
+    "src/SpotProposalRules.tsx": "ed0387949d13a33177a5d7e8f3a8173d3d39f015d954d71b04e14a8fd895def9",
+    "src/OrderDrafts.tsx": "c168ec2547e3ceb35dedfccea6060fbcae953e4ffc961f238ba60d3f57cb0bff",
+    "src/client.ts": "f7f4a1576fb76009fc51f8996a3d858819e0b5ba83ef1550fb16e9e1a8da3db5",
+    "src/styles.css": "b59e9dda7f0680320f752366d9c4439fdb6639b11edadebbd6b9baa73cec46d9",
+    "tests/spot-proposal-rules-ui.mjs": "594ebc9d13db63a29182315094ae66861bf9ea4c4f9456000c9e249daa7be169",
+    "shared/ipc-types.ts": "d5f10f83e89ed36aabce213daae070b54a0e74857516b90da47a4b91c05a1b29",
+    "shared/ipc-v1.schema.json": "548f2d922f031851466d93dc3cd54d5d5a5834ff1daafd71ccf5408abf64bfe4",
+    "shared/ipc-validators.js": "984f8862589e1821f13a46b2805b7666f7a29b62352ea3002553de7806d6958a",
+    "shared/ipc-validators.d.ts": "ebd4ca6c2b9729f953f76a025e21f8156cb5d91a9bde936aae3c69b4beac74b1"
+  },
+  "seam": "public React -> typed Rust -> temp SQLite/outbox -> external HTTP/vault; no positive CP financial/reference seeds",
+  "providerFinancialAcceptance": false,
+  "prototypeChanged": false,
+  "mainChanged": false
+}

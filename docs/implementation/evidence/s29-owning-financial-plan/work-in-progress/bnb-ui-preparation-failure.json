@@ -1,0 +1,6 @@
+{
+  "stage": "BEFORE_FUNDING_UI_IMPLEMENTATION",
+  "name": "Error",
+  "message": "Error: Playwright selector deadline exceeded\nlocator.waitFor(visible) timed out for selector internal:role=region[name=\"Current Proposal Spot capacity inputs\"s] >> internal:text=\"not observed \u00b7 Read-only inputs \u00b7 Execution qualification unavailable\"s\nLocator diagnostics: {\"kind\":\"no_matches\",\"action\":\"waitFor\",\"locator\":\"internal:role=region[name=\\\"Current Proposal Spot capacity inputs\\\"s] >> internal:text=\\\"not observed \u00b7 Read-only inputs \u00b7 Execution qualification unavailable\\\"s\",\"matchCount\":0,\"matches\":[],\"visibleCount\":0,\"truncated\":false}",
+  "classification": "PREPARATION_TIMEOUT_NOT_EXPECTED_UI_RED"
+}

@@ -1,0 +1,57 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.24s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 7 tests
+test symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification ... 
+running 1 test
+test symbol_commission_changes_bind_review_and_preserve_captured_history_without_qualification ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.20s
+
+ok
+test symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority ... 
+running 1 test
+test symbol_commission_collects_all_declared_families_for_the_exact_account_without_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.12s
+
+ok
+test symbol_commission_expires_without_renewal_and_captured_history_survives_reopen ... 
+running 1 test
+test symbol_commission_expires_without_renewal_and_captured_history_survives_reopen ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 6.20s
+
+ok
+test symbol_commission_identity_and_provider_failures_never_reuse_an_older_success ... 
+running 1 test
+test symbol_commission_identity_and_provider_failures_never_reuse_an_older_success ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.24s
+
+ok
+test symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source ... 
+running 1 test
+test symbol_commission_invalid_discount_and_incomplete_declarations_retire_the_previous_source ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.20s
+
+ok
+test symbol_commission_late_source_generation_and_renderer_authority_are_refused ... 
+running 1 test
+test symbol_commission_late_source_generation_and_renderer_authority_are_refused ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.11s
+
+ok
+test symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified ... 
+running 1 test
+test symbol_commission_unknown_active_terms_and_discount_conditions_stay_unqualified ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.16s
+
+ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 105 filtered out; finished in 8.97s
+

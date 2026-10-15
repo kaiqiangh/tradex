@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-01T09:06:28.449140+00:00",
+  "results": [
+    {
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "exitCode": 0,
+      "seconds": 123.46
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--features",
+        "integration-test order-gateway-runtime"
+      ],
+      "exitCode": 101,
+      "seconds": 86.39
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "screenId": "C3",
+  "title": "Screener Result",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T17:10:13Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 109,
+    "sha256": "ed6042ab31b744ae1463b5f908ac3a85ca1c7c212e0dd22317f22224b6cf8cb2"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "tests/s33-screener-status-announcements-playwright.js",
+    "helperSha256": "b904fe13e658e5246d44cab4c64907bf215608798085004065c4cef3784654bf",
+    "helperSyntaxCheck": "PASS",
+    "updatedHelperRun": "NOT_RUN; direct UI assertions were performed in CUA",
+    "priorInstrumentedC3Run": "The paired evidence records the earlier Playwright run with zero external HTTP requests and a 390 px screenshot."
+  },
+  "harness": "Rust-backed local integration Vite on 127.0.0.1:1426, one disposable workspace",
+  "workspaceId": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+  "fixtureOnly": true,
+  "assertions": {
+    "completed": {
+      "status": "COMPLETED · 2 candidates",
+      "canonicalCandidates": [
+        "equity:US:MSFT",
+        "equity:US:AAPL"
+      ],
+      "viewports": [1280, 768, 390],
+      "noDocumentOverflow": true,
+      "candidateCardsFit": true,
+      "selectionAndDetailControlsReachable": true
+    },
+    "empty": {
+      "status": "EMPTY · 0 candidates",
+      "candidates": 0,
+      "viewport": 768,
+      "noDocumentOverflow": true
+    },
+    "unsupportedFilter": {
+      "status": "FAILED · 0 candidates",
+      "oldInspectionCleared": true,
+      "runDisabled": true,
+      "viewport": 390,
+      "noDocumentOverflow": true
+    },
+    "blockedExternal": {
+      "status": "BLOCKED EXTERNAL · 0 candidates",
+      "candidates": 0,
+      "unavailableExplanationVisible": true,
+      "viewport": 1280,
+      "noDocumentOverflow": true
+    },
+    "retryAfterBlockedExternal": "COMPLETED · 2 candidates after the test-only block was reset",
+    "keyboardAttach": {
+      "spaceSelectsCanonicalMSFT": true,
+      "explicitAttachCreatesThreadContext": "instrument:equity:US:MSFT",
+      "turnStartCount": 0,
+      "sendDisabledForEmptyRequest": true
+    }
+  },
+  "commands": {
+    "cursorStart": 684,
+    "cursorEnd": 781,
+    "localCommandCount": 97,
+    "marketScreenCommands": 11,
+    "screenerAttachCommands": 1,
+    "threadCreateCommands": 1,
+    "turnStartCommands": 0,
+    "forbiddenProviderModelDataTradeOrderGatewayCommands": 0,
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "The direct CUA replay did not instrument external HTTP or page errors; the earlier instrumented C3 browser run remains the evidence for zero external HTTP.",
+    "The expanded Playwright helper was syntax-checked but not run after the edit.",
+    "DOM/ARIA observations do not replace spoken VoiceOver verification; native accessibility, full S11, and the complete 70-screen S33 acceptance remain open."
+  ]
+}

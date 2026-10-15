@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.62s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test fx_source_reuses_explicit_saved_key_and_reopens_without_authority ... FAILED
+
+failures:
+
+---- fx_source_reuses_explicit_saved_key_and_reopens_without_authority stdout ----
+
+thread 'fx_source_reuses_explicit_saved_key_and_reopens_without_authority' (5332912) panicked at src-tauri/tests/financial_sources.rs:2670:5:
+assertion `left == right` failed: FX source selection is unavailable: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"financial-source","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    fx_source_reuses_explicit_saved_key_and_reopens_without_authority
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `--test financial_sources`

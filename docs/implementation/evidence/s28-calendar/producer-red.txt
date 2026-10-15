@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.35s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-575b90bc4724c9bb)
+
+running 1 test
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... FAILED
+
+failures:
+
+---- authenticated_calendar_reaches_market_without_making_other_capabilities_ready stdout ----
+
+thread 'authenticated_calendar_reaches_market_without_making_other_capabilities_ready' (680204) panicked at src-tauri/tests/calendar_source.rs:92:5:
+assertion `left == right` failed: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"calendar-refresh","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    authenticated_calendar_reaches_market_without_making_other_capabilities_ready
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test calendar_source`

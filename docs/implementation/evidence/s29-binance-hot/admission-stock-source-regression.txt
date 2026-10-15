@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.54s
+     Running tests/data_sources.rs (target/debug/deps/data_sources-e5cf9e37971b7a29)
+
+running 16 tests
+test a_late_successful_probe_cannot_replace_a_newer_feed_denial_or_trigger_fallback ... ok
+test cancelled_and_stale_secure_entry_preserve_the_current_selection_and_restart_never_verifies_it ... ok
+test catalog_and_credentialed_probe_are_scoped_and_read_only ... ok
+test configured_sip_quote_only_evidence_reaches_public_risk_and_review_without_granting_authority ... ok
+test dedicated_data_key_is_native_only_and_disconnect_reports_owned_key_cleanup ... ok
+test interrupted_keychain_write_is_visible_after_restart_and_can_only_clean_its_owned_key ... ok
+test legacy_live_fixture_cannot_override_an_explicitly_configured_quote_source ... ok
+test non_regular_or_mismatched_tape_c_conditions_cannot_supply_execution_depth ... ok
+test object_valued_http_quote_price_never_becomes_a_market_snapshot ... ok
+test quote_http_auth_denial_and_quota_retire_evidence_without_fallback_or_cooldown_storm ... ok
+test quote_receipt_precedes_slow_metadata_and_future_on_arrival_stays_rejected ... ok
+test selected_feed_is_verified_through_the_actual_read_only_http_boundary_and_reopen_clears_it ... ok
+test selected_quote_source_has_independent_configuration_and_retains_no_live_readiness ... ok
+test selected_sip_quotes_reach_market_with_exact_provenance_and_identical_reads_keep_receipt ... ok
+test source_secure_entry_rejects_untrusted_consumers_and_renderer_secrets_before_capture ... ok
+test user_can_reuse_an_alpaca_reference_and_reopen_the_explicit_feed_without_entitlement ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.68s
+

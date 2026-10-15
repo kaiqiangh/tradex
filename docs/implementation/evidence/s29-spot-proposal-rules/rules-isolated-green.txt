@@ -1,0 +1,217 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.99s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 30 tests
+
+running 1 test
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+
+running 1 test
+test collected_constraints_name_the_unresolved_per_order_obligations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.10s
+
+test collected_constraints_name_the_unresolved_per_order_obligations ... ok
+
+running 1 test
+test authentication_reflections_are_rejected_before_typed_projection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test authentication_reflections_are_rejected_before_typed_projection ... ok
+
+running 1 test
+test clock_revalidation_and_reopen_retire_active_rule_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.11s
+
+test clock_revalidation_and_reopen_retire_active_rule_evidence ... ok
+
+running 1 test
+test base_market_notional_requests_its_required_reference_and_keeps_base_units ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test base_market_notional_requests_its_required_reference_and_keeps_base_units ... ok
+
+running 1 test
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.11s
+
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+
+running 1 test
+test current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding ... ok
+
+running 1 test
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... ok
+
+running 1 test
+test elapsed_receipt_expires_rules_without_renewing_retained_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 30.21s
+
+test elapsed_receipt_expires_rules_without_renewing_retained_evidence ... ok
+
+running 1 test
+test empty_collected_constraints_cannot_qualify_an_ordinary_spot_proposal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test empty_collected_constraints_cannot_qualify_an_ordinary_spot_proposal ... ok
+
+running 1 test
+test explicit_null_reference_uses_only_matching_average_interval ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test explicit_null_reference_uses_only_matching_average_interval ... ok
+
+running 1 test
+test explicit_required_reference_read_qualifies_only_its_bound_percentage_rule ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test explicit_required_reference_read_qualifies_only_its_bound_percentage_rule ... ok
+
+running 1 test
+test future_reference_time_is_not_accepted_as_a_new_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test future_reference_time_is_not_accepted_as_a_new_receipt ... ok
+
+running 1 test
+test identical_reference_cannot_renew_first_receipt_or_financial_freshness ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 3.23s
+
+test identical_reference_cannot_renew_first_receipt_or_financial_freshness ... ok
+
+running 1 test
+test immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations ... ok
+
+running 1 test
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+
+running 1 test
+test mixed_reference_intervals_qualify_only_their_own_rules ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test mixed_reference_intervals_qualify_only_their_own_rules ... ok
+
+running 1 test
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.12s
+
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... ok
+
+running 1 test
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.18s
+
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+
+running 1 test
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.11s
+
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... ok
+
+running 1 test
+test public_reference_ip_ban_retires_price_and_honors_shared_cooldown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 1.11s
+
+test public_reference_ip_ban_retires_price_and_honors_shared_cooldown ... ok
+
+running 1 test
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.07s
+
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+
+running 1 test
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.11s
+
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+
+running 1 test
+test quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity ... ok
+
+running 1 test
+test reference_deadline_retires_prior_input_without_blocking_control_plane_reads ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 10.13s
+
+test reference_deadline_retires_prior_input_without_blocking_control_plane_reads ... ok
+
+running 1 test
+test refused_reference_read_retires_previous_price_and_never_calls_average_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.10s
+
+test refused_reference_read_retires_previous_price_and_never_calls_average_fallback ... ok
+
+running 1 test
+test rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64 ... ok
+
+running 1 test
+test unpopulated_permission_sets_never_grant_account_admission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.10s
+
+test unpopulated_permission_sets_never_grant_account_admission ... ok
+
+running 1 test
+test unsupported_provider_order_form_rejects_the_unchanged_proposal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.08s
+
+test unsupported_provider_order_form_rejects_the_unchanged_proposal ... ok
+
+running 1 test
+test zero_interval_uses_original_last_trade_time_only_after_explicit_null ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.09s
+
+test zero_interval_uses_original_last_trade_time_only_after_explicit_null ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 54.66s

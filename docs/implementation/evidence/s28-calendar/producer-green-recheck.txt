@@ -1,0 +1,17 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: use of deprecated function `time::format_description::parse`: use `parse_borrowed` with the appropriate version for clarity
+   --> src-tauri/src/calendar_source.rs:144:44
+    |
+144 |     Date::parse(value,&format_description::parse("[year]-[month]-[day]").map_err(|_|invalid())?).map_err(|_|invalid())
+    |                                            ^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: `tradex` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.72s
+     Running tests/calendar_source.rs (target/debug/deps/calendar_source-575b90bc4724c9bb)
+
+running 1 test
+test authenticated_calendar_reaches_market_without_making_other_capabilities_ready ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.08s

@@ -1,9 +1,12 @@
+import type { ThreadLifecycle, SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxLocalUseAttestationCommand, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { subscribeBrowserEvents } from './browserEvents.ts';
-import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, LiveOrderRefreshRequest, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
+import { describeCanonicalRecovery } from './errorRecovery.ts';
+import type { Artifact, ArtifactExport, ArtifactExportResult, ArtifactLibrary, ArtifactQuery, ArtifactSave, ChatgptLogin, ConfigureDeepseek, GatewayMutation, GatewayState, DomainEvent, AccountConnection, AccountDeletionReceipt, AccountMutation, AccountArmingMutation, AccountQuery, Accounts, Connect, ModelState, ModelQuery, PermissionReview, ProviderCatalog, ProviderDefinition, ProviderSelection, SetDefaultModel, SetFallbackPolicy, CompleteOnboarding, RiskDecision, RiskDecisionEvaluate, RiskDecisionHistory, RiskDecisionQuery, RiskPolicyState, RiskQuery, SaveRiskPolicy, SetOnboardingStep, VerifyRoute, WorkspaceQuery, Aggregate, EmptyPayload, OpenWorkspace, ResultEnvelope, RuntimeStatus, Snapshot, Subscribe, SubscriptionAck, TradeXError, Workspace, Thread, ThreadCreate, ThreadList, ThreadQuery, TurnCancel, TurnRetry, TurnStart, CapabilityDecision, CapabilityQuery, ContextCatalog, ResearchToolRequest, ResearchToolResult, DataSourceCatalog, DataSourceProbe, DataSourceConnection, CalendarConnection, CalendarConfigure, DataSourceConfigure, DataSourceMutation, MarketCatalogQuery, MarketCatalog, MarketDetail, MarketGetQuery, HotQuoteAcquire, HotQuoteQuery, HotQuoteProjection, HotQuoteRelease, SpotFeeMarketAcquire, SpotFeeMarketProjection, PortfolioQuery, PortfolioSnapshot, LocalPaperState, PaperOrderResult, PaperOrderSubmit, PaperOrderCancel, PaperQuoteRefresh, PaperScenarioSet, Trading212DemoOrderAttempt, Trading212DemoOrderAttemptQuery, Trading212DemoOrderAttemptQueryResult, Trading212DemoOrderSubmit, Trading212DemoOrderCancel, AlpacaPaperOrderAttempt, AlpacaPaperOrderAttemptQuery, AlpacaPaperOrderAttemptQueryResult, AlpacaPaperOrderReconcile, AlpacaPaperOrderSubmit, AlpacaPaperOrderBook, AlpacaPaperOrderBookQuery, AlpacaPaperOrderBookQueryResult, AlpacaPaperOrderBookRefresh, AlpacaPaperOrderReview, AlpacaPaperOrderCancel, BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptQuery, BinanceTestnetOrderAttemptQueryResult, BinanceTestnetOrderReconcile, BinanceTestnetOrderSubmit, BinanceTestnetOrderBook, BinanceTestnetOrderBookQuery, BinanceTestnetOrderBookQueryResult, BinanceTestnetOrderBookRefresh, BinanceTestnetOrderCancel, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptQuery, BitgetDemoOrderAttemptQueryResult, BitgetDemoOrderReconcile, BitgetDemoOrderSubmit, Watchlist, Watchlists, WatchlistCreate, WatchlistRename, WatchlistDelete, WatchlistInstrumentMutation, TimeStatus, ScreenerRequest, ScreenerResult, ScreenerAttach, ScreenerAttachment, ScreenerLibrary, ScreenerSave, ScreenerUpdate, OrderDraft, OrderDraftLibrary, OrderDraftQuery, OrderDraftSave, OrderProposal, OrderProposalGenerate, OrderProposalQuery, OrderProposalLibrary, OrderProposalRefresh, OrderProposalRefreshResult, ApprovalAction, ApprovalReview, ApprovalReviewRequest, CancellationIntentRequest, CancellationReview, CancellationApprovalAction, CancellationApprovalHistoryQuery, CancellationApprovalHistory, LiveOrderRefreshRequest, FinancialApproval, FinancialApprovalHistory, FinancialApprovalHistoryQuery, ApprovalRejection, CancellationApprovalRejection, StrategyLibrary, StrategyQuery, StrategyRun, StrategyRunQuery, StrategyRunRequest, StrategySave, StrategyVersion, StrategyCancel, BacktestComparison, BacktestLibrary, BacktestRun, BacktestRunQuery, BacktestRunRequest, BacktestCompareRequest, BacktestCancel } from '../shared/ipc-types.ts';
 import { decode } from './projection.ts';
-import type { ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest, ManualResolutionRequest, ResolutionEvidenceQuery, ResolutionEvidenceQueryResult, ResolutionEvidenceRefresh } from '../shared/ipc-types.ts';
+import type { ExecutionOrderLinks, ExecutionOrderLinksQuery, ExecutionPreparation, ExecutionPreparationQuery, ExecutionPreparationQueryResult, ExecutionPrepareRequest, ManualResolutionRequest, ResolutionEvidenceQuery, ResolutionEvidenceQueryResult, ResolutionEvidenceRefresh } from '../shared/ipc-types.ts';
 import type { Trading212DemoOrderBook, Trading212DemoOrderBookQuery, Trading212DemoOrderBookQueryResult, Trading212DemoOrderBookRefresh } from '../shared/ipc-types.ts';
+import type { WorkspaceArchiveExport, WorkspaceArchivePreviewRequest, WorkspaceArchiveRestoreRequest, WorkspaceArchiveExportResult, WorkspaceArchivePreview, WorkspaceArchiveRestoreResult, WorkspaceRetention, WorkspaceRetentionQuery, WorkspaceRetentionUpdate } from '../shared/ipc-types.ts';
 
 interface Inputs {
   'model.get_gateway': WorkspaceQuery;
@@ -16,6 +19,14 @@ interface Inputs {
   'model.set_fallback_policy': SetFallbackPolicy;
   'risk.get_policy': RiskQuery;
   'risk.evaluate_proposal': RiskDecisionEvaluate;
+  'trade.spot_rules.refresh': SpotRulesRefresh;
+  'trade.spot_rules.get': SpotRulesQuery;
+  'trade.spot_order_intervals.get': SpotRulesQuery;
+  'trade.spot_order_intervals.refresh': SpotRulesRefresh;
+  'trade.spot_commission.get': SpotRulesQuery;
+  'trade.spot_commission.refresh': SpotRulesRefresh;
+  'trade.spot_capacity.get': SpotRulesQuery;
+  'trade.spot_capacity.refresh': SpotRulesRefresh;
   'risk.decision.list': RiskDecisionQuery;
   'risk.save_policy': SaveRiskPolicy;
   'onboarding.set_step': SetOnboardingStep;
@@ -62,6 +73,13 @@ interface Inputs {
   'bitget.demo.order.attempt.get': BitgetDemoOrderAttemptQuery;
   'bitget.demo.order.reconcile': BitgetDemoOrderReconcile;
   'workspace.open': OpenWorkspace;
+  'workspace.archive.backup': WorkspaceQuery;
+  'workspace.archive.export': WorkspaceArchiveExport;
+  'workspace.archive.preview': WorkspaceArchivePreviewRequest;
+  'workspace.archive.restore': WorkspaceArchiveRestoreRequest;
+  'workspace.retention.get': WorkspaceRetentionQuery;
+  'workspace.retention.set': WorkspaceRetentionUpdate;
+  'workspace.retention.apply': WorkspaceRetentionQuery;
   'runtime.status': EmptyPayload;
   'time.status': WorkspaceQuery;
   'time.revalidate': WorkspaceQuery;
@@ -70,16 +88,53 @@ interface Inputs {
   'thread.list': WorkspaceQuery;
   'thread.get': ThreadQuery;
   'thread.create': ThreadCreate;
+  'thread.archive': ThreadLifecycle;
+  'thread.restore': ThreadLifecycle;
   'turn.start': TurnStart;
   'turn.cancel': TurnCancel;
   'turn.retry': TurnRetry;
   'agent.capabilities': CapabilityQuery;
   'context.catalog': WorkspaceQuery;
   'research.run': ResearchToolRequest;
+  'data.fx.connection': WorkspaceQuery;
+  'data.fx.configure': FinancialSourceConfigure;
+  'data.fx.attest_local_use': FxLocalUseAttestationCommand;
+  'data.fx.disconnect': DataSourceMutation;
+  'data.fx.refresh': FxSourceRefresh;
+  'data.fx.requirements': FxRequirementsQuery;
+  'data.actions.connection': WorkspaceQuery;
+  'data.actions.configure': FinancialSourceConfigure;
+  'data.actions.disconnect': DataSourceMutation;
+  'data.actions.refresh': DataSourceMutation;
+  'data.binance_market.connection': WorkspaceQuery;
+  'data.binance_market.configure': DataSourceMutation;
+  'data.binance_market.disconnect': DataSourceMutation;
+  'data.binance_rules.connection': WorkspaceQuery;
+  'data.binance_rules.configure': BinanceRuleSourceConfigure;
+  'data.binance_rules.disconnect': DataSourceMutation;
+  'data.binance_rules.refresh': DataSourceMutation;
+  'data.instrument.connection': WorkspaceQuery;
+  'data.instrument.configure': FinancialSourceConfigure;
+  'data.instrument.disconnect': DataSourceMutation;
+  'data.instrument.refresh': DataSourceMutation;
+  'data.calendar.connection': WorkspaceQuery;
+  'data.calendar.configure': CalendarConfigure;
+  'data.calendar.disconnect': DataSourceMutation;
+  'data.calendar.refresh': DataSourceMutation;
+  'data.source.connection': WorkspaceQuery;
+  'data.source.configure': DataSourceConfigure;
+  'data.source.disconnect': DataSourceMutation;
+  'data.source.cleanup': WorkspaceQuery;
   'data.source.catalog': WorkspaceQuery;
   'data.source.probe': DataSourceProbe;
   'market.catalog': MarketCatalogQuery;
   'market.get': MarketGetQuery;
+  'market.hot.acquire': HotQuoteAcquire;
+  'market.hot.get': HotQuoteQuery;
+  'market.hot.release': HotQuoteQuery;
+  'trade.spot_fee_market.acquire': SpotFeeMarketAcquire;
+  'trade.spot_fee_market.get': HotQuoteQuery;
+  'trade.spot_fee_market.release': HotQuoteQuery;
   'market.screen': ScreenerRequest;
   'screener.list': WorkspaceQuery;
   'screener.save': ScreenerSave;
@@ -96,6 +151,7 @@ interface Inputs {
   'trade.approve': ApprovalAction;
   'trade.execution.prepare': ExecutionPrepareRequest;
   'trade.execution.preparation.get': ExecutionPreparationQuery;
+  'trade.execution.order_links': ExecutionOrderLinksQuery;
   'trade.resolution_evidence': ResolutionEvidenceQuery;
   'trade.resolution_evidence.refresh': ResolutionEvidenceRefresh;
   'trade.manual_resolution': ManualResolutionRequest;
@@ -140,6 +196,14 @@ interface Outputs {
   'model.set_fallback_policy': ModelState;
   'risk.get_policy': RiskPolicyState;
   'risk.evaluate_proposal': RiskDecision;
+  'trade.spot_rules.refresh': SpotProposalRules;
+  'trade.spot_rules.get': SpotProposalRules;
+  'trade.spot_order_intervals.get': SpotOrderIntervalInputs;
+  'trade.spot_order_intervals.refresh': SpotOrderIntervalInputs;
+  'trade.spot_commission.get': SpotCommissionInputs;
+  'trade.spot_commission.refresh': SpotCommissionInputs;
+  'trade.spot_capacity.get': SpotCapacityInputs;
+  'trade.spot_capacity.refresh': SpotCapacityInputs;
   'risk.decision.list': RiskDecisionHistory;
   'risk.save_policy': RiskPolicyState;
   'onboarding.set_step': RiskPolicyState;
@@ -186,6 +250,13 @@ interface Outputs {
   'bitget.demo.order.attempt.get': BitgetDemoOrderAttemptQueryResult;
   'bitget.demo.order.reconcile': BitgetDemoOrderAttempt;
   'workspace.open': Workspace;
+  'workspace.archive.backup': WorkspaceArchiveExportResult;
+  'workspace.archive.export': WorkspaceArchiveExportResult;
+  'workspace.archive.preview': WorkspaceArchivePreview;
+  'workspace.archive.restore': WorkspaceArchiveRestoreResult;
+  'workspace.retention.get': WorkspaceRetention;
+  'workspace.retention.set': WorkspaceRetention;
+  'workspace.retention.apply': WorkspaceRetention;
   'runtime.status': RuntimeStatus;
   'time.status': TimeStatus;
   'time.revalidate': TimeStatus;
@@ -194,16 +265,53 @@ interface Outputs {
   'thread.list': ThreadList;
   'thread.get': Thread;
   'thread.create': Thread;
+  'thread.archive': Thread;
+  'thread.restore': Thread;
   'turn.start': Thread;
   'turn.cancel': Thread;
   'turn.retry': Thread;
   'agent.capabilities': CapabilityDecision;
   'context.catalog': ContextCatalog;
   'research.run': ResearchToolResult;
+  'data.fx.connection': FinancialSourceConnection;
+  'data.fx.configure': FinancialSourceConnection;
+  'data.fx.attest_local_use': FinancialSourceConnection;
+  'data.fx.disconnect': FinancialSourceConnection;
+  'data.fx.refresh': FinancialSourceConnection;
+  'data.fx.requirements': FxRequirements;
+  'data.actions.connection': FinancialSourceConnection;
+  'data.actions.configure': FinancialSourceConnection;
+  'data.actions.disconnect': FinancialSourceConnection;
+  'data.actions.refresh': FinancialSourceConnection;
+  'data.binance_market.connection': BinanceMarketSourceConnection;
+  'data.binance_market.configure': BinanceMarketSourceConnection;
+  'data.binance_market.disconnect': BinanceMarketSourceConnection;
+  'data.binance_rules.connection': FinancialSourceConnection;
+  'data.binance_rules.configure': FinancialSourceConnection;
+  'data.binance_rules.disconnect': FinancialSourceConnection;
+  'data.binance_rules.refresh': FinancialSourceConnection;
+  'data.instrument.connection': FinancialSourceConnection;
+  'data.instrument.configure': FinancialSourceConnection;
+  'data.instrument.disconnect': FinancialSourceConnection;
+  'data.instrument.refresh': FinancialSourceConnection;
+  'data.calendar.connection': CalendarConnection;
+  'data.calendar.configure': CalendarConnection;
+  'data.calendar.disconnect': CalendarConnection;
+  'data.calendar.refresh': CalendarConnection;
+  'data.source.connection': DataSourceConnection;
+  'data.source.configure': DataSourceConnection;
+  'data.source.disconnect': DataSourceConnection;
+  'data.source.cleanup': DataSourceConnection;
   'data.source.catalog': DataSourceCatalog;
   'data.source.probe': DataSourceCatalog;
   'market.catalog': MarketCatalog;
   'market.get': MarketDetail;
+  'market.hot.acquire': HotQuoteProjection;
+  'market.hot.get': HotQuoteProjection;
+  'market.hot.release': HotQuoteRelease;
+  'trade.spot_fee_market.acquire': SpotFeeMarketProjection;
+  'trade.spot_fee_market.get': SpotFeeMarketProjection;
+  'trade.spot_fee_market.release': SpotFeeMarketProjection;
   'market.screen': ScreenerResult;
   'screener.list': ScreenerLibrary;
   'screener.save': ScreenerLibrary;
@@ -220,6 +328,7 @@ interface Outputs {
   'trade.approve': FinancialApproval;
   'trade.execution.prepare': ExecutionPreparation;
   'trade.execution.preparation.get': ExecutionPreparationQueryResult;
+  'trade.execution.order_links': ExecutionOrderLinks;
   'trade.resolution_evidence': ResolutionEvidenceQueryResult;
   'trade.resolution_evidence.refresh': ResolutionEvidenceQueryResult;
   'trade.manual_resolution': ResolutionEvidenceQueryResult;
@@ -264,6 +373,14 @@ const definitions = {
   'model.set_fallback_policy': ['SetFallbackPolicy', 'ModelState'],
   'risk.get_policy': ['RiskQuery', 'RiskPolicyState'],
   'risk.evaluate_proposal': ['RiskDecisionEvaluate', 'RiskDecision'],
+  'trade.spot_rules.refresh': ['SpotRulesRefresh', 'SpotProposalRules'],
+  'trade.spot_rules.get': ['SpotRulesQuery', 'SpotProposalRules'],
+  'trade.spot_order_intervals.get': ['SpotRulesQuery', 'SpotOrderIntervalInputs'],
+  'trade.spot_order_intervals.refresh': ['SpotRulesRefresh', 'SpotOrderIntervalInputs'],
+  'trade.spot_commission.get': ['SpotRulesQuery', 'SpotCommissionInputs'],
+  'trade.spot_commission.refresh': ['SpotRulesRefresh', 'SpotCommissionInputs'],
+  'trade.spot_capacity.get': ['SpotRulesQuery', 'SpotCapacityInputs'],
+  'trade.spot_capacity.refresh': ['SpotRulesRefresh', 'SpotCapacityInputs'],
   'risk.decision.list': ['RiskDecisionQuery', 'RiskDecisionHistory'],
   'risk.save_policy': ['SaveRiskPolicy', 'RiskPolicyState'],
   'onboarding.set_step': ['SetOnboardingStep', 'RiskPolicyState'],
@@ -310,6 +427,13 @@ const definitions = {
   'bitget.demo.order.attempt.get': ['BitgetDemoOrderAttemptQuery', 'BitgetDemoOrderAttemptQueryResult'],
   'bitget.demo.order.reconcile': ['BitgetDemoOrderReconcile', 'BitgetDemoOrderAttempt'],
   'workspace.open': ['OpenWorkspace', 'Workspace'],
+  'workspace.archive.backup': ['WorkspaceQuery', 'WorkspaceArchiveExportResult'],
+  'workspace.archive.export': ['WorkspaceArchiveExport', 'WorkspaceArchiveExportResult'],
+  'workspace.archive.preview': ['WorkspaceArchivePreviewRequest', 'WorkspaceArchivePreview'],
+  'workspace.archive.restore': ['WorkspaceArchiveRestoreRequest', 'WorkspaceArchiveRestoreResult'],
+  'workspace.retention.get': ['WorkspaceRetentionQuery', 'WorkspaceRetention'],
+  'workspace.retention.set': ['WorkspaceRetentionUpdate', 'WorkspaceRetention'],
+  'workspace.retention.apply': ['WorkspaceRetentionQuery', 'WorkspaceRetention'],
   'runtime.status': ['EmptyPayload', 'RuntimeStatus'],
   'time.status': ['WorkspaceQuery', 'TimeStatus'],
   'time.revalidate': ['WorkspaceQuery', 'TimeStatus'],
@@ -318,16 +442,53 @@ const definitions = {
   'thread.list': ['WorkspaceQuery', 'ThreadList'],
   'thread.get': ['ThreadQuery', 'Thread'],
   'thread.create': ['ThreadCreate', 'Thread'],
+  'thread.archive': ['ThreadLifecycle', 'Thread'],
+  'thread.restore': ['ThreadLifecycle', 'Thread'],
   'turn.start': ['TurnStart', 'Thread'],
   'turn.cancel': ['TurnCancel', 'Thread'],
   'turn.retry': ['TurnRetry', 'Thread'],
   'agent.capabilities': ['CapabilityQuery', 'CapabilityDecision'],
   'context.catalog': ['WorkspaceQuery', 'ContextCatalog'],
   'research.run': ['ResearchToolRequest', 'ResearchToolResult'],
+  'data.fx.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
+  'data.fx.configure': ['FinancialSourceConfigure', 'FinancialSourceConnection'],
+  'data.fx.attest_local_use': ['FxLocalUseAttestationCommand', 'FinancialSourceConnection'],
+  'data.fx.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.fx.refresh': ['FxSourceRefresh', 'FinancialSourceConnection'],
+  'data.fx.requirements': ['FxRequirementsQuery', 'FxRequirements'],
+  'data.actions.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
+  'data.actions.configure': ['FinancialSourceConfigure', 'FinancialSourceConnection'],
+  'data.actions.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.actions.refresh': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.binance_market.connection': ['WorkspaceQuery', 'BinanceMarketSourceConnection'],
+  'data.binance_market.configure': ['DataSourceMutation', 'BinanceMarketSourceConnection'],
+  'data.binance_market.disconnect': ['DataSourceMutation', 'BinanceMarketSourceConnection'],
+  'data.binance_rules.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
+  'data.binance_rules.configure': ['BinanceRuleSourceConfigure', 'FinancialSourceConnection'],
+  'data.binance_rules.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.binance_rules.refresh': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.instrument.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
+  'data.instrument.configure': ['FinancialSourceConfigure', 'FinancialSourceConnection'],
+  'data.instrument.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.instrument.refresh': ['DataSourceMutation', 'FinancialSourceConnection'],
+  'data.calendar.connection': ['WorkspaceQuery', 'CalendarConnection'],
+  'data.calendar.configure': ['CalendarConfigure', 'CalendarConnection'],
+  'data.calendar.disconnect': ['DataSourceMutation', 'CalendarConnection'],
+  'data.calendar.refresh': ['DataSourceMutation', 'CalendarConnection'],
+  'data.source.connection': ['WorkspaceQuery', 'DataSourceConnection'],
+  'data.source.configure': ['DataSourceConfigure', 'DataSourceConnection'],
+  'data.source.disconnect': ['DataSourceMutation', 'DataSourceConnection'],
+  'data.source.cleanup': ['WorkspaceQuery', 'DataSourceConnection'],
   'data.source.catalog': ['WorkspaceQuery', 'DataSourceCatalog'],
   'data.source.probe': ['DataSourceProbe', 'DataSourceCatalog'],
   'market.catalog': ['MarketCatalogQuery', 'MarketCatalog'],
   'market.get': ['MarketGetQuery', 'MarketDetail'],
+  'market.hot.acquire': ['HotQuoteAcquire', 'HotQuoteProjection'],
+  'market.hot.get': ['HotQuoteQuery', 'HotQuoteProjection'],
+  'market.hot.release': ['HotQuoteQuery', 'HotQuoteRelease'],
+  'trade.spot_fee_market.acquire': ['SpotFeeMarketAcquire', 'SpotFeeMarketProjection'],
+  'trade.spot_fee_market.get': ['HotQuoteQuery', 'SpotFeeMarketProjection'],
+  'trade.spot_fee_market.release': ['HotQuoteQuery', 'SpotFeeMarketProjection'],
   'market.screen': ['ScreenerRequest', 'ScreenerResult'],
   'screener.list': ['WorkspaceQuery', 'ScreenerLibrary'],
   'screener.save': ['ScreenerSave', 'ScreenerLibrary'],
@@ -344,6 +505,7 @@ const definitions = {
   'trade.approve': ['ApprovalAction', 'FinancialApproval'],
   'trade.execution.prepare': ['ExecutionPrepareRequest', 'ExecutionPreparation'],
   'trade.execution.preparation.get': ['ExecutionPreparationQuery', 'ExecutionPreparationQueryResult'],
+  'trade.execution.order_links': ['ExecutionOrderLinksQuery', 'ExecutionOrderLinks'],
   'trade.resolution_evidence': ['ResolutionEvidenceQuery', 'ResolutionEvidenceQueryResult'],
   'trade.resolution_evidence.refresh': ['ResolutionEvidenceRefresh', 'ResolutionEvidenceQueryResult'],
   'trade.manual_resolution': ['ManualResolutionRequest', 'ResolutionEvidenceQueryResult'],
@@ -441,7 +603,7 @@ export function explainError(error: unknown): string {
           : 'Refresh account evidence and review the request again.';
       return `RISK_REJECTED · RESERVED_CAPACITY — requested ${context.requestedAmount} ${context.unit}; ${source} ${context.capacityLimit} ${context.unit}; existing reservations ${context.existingReservations} ${context.unit}; effective capacity before this request ${context.effectiveAvailable} ${context.unit}. Next step: ${remediation}`;
     }
-    return error.message;
+    return describeCanonicalRecovery(error);
   }
   if (error instanceof Error && error.message === 'IPC_SCHEMA_INCOMPATIBLE') return 'The application and runtime are incompatible. Update them together before continuing.';
   if (error instanceof Error && error.message.startsWith('IPC_SEQUENCE')) return 'Updates were interrupted. Reload the workspace to recover authoritative state.';

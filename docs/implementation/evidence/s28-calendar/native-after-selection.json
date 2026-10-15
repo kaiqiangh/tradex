@@ -1,0 +1,20 @@
+{
+  "sampledAt": "2026-10-01T19:18:56.829642+00:00",
+  "schema": 33,
+  "accountCount": 4,
+  "calendarTablesPresent": [
+    "calendar_source_config",
+    "calendar_source_config_audit"
+  ],
+  "calendarConfigured": true,
+  "calendarGeneration": 1,
+  "calendarAuditCount": 1,
+  "automaticBeforeMigrationBackup": {
+    "schema": 32,
+    "accountCount": 4,
+    "createdAt": "2026-10-01T19:15:26.634686+00:00"
+  },
+  "hostedRead": "AWAITING_PROTECTED_KEYCHAIN_AUTH",
+  "keyOrAccountDeleted": false,
+  "financialActionPerformed": false
+}

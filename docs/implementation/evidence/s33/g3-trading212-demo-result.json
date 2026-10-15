@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "surface": "G3",
+  "title": "Trading 212 Demo synthetic UI regression",
+  "recordedDate": "2026-10-14",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "status": "IMPLEMENTED_UNVERIFIED",
+  "scope": "S33 local synthetic UI evidence only; no real Trading 212 endpoint or credentials",
+  "runner": "node /tmp/run-tradex-g3-only.mjs",
+  "check": "tests/provider-ui.mjs::checkProviderUI(tab, browser, 'trading212/DEMO')",
+  "workspace": "disposable local Rust-backed workspace",
+  "providerResponses": "in-process synthetic provider fixture",
+  "viewports": [
+    { "width": 1280, "height": 900 },
+    { "width": 768, "height": 900 },
+    { "width": 390, "height": 900 }
+  ],
+  "observed": [
+    "Connection setup shows the Demo environment and an explicit acknowledgement that account permissions are unverified.",
+    "Synthetic decimal order values are displayed without loss of precision.",
+    "The pre-existing partial order and completed history remain visible when an immediate history refresh is rate limited.",
+    "A proposal confirmation retains the exact order intent, states that extended-hours execution is unavailable, and distinguishes ACKNOWLEDGED from a fill.",
+    "Reload restores the persisted attempt without submitting a duplicate order and re-tests the saved Demo account before refreshing its order book.",
+    "Pending order 9007199254740995 is shown as PARTIALLY_FILLED with fill quantity 0.25, filled value 33.125 GBP, and remaining quantity 0.984567890123456789.",
+    "Order detail refresh and cancellation review respect endpoint cooldowns; Escape and dismissal leave the order unchanged, while one explicit cancellation request follows confirmation.",
+    "Cancellation review preserves exact account/order identity, traps focus, makes the background inert, and leaves the order pending after acknowledgement.",
+    "Account Health remains reachable without horizontal overflow at 768 px and 390 px; disconnect hides the local credential and disables refresh."
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "externalHttpRequests": [],
+  "notEstablished": [
+    "Official Trading 212 Demo authentication, account permissions, order placement, order history, fills, cancellation, and rate-limit behavior.",
+    "Real provider acceptance gate S18 #64.",
+    "Complete S18 lifecycle acceptance and overall S33 acceptance."
+  ],
+  "realProviderGate": "S18 #64 remains pending; no real provider calls were made."
+}

@@ -1,0 +1,19 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.14s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+thread 'collected_constraints_name_the_unresolved_per_order_obligations' (8848597) panicked at src-tauri/tests/binance_rules.rs:719:9:
+Unresolved constraint is not individually represented: PRICE_TICK_AND_BOUND_VALIDATION_REQUIRED: [String("PROPOSAL_SPECIFIC_RULE_VALIDATION_REQUIRED"), String("QUOTE_DEPTH_AND_RIGHTS_REQUIRED"), String("ACCOUNT_SELF_TRADE_PREVENTION_REQUIREMENT_UNOBSERVED")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test collected_constraints_name_the_unresolved_per_order_obligations ... FAILED
+
+failures:
+
+failures:
+    collected_constraints_name_the_unresolved_per_order_obligations
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `--test binance_rules`

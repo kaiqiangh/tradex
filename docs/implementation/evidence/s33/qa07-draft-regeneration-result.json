@@ -1,0 +1,71 @@
+{
+  "result": "PASS_LIMITED",
+  "guarded": {
+    "result": "PASS_LIMITED",
+    "scenario": "DEFAULT_EXPOSURE_GUARD",
+    "workspaceId": "66686672-7ebb-4cd7-bd21-3c594732cc2e",
+    "originalProposal": {
+      "proposalId": "proposal:a1ca84f2-0536-48b5-a13d-ee611b2b2ae8",
+      "status": "INVALIDATED",
+      "quantity": "0.01",
+      "approvalBeforeEdit": 0,
+      "approvalAfterEdit": 0
+    },
+    "regeneratedProposal": {
+      "proposalId": "proposal:79b92b7a-73d3-45fd-a0c4-6b6c3e5a23c0",
+      "status": "NEEDS_APPROVAL",
+      "draftVersion": 2,
+      "quantity": "0.009"
+    },
+    "replacementApprovals": 0,
+    "oldApprovalStatus": "NONE",
+    "newApprovalStatus": "NONE",
+    "approvalBlockedBy": "SINGLE_INSTRUMENT_EXPOSURE",
+    "responsiveWidths": [
+      1280,
+      768,
+      390
+    ],
+    "forbiddenCommands": 0,
+    "externalRequests": 0,
+    "pageErrors": 0
+  },
+  "consent": {
+    "result": "PASS_LIMITED",
+    "scenario": "OPTIONAL_EXPOSURE_LIMIT_UNSET",
+    "workspaceId": "3d410bd7-d913-4407-b661-0b1b7b8b75a2",
+    "originalProposal": {
+      "proposalId": "proposal:93a3e8d7-1265-4b00-9760-235adf343569",
+      "status": "INVALIDATED",
+      "quantity": "0.01",
+      "approvalBeforeEdit": 1,
+      "approvalAfterEdit": 1
+    },
+    "regeneratedProposal": {
+      "proposalId": "proposal:6c61152e-2e9f-4312-8abb-498b1ba09415",
+      "status": "NEEDS_APPROVAL",
+      "draftVersion": 2,
+      "quantity": "0.009"
+    },
+    "replacementApprovals": 0,
+    "oldApprovalStatus": "INVALIDATED",
+    "newApprovalStatus": "ISSUED",
+    "approvalBlockedBy": null,
+    "responsiveWidths": [
+      1280,
+      768,
+      390
+    ],
+    "forbiddenCommands": 0,
+    "externalRequests": 0,
+    "pageErrors": 0
+  },
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "boundary": "Two disposable local Rust-backed workspaces; synthetic Trading 212 Live account and approval fixtures only. No provider endpoint, credential, or Gateway execution.",
+  "limitations": [
+    "The default exposure guard remains blocked without trusted exposure evidence; the permitted synthetic path explicitly unsets the optional cap in its disposable workspace.",
+    "This validates quantity edit/regeneration and a fresh explicit approval only; other draft fields, stale market/policy refresh, native accessibility, and complete S13/S22/S33 gates remain open."
+  ],
+  "capturedAt": "2026-10-14T12:22:26.634Z"
+}

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{ErrorKind, Write},
     path::{Component, Path, PathBuf},
@@ -15,7 +15,9 @@ use std::{
     },
 };
 
-use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::{
+    Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior, params,
+};
 use sha2::{Digest, Sha256};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
@@ -26,19 +28,21 @@ use crate::model::ModelState;
 use crate::protocol::{
     AlpacaPaperCancelState, AlpacaPaperOrder, AlpacaPaperOrderAttempt,
     AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook, AlpacaPaperOrderBookStatus,
-    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit, ApprovalRejection,
-    Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
-    ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
-    BacktestRunState, BacktestRunSummary, BinanceTestnetOrderAttempt,
-    BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookStatus,
-    BinanceTestnetOrderCancel, BinanceTestnetOrderCancelState, BinanceTestnetOrderOrigin,
-    BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptState,
-    BitgetDemoOrderSubmit, CancellationApprovalHistory, CancellationApprovalRejection,
-    CancellationIntent, CancellationIntentHistoryEntry, DomainEvent, DomainProjection, EventSink,
-    ExecutionAttempt, ExecutionAttemptState, ExecutionContext, ExecutionDispatchDisposition,
-    ExecutionDispatchGrant, ExecutionDispatchGrantStatus, ExecutionPreparation,
-    ExecutionPreparationRejection, ExecutionReservation, ExecutionReservationStatus,
-    FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
+    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit,
+    ApprovalExpiryAuthority, ApprovalExpiryReservationDisposition, ApprovalExpiryScope,
+    ApprovalRejection, Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult,
+    ArtifactKind, ArtifactLibrary, ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary,
+    BacktestRun, BacktestRunRequest, BacktestRunState, BacktestRunSummary,
+    BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook,
+    BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancel, BinanceTestnetOrderCancelState,
+    BinanceTestnetOrderOrigin, BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt,
+    BitgetDemoOrderAttemptState, BitgetDemoOrderSubmit, CancellationApprovalHistory,
+    CancellationApprovalRejection, CancellationIntent, CancellationIntentHistoryEntry, DomainEvent,
+    DomainProjection, EventSink, ExecutionAttempt, ExecutionAttemptState, ExecutionContext,
+    ExecutionDispatchDisposition, ExecutionDispatchGrant, ExecutionDispatchGrantStatus,
+    ExecutionOrderLink, ExecutionOrderLinks, ExecutionPreparation, ExecutionPreparationRejection,
+    ExecutionReservation, ExecutionReservationStatus, FinancialApproval, FinancialApprovalExpiry,
+    FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
     LiveOrderDisposition, LiveOrderFee, LiveOrderSettlement, LiveOrderSettlementStatus,
     LiveOrderTradeFact, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
     LocalPaperState, MAX_SEQUENCE, ManualResolutionDecision, ManualResolutionRecord, OpenWorkspace,
@@ -55,15 +59,20 @@ use crate::protocol::{
     Trading212DemoCancelState, Trading212DemoNormalizedOrderStatus, Trading212DemoOrderAttempt,
     Trading212DemoOrderAttemptState, Trading212DemoOrderBook, Trading212DemoOrderBookStatus,
     Trading212DemoOrderCancel, Trading212DemoOrderOrigin, Trading212DemoOrderSubmit, Watchlist,
-    WatchlistItem, Watchlists, Workspace,
+    WatchlistItem, Watchlists, Workspace, WorkspaceArchiveCredentialCheck,
+    WorkspaceArchiveCredentialStatus, WorkspaceArchiveDataCategory, WorkspaceArchiveDataCategoryId,
+    WorkspaceArchiveExportResult, WorkspaceArchivePreview, WorkspaceArchiveRestoreResult,
+    WorkspaceRetention, WorkspaceRetentionUpdate,
 };
 use crate::providers::{
     AccountConnection, AccountMutation, ConnectionState, LIVE_RECONCILIATION_PROVIDER_IDS,
 };
 use crate::risk::{RiskDecision, RiskDecisionHistory, RiskPolicyState};
+use crate::workspace_archive::{self, Manifest as WorkspaceArchiveManifest};
 
 const APPLICATION_ID: u32 = 0x54525831;
-pub(crate) const SCHEMA_VERSION: u32 = 31;
+pub(crate) const SCHEMA_VERSION: u32 = 38;
+const MAX_RETENTION_RECORDS: usize = 100_000;
 const MAX_ORDER_DECIMAL_FRACTION_DIGITS: usize = 18;
 const MANUAL_RESOLUTION_EVIDENCE_FRESH_MS: i128 = 30_000;
 
@@ -227,10 +236,44 @@ fn candidate_matches_proposal_terms(
     }
 }
 
+struct WorkspaceLock(File);
+
+impl Drop for WorkspaceLock {
+    fn drop(&mut self) {
+        // An unrelated child may inherit this descriptor between fork and exec.
+        // Release ownership explicitly; close alone waits for inherited copies.
+        let _ = self.0.unlock();
+    }
+}
+
 pub struct Store {
+    // Field order closes SQLite before releasing workspace ownership.
     connection: Connection,
-    _lock: File,
+    _lock: WorkspaceLock,
     pub path: PathBuf,
+}
+
+struct WorkspaceTempDirectory {
+    path: PathBuf,
+}
+
+impl WorkspaceTempDirectory {
+    fn new() -> Result<Self> {
+        let path = std::env::temp_dir().join(format!("tradex-workspace-{}", Uuid::new_v4()));
+        fs::create_dir(&path).map_err(storage_error)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).map_err(storage_error)?;
+        }
+        Ok(Self { path })
+    }
+}
+
+impl Drop for WorkspaceTempDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -342,6 +385,7 @@ impl Store {
             .map_err(storage_error)?;
         lock.try_lock()
             .map_err(|_| TradeXError::new("WORKSPACE_BUSY"))?;
+        let lock = WorkspaceLock(lock);
         let existing = db_path.exists();
         let mut connection = Connection::open(&db_path).map_err(storage_error)?;
         connection
@@ -949,6 +993,60 @@ impl Store {
                 CREATE UNIQUE INDEX execution_attempts_one_place_per_intent ON execution_attempts(workspace_id,intent_id) WHERE operation='PLACE_ORDER';
                 PRAGMA user_version=31;").map_err(storage_error)?;
             }
+            if version < 32 {
+                tx.execute_batch(
+                    "CREATE TABLE quote_source_config (
+                    singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                    generation INTEGER NOT NULL CHECK(generation > 0),
+                    projection TEXT NOT NULL
+                );
+                CREATE TABLE quote_source_config_audit (
+                    generation INTEGER PRIMARY KEY CHECK(generation > 0),
+                    occurred_at TEXT NOT NULL,
+                    projection TEXT NOT NULL
+                );
+                CREATE TABLE quote_source_owned_credentials (
+                    reference TEXT PRIMARY KEY,
+                    status TEXT NOT NULL CHECK(status IN ('PENDING','ACTIVE','DELETE_PENDING'))
+                );
+                PRAGMA user_version=32;",
+                )
+                .map_err(storage_error)?;
+            }
+            if version < 33 {
+                tx.execute_batch("CREATE TABLE calendar_source_config (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE calendar_source_config_audit (generation INTEGER PRIMARY KEY CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL); PRAGMA user_version=33;").map_err(storage_error)?;
+            }
+            if version < 34 {
+                tx.execute_batch("CREATE TABLE financial_source_config (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE financial_source_config_audit (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation)); PRAGMA user_version=34;").map_err(storage_error)?;
+            }
+            if version < 35 {
+                tx.execute_batch("CREATE TABLE financial_source_config_v35 (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL);
+                    INSERT INTO financial_source_config_v35 SELECT * FROM financial_source_config;
+                    CREATE TABLE financial_source_config_audit_v35 (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation));
+                    INSERT INTO financial_source_config_audit_v35 SELECT * FROM financial_source_config_audit;
+                    DROP TABLE financial_source_config;
+                    DROP TABLE financial_source_config_audit;
+                    ALTER TABLE financial_source_config_v35 RENAME TO financial_source_config;
+                    ALTER TABLE financial_source_config_audit_v35 RENAME TO financial_source_config_audit;
+                    PRAGMA user_version=35;").map_err(storage_error)?;
+            }
+            if version < 36 {
+                tx.execute_batch("CREATE TABLE financial_source_config_v36 (kind TEXT PRIMARY KEY CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX','BINANCE_SPOT_RULES')), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL);
+                    INSERT INTO financial_source_config_v36 SELECT * FROM financial_source_config;
+                    CREATE TABLE financial_source_config_audit_v36 (kind TEXT NOT NULL CHECK(kind IN ('CORPORATE_ACTIONS','BROKER_INSTRUMENTS','FX','BINANCE_SPOT_RULES')), generation INTEGER NOT NULL CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL, PRIMARY KEY(kind,generation));
+                    INSERT INTO financial_source_config_audit_v36 SELECT * FROM financial_source_config_audit;
+                    DROP TABLE financial_source_config;
+                    DROP TABLE financial_source_config_audit;
+                    ALTER TABLE financial_source_config_v36 RENAME TO financial_source_config;
+                    ALTER TABLE financial_source_config_audit_v36 RENAME TO financial_source_config_audit;
+                    PRAGMA user_version=36;").map_err(storage_error)?;
+            }
+            if version < 37 {
+                tx.execute_batch("CREATE TABLE binance_market_source_config (singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL CHECK(generation>0), projection TEXT NOT NULL); CREATE TABLE binance_market_source_config_audit (generation INTEGER PRIMARY KEY CHECK(generation>0), occurred_at TEXT NOT NULL, projection TEXT NOT NULL); PRAGMA user_version=37;").map_err(storage_error)?;
+            }
+            if version < 38 {
+                tx.execute_batch("CREATE TABLE workspace_retention (singleton INTEGER PRIMARY KEY CHECK(singleton=1), workspace_id TEXT NOT NULL UNIQUE, sequence INTEGER NOT NULL CHECK(sequence>=0), projection TEXT NOT NULL); PRAGMA user_version=38;").map_err(storage_error)?;
+            }
             tx.commit().map_err(storage_error)?;
         }
         connection
@@ -979,6 +1077,8 @@ impl Store {
             _lock: lock,
             path,
         };
+        // PENDING entries belong to a process that no longer holds this workspace.
+        store.connection.execute("UPDATE quote_source_owned_credentials SET status='DELETE_PENDING' WHERE status='PENDING'", []).map_err(storage_error)?;
         store.recover_interrupted_trading212_demo_attempts()?;
         store.recover_interrupted_trading212_demo_cancels()?;
         store.recover_interrupted_alpaca_paper_attempts()?;
@@ -988,6 +1088,273 @@ impl Store {
         store.recover_interrupted_alpaca_paper_cancels()?;
         store.recover_interrupted_live_execution_attempts()?;
         Ok(store)
+    }
+
+    pub(crate) fn financial_source(
+        &self,
+        kind: crate::protocol::FinancialSourceKind,
+    ) -> Result<crate::financial_sources::SavedFinancialSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM financial_source_config WHERE kind=?1",
+                [kind.key()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::financial_sources::SavedFinancialSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        saved.validate(kind)?;
+        if generation <= 0 || saved.generation != generation as u64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(saved)
+    }
+
+    pub(crate) fn save_financial_source(
+        &mut self,
+        kind: crate::protocol::FinancialSourceKind,
+        mut saved: crate::financial_sources::SavedFinancialSource,
+    ) -> Result<()> {
+        let prior = self.financial_source(kind)?;
+        saved.validate(kind)?;
+        if saved.generation != prior.generation || prior.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.generation += 1;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        tx.execute("INSERT INTO financial_source_config VALUES(?1,?2,?3) ON CONFLICT(kind) DO UPDATE SET generation=excluded.generation,projection=excluded.projection",params![kind.key(),saved.generation as i64,encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO financial_source_config_audit VALUES(?1,?2,?3,?4)",
+            params![kind.key(), saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub fn calendar_source(&self) -> Result<crate::calendar_source::SavedCalendarSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM calendar_source_config WHERE singleton=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::calendar_source::SavedCalendarSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        saved.validate()?;
+        if generation <= 0 || saved.generation != generation as u64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(saved)
+    }
+
+    pub fn save_calendar_source(
+        &mut self,
+        mut saved: crate::calendar_source::SavedCalendarSource,
+    ) -> Result<()> {
+        let prior = self.calendar_source()?;
+        saved.validate()?;
+        if saved.generation != prior.generation || prior.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.generation += 1;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        tx.execute("INSERT INTO calendar_source_config VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,projection=excluded.projection",params![saved.generation as i64,encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO calendar_source_config_audit VALUES(?1,?2,?3)",
+            params![saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub(crate) fn binance_market_source(&self) -> Result<crate::binance_market::SavedMarketSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM binance_market_source_config WHERE singleton=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::binance_market::SavedMarketSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        if generation <= 0 || saved.generation != generation as u64 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        saved.validate()?;
+        Ok(saved)
+    }
+
+    pub(crate) fn save_binance_market_source(
+        &mut self,
+        mut saved: crate::binance_market::SavedMarketSource,
+    ) -> Result<()> {
+        let prior = self.binance_market_source()?;
+        if saved.generation != prior.generation || saved.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.generation += 1;
+        saved.validate()?;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        tx.execute("INSERT INTO binance_market_source_config VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,projection=excluded.projection", params![saved.generation as i64, encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO binance_market_source_config_audit VALUES(?1,?2,?3)",
+            params![saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub fn quote_source(&self) -> Result<crate::quote_source::SavedQuoteSource> {
+        let value: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT generation,projection FROM quote_source_config WHERE singleton=1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        let Some((generation, encoded)) = value else {
+            return Ok(Default::default());
+        };
+        let saved: crate::quote_source::SavedQuoteSource =
+            serde_json::from_str(&encoded).map_err(storage_error)?;
+        if generation <= 0
+            || saved.generation != generation as u64
+            || saved.generation > MAX_SEQUENCE
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        saved.validate(&self.workspace_id()?)?;
+        if let Some(reference) = saved.owned_reference() {
+            let active: bool = self.connection.query_row("SELECT EXISTS(SELECT 1 FROM quote_source_owned_credentials WHERE reference=?1 AND status='ACTIVE')", [reference], |row| row.get(0)).map_err(storage_error)?;
+            if !active {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        Ok(saved)
+    }
+
+    pub fn register_quote_source_credential(&mut self, reference: &str) -> Result<()> {
+        if !crate::quote_source::owned_reference_matches(reference, &self.workspace_id()?) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let count: i64 = self
+            .connection
+            .query_row(
+                "SELECT COUNT(*) FROM quote_source_owned_credentials",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if count >= 32 {
+            return Err(TradeXError::new("CREDENTIAL_CLEANUP_REQUIRED"));
+        }
+        self.connection
+            .execute(
+                "INSERT INTO quote_source_owned_credentials VALUES(?1,'PENDING')",
+                [reference],
+            )
+            .map_err(storage_error)?;
+        Ok(())
+    }
+
+    pub fn queue_quote_source_credential_cleanup(&mut self, reference: &str) -> Result<()> {
+        if !crate::quote_source::owned_reference_matches(reference, &self.workspace_id()?) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        self.connection.execute("UPDATE quote_source_owned_credentials SET status='DELETE_PENDING' WHERE reference=?1 AND status='PENDING'", [reference]).map_err(storage_error)?;
+        Ok(())
+    }
+
+    pub fn quote_source_pending_cleanup(&self) -> Result<Vec<String>> {
+        let mut query = self.connection.prepare("SELECT reference FROM quote_source_owned_credentials WHERE status='DELETE_PENDING' ORDER BY reference LIMIT 32").map_err(storage_error)?;
+        let references = query
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(storage_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        let workspace_id = self.workspace_id()?;
+        if references.iter().any(|reference| {
+            !crate::quote_source::owned_reference_matches(reference, &workspace_id)
+        }) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(references)
+    }
+
+    pub fn acknowledge_quote_source_cleanup(&mut self, reference: &str) -> Result<()> {
+        if !crate::quote_source::owned_reference_matches(reference, &self.workspace_id()?) {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        self.connection.execute("DELETE FROM quote_source_owned_credentials WHERE reference=?1 AND status='DELETE_PENDING'", [reference]).map_err(storage_error)?;
+        Ok(())
+    }
+
+    pub fn save_quote_source(
+        &mut self,
+        mut saved: crate::quote_source::SavedQuoteSource,
+    ) -> Result<()> {
+        let prior = self.quote_source()?;
+        if saved.generation != prior.generation || prior.generation >= MAX_SEQUENCE {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        saved.validate(&self.workspace_id()?)?;
+        let previous_owned = prior.owned_reference().map(str::to_owned);
+        let next_owned = saved.owned_reference().map(str::to_owned);
+        saved.generation += 1;
+        let encoded = serde_json::to_string(&saved).map_err(storage_error)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        if let Some(reference) = &next_owned {
+            let updated = tx.execute("UPDATE quote_source_owned_credentials SET status='ACTIVE' WHERE reference=?1 AND status='PENDING'", [reference]).map_err(storage_error)?;
+            if updated != 1 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        if let Some(reference) = &previous_owned {
+            let updated = tx.execute("UPDATE quote_source_owned_credentials SET status='DELETE_PENDING' WHERE reference=?1 AND status='ACTIVE'", [reference]).map_err(storage_error)?;
+            if updated != 1 {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+        }
+        tx.execute("INSERT INTO quote_source_config VALUES(1,?1,?2) ON CONFLICT(singleton) DO UPDATE SET generation=excluded.generation,projection=excluded.projection", params![saved.generation as i64, encoded]).map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO quote_source_config_audit VALUES(?1,?2,?3)",
+            params![saved.generation as i64, timestamp()?, encoded],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 
     fn recover_interrupted_live_execution_attempts(&mut self) -> Result<()> {
@@ -1596,6 +1963,10 @@ impl Store {
                 || event.aggregate_type != kind
                 || match kind {
                     "workspace" => event.event_type != "workspace.opened",
+                    "workspace-retention" => !matches!(
+                        event.event_type.as_str(),
+                        "workspace.retention.changed" | "workspace.retention.applied"
+                    ),
                     "account" => !matches!(
                         event.event_type.as_str(),
                         "account.health.changed" | "account.arming.changed"
@@ -1681,6 +2052,469 @@ impl Store {
         self.connection
             .query_row("SELECT workspace_id FROM workspace", [], |r| r.get(0))
             .map_err(storage_error)
+    }
+
+    pub fn export_workspace_archive(
+        &self,
+        destination: &Path,
+    ) -> Result<WorkspaceArchiveExportResult> {
+        self.create_workspace_archive(destination)
+    }
+
+    pub fn backup_workspace_archive(&self) -> Result<WorkspaceArchiveExportResult> {
+        let backups = self.path.join("backups");
+        if fs::symlink_metadata(&backups).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        fs::create_dir_all(&backups).map_err(storage_error)?;
+        if !backups.is_dir() || has_unapproved_symlink_ancestor(&backups) {
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        let backups = backups.canonicalize().map_err(storage_error)?;
+        self.create_workspace_archive(
+            &backups.join(format!("TradeX-backup-{}.tradex", Uuid::new_v4())),
+        )
+    }
+
+    fn create_workspace_archive(&self, destination: &Path) -> Result<WorkspaceArchiveExportResult> {
+        let destination = validate_workspace_archive_destination(destination)?;
+        let workspace = read_workspace(&self.connection, &self.path)?;
+        let temp = WorkspaceTempDirectory::new()?;
+        let snapshot_path = temp.path.join("workspace.sqlite3");
+        self.connection
+            .backup("main", &snapshot_path, None)
+            .map_err(storage_error)?;
+        let warnings = workspace_archive_warnings();
+        let manifest = WorkspaceArchiveManifest {
+            app_id: APPLICATION_ID,
+            format_version: 1,
+            workspace_id: workspace.workspace_id,
+            workspace_name: workspace.name,
+            captured_at: timestamp()?,
+            storage_schema_version: SCHEMA_VERSION,
+            member_name: "workspace.sqlite3".into(),
+            member_bytes: 0,
+            member_sha256: String::new(),
+            warnings: warnings.clone(),
+        };
+        let (bytes, content_hash) =
+            workspace_archive::write_archive(&snapshot_path, &destination, manifest)?;
+        Ok(WorkspaceArchiveExportResult {
+            path: destination.to_string_lossy().into_owned(),
+            bytes,
+            content_hash,
+            warnings,
+        })
+    }
+
+    pub fn preview_workspace_archive(
+        &self,
+        archive_path: &Path,
+    ) -> Result<WorkspaceArchivePreview> {
+        let archive_path = validate_workspace_archive_path(archive_path)?;
+        let mut archive = workspace_archive::validate_archive(&archive_path, SCHEMA_VERSION)?;
+        let temp = WorkspaceTempDirectory::new()?;
+        let database_path = temp.path.join("workspace.sqlite3");
+        workspace_archive::extract_member(&mut archive, &database_path)?;
+        let (workspace_id, workspace_name, schema_version) =
+            inspect_workspace_database(&database_path)?;
+        if workspace_id != archive.manifest.workspace_id
+            || workspace_name != archive.manifest.workspace_name
+            || schema_version != archive.manifest.storage_schema_version
+        {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        let credential_checks = archive_credential_checks(&database_path, &workspace_id)?;
+        let data_categories = archive_data_categories(&database_path, &workspace_id)?;
+        Ok(WorkspaceArchivePreview {
+            workspace_id,
+            workspace_name,
+            captured_at: archive.manifest.captured_at,
+            format_version: archive.manifest.format_version,
+            storage_schema_version: schema_version,
+            member_count: 1,
+            bytes: archive.archive_bytes,
+            manifest_hash: archive.manifest_hash,
+            warnings: archive.manifest.warnings,
+            data_categories,
+            credential_checks,
+        })
+    }
+
+    pub fn archive_credential_references(
+        &self,
+        archive_path: &Path,
+    ) -> Result<(String, Vec<(String, String)>)> {
+        let archive_path = validate_workspace_archive_path(archive_path)?;
+        let mut archive = workspace_archive::validate_archive(&archive_path, SCHEMA_VERSION)?;
+        let temp = WorkspaceTempDirectory::new()?;
+        let database_path = temp.path.join("workspace.sqlite3");
+        workspace_archive::extract_member(&mut archive, &database_path)?;
+        let (workspace_id, workspace_name, schema_version) =
+            inspect_workspace_database(&database_path)?;
+        if workspace_id != archive.manifest.workspace_id
+            || workspace_name != archive.manifest.workspace_name
+            || schema_version != archive.manifest.storage_schema_version
+        {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        let manifest_hash = archive.manifest_hash.clone();
+        let references = archive_credential_references(&database_path, &workspace_id)?;
+        Ok((manifest_hash, references))
+    }
+
+    pub fn restore_workspace_archive(
+        &self,
+        archive_path: &Path,
+        destination_parent: &Path,
+        expected_manifest_hash: &str,
+        credential_statuses: Option<&HashMap<String, WorkspaceArchiveCredentialStatus>>,
+    ) -> Result<WorkspaceArchiveRestoreResult> {
+        let archive_path = validate_workspace_archive_path(archive_path)?;
+        let mut archive = workspace_archive::validate_archive(&archive_path, SCHEMA_VERSION)?;
+        if archive.manifest_hash != expected_manifest_hash {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_CHANGED"));
+        }
+        let parent = create_workspace_restore_parent(destination_parent)?;
+        let restore_id = Uuid::new_v4();
+        let staging = parent.join(format!(".tradex-restore-{restore_id}.tmp"));
+        let restored = parent.join(format!("TradeX-Restored-{restore_id}"));
+        fs::create_dir(&staging).map_err(storage_error)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(error) = fs::set_permissions(&staging, fs::Permissions::from_mode(0o700)) {
+                let _ = fs::remove_dir_all(&staging);
+                return Err(storage_error(error));
+            }
+        }
+        let staged_result = (|| {
+            let database_path = staging.join("workspace.sqlite3");
+            workspace_archive::extract_member(&mut archive, &database_path)?;
+            let (manifest_workspace_id, manifest_workspace_name, manifest_schema) =
+                inspect_workspace_database(&database_path)?;
+            if manifest_workspace_id != archive.manifest.workspace_id
+                || manifest_workspace_name != archive.manifest.workspace_name
+                || manifest_schema != archive.manifest.storage_schema_version
+            {
+                return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+            }
+            let options = OpenWorkspace {
+                path: Some(staging.to_string_lossy().into_owned()),
+                name: None,
+                base_currency: None,
+            };
+            let mut imported = Store::open(staging.clone(), &options)?;
+            let imported_workspace_id = imported.workspace_id()?;
+            if imported_workspace_id != archive.manifest.workspace_id {
+                return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+            }
+            imported.invalidate_restored_authority()?;
+            imported.mark_accounts_stale_with_credentials(credential_statuses)?;
+            imported.save_gateway(GatewayState::stopped(imported_workspace_id.clone()))?;
+            let mut model = imported.model_or_new()?;
+            let previous_model = model.clone();
+            model.reset_for_session();
+            if model != previous_model {
+                imported.save_model(model, "model.provider.changed")?;
+            }
+            imported.verify_integrity()?;
+            drop(imported);
+            Ok(imported_workspace_id)
+        })();
+        let imported_workspace_id = match staged_result {
+            Ok(workspace_id) => workspace_id,
+            Err(error) => {
+                let _ = fs::remove_dir_all(&staging);
+                return Err(error);
+            }
+        };
+
+        // Preserve the currently open workspace before publishing the restored copy.
+        let backup_directory = self.path.join("backups");
+        if fs::symlink_metadata(&backup_directory)
+            .is_ok_and(|metadata| metadata.file_type().is_symlink())
+        {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        fs::create_dir_all(&backup_directory).map_err(|error| {
+            let _ = fs::remove_dir_all(&staging);
+            storage_error(error)
+        })?;
+        let backup_path =
+            backup_directory.join(format!("TradeX-before-restore-{restore_id}.tradex"));
+        if let Err(error) = self.create_workspace_archive(&backup_path) {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error);
+        }
+        if fs::rename(&staging, &restored).is_err() {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_RESTORE_FAILED"));
+        }
+        Ok(WorkspaceArchiveRestoreResult {
+            workspace_id: imported_workspace_id,
+            restored_path: restored.to_string_lossy().into_owned(),
+            backup_path: backup_path.to_string_lossy().into_owned(),
+            warnings: archive.manifest.warnings,
+        })
+    }
+
+    fn invalidate_restored_authority(&mut self) -> Result<()> {
+        let workspace_id = self.workspace_id()?;
+        let now = timestamp()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        invalidate_financial_approvals_tx(
+            &tx,
+            &workspace_id,
+            None,
+            None,
+            "WORKSPACE_RESTORED",
+            &now,
+        )?;
+        let cancellation_ids = {
+            let mut statement = tx
+                .prepare("SELECT intent_id FROM cancellation_intents WHERE workspace_id=?1 AND status='CURRENT'")
+                .map_err(storage_error)?;
+            statement
+                .query_map([&workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for intent_id in cancellation_ids {
+            invalidate_cancellation_intent_tx(&tx, &intent_id, "WORKSPACE_RESTORED", &now)?;
+        }
+        tx.commit().map_err(storage_error)
+    }
+
+    fn verify_integrity(&self) -> Result<()> {
+        let integrity: String = self
+            .connection
+            .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+            .map_err(storage_error)?;
+        let foreign_key_violation: Option<String> = self
+            .connection
+            .query_row("PRAGMA foreign_key_check", [], |row| row.get(0))
+            .optional()
+            .map_err(storage_error)?;
+        if integrity != "ok" || foreign_key_violation.is_some() {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        Ok(())
+    }
+
+    pub fn workspace_retention(&self) -> Result<WorkspaceRetention> {
+        let workspace_id = self.workspace_id()?;
+        let stored: Option<(i64, String)> = self
+            .connection
+            .query_row(
+                "SELECT sequence,projection FROM workspace_retention WHERE singleton=1 AND workspace_id=?1",
+                [&workspace_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(storage_error)?;
+        match stored {
+            Some((sequence, projection)) => {
+                let retention: WorkspaceRetention = serde_json::from_str(&projection)
+                    .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                if sequence < 1
+                    || retention.workspace_id != workspace_id
+                    || retention.state_version
+                        != format!("workspace-retention:{workspace_id}:{sequence}")
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+                Ok(retention)
+            }
+            None => Ok(WorkspaceRetention {
+                workspace_id: workspace_id.clone(),
+                artifact_retention_days: None,
+                cache_retention_days: None,
+                market_data_retention_days: None,
+                last_applied_at: None,
+                last_deleted_artifacts: 0,
+                last_deleted_cache_files: 0,
+                last_deleted_market_rows: 0,
+                state_version: format!("workspace-retention:{workspace_id}:0"),
+            }),
+        }
+    }
+
+    pub fn save_workspace_retention(
+        &mut self,
+        input: &WorkspaceRetentionUpdate,
+    ) -> Result<WorkspaceRetention> {
+        let current = self.workspace_retention()?;
+        if input.workspace_id != current.workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        if input.expected_state_version != current.state_version {
+            return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
+        }
+        if input
+            .artifact_retention_days
+            .is_some_and(|days| !(1..=3650).contains(&days))
+            || input
+                .cache_retention_days
+                .is_some_and(|days| !(1..=3650).contains(&days))
+            || input
+                .market_data_retention_days
+                .is_some_and(|days| !(1..=3650).contains(&days))
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let next_sequence = retention_sequence(&current.state_version)?
+            .checked_add(1)
+            .filter(|sequence| *sequence <= MAX_SEQUENCE)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let mut next = current;
+        next.artifact_retention_days = input.artifact_retention_days;
+        next.cache_retention_days = input.cache_retention_days;
+        next.market_data_retention_days = input.market_data_retention_days;
+        next.state_version = format!("workspace-retention:{}:{next_sequence}", next.workspace_id);
+        self.write_workspace_retention(next, next_sequence, "workspace.retention.changed")
+    }
+
+    pub fn apply_workspace_retention(&mut self) -> Result<WorkspaceRetention> {
+        let current = self.workspace_retention()?;
+        let artifact_ids = self.expired_artifact_ids(current.artifact_retention_days)?;
+        let cache_files = self.expired_cache_files(current.cache_retention_days)?;
+        let deleted_market_rows = current
+            .market_data_retention_days
+            .map(|days| market::prune_history_before(&self.path, days))
+            .transpose()?
+            .unwrap_or_default();
+        for path in &cache_files {
+            fs::remove_file(path).map_err(storage_error)?;
+        }
+        let next_sequence = retention_sequence(&current.state_version)?
+            .checked_add(1)
+            .filter(|sequence| *sequence <= MAX_SEQUENCE)
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        for artifact_id in &artifact_ids {
+            tx.execute(
+                "DELETE FROM artifacts WHERE workspace_id=?1 AND artifact_id=?2",
+                params![current.workspace_id, artifact_id],
+            )
+            .map_err(storage_error)?;
+        }
+        let next = WorkspaceRetention {
+            workspace_id: current.workspace_id.clone(),
+            artifact_retention_days: current.artifact_retention_days,
+            cache_retention_days: current.cache_retention_days,
+            market_data_retention_days: current.market_data_retention_days,
+            last_applied_at: Some(timestamp()?),
+            last_deleted_artifacts: artifact_ids.len() as u32,
+            last_deleted_cache_files: cache_files.len() as u32,
+            last_deleted_market_rows: deleted_market_rows as u32,
+            state_version: format!(
+                "workspace-retention:{}:{next_sequence}",
+                current.workspace_id
+            ),
+        };
+        write_retention_event(&tx, &next, next_sequence, "workspace.retention.applied")?;
+        tx.commit().map_err(storage_error)?;
+        Ok(next)
+    }
+
+    fn write_workspace_retention(
+        &mut self,
+        retention: WorkspaceRetention,
+        sequence: u64,
+        event_type: &str,
+    ) -> Result<WorkspaceRetention> {
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        write_retention_event(&tx, &retention, sequence, event_type)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(retention)
+    }
+
+    fn expired_artifact_ids(&self, retention_days: Option<u16>) -> Result<Vec<String>> {
+        let Some(days) = retention_days else {
+            return Ok(Vec::new());
+        };
+        let cutoff = OffsetDateTime::now_utc() - time::Duration::days(i64::from(days));
+        let mut statement = self
+            .connection
+            .prepare("SELECT artifact_id,projection FROM artifacts WHERE workspace_id=?1")
+            .map_err(storage_error)?;
+        let rows = statement
+            .query_map([self.workspace_id()?], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(storage_error)?;
+        let mut expired = Vec::new();
+        for row in rows {
+            let (artifact_id, projection) = row.map_err(storage_error)?;
+            let value: serde_json::Value = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let created_at = value
+                .get("createdAt")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|value| OffsetDateTime::parse(value, &Rfc3339).ok())
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let has_financial_refs = value
+                .get("provenance")
+                .and_then(|value| value.get("relatedOrderIds"))
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(|values| !values.is_empty());
+            if created_at < cutoff && !has_financial_refs {
+                expired.push(artifact_id);
+                if expired.len() > MAX_RETENTION_RECORDS {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+        }
+        Ok(expired)
+    }
+
+    fn expired_cache_files(&self, retention_days: Option<u16>) -> Result<Vec<PathBuf>> {
+        let Some(days) = retention_days else {
+            return Ok(Vec::new());
+        };
+        let cache = self.path.join("cache");
+        let metadata = match fs::symlink_metadata(&cache) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(storage_error(error)),
+        };
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+        }
+        let cutoff = std::time::SystemTime::now()
+            .checked_sub(Duration::from_secs(u64::from(days) * 24 * 60 * 60))
+            .ok_or_else(|| TradeXError::new("WORKSPACE_OPEN_FAILED"))?;
+        let mut expired = Vec::new();
+        for entry in fs::read_dir(&cache).map_err(storage_error)? {
+            let entry = entry.map_err(storage_error)?;
+            let metadata = entry.file_type().map_err(storage_error)?;
+            if !metadata.is_file() || metadata.is_symlink() {
+                continue;
+            }
+            if entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .is_ok_and(|modified| modified < cutoff)
+            {
+                expired.push(entry.path());
+                if expired.len() > MAX_RETENTION_RECORDS {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+        }
+        Ok(expired)
     }
 
     pub fn base_currency(&self) -> Result<String> {
@@ -2511,6 +3345,16 @@ impl Store {
             } else {
                 Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"))
             };
+        }
+        if kind == "workspace-retention" && self.workspace_id()? == id {
+            let retention = self.workspace_retention()?;
+            let sequence = retention_sequence(&retention.state_version)?;
+            return Ok(Snapshot {
+                aggregate_type: kind.into(),
+                aggregate_id: id.into(),
+                projection: DomainProjection::WorkspaceRetention(retention),
+                last_sequence: sequence,
+            });
         }
         if kind == "model-gateway" && self.workspace_id()? == id {
             let gateway = self.gateway()?;
@@ -3555,6 +4399,129 @@ impl Store {
         })
     }
 
+    pub fn execution_order_links(
+        &self,
+        workspace_id: &str,
+        account_id: &str,
+        broker_order_ids: &[String],
+    ) -> Result<ExecutionOrderLinks> {
+        if workspace_id != self.workspace_id()?
+            || !valid_order_text(account_id, 128)
+            || broker_order_ids.len() > 2_000
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let account = self.account(account_id)?;
+        if account.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let mut requested = HashSet::with_capacity(broker_order_ids.len());
+        for broker_order_id in broker_order_ids {
+            if !valid_order_text(broker_order_id, 128)
+                || !requested.insert(broker_order_id.as_str())
+            {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        }
+        if requested.is_empty() {
+            return Ok(ExecutionOrderLinks {
+                workspace_id: workspace_id.to_owned(),
+                account_id: account_id.to_owned(),
+                links: Vec::new(),
+            });
+        }
+
+        let rows = {
+            let mut statement = self
+                .connection
+                .prepare(
+                    "SELECT attempt_id,operation,state,sequence,projection FROM execution_attempts WHERE workspace_id=?1 AND account_id=?2 ORDER BY sequence DESC,attempt_id",
+                )
+                .map_err(storage_error)?;
+            statement
+                .query_map(params![workspace_id, account_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, String>(4)?,
+                    ))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+
+        let mut links = Vec::new();
+        let mut linked_order_ids = HashSet::new();
+        for (row_id, row_operation, row_state, sequence, projection) in rows {
+            let attempt: ExecutionAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let expected_operation = serde_json::to_value(attempt.operation)
+                .map_err(storage_error)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let expected_state = serde_json::to_value(attempt.state)
+                .map_err(storage_error)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || row_id != attempt.attempt_id
+                || attempt.workspace_id != workspace_id
+                || attempt.account_id != account_id
+                || row_operation != expected_operation
+                || row_state != expected_state
+                || attempt.state_version
+                    != format!("execution-attempt:{}:{sequence}", attempt.attempt_id)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if attempt.operation != crate::protocol::FinancialOperation::PlaceOrder {
+                continue;
+            }
+            let Some(broker_order_id) = attempt.broker_order_id.as_deref() else {
+                continue;
+            };
+            if !requested.contains(broker_order_id) {
+                continue;
+            }
+            if !linked_order_ids.insert(broker_order_id.to_owned()) {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let reservation = load_execution_reservation_for_attempt(
+                &self.connection,
+                workspace_id,
+                &attempt.attempt_id,
+            )?;
+            if attempt.reservation_id.is_some() && reservation.is_none() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if let Some(reservation) = reservation.as_ref() {
+                if attempt.reservation_id.as_deref() != Some(reservation.reservation_id.as_str())
+                    || attempt.proposal_id.as_deref() != Some(reservation.proposal_id.as_str())
+                    || reservation.account_id != account_id
+                    || reservation.workspace_id != workspace_id
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+            links.push(ExecutionOrderLink {
+                broker_order_id: broker_order_id.to_owned(),
+                execution_attempt_id: attempt.attempt_id,
+                proposal_id: attempt.proposal_id,
+                reservation: reservation.map(Box::new),
+            });
+        }
+        Ok(ExecutionOrderLinks {
+            workspace_id: workspace_id.to_owned(),
+            account_id: account_id.to_owned(),
+            links,
+        })
+    }
+
     pub fn unknown_live_place_attempts(&self, workspace_id: &str) -> Result<Vec<ExecutionAttempt>> {
         if workspace_id != self.workspace_id()? {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
@@ -4398,7 +5365,7 @@ impl Store {
         Ok(events)
     }
 
-    pub fn expire_unsubmitted_approvals(
+    pub fn expire_financial_approval_authority(
         &mut self,
         workspace_id: &str,
         now: &str,
@@ -4407,15 +5374,15 @@ impl Store {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
-        let has_unsubmitted_work: bool = self
+        let has_pending_expiry: bool = self
             .connection
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED') OR EXISTS(SELECT 1 FROM execution_attempts WHERE workspace_id=?1 AND state='RESERVED')",
+                "SELECT EXISTS(SELECT 1 FROM financial_approvals WHERE workspace_id=?1 AND (status='ISSUED' OR (status='CONSUMED' AND json_extract(projection,'$.expiry') IS NULL))) OR EXISTS(SELECT 1 FROM execution_attempts WHERE workspace_id=?1 AND state='RESERVED')",
                 [workspace_id],
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
-        if !has_unsubmitted_work {
+        if !has_pending_expiry {
             return Ok(Vec::new());
         }
         let tx = self
@@ -4481,7 +5448,7 @@ impl Store {
         {
             let attempt: ExecutionAttempt = serde_json::from_str(&attempt_projection)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
-            let approval: FinancialApproval = serde_json::from_str(&approval_projection)
+            let mut approval: FinancialApproval = serde_json::from_str(&approval_projection)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
             if sequence < 1
                 || approval_sequence < 1
@@ -4513,6 +5480,7 @@ impl Store {
                     return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
                 }
             };
+            let stopped_attempt_id = attempt.attempt_id.clone();
             events.extend(invalidate_reserved_execution_attempt_tx(
                 &tx,
                 attempt,
@@ -4520,6 +5488,69 @@ impl Store {
                 reason,
                 now,
             )?);
+            if reason == "APPROVAL_EXPIRED"
+                && approval.status == FinancialApprovalStatus::Consumed
+                && approval.expiry.is_none()
+            {
+                let stopped = load_execution_attempt(&tx, workspace_id, &stopped_attempt_id)?
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                let reservation =
+                    load_execution_reservation_for_attempt(&tx, workspace_id, &stopped_attempt_id)?;
+                approval.expiry = Some(approval_expiry_evidence(
+                    &approval,
+                    now,
+                    Some(&stopped),
+                    reservation.as_ref(),
+                    true,
+                )?);
+                events.push(write_financial_approval_tx(&tx, approval, None, now)?);
+            }
+        }
+        // A used authority can expire without changing its consumed history or order capacity.
+        let consumed = {
+            let mut statement = tx
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND status='CONSUMED' AND json_extract(projection,'$.expiry') IS NULL ORDER BY approval_id")
+                .map_err(storage_error)?;
+            statement
+                .query_map([workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for projection in consumed {
+            let mut approval: FinancialApproval = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if approval.workspace_id != workspace_id
+                || approval.status != FinancialApprovalStatus::Consumed
+                || approval.expiry.is_some()
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if !approval_expired(&approval.expires_at, now) {
+                continue;
+            }
+            let attempt_id: String = tx
+                .query_row(
+                    "SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND approval_id=?2",
+                    params![workspace_id, approval.approval_id],
+                    |row| row.get(0),
+                )
+                .map_err(storage_error)?;
+            let attempt = load_execution_attempt(&tx, workspace_id, &attempt_id)?
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if attempt.state == ExecutionAttemptState::Reserved {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let reservation =
+                load_execution_reservation_for_attempt(&tx, workspace_id, &attempt_id)?;
+            approval.expiry = Some(approval_expiry_evidence(
+                &approval,
+                now,
+                Some(&attempt),
+                reservation.as_ref(),
+                false,
+            )?);
+            events.push(write_financial_approval_tx(&tx, approval, None, now)?);
         }
         tx.commit().map_err(storage_error)?;
         Ok(events)
@@ -4585,6 +5616,67 @@ impl Store {
         Ok(reservations)
     }
 
+    #[cfg(test)]
+    pub(crate) fn replace_execution_reservation_claims_fixture(
+        &mut self,
+        workspace_id: &str,
+        reservation_id: &str,
+        asset_claims: Vec<crate::protocol::ExecutionReservationAssetClaim>,
+    ) -> Result<()> {
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(storage_error)?;
+        let (sequence, projection): (i64, String) = tx
+            .query_row(
+                "SELECT sequence,projection FROM execution_reservations WHERE workspace_id=?1 AND reservation_id=?2",
+                params![workspace_id, reservation_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(storage_error)?;
+        let mut reservation: ExecutionReservation =
+            serde_json::from_str(&projection).map_err(storage_error)?;
+        if sequence != 1
+            || reservation.workspace_id != workspace_id
+            || reservation.reservation_id != reservation_id
+            || reservation.status != ExecutionReservationStatus::Active
+            || live_settlement_for_attempt(&tx, workspace_id, &reservation.attempt_id)?.is_some()
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        reservation.asset_claims = asset_claims;
+        validate_execution_reservation_primary_claim(&reservation)?;
+        let projection = serde_json::to_string(&reservation).map_err(storage_error)?;
+        let updated = tx
+            .execute(
+                "UPDATE execution_reservations SET projection=?1 WHERE workspace_id=?2 AND reservation_id=?3 AND sequence=1",
+                params![projection, workspace_id, reservation_id],
+            )
+            .map_err(storage_error)?;
+        if updated != 1 {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let (event_id, envelope): (String, String) = tx
+            .query_row(
+                "SELECT event_id,envelope FROM outbox WHERE aggregate_type='execution-reservation' AND aggregate_id=?1 AND sequence=1",
+                [reservation_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(storage_error)?;
+        let mut event: DomainEvent = serde_json::from_str(&envelope).map_err(storage_error)?;
+        if event.event_id != event_id || event.aggregate_id != reservation_id || event.sequence != 1
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        event.payload = DomainProjection::ExecutionReservation(Box::new(reservation));
+        tx.execute(
+            "UPDATE outbox SET envelope=?1 WHERE aggregate_type='execution-reservation' AND aggregate_id=?2 AND sequence=1",
+            params![serde_json::to_string(&event).map_err(storage_error)?, reservation_id],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
     pub fn prepare_live_place(
         &mut self,
         approval_id: &str,
@@ -4612,9 +5704,11 @@ impl Store {
             || reservation.attempt_id != attempt.attempt_id
             || reservation.proposal_id != attempt.intent_id
             || reservation.status != ExecutionReservationStatus::Active
+            || !reservation.asset_capacities.is_empty()
         {
             return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
         }
+        validate_execution_reservation_primary_claim(&reservation)?;
         let workspace_base_currency = self.base_currency()?;
         let tx = self
             .connection
@@ -4830,6 +5924,8 @@ impl Store {
         {
             return Err(TradeXError::new("RISK_REJECTED"));
         }
+        let plan_wallet =
+            validate_execution_reservation_plan(&approval, &proposal, &decision, &reservation)?;
 
         let mut existing_capacity = "0".to_owned();
         {
@@ -4912,9 +6008,50 @@ impl Store {
             tx.commit().map_err(storage_error)?;
             return Err(error);
         }
-        reservation.existing_reservations = existing_capacity.clone();
-        reservation.effective_available =
-            crate::provider_io::decimal_subtract(&effective_available, &reservation.amount)?;
+        if let Some(wallet) = &plan_wallet {
+            let (asset_capacities, capacity_rejection) =
+                execution_reservation_asset_capacities(&tx, &workspace_id, &reservation, wallet)?;
+            if let Some(capacity_context) = capacity_rejection {
+                let error = TradeXError::reserved_capacity(capacity_context.clone());
+                write_execution_preparation_rejection_tx(
+                    &tx,
+                    ExecutionPreparationRejection {
+                        audit_id: Uuid::new_v4().to_string(),
+                        workspace_id: workspace_id.clone(),
+                        approval_id: approval_id.into(),
+                        idempotency_digest,
+                        reason: "RESERVED_CAPACITY".into(),
+                        capacity_context,
+                        occurred_at: now.into(),
+                        state_version: String::new(),
+                    },
+                )?;
+                tx.commit().map_err(storage_error)?;
+                return Err(error);
+            }
+            reservation.asset_capacities = asset_capacities;
+            if let Some(primary) = reservation
+                .asset_capacities
+                .iter()
+                .find(|capacity| capacity.asset == reservation.unit)
+            {
+                reservation.existing_reservations = primary.existing_reservations.clone();
+                reservation.effective_available = primary.remaining_after_reservation.clone();
+                if let Some(capacity_projection) = reservation.capacity_projection.as_mut() {
+                    capacity_projection.reserved = Some(crate::portfolio::decimal_add(
+                        &primary.existing_reservations,
+                        &primary.requested_amount,
+                    )?);
+                    capacity_projection.effective_available =
+                        Some(primary.remaining_after_reservation.clone());
+                }
+            }
+        }
+        if plan_wallet.is_none() {
+            reservation.existing_reservations = existing_capacity.clone();
+            reservation.effective_available =
+                crate::provider_io::decimal_subtract(&effective_available, &reservation.amount)?;
+        }
 
         if let Some(maximum) = policy.policy.max_reserved_capital.as_deref() {
             let mut reserved_capital = "0".to_owned();
@@ -4999,14 +6136,17 @@ impl Store {
             return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
         }
 
-        let reserved_after_request =
-            crate::portfolio::decimal_add(&existing_capacity, &reservation.amount)?;
-        if let Some(capacity_projection) = reservation.capacity_projection.as_mut() {
-            capacity_projection.reserved = Some(reserved_after_request);
-            capacity_projection.effective_available = Some(crate::provider_io::decimal_subtract(
-                &effective_available,
-                &reservation.amount,
-            )?);
+        if plan_wallet.is_none() {
+            let reserved_after_request =
+                crate::portfolio::decimal_add(&existing_capacity, &reservation.amount)?;
+            if let Some(capacity_projection) = reservation.capacity_projection.as_mut() {
+                capacity_projection.reserved = Some(reserved_after_request);
+                capacity_projection.effective_available =
+                    Some(crate::provider_io::decimal_subtract(
+                        &effective_available,
+                        &reservation.amount,
+                    )?);
+            }
         }
 
         approval.status = FinancialApprovalStatus::Consumed;
@@ -7015,15 +8155,31 @@ impl Store {
         let request = StrategyRunRequest {
             workspace_id: run.workspace_id.clone(),
             strategy_version_id: run.strategy_version_id.clone(),
+            retry_of_run_id: None,
             expected_strategy_hash: Some(run.strategy_hash.clone()),
             instrument_id: run.instrument_id.clone(),
             dataset_id: run.dataset_id.clone(),
             start_at: run.start_at.clone(),
             end_at: run.end_at.clone(),
+            context_refs: run.context_refs.clone(),
             parameters: run.parameters.clone(),
             fixture_scenario: None,
         };
         crate::strategy::validate_run_request(&request).map_err(|_| invalid())?;
+        crate::capability::validate_contexts(&run.context_refs).map_err(|_| invalid())?;
+        if !run.context_refs.is_empty()
+            && !run.context_refs.iter().any(|context| {
+                context.kind == "instrument"
+                    && context.id == run.instrument_id
+                    && context
+                        == &crate::capability::instrument_context_ref(
+                            &run.workspace_id,
+                            &run.instrument_id,
+                        )
+            })
+        {
+            return Err(invalid());
+        }
         let allowed: std::collections::HashSet<&str> = version
             .definition
             .parameters
@@ -10256,6 +11412,9 @@ impl Store {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         let artifact = self.artifact(&input.artifact_id)?;
+        if artifact_has_raw_market_observations(&artifact) {
+            return Err(TradeXError::new("ARTIFACT_RAW_MARKET_DATA_EXPORT_BLOCKED"));
+        }
         let destination = artifact_export_destination(&self.path, input, &artifact.artifact_id)?;
         if fs::symlink_metadata(&destination).is_ok() {
             return Err(TradeXError::new("ARTIFACT_EXPORT_EXISTS"));
@@ -10296,8 +11455,35 @@ impl Store {
     }
 
     pub fn mark_accounts_stale(&mut self) -> Result<()> {
+        self.mark_accounts_stale_with_credentials(None)
+    }
+
+    fn mark_accounts_stale_with_credentials(
+        &mut self,
+        credential_statuses: Option<&HashMap<String, WorkspaceArchiveCredentialStatus>>,
+    ) -> Result<()> {
         for mut account in self.accounts()? {
+            if account.is_local_paper() {
+                continue;
+            }
             let was_armed = account.environment == "LIVE" && account.health.arming == "ARMED";
+            if credential_statuses.and_then(|statuses| statuses.get(&account.connection_id))
+                == Some(&WorkspaceArchiveCredentialStatus::Missing)
+            {
+                if was_armed {
+                    account.health.arming = "DISARMED".into();
+                    account.health.arming_reason = "WORKSPACE_RESTORED".into();
+                }
+                account.connection_state = ConnectionState::Failed;
+                account.health.connection = "FAILED".into();
+                account.health.authentication = "UNVERIFIED".into();
+                account.health.credential = "MISSING".into();
+                account.health.reconciliation = "STALE".into();
+                account.health.execution_eligibility = "BLOCKED".into();
+                account.health.reason = "The matching OS Keychain credential is missing. Reconnect this account before use.".into();
+                self.save_account(account)?;
+                continue;
+            }
             if was_armed {
                 account.health.arming = "DISARMED".into();
                 account.health.arming_reason = "APPLICATION_RESTART".into();
@@ -10333,6 +11519,359 @@ impl Store {
         }
         Ok(())
     }
+}
+
+fn archive_credential_references(
+    database_path: &Path,
+    workspace_id: &str,
+) -> Result<Vec<(String, String)>> {
+    let connection = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut statement = connection
+        .prepare("SELECT connection_id,projection FROM accounts ORDER BY rowid")
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut references = Vec::new();
+    for row in rows {
+        let (connection_id, projection) =
+            row.map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        let account: AccountConnection = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if account.connection_id != connection_id {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        account
+            .validate_persisted(workspace_id)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if !account.is_local_paper() {
+            references.push((connection_id, account.credential_ref()));
+            if references.len() > 256 {
+                return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+            }
+        }
+    }
+    Ok(references)
+}
+
+fn archive_data_categories(
+    database_path: &Path,
+    workspace_id: &str,
+) -> Result<Vec<WorkspaceArchiveDataCategory>> {
+    const CATEGORIES: &[(WorkspaceArchiveDataCategoryId, &[&str])] = &[
+        (WorkspaceArchiveDataCategoryId::Accounts, &["accounts"]),
+        (WorkspaceArchiveDataCategoryId::Conversations, &["threads"]),
+        (
+            WorkspaceArchiveDataCategoryId::Research,
+            &["watchlists", "screeners", "artifacts"],
+        ),
+        (
+            WorkspaceArchiveDataCategoryId::StrategiesAndBacktests,
+            &["strategy_versions", "strategy_runs", "backtest_runs"],
+        ),
+        (
+            WorkspaceArchiveDataCategoryId::FinancialHistory,
+            &[
+                "order_drafts",
+                "order_proposals",
+                "order_proposal_events",
+                "risk_decisions",
+                "financial_approvals",
+                "approval_rejections",
+                "cancellation_intents",
+                "cancellation_rejections",
+                "execution_attempts",
+                "execution_reservations",
+                "execution_preparation_rejections",
+                "execution_dispatch_grants",
+                "resolution_evidence",
+                "live_order_settlements",
+                "live_order_trade_facts",
+                "paper_orders",
+                "paper_fills",
+                "paper_events",
+                "alpaca_paper_order_attempts",
+                "alpaca_paper_order_books",
+                "trading212_demo_order_attempts",
+                "trading212_demo_order_books",
+                "binance_testnet_order_attempts",
+                "binance_testnet_order_books",
+                "bitget_demo_order_attempts",
+                "bitget_demo_order_books",
+            ],
+        ),
+    ];
+
+    let connection = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    CATEGORIES
+        .iter()
+        .map(|(category_id, tables)| {
+            let mut record_count = 0_u32;
+            for table in *tables {
+                let table_exists: bool = connection
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type='table' AND name=?1)",
+                        [table],
+                        |row| row.get(0),
+                    )
+                    .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                if !table_exists {
+                    continue;
+                }
+                let has_workspace_id = {
+                    let mut statement = connection
+                        .prepare(&format!("PRAGMA table_info(\"{table}\")"))
+                        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                    let columns = statement
+                        .query_map([], |row| row.get::<_, String>(1))
+                        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                    columns
+                        .collect::<std::result::Result<Vec<_>, _>>()
+                        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?
+                        .iter()
+                        .any(|column| column == "workspace_id")
+                };
+                let count: i64 = if has_workspace_id {
+                    connection.query_row(
+                        &format!("SELECT COUNT(*) FROM \"{table}\" WHERE workspace_id=?1"),
+                        [workspace_id],
+                        |row| row.get(0),
+                    )
+                } else {
+                    // Some workspace-local tables, such as accounts, are scoped by their database.
+                    connection.query_row(&format!("SELECT COUNT(*) FROM \"{table}\""), [], |row| {
+                        row.get(0)
+                    })
+                }
+                .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+                record_count = record_count
+                    .checked_add(
+                        u32::try_from(count)
+                            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?,
+                    )
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+            }
+            Ok(WorkspaceArchiveDataCategory {
+                category_id: *category_id,
+                record_count,
+            })
+        })
+        .collect()
+}
+
+fn archive_credential_checks(
+    database_path: &Path,
+    workspace_id: &str,
+) -> Result<Vec<WorkspaceArchiveCredentialCheck>> {
+    let connection = Connection::open_with_flags(database_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut statement = connection
+        .prepare("SELECT connection_id,projection FROM accounts ORDER BY rowid")
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let mut checks = Vec::new();
+    for row in rows {
+        let (connection_id, projection) =
+            row.map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        let account: AccountConnection = serde_json::from_str(&projection)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if account.connection_id != connection_id {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+        account
+            .validate_persisted(workspace_id)
+            .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+        if account.is_local_paper() {
+            continue;
+        }
+        checks.push(WorkspaceArchiveCredentialCheck {
+            connection_id,
+            provider_id: account.provider_id,
+            environment: account.environment,
+            label: account.label,
+            status: WorkspaceArchiveCredentialStatus::NotChecked,
+        });
+        if checks.len() > 256 {
+            return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+        }
+    }
+    Ok(checks)
+}
+
+fn workspace_archive_warnings() -> Vec<String> {
+    vec![
+        "Broker/API secrets are not included; restored account credential references require re-test before use.".into(),
+        "Market history (market.duckdb) and cache files are not included because source-specific data rights are not verified.".into(),
+        "Restored accounts remain stale and disarmed; unresolved orders and reservations are retained for reconciliation.".into(),
+    ]
+}
+
+fn validate_workspace_archive_destination(destination: &Path) -> Result<PathBuf> {
+    let raw = destination.to_string_lossy();
+    if raw.is_empty()
+        || raw.len() > 4096
+        || raw.chars().any(char::is_control)
+        || !destination.is_absolute()
+        || destination
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+    {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    let parent = destination
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or_else(|| TradeXError::new("WORKSPACE_PATH_INVALID"))?;
+    if !parent.is_dir() || has_unapproved_symlink_ancestor(parent) {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    let name = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty() && name.len() <= 255)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_PATH_INVALID"))?;
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| TradeXError::new("WORKSPACE_PATH_INVALID"))?;
+    Ok(canonical_parent.join(name))
+}
+
+fn validate_workspace_archive_path(path: &Path) -> Result<PathBuf> {
+    if !path.is_absolute()
+        || path.as_os_str().len() > 4096
+        || path
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+    {
+        return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+    }
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    if has_unapproved_symlink_ancestor(parent) {
+        return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+    }
+    let canonical_parent = parent
+        .canonicalize()
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let name = path
+        .file_name()
+        .filter(|name| !name.is_empty())
+        .ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    Ok(canonical_parent.join(name))
+}
+
+fn create_workspace_restore_parent(parent: &Path) -> Result<PathBuf> {
+    if !parent.is_absolute()
+        || parent.as_os_str().len() > 4096
+        || parent
+            .components()
+            .any(|component| matches!(component, Component::CurDir | Component::ParentDir))
+        || has_unapproved_symlink_ancestor(parent)
+    {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    fs::create_dir_all(parent).map_err(storage_error)?;
+    if !parent.is_dir() || has_unapproved_symlink_ancestor(parent) {
+        return Err(TradeXError::new("WORKSPACE_PATH_INVALID"));
+    }
+    parent
+        .canonicalize()
+        .map_err(|_| TradeXError::new("WORKSPACE_PATH_INVALID"))
+}
+
+fn inspect_workspace_database(path: &Path) -> Result<(String, String, u32)> {
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let integrity: String = connection
+        .query_row("PRAGMA integrity_check", [], |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let foreign_key_violation: Option<String> = connection
+        .query_row("PRAGMA foreign_key_check", [], |row| row.get(0))
+        .optional()
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let app_id: u32 = connection
+        .pragma_query_value(None, "application_id", |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let version: u32 = connection
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    let identity: Option<(String, String)> = connection
+        .query_row(
+            "SELECT workspace_id,name FROM workspace WHERE singleton=1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(|_| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    if integrity != "ok"
+        || foreign_key_violation.is_some()
+        || app_id != APPLICATION_ID
+        || version == 0
+        || version > SCHEMA_VERSION
+    {
+        return Err(TradeXError::new("WORKSPACE_ARCHIVE_INVALID"));
+    }
+    let (workspace_id, workspace_name) =
+        identity.ok_or_else(|| TradeXError::new("WORKSPACE_ARCHIVE_INVALID"))?;
+    Ok((workspace_id, workspace_name, version))
+}
+
+fn retention_sequence(state_version: &str) -> Result<u64> {
+    state_version
+        .rsplit_once(':')
+        .and_then(|(_, sequence)| sequence.parse::<u64>().ok())
+        .filter(|sequence| *sequence <= MAX_SEQUENCE)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))
+}
+
+fn write_retention_event(
+    tx: &Transaction<'_>,
+    retention: &WorkspaceRetention,
+    sequence: u64,
+    event_type: &str,
+) -> Result<()> {
+    if !matches!(
+        event_type,
+        "workspace.retention.changed" | "workspace.retention.applied"
+    ) || retention.state_version
+        != format!("workspace-retention:{}:{sequence}", retention.workspace_id)
+        || sequence == 0
+        || sequence > MAX_SEQUENCE
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let projection = DomainProjection::WorkspaceRetention(retention.clone());
+    let event = DomainEvent {
+        event_id: Uuid::new_v4().to_string(),
+        event_type: event_type.into(),
+        schema_version: 1,
+        occurred_at: timestamp()?,
+        aggregate_type: "workspace-retention".into(),
+        aggregate_id: retention.workspace_id.clone(),
+        sequence,
+        payload: projection,
+    };
+    tx.execute(
+        "INSERT INTO workspace_retention(singleton,workspace_id,sequence,projection) VALUES(1,?1,?2,?3) ON CONFLICT(singleton) DO UPDATE SET workspace_id=excluded.workspace_id,sequence=excluded.sequence,projection=excluded.projection",
+        params![retention.workspace_id, sequence as i64, serde_json::to_string(retention).map_err(storage_error)?],
+    )
+    .map_err(storage_error)?;
+    tx.execute(
+        "INSERT INTO outbox(aggregate_type,aggregate_id,sequence,event_id,envelope) VALUES('workspace-retention',?1,?2,?3,?4)",
+        params![retention.workspace_id, sequence as i64, event.event_id, serde_json::to_string(&event).map_err(storage_error)?],
+    )
+    .map_err(storage_error)?;
+    Ok(())
 }
 
 fn validate_watchlist_name(name: &str) -> Result<String> {
@@ -12619,12 +14158,62 @@ pub(crate) fn approval_expired(expires_at: &str, now: &str) -> bool {
     expires <= now
 }
 
+fn approval_expiry_evidence(
+    approval: &FinancialApproval,
+    now: &str,
+    attempt: Option<&ExecutionAttempt>,
+    reservation: Option<&ExecutionReservation>,
+    released_now: bool,
+) -> Result<FinancialApprovalExpiry> {
+    if attempt.is_some_and(|attempt| {
+        attempt.approval_id != approval.approval_id
+            || attempt.workspace_id != approval.workspace_id
+            || attempt.account_id != approval.account_id
+    }) || reservation.is_some_and(|reservation| {
+        reservation.workspace_id != approval.workspace_id
+            || reservation.account_id != approval.account_id
+            || attempt.is_none_or(|attempt| reservation.attempt_id != attempt.attempt_id)
+    }) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let reservation_disposition = match reservation.map(|reservation| reservation.status) {
+        None => ApprovalExpiryReservationDisposition::None,
+        Some(ExecutionReservationStatus::Active) => ApprovalExpiryReservationDisposition::Retained,
+        Some(ExecutionReservationStatus::Released) if released_now => {
+            ApprovalExpiryReservationDisposition::Released
+        }
+        Some(ExecutionReservationStatus::Released) => {
+            ApprovalExpiryReservationDisposition::AlreadyReleased
+        }
+    };
+    Ok(FinancialApprovalExpiry {
+        scope: ApprovalExpiryScope::Approval,
+        authority: ApprovalExpiryAuthority::TrustedTimeService,
+        authority_reference: approval.approval_id.clone(),
+        expires_at: approval.expires_at.clone(),
+        observed_at: now.into(),
+        reservation_disposition,
+        execution_attempt_id: attempt.map(|attempt| attempt.attempt_id.clone()),
+        reservation_id: reservation.map(|reservation| reservation.reservation_id.clone()),
+        reservation_state_version: reservation.map(|reservation| reservation.state_version.clone()),
+    })
+}
+
 fn write_financial_approval_tx(
     tx: &Transaction<'_>,
     mut approval: FinancialApproval,
     nonce: Option<&str>,
     occurred_at: &str,
 ) -> Result<DomainEvent> {
+    if approval.status == FinancialApprovalStatus::Expired && approval.expiry.is_none() {
+        approval.expiry = Some(approval_expiry_evidence(
+            &approval,
+            occurred_at,
+            None,
+            None,
+            false,
+        )?);
+    }
     let previous: Option<(i64, String)> = tx
         .query_row(
             "SELECT sequence,nonce FROM financial_approvals WHERE approval_id=?1",
@@ -12670,6 +14259,7 @@ fn write_financial_approval_tx(
         FinancialApprovalStatus::Issued => "trade.approval.issued",
         FinancialApprovalStatus::Invalidated => "trade.approval.invalidated",
         FinancialApprovalStatus::Expired => "trade.approval.expired",
+        FinancialApprovalStatus::Consumed if approval.expiry.is_some() => "trade.approval.expired",
         FinancialApprovalStatus::Consumed => "trade.approval.consumed",
     };
     let event = DomainEvent {
@@ -13241,6 +14831,22 @@ fn write_execution_reservation_tx(
         {
             let active: ExecutionReservation = serde_json::from_str(projection)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if active.asset_claims.len() != reservation.asset_claims.len() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            for (before, after) in active.asset_claims.iter().zip(&reservation.asset_claims) {
+                if before.asset != after.asset
+                    || before.purpose != after.purpose
+                    || crate::provider_io::decimal_cmp(&after.amount, &before.amount)?
+                        == std::cmp::Ordering::Greater
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+            if let Some(claim) = reservation.asset_claims.first_mut() {
+                claim.amount = reservation.amount.clone();
+            }
+            validate_execution_reservation_primary_claim(&reservation)?;
             if active.status != ExecutionReservationStatus::Active
                 || active.reservation_id != reservation.reservation_id
                 || active.workspace_id != reservation.workspace_id
@@ -13257,6 +14863,9 @@ fn write_execution_reservation_tx(
             {
                 return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
             }
+        }
+        (None, ExecutionReservationStatus::Active) => {
+            validate_execution_reservation_primary_claim(&reservation)?;
         }
         _ => return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED")),
     }
@@ -13332,6 +14941,307 @@ fn write_execution_reservation_tx(
     )
     .map_err(storage_error)?;
     Ok(event)
+}
+
+fn validate_execution_reservation_primary_claim(reservation: &ExecutionReservation) -> Result<()> {
+    if reservation.asset_claims.is_empty() {
+        // Historical scalar-only captures remain readable and continue to use their primary unit.
+        return Ok(());
+    }
+    if reservation.asset_claims.len() > 16 {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let mut principal = None;
+    let mut unique =
+        Vec::<(String, crate::protocol::ExecutionReservationClaimPurpose)>::with_capacity(
+            reservation.asset_claims.len(),
+        );
+    for claim in &reservation.asset_claims {
+        if claim.asset.is_empty()
+            || claim.asset.len() > 16
+            || !claim
+                .asset
+                .bytes()
+                .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            || unique.iter().any(|(asset, purpose)| {
+                asset.eq_ignore_ascii_case(&claim.asset) && purpose == &claim.purpose
+            })
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        unique.push((claim.asset.clone(), claim.purpose));
+        let normalized = normalize_order_decimal(&claim.amount, "reservationClaimAmount")?;
+        let amount_order = crate::provider_io::decimal_cmp(&normalized, "0")?;
+        if normalized != claim.amount
+            || amount_order == std::cmp::Ordering::Less
+            || (amount_order == std::cmp::Ordering::Equal
+                && claim.purpose == crate::protocol::ExecutionReservationClaimPurpose::Principal
+                && reservation.status != ExecutionReservationStatus::Released)
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        if claim.purpose == crate::protocol::ExecutionReservationClaimPurpose::Principal {
+            if principal.replace(claim).is_some()
+                || claim.asset != reservation.unit
+                || claim.amount != reservation.amount
+            {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+        }
+    }
+    if principal.is_none() {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    Ok(())
+}
+
+fn validate_execution_reservation_plan(
+    approval: &FinancialApproval,
+    proposal: &OrderProposal,
+    decision: &RiskDecision,
+    reservation: &ExecutionReservation,
+) -> Result<Option<crate::spot_fee_model::SpotWalletFundingEvidence>> {
+    use crate::protocol::{
+        ExecutionReservationAssetClaim as Claim, ExecutionReservationClaimPurpose,
+    };
+
+    if proposal.fields.environment != ExecutionContext::BinanceLive {
+        if reservation.asset_claims.len() > 1 || reservation.fee_settlement_plan.is_some() {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        return Ok(None);
+    }
+    let Some(statement) = decision.spot_fee_fx.as_ref() else {
+        if reservation.asset_claims.len() > 1 || reservation.fee_settlement_plan.is_some() {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        return Ok(None);
+    };
+    if statement.outcome != crate::risk::RiskCheckOutcome::Pass
+        || decision.status != crate::risk::RiskDecisionStatus::Allowed
+        || decision.workspace_id != approval.workspace_id
+        || decision.proposal_id != proposal.proposal_id
+        || decision.proposal_hash != proposal.proposal_hash
+        || decision.account_id.as_deref() != Some(approval.account_id.as_str())
+        || decision.environment != proposal.fields.environment
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let model = statement
+        .current_fee_model
+        .as_ref()
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    let plan = model
+        .funding_plan_preview
+        .as_ref()
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    if plan.fee_disposition
+        == crate::spot_fee_model::FeeFundingDisposition::ConditionalInputsRequired
+        || (plan.fee_disposition
+            == crate::spot_fee_model::FeeFundingDisposition::BnbCurrentEstimate)
+            != plan.current_fee_claim.is_some()
+        || reservation.fee_settlement_plan.as_ref() != Some(plan)
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+
+    let mut expected_claims = vec![Claim {
+        asset: plan.principal_claim.asset.clone(),
+        amount: plan.principal_claim.amount.clone(),
+        purpose: ExecutionReservationClaimPurpose::Principal,
+    }];
+    if let Some(fee) = &plan.current_fee_claim {
+        expected_claims.push(Claim {
+            asset: fee.asset.clone(),
+            amount: fee.amount.clone(),
+            purpose: ExecutionReservationClaimPurpose::Fee,
+        });
+    }
+    if reservation.asset_claims != expected_claims
+        || reservation.unit != plan.principal_claim.asset
+        || reservation.amount != plan.principal_claim.amount
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+
+    let wallet = statement
+        .wallet_funding_evidence
+        .as_ref()
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    let capacity = decision
+        .spot_capacity
+        .as_ref()
+        .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+    if wallet.status != crate::spot_fee_model::SpotWalletFundingStatus::Complete
+        || !wallet.missing_assets.is_empty()
+        || wallet.workspace_id != proposal.workspace_id
+        || wallet.proposal_id != proposal.proposal_id
+        || wallet.proposal_hash != proposal.proposal_hash
+        || wallet.account_id != approval.account_id
+        || wallet.source_version != capacity.source_version
+        || wallet.rule_material_version != capacity.rule_material_version
+        || wallet.capacity_binding_version != capacity.binding_version
+        || capacity.workspace_id != proposal.workspace_id
+        || capacity.proposal_id != proposal.proposal_id
+        || capacity.proposal_hash != proposal.proposal_hash
+        || capacity.account_id != approval.account_id
+        || capacity.instrument_id != proposal.fields.instrument_id
+    {
+        return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+    }
+    let required_assets = [
+        capacity.base_asset.as_str(),
+        capacity.quote_asset.as_str(),
+        "BNB",
+    ];
+    for required in required_assets {
+        if !wallet
+            .required_assets
+            .iter()
+            .any(|asset| asset.eq_ignore_ascii_case(required))
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+    }
+    for claim in &expected_claims {
+        if !wallet
+            .required_assets
+            .iter()
+            .any(|asset| asset.eq_ignore_ascii_case(&claim.asset))
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+    }
+    Ok(Some(wallet.clone()))
+}
+
+fn execution_reservation_asset_capacities(
+    tx: &Transaction<'_>,
+    workspace_id: &str,
+    reservation: &ExecutionReservation,
+    wallet: &crate::spot_fee_model::SpotWalletFundingEvidence,
+) -> Result<(
+    Vec<crate::protocol::ExecutionReservationAssetCapacity>,
+    Option<crate::protocol::CapacityRejectionContext>,
+)> {
+    let mut existing_by_asset = std::collections::BTreeMap::<String, String>::new();
+    let mut statement = tx
+        .prepare("SELECT reservation_id,sequence,projection FROM execution_reservations WHERE workspace_id=?1 AND account_id=?2 AND status='ACTIVE'")
+        .map_err(storage_error)?;
+    let rows = statement
+        .query_map(params![workspace_id, reservation.account_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(storage_error)?;
+    let rows = rows
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(storage_error)?;
+    drop(statement);
+    for (reservation_id, sequence, encoded) in rows {
+        let active: ExecutionReservation = serde_json::from_str(&encoded)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        if sequence < 1
+            || active.reservation_id != reservation_id
+            || active.workspace_id != workspace_id
+            || active.account_id != reservation.account_id
+            || active.status != ExecutionReservationStatus::Active
+            || active.state_version != format!("execution-reservation:{reservation_id}:{sequence}")
+        {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+        let claims = crate::spot_fee_model::reservation_native_claims(&active)
+            .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+        for claim in claims {
+            let key = claim.asset.to_ascii_uppercase();
+            let current = existing_by_asset.entry(key).or_insert_with(|| "0".into());
+            *current = crate::portfolio::decimal_add(current, &claim.amount)?;
+        }
+    }
+
+    let mut requested_by_asset = std::collections::BTreeMap::<String, String>::new();
+    for claim in &reservation.asset_claims {
+        let key = claim.asset.to_ascii_uppercase();
+        let current = requested_by_asset.entry(key).or_insert_with(|| "0".into());
+        *current = crate::portfolio::decimal_add(current, &claim.amount)?;
+    }
+
+    let mut capacities = Vec::with_capacity(requested_by_asset.len());
+    for (asset, requested_amount) in requested_by_asset {
+        let balances = wallet
+            .balances
+            .iter()
+            .filter(|balance| balance.asset.eq_ignore_ascii_case(&asset))
+            .collect::<Vec<_>>();
+        if balances.len() != 1 {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        let broker_available =
+            crate::provider_io::decimal(&serde_json::Value::String(balances[0].free.clone()))?;
+        if balances[0].asset != asset
+            || crate::provider_io::decimal_cmp(&broker_available, "0")? == std::cmp::Ordering::Less
+        {
+            return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+        }
+        if asset == reservation.unit {
+            let scalar_available = crate::provider_io::decimal(&serde_json::Value::String(
+                reservation.broker_available.clone(),
+            ))?;
+            if broker_available != scalar_available {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+        }
+        let existing_reservations = existing_by_asset
+            .get(&asset)
+            .cloned()
+            .unwrap_or_else(|| "0".into());
+        let effective_available =
+            if crate::provider_io::decimal_cmp(&broker_available, &existing_reservations)?
+                == std::cmp::Ordering::Less
+            {
+                "0".into()
+            } else {
+                crate::provider_io::decimal_subtract(&broker_available, &existing_reservations)?
+            };
+        let insufficient =
+            crate::provider_io::decimal_cmp(&requested_amount, &effective_available)?
+                == std::cmp::Ordering::Greater;
+        let remaining_after_reservation = if insufficient {
+            "0".into()
+        } else {
+            crate::provider_io::decimal_subtract(&effective_available, &requested_amount)?
+        };
+        let capacity = crate::protocol::ExecutionReservationAssetCapacity {
+            asset: asset.clone(),
+            requested_amount: requested_amount.clone(),
+            broker_available: balances[0].free.clone(),
+            existing_reservations: existing_reservations.clone(),
+            effective_available: effective_available.clone(),
+            remaining_after_reservation,
+        };
+        if insufficient {
+            return Ok((
+                capacities,
+                Some(crate::protocol::CapacityRejectionContext {
+                    source: crate::protocol::CapacityLimitSource::BrokerAvailable,
+                    requested_amount,
+                    unit: asset,
+                    capacity_limit: balances[0].free.clone(),
+                    existing_reservations,
+                    effective_available,
+                    capacity_projection: reservation.capacity_projection.clone(),
+                    remediation: Some(
+                        crate::protocol::CapacityRemediation::ReduceRequestOrWaitForReservations,
+                    ),
+                }),
+            ));
+        }
+        capacities.push(capacity);
+    }
+    Ok((capacities, None))
 }
 
 fn write_execution_attempt_tx(
@@ -14851,6 +16761,233 @@ fn save_live_cancel_order_observation_tx(
     write_execution_attempt_tx(tx, attempt, &key, occurred_at)
 }
 
+fn validate_fee_settlement_branch(
+    reservation: &ExecutionReservation,
+    initial_claims: &[crate::protocol::ExecutionReservationAssetClaim],
+    fees: &[LiveOrderFee],
+) -> Result<()> {
+    use crate::protocol::ExecutionReservationClaimPurpose as Purpose;
+    use crate::spot_fee_model::FeeFundingDisposition;
+
+    let Some(plan) = reservation.fee_settlement_plan.as_ref() else {
+        // Historical reservations predate the conditional fee policy and retain their original
+        // settlement semantics.
+        return Ok(());
+    };
+
+    let principal = initial_claims
+        .iter()
+        .find(|claim| claim.purpose == Purpose::Principal)
+        .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+    if plan.principal_claim.asset != principal.asset
+        || plan.principal_claim.amount != principal.amount
+        || plan.principal_claim.asset != reservation.unit
+        || plan.principal_claim.amount != reservation.amount
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let received_asset = if reservation.side == crate::protocol::OrderSide::Sell {
+        Some(reservation.notional_currency.as_str())
+    } else {
+        reservation
+            .instrument_id
+            .strip_prefix("crypto:")
+            .and_then(|value| value.strip_suffix(":spot"))
+            .and_then(|value| value.split_once('/'))
+            .map(|(base, _)| base)
+    };
+    if received_asset.is_none_or(|asset| !asset.eq_ignore_ascii_case(&plan.fallback_fee_asset)) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+
+    let (allowed_asset, allowance) = match plan.fee_disposition {
+        FeeFundingDisposition::BnbCurrentEstimate => {
+            let fee = plan
+                .current_fee_claim
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let claims = initial_claims
+                .iter()
+                .filter(|claim| claim.purpose == Purpose::Fee)
+                .collect::<Vec<_>>();
+            if fee.asset != "BNB"
+                || claims.len() != 1
+                || claims[0].asset != fee.asset
+                || claims[0].amount != fee.amount
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            (Some(fee.asset.as_str()), fee.amount.as_str())
+        }
+        FeeFundingDisposition::ReceivedAssetDeduction => {
+            if plan.current_fee_claim.is_some()
+                || initial_claims
+                    .iter()
+                    .any(|claim| claim.purpose == Purpose::Fee)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            (
+                Some(plan.fallback_fee_asset.as_str()),
+                plan.fallback_fee_amount.as_str(),
+            )
+        }
+        FeeFundingDisposition::NoCurrentFee => {
+            if plan.current_fee_claim.is_some()
+                || initial_claims
+                    .iter()
+                    .any(|claim| claim.purpose == Purpose::Fee)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            (None, "0")
+        }
+        FeeFundingDisposition::ConditionalInputsRequired => {
+            return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+        }
+    };
+
+    let mut actual_total = "0".to_owned();
+    for fee in fees {
+        if crate::provider_io::decimal_cmp(&fee.amount, "0")? == std::cmp::Ordering::Equal {
+            continue;
+        }
+        if allowed_asset.is_none_or(|asset| !asset.eq_ignore_ascii_case(&fee.asset)) {
+            return Err(TradeXError::new("UNRESERVED_FEE_ASSET"));
+        }
+        actual_total = crate::portfolio::decimal_add(&actual_total, &fee.amount)?;
+    }
+    if crate::provider_io::decimal_cmp(&actual_total, allowance)? == std::cmp::Ordering::Greater {
+        return Err(TradeXError::new("SETTLEMENT_EXCEEDS_COMMITMENT"));
+    }
+    Ok(())
+}
+
+fn remaining_native_reservation_claims(
+    reservation: &ExecutionReservation,
+    initial_commitment: &str,
+    initial_claims: &[crate::protocol::ExecutionReservationAssetClaim],
+    filled_quantity: &str,
+    filled_value: &str,
+    fees: &[LiveOrderFee],
+) -> Result<(String, Vec<crate::protocol::ExecutionReservationAssetClaim>)> {
+    use crate::protocol::{
+        ExecutionReservationAssetClaim as Claim, ExecutionReservationClaimPurpose as Purpose,
+    };
+
+    validate_fee_settlement_branch(reservation, initial_claims, fees)?;
+
+    let principal_consumed = match reservation.side {
+        crate::protocol::OrderSide::Buy => filled_value.to_owned(),
+        crate::protocol::OrderSide::Sell => filled_quantity.to_owned(),
+    };
+    let Some(principal) = initial_claims
+        .iter()
+        .find(|claim| claim.purpose == Purpose::Principal)
+    else {
+        // Backward-compatible scalar reservations had only one claimable asset.
+        let fee = fees
+            .iter()
+            .filter(|fee| fee.asset.eq_ignore_ascii_case(&reservation.unit))
+            .try_fold("0".to_owned(), |sum, fee| {
+                crate::portfolio::decimal_add(&sum, &fee.amount)
+            })?;
+        let consumed = crate::portfolio::decimal_add(&principal_consumed, &fee)?;
+        if crate::provider_io::decimal_cmp(&consumed, initial_commitment)?
+            == std::cmp::Ordering::Greater
+        {
+            return Err(TradeXError::new("SETTLEMENT_EXCEEDS_COMMITMENT"));
+        }
+        return Ok((
+            crate::provider_io::decimal_subtract(initial_commitment, &consumed)?,
+            Vec::new(),
+        ));
+    };
+
+    if principal.asset != reservation.unit || principal.amount != initial_commitment {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    if reservation.asset_claims.len() != initial_claims.len()
+        || reservation
+            .asset_claims
+            .iter()
+            .zip(initial_claims)
+            .any(|(remaining, initial)| {
+                remaining.asset != initial.asset || remaining.purpose != initial.purpose
+            })
+    {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let has_primary_fee_claim = initial_claims.iter().any(|claim| {
+        claim.purpose == Purpose::Fee && claim.asset.eq_ignore_ascii_case(&reservation.unit)
+    });
+    let primary_fee = if has_primary_fee_claim {
+        "0".to_owned()
+    } else {
+        fees.iter()
+            .filter(|fee| fee.asset.eq_ignore_ascii_case(&reservation.unit))
+            .try_fold("0".to_owned(), |sum, fee| {
+                crate::portfolio::decimal_add(&sum, &fee.amount)
+            })?
+    };
+    let primary_consumed = crate::portfolio::decimal_add(&principal_consumed, &primary_fee)?;
+    if crate::provider_io::decimal_cmp(&primary_consumed, initial_commitment)?
+        == std::cmp::Ordering::Greater
+    {
+        return Err(TradeXError::new("SETTLEMENT_EXCEEDS_COMMITMENT"));
+    }
+    let principal_remaining =
+        crate::provider_io::decimal_subtract(initial_commitment, &primary_consumed)?;
+
+    let received_asset = if reservation.side == crate::protocol::OrderSide::Sell {
+        Some(reservation.notional_currency.as_str())
+    } else {
+        reservation
+            .instrument_id
+            .strip_prefix("crypto:")
+            .and_then(|value| value.strip_suffix(":spot"))
+            .and_then(|value| value.split_once('/'))
+            .map(|(base, _)| base)
+    };
+    for fee in fees {
+        let covered_by_primary = fee.asset.eq_ignore_ascii_case(&reservation.unit);
+        let covered_by_fee_claim = initial_claims.iter().any(|claim| {
+            claim.purpose == Purpose::Fee && claim.asset.eq_ignore_ascii_case(&fee.asset)
+        });
+        let received_asset_deduction =
+            received_asset.is_some_and(|asset| asset.eq_ignore_ascii_case(&fee.asset));
+        if !covered_by_primary && !covered_by_fee_claim && !received_asset_deduction {
+            return Err(TradeXError::new("UNRESERVED_FEE_ASSET"));
+        }
+    }
+
+    let mut remaining_claims = Vec::with_capacity(initial_claims.len());
+    for claim in initial_claims {
+        let amount = if claim.purpose == Purpose::Principal {
+            principal_remaining.clone()
+        } else {
+            let actual_fee = fees
+                .iter()
+                .filter(|fee| fee.asset.eq_ignore_ascii_case(&claim.asset))
+                .try_fold("0".to_owned(), |sum, fee| {
+                    crate::portfolio::decimal_add(&sum, &fee.amount)
+                })?;
+            if crate::provider_io::decimal_cmp(&actual_fee, &claim.amount)?
+                == std::cmp::Ordering::Greater
+            {
+                return Err(TradeXError::new("SETTLEMENT_EXCEEDS_COMMITMENT"));
+            }
+            crate::provider_io::decimal_subtract(&claim.amount, &actual_fee)?
+        };
+        remaining_claims.push(Claim {
+            asset: claim.asset.clone(),
+            amount,
+            purpose: claim.purpose,
+        });
+    }
+    Ok((principal_remaining, remaining_claims))
+}
+
 fn settle_live_order_observation_tx(
     tx: &Transaction<'_>,
     account: &AccountConnection,
@@ -14962,11 +17099,22 @@ fn settle_live_order_observation_tx(
         provider_observed_at: None,
         observed_at: occurred_at.into(),
         initial_commitment: reservation.amount.clone(),
+        initial_asset_claims: reservation.asset_claims.clone(),
         remaining_commitment: reservation.amount.clone(),
         unresolved_reason: None,
         state_version: String::new(),
     });
     let initial_commitment = next.initial_commitment.clone();
+    if next.initial_asset_claims.is_empty() && !reservation.asset_claims.is_empty() {
+        next.initial_asset_claims = reservation.asset_claims.clone();
+        if previous.is_some()
+            && let Some(principal) = next.initial_asset_claims.iter_mut().find(|claim| {
+                claim.purpose == crate::protocol::ExecutionReservationClaimPurpose::Principal
+            })
+        {
+            principal.amount = initial_commitment.clone();
+        }
+    }
     let mut reason = None;
     if provider_status.is_none() || provider_time.is_none() {
         reason = Some("PROVIDER_EVIDENCE_INVALID");
@@ -15062,38 +17210,37 @@ fn settle_live_order_observation_tx(
         }
     }
     let mut new_remaining = reservation.amount.clone();
+    let mut new_asset_claims = reservation.asset_claims.clone();
     if reason.is_none() {
         let quantity = incoming_quantity.as_deref().unwrap();
         let value = incoming_value.as_deref().unwrap();
         let fees = incoming_fees.as_deref().unwrap();
-        let consumed = match reservation.side {
-            crate::protocol::OrderSide::Buy => {
-                let fee = fees
-                    .iter()
-                    .find(|fee| fee.asset.eq_ignore_ascii_case(&reservation.unit))
-                    .map_or("0", |fee| fee.amount.as_str());
-                crate::portfolio::decimal_add(value, fee)?
+        match remaining_native_reservation_claims(
+            &reservation,
+            &initial_commitment,
+            &next.initial_asset_claims,
+            quantity,
+            value,
+            fees,
+        ) {
+            Ok((remaining, claims)) => {
+                new_remaining = remaining;
+                new_asset_claims = claims;
+                if crate::provider_io::decimal_cmp(&new_remaining, &reservation.amount)?
+                    == std::cmp::Ordering::Greater
+                {
+                    reason = Some("CUMULATIVE_EVIDENCE_DECREASED");
+                    new_remaining = reservation.amount.clone();
+                    new_asset_claims = reservation.asset_claims.clone();
+                }
             }
-            crate::protocol::OrderSide::Sell => {
-                let fee = fees
-                    .iter()
-                    .find(|fee| fee.asset.eq_ignore_ascii_case(&reservation.unit))
-                    .map_or("0", |fee| fee.amount.as_str());
-                crate::portfolio::decimal_add(quantity, fee)?
+            Err(error) if error.code == "SETTLEMENT_EXCEEDS_COMMITMENT" => {
+                reason = Some("SETTLEMENT_EXCEEDS_COMMITMENT");
             }
-        };
-        if crate::provider_io::decimal_cmp(&consumed, &initial_commitment)?
-            == std::cmp::Ordering::Greater
-        {
-            reason = Some("SETTLEMENT_EXCEEDS_COMMITMENT");
-        } else {
-            new_remaining = crate::provider_io::decimal_subtract(&initial_commitment, &consumed)?;
-            if crate::provider_io::decimal_cmp(&new_remaining, &reservation.amount)?
-                == std::cmp::Ordering::Greater
-            {
-                reason = Some("CUMULATIVE_EVIDENCE_DECREASED");
-                new_remaining = reservation.amount.clone();
+            Err(error) if error.code == "UNRESERVED_FEE_ASSET" => {
+                reason = Some("UNRESERVED_FEE_ASSET");
             }
+            Err(error) => return Err(error),
         }
     }
 
@@ -15165,10 +17312,12 @@ fn settle_live_order_observation_tx(
     }
     if next.status != LiveOrderSettlementStatus::Incomplete
         && (reservation.amount != new_remaining
+            || reservation.asset_claims != new_asset_claims
             || (next.status == LiveOrderSettlementStatus::Settled
                 && reservation.status != ExecutionReservationStatus::Released))
     {
         reservation.amount = new_remaining;
+        reservation.asset_claims = new_asset_claims;
         if next.status == LiveOrderSettlementStatus::Settled {
             reservation.status = ExecutionReservationStatus::Released;
         }
@@ -15484,6 +17633,25 @@ fn validate_artifact_content(content: &ArtifactContent) -> Result<()> {
         return Err(TradeXError::new("ARTIFACT_SOURCE_INVALID"));
     }
     Ok(())
+}
+
+/// Raw market observations remain available to the local artifact detail view, but are not
+/// copied to user-selected export destinations. A future typed research adapter must pass
+/// through this same boundary before any structured quote, depth, or source-age value is exported.
+fn artifact_has_raw_market_observations(artifact: &Artifact) -> bool {
+    artifact
+        .content
+        .research_result
+        .as_ref()
+        .is_some_and(|result| {
+            result.payload.spot_venues.iter().any(|venue| {
+                venue.bid.is_some()
+                    || venue.ask.is_some()
+                    || venue.spread.is_some()
+                    || venue.depth.is_some()
+                    || venue.quote_age.is_some()
+            })
+        })
 }
 
 fn validate_artifact_provenance(
@@ -16760,5 +18928,588 @@ mod confirmed_candidate_tests {
         assert!(!candidate_matches_proposal_terms(
             &observed, &limit, "bitget"
         ));
+    }
+}
+
+#[cfg(test)]
+mod execution_reservation_claim_tests {
+    use super::{
+        execution_reservation_asset_capacities, remaining_native_reservation_claims,
+        validate_execution_reservation_primary_claim,
+    };
+    use crate::protocol::{
+        ExecutionReservation, ExecutionReservationAssetClaim, ExecutionReservationClaimPurpose,
+        ExecutionReservationStatus, LiveOrderFee, OrderSide,
+    };
+    use crate::spot_fee_model::{
+        FeeFundingDisposition, FeeNativeClaimPreview, SpotFundingPlanPreview,
+        SpotWalletBalanceEvidence, SpotWalletFundingEvidence, SpotWalletFundingStatus,
+    };
+
+    fn sample_reservation() -> ExecutionReservation {
+        ExecutionReservation {
+            reservation_id: "reservation-1".into(),
+            workspace_id: "workspace-1".into(),
+            account_id: "account-1".into(),
+            attempt_id: "attempt-1".into(),
+            proposal_id: "proposal-1".into(),
+            proposal_hash: format!("sha256:{}", "a".repeat(64)),
+            instrument_id: "crypto:BTC/USDT:spot".into(),
+            side: OrderSide::Buy,
+            capacity_key: "cash:USDT".into(),
+            amount: "60".into(),
+            unit: "USDT".into(),
+            asset_claims: vec![ExecutionReservationAssetClaim {
+                asset: "USDT".into(),
+                amount: "60".into(),
+                purpose: ExecutionReservationClaimPurpose::Principal,
+            }],
+            fee_settlement_plan: None,
+            asset_capacities: Vec::new(),
+            notional: "60".into(),
+            notional_currency: "USDT".into(),
+            workspace_notional: Some("60".into()),
+            workspace_currency: "USD".into(),
+            broker_available: "100".into(),
+            existing_reservations: "0".into(),
+            effective_available: "40".into(),
+            capacity_projection: None,
+            account_state_version: "account-state-1".into(),
+            status: ExecutionReservationStatus::Active,
+            created_at: "2026-10-11T00:00:00Z".into(),
+            state_version: String::new(),
+        }
+    }
+
+    fn fee_plan(
+        disposition: FeeFundingDisposition,
+        current_fee_claim: Option<FeeNativeClaimPreview>,
+        fallback_fee_amount: &str,
+    ) -> SpotFundingPlanPreview {
+        SpotFundingPlanPreview {
+            principal_claim: FeeNativeClaimPreview {
+                asset: "USDT".into(),
+                amount: "60".into(),
+            },
+            fee_disposition: disposition,
+            current_fee_claim,
+            fallback_fee_asset: "BTC".into(),
+            fallback_fee_amount: fallback_fee_amount.into(),
+            fallback_net_receipt: "0.00094999718".into(),
+        }
+    }
+
+    #[test]
+    fn settlement_enforces_the_selected_bnb_branch_and_freezes_fallback_deviation() {
+        let mut reservation = sample_reservation();
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.006".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        reservation.fee_settlement_plan = Some(fee_plan(
+            FeeFundingDisposition::BnbCurrentEstimate,
+            Some(FeeNativeClaimPreview {
+                asset: "BNB".into(),
+                amount: "0.006".into(),
+            }),
+            "0.00005000282",
+        ));
+        let initial_claims = reservation.asset_claims.clone();
+
+        let (remaining, claims) = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BNB".into(),
+                amount: "0.005".into(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(remaining, "30");
+        assert_eq!(claims[1].amount, "0.001");
+
+        let deviation = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BTC".into(),
+                amount: "0.00002".into(),
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(deviation.code, "UNRESERVED_FEE_ASSET");
+    }
+
+    #[test]
+    fn settlement_bounds_received_asset_fallback_by_the_saved_estimate() {
+        let mut reservation = sample_reservation();
+        reservation.fee_settlement_plan = Some(fee_plan(
+            FeeFundingDisposition::ReceivedAssetDeduction,
+            None,
+            "0.00005000282",
+        ));
+        let initial_claims = reservation.asset_claims.clone();
+
+        let (remaining, claims) = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BTC".into(),
+                amount: "0.00004".into(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(remaining, "30");
+        assert_eq!(claims[0].amount, "30");
+
+        let excess = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BTC".into(),
+                amount: "0.00006".into(),
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(excess.code, "SETTLEMENT_EXCEEDS_COMMITMENT");
+
+        let deviation = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BNB".into(),
+                amount: "0.00004".into(),
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(deviation.code, "UNRESERVED_FEE_ASSET");
+    }
+
+    #[test]
+    fn settlement_rejects_fees_for_a_saved_zero_fee_branch() {
+        let mut reservation = sample_reservation();
+        reservation.fee_settlement_plan =
+            Some(fee_plan(FeeFundingDisposition::NoCurrentFee, None, "0"));
+        let initial_claims = reservation.asset_claims.clone();
+        let deviation = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BTC".into(),
+                amount: "0.00001".into(),
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(deviation.code, "UNRESERVED_FEE_ASSET");
+    }
+
+    #[test]
+    fn prepare_claim_vector_accepts_one_native_fee_leg_and_rejects_duplicates() {
+        let mut reservation = sample_reservation();
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.001".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        assert!(validate_execution_reservation_primary_claim(&reservation).is_ok());
+
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.002".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        assert!(validate_execution_reservation_primary_claim(&reservation).is_err());
+    }
+
+    fn wallet(bnb_free: &str) -> SpotWalletFundingEvidence {
+        SpotWalletFundingEvidence {
+            status: SpotWalletFundingStatus::Complete,
+            required_assets: vec!["BTC".into(), "USDT".into(), "BNB".into()],
+            missing_assets: Vec::new(),
+            balances: vec![
+                SpotWalletBalanceEvidence {
+                    asset: "USDT".into(),
+                    free: "100".into(),
+                    locked: "0".into(),
+                    local_claims: "0".into(),
+                    effective_free: Some("100".into()),
+                },
+                SpotWalletBalanceEvidence {
+                    asset: "BNB".into(),
+                    free: bnb_free.into(),
+                    locked: "0".into(),
+                    local_claims: "0".into(),
+                    effective_free: Some(bnb_free.into()),
+                },
+            ],
+            workspace_id: "workspace-1".into(),
+            proposal_id: "proposal-1".into(),
+            proposal_hash: format!("sha256:{}", "a".repeat(64)),
+            account_id: "account-1".into(),
+            source_version: "source-1".into(),
+            rule_material_version: Some("b".repeat(64)),
+            capacity_binding_version: "binding-1".into(),
+            collection_id: Some("collection-1".into()),
+            account_read_started_at: Some("2026-10-11T00:00:00Z".into()),
+            first_receipt: Some("2026-10-11T00:00:01Z".into()),
+            original_digest: Some("c".repeat(64)),
+            reason: None,
+        }
+    }
+
+    #[test]
+    fn prepare_capacity_checks_principal_and_fee_assets_together() {
+        let mut connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE execution_reservations (
+                    reservation_id TEXT, sequence INTEGER, projection TEXT,
+                    workspace_id TEXT, account_id TEXT, status TEXT, capacity_key TEXT
+                );",
+            )
+            .unwrap();
+        let tx = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .unwrap();
+        let mut reservation = sample_reservation();
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.001".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        let mut existing_reservation = sample_reservation();
+        existing_reservation.reservation_id = "existing-1".into();
+        existing_reservation.attempt_id = "attempt-existing-1".into();
+        existing_reservation.proposal_id = "proposal-existing-1".into();
+        existing_reservation.proposal_hash = format!("sha256:{}", "d".repeat(64));
+        existing_reservation.amount = "20".into();
+        existing_reservation.asset_claims[0].amount = "20".into();
+        existing_reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.001".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        existing_reservation.state_version = "execution-reservation:existing-1:1".into();
+        tx.execute(
+            "INSERT INTO execution_reservations(reservation_id,sequence,projection,workspace_id,account_id,status,capacity_key) VALUES(?1,1,?2,?3,?4,'ACTIVE',?5)",
+            rusqlite::params![
+                existing_reservation.reservation_id,
+                serde_json::to_string(&existing_reservation).unwrap(),
+                existing_reservation.workspace_id,
+                existing_reservation.account_id,
+                existing_reservation.capacity_key,
+            ],
+        )
+        .unwrap();
+
+        let (capacities, rejection) = execution_reservation_asset_capacities(
+            &tx,
+            "workspace-1",
+            &reservation,
+            &wallet("0.003"),
+        )
+        .unwrap();
+        assert!(rejection.is_none());
+        let usdt = capacities.iter().find(|item| item.asset == "USDT").unwrap();
+        assert_eq!(usdt.requested_amount, "60");
+        assert_eq!(usdt.broker_available, "100");
+        assert_eq!(usdt.existing_reservations, "20");
+        assert_eq!(usdt.effective_available, "80");
+        assert_eq!(usdt.remaining_after_reservation, "20");
+        let bnb = capacities.iter().find(|item| item.asset == "BNB").unwrap();
+        assert_eq!(bnb.requested_amount, "0.001");
+        assert_eq!(bnb.existing_reservations, "0.001");
+        assert_eq!(bnb.effective_available, "0.002");
+        assert_eq!(bnb.remaining_after_reservation, "0.001");
+
+        let (_, rejection) = execution_reservation_asset_capacities(
+            &tx,
+            "workspace-1",
+            &reservation,
+            &wallet("0.0015"),
+        )
+        .unwrap();
+        let rejection = rejection.expect("the fee asset must not exceed its own broker balance");
+        assert_eq!(rejection.unit, "BNB");
+        assert_eq!(rejection.requested_amount, "0.001");
+        assert_eq!(rejection.capacity_limit, "0.0015");
+
+        let (_, rejection) = execution_reservation_asset_capacities(
+            &tx,
+            "workspace-1",
+            &reservation,
+            &wallet("0.000000000000000000001"),
+        )
+        .unwrap();
+        let rejection = rejection.expect("tiny BNB balances retain their exact source precision");
+        assert_eq!(rejection.unit, "BNB");
+        assert_eq!(rejection.capacity_limit, "0.000000000000000000001");
+    }
+
+    #[test]
+    fn prepare_capacity_isolates_multileg_claims_by_workspace_and_account() {
+        let mut connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE execution_reservations (
+                    reservation_id TEXT, sequence INTEGER, projection TEXT,
+                    workspace_id TEXT, account_id TEXT, status TEXT, capacity_key TEXT
+                );",
+            )
+            .unwrap();
+        let tx = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .unwrap();
+        let mut requested = sample_reservation();
+        requested.asset_claims.push(ExecutionReservationAssetClaim {
+            asset: "BNB".into(),
+            amount: "0.001".into(),
+            purpose: ExecutionReservationClaimPurpose::Fee,
+        });
+
+        let insert_active = |reservation_id: &str,
+                             workspace_id: &str,
+                             account_id: &str,
+                             principal: &str,
+                             fee: &str| {
+            let mut active = sample_reservation();
+            active.reservation_id = reservation_id.into();
+            active.workspace_id = workspace_id.into();
+            active.account_id = account_id.into();
+            active.attempt_id = format!("attempt-{reservation_id}");
+            active.proposal_id = format!("proposal-{reservation_id}");
+            active.proposal_hash = format!("sha256:{}", "d".repeat(64));
+            active.amount = principal.into();
+            active.asset_claims[0].amount = principal.into();
+            active.asset_claims.push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: fee.into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+            active.state_version = format!("execution-reservation:{reservation_id}:1");
+            tx.execute(
+                "INSERT INTO execution_reservations(reservation_id,sequence,projection,workspace_id,account_id,status,capacity_key) VALUES(?1,1,?2,?3,?4,'ACTIVE',?5)",
+                rusqlite::params![
+                    reservation_id,
+                    serde_json::to_string(&active).unwrap(),
+                    workspace_id,
+                    account_id,
+                    active.capacity_key,
+                ],
+            )
+            .unwrap();
+        };
+        // These two rows exceed the available balances if either workspace or account
+        // scoping is lost. Only the first row belongs to this Prepare's capacity pool.
+        insert_active("same-account", "workspace-1", "account-1", "20", "0.001");
+        insert_active("other-account", "workspace-1", "account-2", "90", "0.002");
+        insert_active(
+            "other-workspace",
+            "workspace-2",
+            "account-1",
+            "70",
+            "0.0015",
+        );
+
+        let (capacities, rejection) = execution_reservation_asset_capacities(
+            &tx,
+            "workspace-1",
+            &requested,
+            &wallet("0.003"),
+        )
+        .unwrap();
+        assert!(
+            rejection.is_none(),
+            "other account/workspace claims must not consume this capacity"
+        );
+        let bnb = capacities.iter().find(|item| item.asset == "BNB").unwrap();
+        assert_eq!(bnb.requested_amount, "0.001");
+        assert_eq!(bnb.existing_reservations, "0.001");
+        assert_eq!(bnb.effective_available, "0.002");
+        assert_eq!(bnb.remaining_after_reservation, "0.001");
+        let usdt = capacities.iter().find(|item| item.asset == "USDT").unwrap();
+        assert_eq!(usdt.requested_amount, "60");
+        assert_eq!(usdt.existing_reservations, "20");
+        assert_eq!(usdt.effective_available, "80");
+        assert_eq!(usdt.remaining_after_reservation, "20");
+    }
+
+    #[test]
+    fn exhausted_fee_allowance_keeps_a_zero_fee_claim_without_reserving_capacity() {
+        let mut reservation = sample_reservation();
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        let claims = crate::spot_fee_model::reservation_native_claims(&reservation).unwrap();
+        assert!(claims.iter().any(|claim| {
+            claim.asset == "BNB"
+                && claim.amount == "0"
+                && claim.purpose == ExecutionReservationClaimPurpose::Fee
+        }));
+    }
+
+    #[test]
+    fn settlement_claims_apply_cumulative_fees_once_to_each_native_asset() {
+        let mut reservation = sample_reservation();
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.004".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        let initial_claims = reservation.asset_claims.clone();
+        let (principal_remaining, claims) = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BNB".into(),
+                amount: "0.001".into(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(principal_remaining, "30");
+        assert_eq!(claims[0].amount, "30");
+        assert_eq!(claims[1].amount, "0.003");
+
+        let (principal_remaining, claims) = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.002",
+            "50",
+            &[LiveOrderFee {
+                asset: "BNB".into(),
+                amount: "0.003".into(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(principal_remaining, "10");
+        assert_eq!(claims[0].amount, "10");
+        assert_eq!(claims[1].amount, "0.001");
+
+        let (principal_remaining, claims) = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[
+                LiveOrderFee {
+                    asset: "BNB".into(),
+                    amount: "0.001".into(),
+                },
+                LiveOrderFee {
+                    asset: "BTC".into(),
+                    amount: "0.0002".into(),
+                },
+            ],
+        )
+        .unwrap();
+        assert_eq!(principal_remaining, "30");
+        assert_eq!(claims[0].amount, "30");
+        assert_eq!(claims[1].amount, "0.003");
+    }
+
+    #[test]
+    fn settlement_refuses_fees_outside_the_reserved_native_vector() {
+        let mut reservation = sample_reservation();
+        reservation
+            .asset_claims
+            .push(ExecutionReservationAssetClaim {
+                asset: "BNB".into(),
+                amount: "0.004".into(),
+                purpose: ExecutionReservationClaimPurpose::Fee,
+            });
+        let initial_claims = reservation.asset_claims.clone();
+        let over_allowance = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "BNB".into(),
+                amount: "0.005".into(),
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(over_allowance.code, "SETTLEMENT_EXCEEDS_COMMITMENT");
+
+        let unreserved_asset = remaining_native_reservation_claims(
+            &reservation,
+            "60",
+            &initial_claims,
+            "0.001",
+            "30",
+            &[LiveOrderFee {
+                asset: "EUR".into(),
+                amount: "0.0002".into(),
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(unreserved_asset.code, "UNRESERVED_FEE_ASSET");
+
+        let mut sell = reservation.clone();
+        sell.side = OrderSide::Sell;
+        sell.unit = "BTC".into();
+        sell.amount = "1".into();
+        sell.instrument_id = "crypto:BTC/USDT:spot".into();
+        let sell_claims = vec![ExecutionReservationAssetClaim {
+            asset: "BTC".into(),
+            amount: "1".into(),
+            purpose: ExecutionReservationClaimPurpose::Principal,
+        }];
+        sell.asset_claims = sell_claims.clone();
+        let (principal_remaining, claims) = remaining_native_reservation_claims(
+            &sell,
+            "1",
+            &sell_claims,
+            "0.5",
+            "30000",
+            &[LiveOrderFee {
+                asset: "USDT".into(),
+                amount: "0.2".into(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(principal_remaining, "0.5");
+        assert_eq!(claims[0].amount, "0.5");
     }
 }

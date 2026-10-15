@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-01T08:30:30.826467+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "scope": "Uncommitted #116; public configured-source Hot boundary, external fake secure vault/HTTP and actual TCP WebSocket",
+  "checks": {
+    "hotRust": "15 passed",
+    "desktopCheckFmtDiffFinalIntegrationBuild": "PASS"
+  },
+  "red": "Mixed subscription acknowledgement plus quote was accepted and created a stream snapshot; singleton control enforcement now rejects before applying either",
+  "regression": "Paused provider metadata does not block public time revalidation or source replacement; old response cannot publish or verify replacement source",
+  "limits": [
+    "No new UI proof; hot-pending UI stage is historical",
+    "Hosted quote ticks, complete ticket and financial acceptance remain unverified",
+    "Remaining approval presentation/binding acceptance, final suite/native build and serial reviews pending; all parents open"
+  ],
+  "runtimeBinarySha256": "e9ebb57c917ef394ace996e43bcf2c47045fcffbb7455c914a820a2acb38d8bb",
+  "sha256": {
+    "src-tauri/src/quote_source.rs": "34c6ad7853a1f3a67064ed109bf3d0447ea4babcb370510e180b1524090103f7",
+    "src-tauri/src/quote_source/hot.rs": "879f84fad193d5cd254f2b3aac82ffe8491e09a0c59928bf0f207c7cd72879fd",
+    "src-tauri/tests/quote_hot.rs": "b47d746e6b9ef0792e4a1a3131a8feafef7f90caf981012c198c8195428fa438",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "f4650ae8eb8f37cc0bd48439e8ce005221ea32a746b0a15e1f69eaac96bf7863",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "8151f777dcf0da23cf8f7e8eeffeba476ef9685c0d8349566fdb0d45b377126b",
+    "docs/implementation/evidence/s28-source-progress/hot-control-check.txt": "3e484711696ca1e6920f780779fde82a083d402cf4d74c3ebd753c1a6379abf9",
+    "docs/implementation/evidence/s28-source-progress/hot-control-red.txt": "1df4e4849644f2775c0c235d99e26ded0bdadbbf1aca10e16102c85b994b3e43",
+    "docs/implementation/evidence/s28-source-progress/hot-control-green.txt": "8e876a9d427df1a98c50546a703f6ebaca1981ccaebb3def5b9e56d87ab1fb64",
+    "docs/implementation/evidence/s28-source-progress/hot-metadata-check.txt": "75139213c4a78ef27e63e376d453be14ba6bdc5e7576ad905a037e03fb2d0856"
+  }
+}

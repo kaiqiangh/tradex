@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.66s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts ... FAILED
+
+failures:
+
+failures:
+    capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.10s
+
+
+thread 'capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts' (11027707) panicked at src-tauri/tests/binance_rules.rs:337:5:
+assertion `left == right` failed: List source purpose is absent: {"data":{"accountId":"afa22b97-b46e-4f34-80cc-ea83ca6211d9","baseAsset":"BTC","bindingVersion":"sha256:e23e8de0458a136d413eaeb1ee04bde34b56b1da78d09a65826b327afd048b52","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":null,"proposalHash":"sha256:4a95d454c453f6fa97724ef725c7f19c7f39a87151244890c1395c10b0c34c1e","proposalId":"proposal:1ad6fe31-0270-446b-984e-9d5c67720fc8","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"46695e70ed3d20176d732b81eda1070ffa4c5add3b7b2adaac4a1ba4a45e01cf","sourceVersion":"BINANCE_SPOT_RULES:e86b07fe-2bdb-45bc-a23a-1485010f5a8f:1","stateVersion":"sha256:e0c739068721c7f04c2ff7799823d5d902beb52de527bce75fc7924efd8e0a53","status":"NOT_OBSERVED","workspaceId":"e86b07fe-2bdb-45bc-a23a-1485010f5a8f"},"ok":true,"requestId":"spot-rules","schemaVersion":1,"stateVersion":"sha256:e0c739068721c7f04c2ff7799823d5d902beb52de527bce75fc7924efd8e0a53"}
+  left: Array [String("OPEN_ORDERS_ACCOUNT")]
+ right: Array [String("OPEN_ORDERS_ACCOUNT"), String("OPEN_ORDER_LISTS")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts' (11027690) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts ... FAILED
+
+failures:
+
+failures:
+    capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

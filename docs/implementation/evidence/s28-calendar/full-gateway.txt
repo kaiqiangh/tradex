@@ -1,0 +1,7 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.28s
+     Running unittests src/bin/tradex-order-gateway.rs (target/debug/deps/tradex_order_gateway-cc8761025b70590e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

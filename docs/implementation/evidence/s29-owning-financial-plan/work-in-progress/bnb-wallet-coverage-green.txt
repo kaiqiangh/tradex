@@ -1,0 +1,15 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.00s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-01462f343f6b72a8)
+
+running 1 test
+
+running 1 test
+test owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 1.13s
+
+test owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 1.37s
+

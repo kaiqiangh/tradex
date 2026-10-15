@@ -1,0 +1,10 @@
+# S29.11 Spec review — 2026-10-12
+
+- Fixed base: `308747ad19e5f0fc1ba4e0b3b54b062250e317f0`.
+- Reviewed: current `dev` worktree delta against #135, paired S29.11 specification, parent #134 and current evidence.
+- Result: NOT PASS; #135 remains OPEN at 4/14 criteria checked.
+- AC1/AC9/AC10 remain incomplete: the latest real Alpaca read produced no receipt; actual source-use is `UNRESOLVED` and `FX_DATA_USE_RIGHTS=UNVERIFIED`. The ticket requires actual source-use evidence and a positive supported-producer → owning statement → same risk/Prepare consumer path. Synthetic egress evidence does not prove provider rights or positive Prepare.
+- AC5 is partial and blocked under the user-retained RevC gate. The paired spec says an unknown future charging asset keeps the owning fee statement unavailable. Public account reads show zero local claims; active-claim subtraction has only private-helper evidence; public Prepare cannot create the reservation needed for that public acceptance path without an eligible approval. No seeded reservation shortcut is allowed.
+- AC7 and AC12 remain partial. Settlement evidence lacks public producer → Prepare → settlement and rendered multi-leg acceptance. Prepare evidence covers refusal with no issued approval, not changed-evidence rejection, per-asset atomic Prepare, Gateway preflight or positive Prepare.
+- No unrequested runtime behavior or remaining mismatch with the retained unknown-fee-asset gate was found. The conditional-fee proposal remains unadopted and changes no code or gate.
+- No issue or acceptance checkbox changed.

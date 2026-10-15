@@ -160,6 +160,86 @@ fn strategy_run_fails_closed_for_tampered_hash_dataset_and_untrusted_time() {
 }
 
 #[test]
+fn strategy_runs_freeze_canonical_instrument_context_and_retry_exact_inputs() {
+    let directory = tempfile::tempdir().unwrap();
+    let mut control = ControlPlane::new(directory.path().join("workspace"));
+    let opened = command(&mut control, "workspace.open", json!({}));
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap();
+    let saved = command(
+        &mut control,
+        "strategy.save_version",
+        json!({"workspaceId": workspace_id, "definition": definition("Momentum", "return 1")}),
+    );
+    let version_id = saved["data"]["strategyVersionId"].as_str().unwrap();
+    let version_hash = saved["data"]["sourceHash"].as_str().unwrap();
+    assert_eq!(
+        command(
+            &mut control,
+            "time.revalidate",
+            json!({"workspaceId": workspace_id}),
+        )["ok"],
+        true
+    );
+    let base = json!({
+        "workspaceId": workspace_id,
+        "strategyVersionId": version_id,
+        "expectedStrategyHash": version_hash,
+        "instrumentId": "equity:US:AAPL",
+        "datasetId": "historical:fixture",
+        "startAt": "2026-01-01T00:00:00Z",
+        "endAt": "2026-01-02T00:00:00Z",
+        "parameters": []
+    });
+    let mut bad_context = base.clone();
+    bad_context["contextRefs"] = json!([{
+        "kind": "instrument",
+        "id": "equity:US:AAPL",
+        "hash": format!("sha256:{}", "0".repeat(64))
+    }]);
+    let rejected_context = command(&mut control, "strategy.run", bad_context);
+    assert_eq!(
+        rejected_context["error"]["code"], "TURN_CONTEXT_INVALID",
+        "{rejected_context}"
+    );
+
+    let first = command(&mut control, "strategy.run", base.clone());
+    assert_eq!(first["ok"], true, "{first}");
+    assert!(
+        first["data"]["contextRefs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|context| {
+                context["kind"] == "instrument"
+                    && context["id"] == "equity:US:AAPL"
+                    && context["hash"].as_str().unwrap().starts_with("sha256:")
+            })
+    );
+    assert!(matches!(
+        first["data"]["state"].as_str(),
+        Some("FAILED" | "CANCELLED")
+    ));
+
+    let mut retry_request = base.clone();
+    retry_request["retryOfRunId"] = first["data"]["runId"].clone();
+    let retried = command(&mut control, "strategy.run", retry_request);
+    assert_eq!(retried["ok"], true, "{retried}");
+    assert_ne!(retried["data"]["runId"], first["data"]["runId"]);
+    assert_eq!(retried["data"]["requestHash"], first["data"]["requestHash"]);
+    assert_eq!(retried["data"]["observedAt"], first["data"]["observedAt"]);
+    assert_eq!(retried["data"]["contextRefs"], first["data"]["contextRefs"]);
+
+    let mut changed_retry = base;
+    changed_retry["instrumentId"] = json!("equity:US:MSFT");
+    changed_retry["retryOfRunId"] = first["data"]["runId"].clone();
+    let rejected_retry = command(&mut control, "strategy.run", changed_retry);
+    assert_eq!(
+        rejected_retry["error"]["code"], "STRATEGY_RETRY_INVALID",
+        "{rejected_retry}"
+    );
+}
+
+#[test]
 fn persisted_strategy_runs_reject_tampering_and_reconcile_active_rows() {
     let directory = tempfile::tempdir().unwrap();
     let workspace_path = directory.path().join("workspace");

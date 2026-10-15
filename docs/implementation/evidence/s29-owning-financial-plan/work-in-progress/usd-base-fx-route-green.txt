@@ -1,0 +1,9 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.92s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-07788a036a50d474)
+
+running 1 test
+test immutable_intent_adds_only_its_actual_funding_direction_to_fx_read ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 48 filtered out; finished in 0.13s
+

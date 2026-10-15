@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "b4d137a7b3064218da4a9e5e1147a980a7d0e810",
+  "evidenceCommit": "96a9577a3c16274979c0e03fb82cd94da9c563b7",
+  "originDevMatches": true,
+  "cleanWorktreeBeforeClosure": true,
+  "sourceInputsMatched": 161,
+  "mainCommit": "5312ec006ae3e7fc14cead3f7173604588a6ed59",
+  "ticketState": "CLOSED",
+  "closedAt": "2026-10-09T14:03:17Z",
+  "checkedAC": 7,
+  "closureComment": "https://github.com/kaiqiangh/tradex/issues/126#issuecomment-6082491413",
+  "parentState": "OPEN",
+  "completedDependencyState": "CLOSED",
+  "mapState": "OPEN",
+  "openIssues": [
+    {
+      "number": 121,
+      "title": "[Spec] \u9a8c\u8bc1 Binance Spot Live \u53ef\u4fe1\u6267\u884c\uff08S29\uff09"
+    },
+    {
+      "number": 117,
+      "title": "[Spec] \u8865\u9f50 S28 \u751f\u4ea7\u91d1\u878d\u524d\u7f6e\u8bc1\u636e"
+    },
+    {
+      "number": 116,
+      "title": "[S28] \u63a5\u5165\u5df2\u914d\u7f6e Alpaca \u62a5\u4ef7\u4e0e Hot \u8ba2\u9605"
+    },
+    {
+      "number": 115,
+      "title": "[Spec] \u63a5\u5165 Alpaca \u5df2\u914d\u7f6e\u6570\u636e\u6e90\u4e0e\u751f\u4ea7\u62a5\u4ef7\uff08S28\uff09"
+    },
+    {
+      "number": 113,
+      "title": "[Spec] \u9a8c\u8bc1 Trading 212 Live \u53ef\u4fe1\u6267\u884c\uff08S28\uff09"
+    },
+    {
+      "number": 107,
+      "title": "[Spec] \u6062\u590d Live \u6267\u884c\u5e76\u534f\u8c03\u4e2d\u65ad\u5de5\u4f5c\uff08S27\uff09"
+    },
+    {
+      "number": 56,
+      "title": "[Spec] \u5b8c\u6210 Alpaca Paper \u4ea4\u6613\u751f\u547d\u5468\u671f"
+    },
+    {
+      "number": 1,
+      "title": "[Wayfinder] \u5b8c\u6574\u6784\u5efa TradeX v1.0 RevC"
+    }
+  ],
+  "mapContextPointerVerified": true,
+  "parentHandoffComment": "https://github.com/kaiqiangh/tradex/issues/121#issuecomment-6082634210",
+  "financialAcceptance": false,
+  "nativeLaunch": false,
+  "physicalAcceptance": false,
+  "prototypeChanged": false,
+  "metadataFollowup": "This closure readback follows delivered source/evidence; runtime remains unchanged"
+}

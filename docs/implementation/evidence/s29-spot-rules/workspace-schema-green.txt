@@ -1,0 +1,22 @@
+✔ the UI applies only contiguous supported events and ignores exact duplicates (7.169625ms)
+✔ workspace snapshots accept the current storage schema version (0.176167ms)
+✔ generated result schema rejects false success, mixed envelopes and foreign payloads (10.681958ms)
+✔ research venue schema keeps unavailable values nullable and rejects numeric zero (0.449333ms)
+✔ Bitget Spot order schema accepts external origins and plan trigger states (0.454166ms)
+✔ research payload schema rejects unbounded scenarios, artifact refs and venue rows (0.886959ms)
+✔ model projection accepts both provider event types and rejects foreign aggregates (0.491792ms)
+✔ thread projection preserves identity and contiguous event ordering (0.434792ms)
+✔ account projection applies durable Live arming transitions (0.340041ms)
+✔ Live settlement events preserve the exact attempt and reservation binding (0.560917ms)
+✔ Alpaca Paper attempts use their own aggregate identity and preserve order bindings (0.463833ms)
+✔ Trading 212 Demo attempts replay by attempt identity without inventing a client order ID (0.409292ms)
+✔ Trading 212 Demo order books replay exact cumulative observations under Demo account identity (1.659166ms)
+✔ managed Hot quote replies pass the public envelope and reject foreign lease fields (2.212417ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 154.205083

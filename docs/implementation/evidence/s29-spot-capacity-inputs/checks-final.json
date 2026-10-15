@@ -1,0 +1,43 @@
+{
+  "recordedAt": "2026-10-09T09:47:12.884380+00:00",
+  "sourceCheckpoint": "implementation-checkpoint-before-review.json",
+  "publicRules": {
+    "passed": 68,
+    "failed": 0,
+    "ignored": 0,
+    "log": "rules-68.txt"
+  },
+  "fullLocal": {
+    "nodePassed": 17,
+    "rustPassed": 466,
+    "failed": 0,
+    "rustIgnored": 39,
+    "log": "full-check-final.txt"
+  },
+  "binanceHot": {
+    "passed": 49,
+    "failed": 0,
+    "serialIsolated": true,
+    "log": "binance-hot-final.txt"
+  },
+  "stockHot": {
+    "passed": 19,
+    "failed": 0,
+    "log": "stock-hot-final.txt"
+  },
+  "gatewayOrdinaryFeature": {
+    "passed": 5,
+    "failed": 0,
+    "log": "gateway-final.txt"
+  },
+  "gatewayIntegration": {
+    "passed": 23,
+    "failed": 0,
+    "log": "gateway-integration-final.txt"
+  },
+  "remoteCi": "NO_WORKFLOWS_PRESENT_NOT_RUN",
+  "providerFinancialAcceptance": false,
+  "prototypeChanged": false,
+  "mainChanged": false,
+  "stage": "verified before non-behavioral review refactor"
+}

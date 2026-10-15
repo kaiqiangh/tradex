@@ -91,6 +91,44 @@ fn testnet_ip_retry_at() -> Option<(String, &'static str)> {
 }
 
 pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
+    // Fixed ordinary public fee inputs only. This does not admit a signed
+    // account/order route, a Testnet path or any BNB financial mutation.
+    if endpoint == ProviderEndpoint::BinanceLive
+        && matches!(
+            path,
+            "/api/v3/exchangeInfo?symbol=BNBUSDT" | "/api/v3/depth?symbol=BNBUSDT&limit=1000"
+        )
+    {
+        return true;
+    }
+    if endpoint == ProviderEndpoint::BinanceLive
+        && matches!(
+            path,
+            "/api/v3/avgPrice?symbol=BTCUSDT"
+                | "/api/v3/avgPrice?symbol=ETHUSDT"
+                | "/api/v3/referencePrice?symbol=BTCUSDT"
+                | "/api/v3/referencePrice?symbol=ETHUSDT"
+                | "/api/v3/trades?symbol=BTCUSDT&limit=1"
+                | "/api/v3/trades?symbol=ETHUSDT&limit=1"
+                | "/api/v3/exchangeInfo?symbol=BTCUSDT&showPermissionSets=true"
+                | "/api/v3/exchangeInfo?symbol=ETHUSDT&showPermissionSets=true"
+                | "/api/v3/executionRules?symbol=BTCUSDT"
+                | "/api/v3/executionRules?symbol=ETHUSDT"
+        )
+    {
+        return true;
+    }
+    if endpoint == ProviderEndpoint::BinanceLive && path == "/sapi/v1/system/status" {
+        return true;
+    }
+    if endpoint == ProviderEndpoint::BinanceLive
+        && matches!(
+            path,
+            "/api/v3/depth?symbol=BTCUSDT&limit=1000" | "/api/v3/depth?symbol=ETHUSDT&limit=1000"
+        )
+    {
+        return true;
+    }
     if path == "/api/v3/time" {
         return true;
     }
@@ -120,7 +158,15 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
             | "/api/v3/allOrders"
             | "/api/v3/myTrades"
     ) && !(endpoint == ProviderEndpoint::BinanceLive
-        && route == "/sapi/v1/account/apiRestrictions")
+        && matches!(
+            route,
+            "/sapi/v1/account/apiRestrictions"
+                | "/sapi/v1/account/apiTradingStatus"
+                | "/api/v3/myFilters"
+                | "/api/v3/account/commission"
+                | "/api/v3/openOrderList"
+                | "/api/v3/rateLimit/order"
+        ))
     {
         return false;
     }
@@ -154,7 +200,20 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
     keys.remove("timestamp");
     keys.remove("recvWindow");
     match route {
-        "/api/v3/account" | "/api/v3/openOrders" => keys.is_empty(),
+        "/api/v3/account/commission" => {
+            endpoint == ProviderEndpoint::BinanceLive
+                && keys.len() == 1
+                && matches!(values.get("symbol"), Some(&"BTCUSDT" | &"ETHUSDT"))
+        }
+        "/api/v3/account" | "/api/v3/openOrderList" | "/api/v3/rateLimit/order" => keys.is_empty(),
+        "/api/v3/openOrders" => {
+            keys.is_empty()
+                || (endpoint == ProviderEndpoint::BinanceLive
+                    && keys.len() == 1
+                    && values
+                        .get("symbol")
+                        .is_some_and(|s| matches!(*s, "BTCUSDT" | "ETHUSDT")))
+        }
         "/api/v3/allOrders" => {
             (endpoint == ProviderEndpoint::BinanceLive
                 && keys.iter().all(|key| matches!(*key, "symbol" | "limit"))
@@ -267,8 +326,16 @@ pub(super) fn allows(endpoint: ProviderEndpoint, path: &str) -> bool {
                 };
             query_order_by_client || query_order_by_id || new_order
         }
-        "/sapi/v1/account/apiRestrictions" => {
+        "/sapi/v1/account/apiRestrictions" | "/sapi/v1/account/apiTradingStatus" => {
             endpoint == ProviderEndpoint::BinanceLive && keys.is_empty()
+        }
+        "/api/v3/myFilters" => {
+            endpoint == ProviderEndpoint::BinanceLive
+                && keys.len() == 1
+                && keys.contains("symbol")
+                && values
+                    .get("symbol")
+                    .is_some_and(|symbol| matches!(*symbol, "BTCUSDT" | "ETHUSDT"))
         }
         _ => false,
     }
@@ -382,7 +449,7 @@ pub(super) fn valid_order_id(value: &str) -> bool {
             .is_ok_and(|id| id > 0 && id <= i64::MAX as u64)
 }
 
-pub(super) fn valid_binance_symbol(value: &str) -> bool {
+pub(crate) fn valid_binance_symbol(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 32
         && value
@@ -418,7 +485,7 @@ fn signed_request(
     )
 }
 
-pub(super) fn signed_request_for(
+pub(crate) fn signed_request_for(
     endpoint: ProviderEndpoint,
     http: &impl ProviderHttp,
     method: ProviderHttpMethod,
@@ -429,6 +496,31 @@ pub(super) fn signed_request_for(
     sampled: Instant,
     current: &impl Fn() -> bool,
 ) -> Result<ProviderHttpResponse> {
+    signed_request_with_rate_limit_for(
+        endpoint,
+        http,
+        method,
+        route,
+        params,
+        secrets,
+        server_time,
+        sampled,
+        current,
+    )
+    .map(|(response, _)| response)
+}
+
+pub(crate) fn signed_request_with_rate_limit_for(
+    endpoint: ProviderEndpoint,
+    http: &impl ProviderHttp,
+    method: ProviderHttpMethod,
+    route: &str,
+    params: &[(&str, &str)],
+    secrets: &[String],
+    server_time: u64,
+    sampled: Instant,
+    current: &impl Fn() -> bool,
+) -> Result<(ProviderHttpResponse, Option<ProviderRateLimit>)> {
     if endpoint == ProviderEndpoint::BinanceTestnet {
         check_testnet_ip_cooldown()?;
     }
@@ -460,14 +552,24 @@ pub(super) fn signed_request_for(
     if endpoint == ProviderEndpoint::BinanceTestnet {
         observe_ip_rate_limit(response.status, rate_limit.as_ref());
     }
-    Ok(response)
+    // The signature is authentication material too. A provider reflection must
+    // not reach any caller's projection, including read-only rule evidence.
+    if response.body.len() as u64 > MAX_RESPONSE {
+        return Err(invalid());
+    }
+    if let Ok(value) = serde_json::from_slice::<Value>(&response.body)
+        && (contains_secret(&value, secrets) || contains_secret(&value, &[signed.as_str().into()]))
+    {
+        return Err(invalid());
+    }
+    Ok((response, rate_limit))
 }
 
 fn server_time(http: &impl ProviderHttp, current: &impl Fn() -> bool) -> Result<(u64, Instant)> {
     server_time_for(ProviderEndpoint::BinanceTestnet, http, current)
 }
 
-pub(super) fn server_time_for(
+pub(crate) fn server_time_for(
     endpoint: ProviderEndpoint,
     http: &impl ProviderHttp,
     current: &impl Fn() -> bool,
@@ -489,13 +591,25 @@ pub(super) fn server_time_for(
     if endpoint == ProviderEndpoint::BinanceTestnet {
         observe_ip_rate_limit(response.status, rate_limit.as_ref());
     }
+    if endpoint == ProviderEndpoint::BinanceLive && response.status == 418 {
+        crate::provider_io::record_provider_retry_after(
+            "binance",
+            None,
+            rate_limit
+                .as_ref()
+                .and_then(|limit| limit.retry_after_seconds),
+        );
+    }
     if let Some(code) = rate_limit_code(response.status) {
         return Err(TradeXError::new(code));
     }
     if response.status != 200 || started.elapsed() > Duration::from_secs(2) {
         return Err(time_error());
     }
-    let value: Value = serde_json::from_slice(&response.body).map_err(|_| invalid())?;
+    if response.body.len() > 512 * 1024 {
+        return Err(invalid());
+    }
+    let value: Value = crate::provider_json::strict_json(&response.body)?;
     let value = value["serverTime"]
         .as_u64()
         .filter(|value| valid_time(*value))
@@ -655,6 +769,7 @@ fn live_order_snapshot(
         notional: optional_nonnegative_decimal(&order["origQuoteOrderQty"])?
             .filter(|value| value != "0"),
         filled_quantity: filled_quantity.clone(),
+        remaining_quantity: remaining_quantity.clone(),
         filled_value: filled_value.clone(),
         currency: None,
         status: raw_status.clone(),
@@ -2260,7 +2375,7 @@ fn scaled(value: &str, scale: usize) -> Result<String> {
     })
 }
 
-fn multiple_of(value: &str, step: &str) -> Result<bool> {
+pub(crate) fn multiple_of(value: &str, step: &str) -> Result<bool> {
     let step = decimal(&Value::String(step.into()))?;
     if step.starts_with('-') || step == "0" {
         return Err(invalid());
@@ -2308,7 +2423,7 @@ fn check_range_step(value: &str, min: &Value, max: &Value, step: &Value) -> Resu
     Ok(())
 }
 
-pub(super) fn multiply(left: &str, right: &str) -> Result<String> {
+pub(crate) fn multiply(left: &str, right: &str) -> Result<String> {
     let left = decimal(&Value::String(left.into()))?;
     let right = decimal(&Value::String(right.into()))?;
     if left.starts_with('-') || right.starts_with('-') {
@@ -3029,7 +3144,7 @@ pub(super) fn read(
         {
             return Err(invalid());
         }
-        Ok(value)
+        validate_diagnostic_tokens(&bytes, path, value)
     };
     let started = Instant::now();
     let time = query("/api/v3/time", HeaderMap::new())?;
@@ -3077,6 +3192,17 @@ pub(super) fn read(
         None
     };
     let mut result = observe(account, signed("/api/v3/openOrders")?, restrictions)?;
+    // Exact-order CANCEL observations retain their existing independent read contract.
+    if endpoint == ProviderEndpoint::BinanceLive && exact_order.is_none() {
+        let system = query("/sapi/v1/system/status", HeaderMap::new())?;
+        let observed_at = crate::storage::timestamp()?;
+        let trading = signed("/sapi/v1/account/apiTradingStatus")?;
+        let upper_time = server_time
+            .checked_add(sampled.elapsed().as_millis() as u64)
+            .ok_or_else(time_error)?;
+        result.binance_trading_status =
+            Some(trading_status(&system, &trading, upper_time, observed_at)?);
+    }
     if endpoint == ProviderEndpoint::BinanceLive && exact_order.is_none() {
         let mut symbols = Vec::new();
         let mut seen_symbols = HashSet::new();
@@ -3285,7 +3411,84 @@ const FLAGS: &[(&str, &str)] = &[
     ("enableFixReadOnly", "fix.read"),
     ("enableSpotAndMarginTrading", "spot-and-margin.trade"),
 ];
-fn permissions(restrictions: Option<Value>) -> Result<PermissionReview> {
+
+// Validate original JSON tokens before Value's arbitrary-precision Number map
+// decoding can erase an object-valued numeric field's original type.
+fn validate_diagnostic_tokens(bytes: &[u8], path: &str, value: Value) -> Result<Value> {
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct System {
+        status: u64,
+    }
+    #[derive(serde::Deserialize, serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Trading {
+        is_locked: bool,
+        update_time: u64,
+        planned_recover_time: u64,
+    }
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct Response {
+        data: Trading,
+    }
+    match path.split('?').next() {
+        Some("/sapi/v1/system/status") => {
+            let typed: System = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+            serde_json::to_value(typed).map_err(|_| invalid())
+        }
+        Some("/sapi/v1/account/apiTradingStatus") => {
+            let typed: Response = serde_json::from_slice(bytes).map_err(|_| invalid())?;
+            serde_json::to_value(typed).map_err(|_| invalid())
+        }
+        _ => Ok(value),
+    }
+}
+
+pub(crate) fn trading_status(
+    system: &Value,
+    trading: &Value,
+    sampled_server_time: u64,
+    observed_at: String,
+) -> Result<crate::providers::BinanceTradingStatus> {
+    use crate::providers::{BinanceSystemStatus, BinanceTradingStatus};
+    let system_status = match system.get("status").and_then(Value::as_u64) {
+        Some(0) => BinanceSystemStatus::Normal,
+        Some(1) => BinanceSystemStatus::Maintenance,
+        _ => return Err(invalid()),
+    };
+    let data = trading
+        .get("data")
+        .and_then(Value::as_object)
+        .ok_or_else(invalid)?;
+    let api_trading_locked = data
+        .get("isLocked")
+        .and_then(Value::as_bool)
+        .ok_or_else(invalid)?;
+    let updated = data
+        .get("updateTime")
+        .and_then(Value::as_u64)
+        .filter(|value| valid_time(*value) && *value <= sampled_server_time)
+        .ok_or_else(invalid)?;
+    let recovery = data
+        .get("plannedRecoverTime")
+        .and_then(Value::as_u64)
+        .ok_or_else(invalid)?;
+    let planned_recovery_at = if recovery == 0 {
+        None
+    } else if valid_time(recovery) {
+        Some(provider_event_time(recovery)?)
+    } else {
+        return Err(invalid());
+    };
+    Ok(BinanceTradingStatus {
+        system_status,
+        api_trading_locked,
+        provider_updated_at: provider_event_time(updated)?,
+        planned_recovery_at,
+        observed_at,
+    })
+}
+
+pub(crate) fn permissions(restrictions: Option<Value>) -> Result<PermissionReview> {
     let mut p = PermissionReview {
         detected: vec![
             "account.read".into(),
@@ -3376,6 +3579,15 @@ fn recent_order(value: &Value, expected_symbol: &str) -> Result<OpenOrder> {
     }
     let quantity = positive(&value["origQty"])?;
     let notional = positive(&value["origQuoteOrderQty"])?;
+    let filled_quantity = positive(&value["executedQty"])?;
+    let remaining_quantity = if quantity == "0" {
+        None
+    } else {
+        Some(crate::provider_io::decimal_subtract(
+            &quantity,
+            &filled_quantity,
+        )?)
+    };
     let limit_price = positive(&value["price"])?;
     Ok(OpenOrder {
         broker_order_id: format!("{symbol}:{}", numeric_id(value, "orderId")?),
@@ -3384,7 +3596,8 @@ fn recent_order(value: &Value, expected_symbol: &str) -> Result<OpenOrder> {
         side,
         quantity: (quantity != "0").then_some(quantity),
         notional: (notional != "0").then_some(notional),
-        filled_quantity: Some(positive(&value["executedQty"])?),
+        filled_quantity: Some(filled_quantity),
+        remaining_quantity,
         filled_value: Some(positive(&value["cummulativeQuoteQty"])?),
         currency: None,
         status,
@@ -3478,9 +3691,18 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             let price = positive(&o["price"])?;
             let qty = positive(&o["origQty"])?;
             let quote = positive(&o["origQuoteOrderQty"])?;
+            let filled_quantity = positive(&o["executedQty"])?;
             if qty == "0" && quote == "0" {
                 return Err(invalid());
             }
+            let remaining_quantity = if qty == "0" {
+                None
+            } else {
+                Some(crate::provider_io::decimal_subtract(
+                    &qty,
+                    &filled_quantity,
+                )?)
+            };
             Ok(OpenOrder {
                 kind: None,
                 trigger_price: None,
@@ -3490,7 +3712,8 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
                 side,
                 quantity: if qty == "0" { None } else { Some(qty) },
                 notional: if quote == "0" { None } else { Some(quote) },
-                filled_quantity: Some(positive(&o["executedQty"])?),
+                filled_quantity: Some(filled_quantity),
+                remaining_quantity,
                 filled_value: None,
                 currency: None,
                 status,
@@ -3499,6 +3722,7 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
         })
         .collect::<Result<Vec<_>>>()?;
     Ok(Observation {
+        binance_trading_status: None,
         data: AccountData {
             remote_account_id: numeric_id(&account, "uid")?,
             account_type: "BINANCE_SPOT".into(),
@@ -3664,7 +3888,7 @@ mod tests {
         );
         let reference_price = "/api/v3/referencePrice?symbol=BTCUSDT";
         assert!(allows(ProviderEndpoint::BinanceTestnet, reference_price));
-        assert!(!allows(ProviderEndpoint::BinanceLive, reference_price));
+        assert!(allows(ProviderEndpoint::BinanceLive, reference_price));
         assert!(!allows(
             ProviderEndpoint::BinanceTestnet,
             "/api/v3/referencePrice?symbol=BNBUSDT"

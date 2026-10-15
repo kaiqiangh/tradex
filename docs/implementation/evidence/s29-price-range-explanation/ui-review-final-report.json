@@ -1,0 +1,22 @@
+{
+  "harness": "tests/spot-proposal-rules-ui.mjs",
+  "report": "ui-review.json",
+  "screenshots": {
+    "1280": "ui-1280.png",
+    "390": "ui-390.png"
+  },
+  "result": "passed",
+  "assertions": {
+    "priceRangePartial": true,
+    "priceRangeSnapshot": true,
+    "priceRangeExplicitNull": true,
+    "capturedBoundsStripped": true,
+    "capturedBoundsDigested": true,
+    "captureFrozen": true,
+    "rawReferencePersisted": false,
+    "positiveAuthoritySeed": false,
+    "providerOrderWrites": false,
+    "consoleWarnings": 0
+  },
+  "setupMistakes": "ui-harness-setup-failure.png"
+}

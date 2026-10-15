@@ -1,0 +1,20 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.48s
+     Running tests/binance_rule_limits.rs (target/debug/deps/binance_rule_limits-cadb5581113ad3d4)
+
+running 2 tests
+
+thread 'account_and_ip_read_budgets_survive_selection_and_workspace_changes' (8853340) panicked at src-tauri/tests/binance_rule_limits.rs:151:5:
+A new workspace/account must inherit consumed IP weight
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test account_and_ip_read_budgets_survive_selection_and_workspace_changes ... FAILED
+test vault_deadline_finishes_without_http_or_late_publication ... ok
+
+failures:
+
+failures:
+    account_and_ip_read_budgets_survive_selection_and_workspace_changes
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 30.19s
+
+error: test failed, to rerun pass `--test binance_rule_limits`

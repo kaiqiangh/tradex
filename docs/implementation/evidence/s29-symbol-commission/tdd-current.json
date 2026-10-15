@@ -1,0 +1,40 @@
+{
+  "baseline": "90745562fe19d1ceac4490a39311c306befc660e",
+  "seam": "Actual React -> typed Rust Control Plane -> disposable SQLite/outbox -> external HTTP/vault/WS fakes; no source or authority setter",
+  "genuineCycles": [
+    {
+      "behavior": "complete exact-account symbol declaration",
+      "red": "red-normal-public.txt",
+      "green": "green-normal-public.txt"
+    },
+    {
+      "behavior": "risk capture and changed-source review binding",
+      "red": "red-review-capture-public.txt",
+      "green": "green-review-capture-public.txt"
+    },
+    {
+      "behavior": "invalid discount and incomplete declaration retire success",
+      "red": "red-invalid-declaration-public.txt",
+      "green": "green-invalid-declaration-public.txt"
+    },
+    {
+      "behavior": "actual current/captured/pre-arm disclosure",
+      "red": "ui-red-result.json",
+      "green": "ui-green-first-result.json",
+      "finalEvidence": "ui-review-final-report.json"
+    }
+  ],
+  "firstPassPublicRegressions": [
+    "unknown active terms/SELL/discount conditions",
+    "UID/symbol/auth/provider/rate failures",
+    "late generation and forged renderer authority",
+    "expiry without renewal and actual close/reopen immutable history"
+  ],
+  "regressionEvidence": "public-regressions-after-review.txt",
+  "notProductRed": [
+    "ui-red-ipc-build-invocation-error.txt: wrong binary-name invocation; corrected build log is ui-red-ipc-build.txt",
+    "ui-build-pin-check-invocation-error.txt: mistaken embedded-pin assertion for integration IPC; both builds exit0, actual contract is runtime environment pin"
+  ],
+  "boundaries": "No real provider requests, Arm, consent, order/test-order POST, reservation or dispatch; source validity never establishes numeric fees/charging or execution FX",
+  "finalUiOrchestrationErrors": "ui-final-orchestration-errors.txt: undeclared result binding, then shared read quota on repeated scenario; retained separately from the independent frozen PASS"
+}

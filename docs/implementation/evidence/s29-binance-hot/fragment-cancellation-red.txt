@@ -1,0 +1,22 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.69s
+     Running tests/binance_market_stream_cancellation.rs (target/debug/deps/binance_market_stream_cancellation-457de3bbe11eae8d)
+
+running 1 test
+test releasing_a_trickling_incomplete_frame_allows_the_next_view_to_connect_promptly ... FAILED
+
+failures:
+
+---- releasing_a_trickling_incomplete_frame_allows_the_next_view_to_connect_promptly stdout ----
+
+thread 'releasing_a_trickling_incomplete_frame_allows_the_next_view_to_connect_promptly' (9456141) panicked at src-tauri/tests/binance_market_stream_cancellation.rs:93:5:
+A retired trickling frame blocked the next visible view beyond750ms: Err(Timeout)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    releasing_a_trickling_incomplete_frame_allows_the_next_view_to_connect_promptly
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+error: test failed, to rerun pass `--test binance_market_stream_cancellation`

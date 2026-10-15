@@ -1,0 +1,29 @@
+S29.7 — Proposal PRICE_RANGE execution-rule explanation
+Public GREEN after implementation.
+
+Base: dev@ec10e99 (planning handoff) plus the S29.7 slice working tree. No test was
+weakened to reach this state; the same three public tests that failed in red.txt now pass
+against the real evaluator output.
+
+Command (focused): cd src-tauri && cargo test --test binance_rules proposal_price_range -- --test-threads=1
+Observed at 2026-10-09.
+
+running 3 tests
+test proposal_price_range_distinguishes_partial_null_and_unsupported_configuration ... ok
+test proposal_price_range_explains_selected_side_snapshot_without_placement_authority ... ok
+test proposal_price_range_preserves_exact_zero_precision_and_retires_on_binding_change ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 85 filtered out; finished in 1.33s
+
+
+Command (whole file, regression): cd src-tauri && cargo test --test binance_rules -- --test-threads=1
+Observed at 2026-10-09. Duration 146.10s.
+
+test result: ok. 88 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 146.10s
+EXIT=0
+
+No pre-existing binance_rules test regressed: every test that passed before S29.7 still
+passes, and the two retargeted assertions (EXECUTION_REFERENCE_PRICE_MISSING in place of
+BOOK_REFERENCE_PRICE_RANGE_VALIDATION_REQUIRED, and the PRICE_RANGE entry in the
+unqualified-obligation set) now describe the execution-rule contract rather than the
+retired book-reference contract.

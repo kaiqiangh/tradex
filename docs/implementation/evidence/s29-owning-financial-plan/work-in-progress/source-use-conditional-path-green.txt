@@ -1,0 +1,9 @@
+Alpaca source-use conditional path — synthetic policy regressions, 2026-10-11
+
+Focused commands:
+- `cargo test --manifest-path src-tauri/Cargo.toml --test financial_sources fx_source_use -- --nocapture`: 2 passed, 0 failed.
+- `cargo test --manifest-path src-tauri/Cargo.toml --lib policy_valuation_route_requires_a_current_supported_source_use_purpose -- --nocapture`: 1 passed, 0 failed.
+
+The no-report regression creates only a synthetic Alpaca Paper connection. A saved key/location without country-specific Support evidence remains `UNRESOLVED`; `FX_DATA_USE_RIGHTS` stays `UNVERIFIED`. A declared local-use context without a matching confirmation remains `UNRESOLVED`, while a mismatched reported jurisdiction remains unresolved. The positive test uses a synthetic Support reference with matching `IE` jurisdiction; it produces `SUPPORTED_FOR_DECLARED_SCOPE` only for `POLICY_VALUATION`, with `USER_REPORTED_PROVIDER_SUPPORT` provenance, and still leaves `FX_DATA_USE_RIGHTS=UNVERIFIED`. The consuming fee/FX policy test rejects an unresolved source-use assessment and accepts only the supported purpose-specific policy-valuation route.
+
+These fixtures validate the conditional policy behavior; they are not evidence of a real Support response or provider entitlement. The user confirmed no Support response was received. The real-account source-use remains `UNRESOLVED`, `FX_DATA_USE_RIGHTS` remains `UNVERIFIED`, and GitHub #135 / #134 remain OPEN. No real account or provider was read or written.

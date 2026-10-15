@@ -1,0 +1,74 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0277]: the size for values of type `dyn CredentialVault` cannot be known at compilation time
+    --> src-tauri/tests/binance_market_stream_cancellation.rs:45:315
+     |
+  45 | ...lt=tradex::quote_source::execute_configuration(&control,&json!({"requestId":"stock-handoff-source","schemaVersion":1,"command":"data.source.configure","payload":{"workspaceId":workspace,"expectedStateVersion":current["data"]["stateVersion"],"feed":"sip","credential":{"kind":"DEDICATED"}}}),"main",vault.as_ref(),fi...
+     |       ------------------------------------------- required by a bound introduced by this call                                                                                                                                                                                                                ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+     |
+     = help: the trait `Sized` is not implemented for `dyn CredentialVault`
+note: required by an implicit `Sized` bound in `execute_configuration`
+    --> src-tauri/src/quote_source.rs:1077:13
+     |
+1073 | pub fn execute_configuration(
+     |        --------------------- required by a bound in this function
+...
+1077 |     vault: &impl CredentialVault,
+     |             ^^^^^^^^^^^^^^^^^^^^ required by the implicit `Sized` requirement on this type parameter in `execute_configuration`
+help: consider removing this method call, as the receiver has type `Arc<dyn CredentialVault>` and `Arc<dyn CredentialVault>: Sized` trivially holds
+     |
+  45 -         let result=tradex::quote_source::execute_configuration(&control,&json!({"requestId":"stock-handoff-source","schemaVersion":1,"command":"data.source.configure","payload":{"workspaceId":workspace,"expectedStateVersion":current["data"]["stateVersion"],"feed":"sip","credential":{"kind":"DEDICATED"}}}),"main",vault.as_ref(),fixtures::credentials);
+  45 +         let result=tradex::quote_source::execute_configuration(&control,&json!({"requestId":"stock-handoff-source","schemaVersion":1,"command":"data.source.configure","payload":{"workspaceId":workspace,"expectedStateVersion":current["data"]["stateVersion"],"feed":"sip","credential":{"kind":"DEDICATED"}}}),"main",vault,fixtures::credentials);
+     |
+
+error[E0277]: `dyn CredentialVault` cannot be sent between threads safely
+   --> src-tauri/tests/binance_market_stream_cancellation.rs:101:169
+    |
+101 | ...or.dispatch_with(&control,&json!({"requestId":"fragment-view","schemaVersion":1,"command":name,"payload":payload}),"main",vault.clone(),Ar...
+    |       ------------- required by a bound introduced by this call                                                              ^^^^^^^^^^^^^ `dyn CredentialVault` cannot be sent between threads safely
+    |
+    = help: the trait `Send` is not implemented for `dyn CredentialVault`
+note: required by a bound in `QuoteHotSupervisor::dispatch_with`
+   --> src-tauri/src/quote_source/hot.rs:268:30
+    |
+267 |     pub fn dispatch_with<
+    |            ------------- required by a bound in this associated function
+268 |         V: CredentialVault + Send + Sync + 'static,
+    |                              ^^^^ required by this bound in `QuoteHotSupervisor::dispatch_with`
+
+error[E0277]: `dyn CredentialVault` cannot be shared between threads safely
+   --> src-tauri/tests/binance_market_stream_cancellation.rs:101:169
+    |
+101 | ...or.dispatch_with(&control,&json!({"requestId":"fragment-view","schemaVersion":1,"command":name,"payload":payload}),"main",vault.clone(),Ar...
+    |       ------------- required by a bound introduced by this call                                                              ^^^^^^^^^^^^^ `dyn CredentialVault` cannot be shared between threads safely
+    |
+    = help: the trait `Sync` is not implemented for `dyn CredentialVault`
+note: required by a bound in `QuoteHotSupervisor::dispatch_with`
+   --> src-tauri/src/quote_source/hot.rs:268:37
+    |
+267 |     pub fn dispatch_with<
+    |            ------------- required by a bound in this associated function
+268 |         V: CredentialVault + Send + Sync + 'static,
+    |                                     ^^^^ required by this bound in `QuoteHotSupervisor::dispatch_with`
+
+error[E0277]: the size for values of type `dyn CredentialVault` cannot be known at compilation time
+   --> src-tauri/tests/binance_market_stream_cancellation.rs:101:169
+    |
+101 | ...or.dispatch_with(&control,&json!({"requestId":"fragment-view","schemaVersion":1,"command":name,"payload":payload}),"main",vault.clone(),Ar...
+    |       ------------- required by a bound introduced by this call                                                              ^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: the trait `Sized` is not implemented for `dyn CredentialVault`
+note: required by an implicit `Sized` bound in `QuoteHotSupervisor::dispatch_with`
+   --> src-tauri/src/quote_source/hot.rs:268:9
+    |
+267 |     pub fn dispatch_with<
+    |            ------------- required by a bound in this associated function
+268 |         V: CredentialVault + Send + Sync + 'static,
+    |         ^ required by the implicit `Sized` requirement on this type parameter in `QuoteHotSupervisor::dispatch_with`
+help: consider removing this method call, as the receiver has type `Arc<dyn CredentialVault>` and `Arc<dyn CredentialVault>: Sized` trivially holds
+    |
+101 -     let send=|name:&str,payload:Value|supervisor.dispatch_with(&control,&json!({"requestId":"fragment-view","schemaVersion":1,"command":name,"payload":payload}),"main",vault.clone(),Arc::new(NoAccess),QuoteStreamConnectors{stock:stock_connector.clone(),binance:connector.clone()});
+101 +     let send=|name:&str,payload:Value|supervisor.dispatch_with(&control,&json!({"requestId":"fragment-view","schemaVersion":1,"command":name,"payload":payload}),"main",vault,Arc::new(NoAccess),QuoteStreamConnectors{stock:stock_connector.clone(),binance:connector.clone()});
+    |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `tradex` (test "binance_market_stream_cancellation") due to 4 previous errors

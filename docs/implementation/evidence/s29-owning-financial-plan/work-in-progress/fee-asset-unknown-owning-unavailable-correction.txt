@@ -1,0 +1,31 @@
+TradeX S29.11 — unknown future fee asset correction
+Date: 2026-10-12
+Branch: dev
+Fixed review base: 308747ad19e5f0fc1ba4e0b3b54b062250e317f0
+Implementation HEAD during verification: 015f4ba19b0dcba138d2a48fafb42b6323821e83
+
+Decision
+The fixed S29.11 specification says unknown charging assets remain unavailable. A complete current fee scenario and complete bound wallet can be displayed as a current estimate, but cannot qualify the owning fee statement or SPOT_FEE_FX while the future charging asset is UNKNOWN. The correction keeps reason SPOT_FEE_CURRENCY_UNKNOWN and feeCurrency=UNKNOWN. The expectedFee field is omitted on the wire when unknown (the Rust Option serializer skips None); it is not serialized as null and no fee amount is fabricated. Independent policy-valuation and monetary-limit checks may pass; they do not qualify the fee statement, grant source-use rights or enable overall Live review.
+
+Automated verification
+- The prior `npm run check` passed schema agreement, production typecheck/build, 18 frontend unit tests, the Rust workspace and requirements traceability (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files); Rust library 268 passed, `binance_rules` 120 passed, and `financial_sources` 41 passed with 3 existing ignored.
+- Focused unknown-fee branch, policy-valuation risk and integration-test market-hot regressions passed.
+- `cargo fmt --all -- --check`, `git diff --check`, and JavaScript syntax checks for both owning-admission UI modules passed.
+- The ordinary `npm run desktop:build` passed earlier: the release Gateway SHA-256 was `819b713c244f025946806e630b9aa7daecadf37e026c5e87c18e1435ab9cd6db`, and the built app contained that exact pin; the app was not launched.
+- The existing Vite large-chunk warning remains.
+
+Corrected isolated UI verification
+The complete `checkSpotDiscountedBnbEstimateUI` replay passed in a disposable React/Rust integration workspace using local provider and public-market fixtures. It opened the generated workspace through the UI, saved the public Binance source in Settings, opened the BTC/USDT Hot view, and reacquired a Proposal-owned quote lease. No real provider host or user credentials were used.
+- The synthetic current fee model was `DISCOUNTED_BNB_CURRENT_ESTIMATE` with a fixture BNB estimate of `0.00600042340539`; the owning statement still had `SPOT_FEE_CURRENCY_UNKNOWN`, `feeCurrency=UNKNOWN`, no serialized `expectedFee`, and `SPOT_FEE_FX=UNAVAILABLE`.
+- The synthetic Support report was `SUPPORTED_FOR_DECLARED_SCOPE` for `POLICY_VALUATION` only. `FX_DATA_USE_RIGHTS` remained `UNVERIFIED`; this does not establish real source-use, entitlement or outbound-data permission.
+- `ORDER_NOTIONAL` and `RESERVED_CAPITAL` passed as independent checks. Overall RiskDecision remained `UNAVAILABLE`, approval eligibility was false, the exact account remained `DISARMED`, and the pre-Arm dialog kept Arm disabled.
+- Current, captured and pre-Arm views passed keyboard-driven layout checks at 1280, 768 and 390 CSS pixels without horizontal overflow.
+- Earlier failed replays caused by a stale workspace/provider state and a fixture-disabled test server are superseded by this complete fixture-enabled replay; no credential-entry boundary was bypassed.
+
+Evidence correction
+Earlier synthetic receipts reporting `SPOT_FEE_FX=PASS` while `feeCurrency=UNKNOWN` describe superseded behavior and are not #135 acceptance. In particular, the positive qualification claim in `bnb-owning-ui-condition-green.txt` is historical only. The current UI helper asserts the unknown-asset blocker, unavailable fee check and absent `expectedFee` field.
+
+External source-use
+The user confirmed that Alpaca Support has not replied. The real account remains `UNRESOLVED` and `FX_DATA_USE_RIGHTS=UNVERIFIED`. Synthetic Support contexts do not establish the real account's source-use or entitlement.
+
+No real account/provider was read or written. No approval artifact, Arm, consent, Prepare, dispatch or order occurred. S29.11 #135 and specification #134 remain OPEN; the positive owning-plan authorization/Prepare and final AC14 acceptance remain incomplete.

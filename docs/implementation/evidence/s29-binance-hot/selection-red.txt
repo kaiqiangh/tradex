@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.07s
+     Running tests/binance_market.rs (target/debug/deps/binance_market-b27d17916223a904)
+
+running 1 test
+test public_spot_market_selection_is_versioned_metadata_without_trading_credentials ... FAILED
+
+failures:
+
+---- public_spot_market_selection_is_versioned_metadata_without_trading_credentials stdout ----
+
+thread 'public_spot_market_selection_is_versioned_metadata_without_trading_credentials' (9234045) panicked at src-tauri/tests/binance_market.rs:21:5:
+assertion `left == right` failed: Public ordinary Spot market-source selection is missing: {"error":{"blocking":true,"category":"INTERNAL_ERROR","code":"IPC_COMMAND_UNKNOWN","message":"This command is not supported by the current control plane.","remediationActions":[{"id":"check_version","label":"Check application version"}],"retryable":false},"ok":false,"requestId":"spot-market","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    public_spot_market_selection_is_versioned_metadata_without_trading_credentials
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--test binance_market`

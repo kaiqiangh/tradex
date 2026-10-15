@@ -1,0 +1,54 @@
+{
+  "case": "B1 New Thread suggested prompts",
+  "result": "PASS",
+  "verifiedAt": "2026-10-14T14:45:38.712Z",
+  "branch": "dev",
+  "reviewBaselineSha": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "harness": "Rust-backed local integration browser at 127.0.0.1:1420",
+  "fixtureBoundary": "One disposable workspace; workspace.ready.fixture synthetic ready state only; no real provider, model login, route probe, inference, or external endpoint",
+  "workspaceId": "4d8f520e-d6ed-45da-84f9-e47564aa0c32",
+  "threadId": "fb216db2-57e8-401a-b2ed-582e329137c9",
+  "promptTexts": [
+    "Compare NVDA, AMD and AVGO",
+    "Review my live portfolio risk",
+    "Backtest BTC momentum strategy",
+    "Compare BTC liquidity on Binance and Bitget"
+  ],
+  "observations": [
+    { "width": 1280, "prompt": "Compare NVDA, AMD and AVGO", "keyboardSelection": true, "selected": true, "documentOverflow": false },
+    { "width": 768, "prompt": "Review my live portfolio risk", "keyboardSelection": true, "selected": true, "documentOverflow": false },
+    { "width": 390, "prompt": "Backtest BTC momentum strategy", "keyboardSelection": true, "selected": true, "documentOverflow": false },
+    { "width": 390, "prompt": "Compare BTC liquidity on Binance and Bitget", "keyboardSelection": true, "selected": true, "documentOverflow": false }
+  ],
+  "selectedPrompt": "Compare BTC liquidity on Binance and Bitget",
+  "promptSelectionMutationCommands": 0,
+  "createdThread": {
+    "title": "New research thread",
+    "turnsPersisted": 0,
+    "requestDraftPrefilled": true,
+    "threadCreateCommands": 1,
+    "turnStartCommands": 0
+  },
+  "externalHttpRequests": 0,
+  "pageErrors": 0,
+  "consoleErrors": 0,
+  "test": {
+    "path": "tests/s33-b1-suggested-prompts-playwright.js",
+    "sha256": "cd2d54c2fdd1fb97bea4502ab423c3dca31eae7e7707c6b03b4929f949348e3d"
+  },
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/b1-suggested-prompts-selected-390.png",
+      "sha256": "122fc288444053529b5ead415a09baeb5f355f0661e954d4307c7a1e60ec586d"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/b1-empty-thread-with-draft-390.png",
+      "sha256": "962c080364dbcae2c151aa56c8eefc3de94b008d3c70820d26a2d3969f23305f"
+    }
+  ],
+  "workingTreeSourceTestDigest": {
+    "files": 103,
+    "sha256": "229ab04001c9461598547572b7e90b8c6febbc15d46d72439047d03cdfbf9272",
+    "scope": "Sorted changed or new files under src/, src-tauri/, tests/; working-tree digest, not commit SHA"
+  }
+}

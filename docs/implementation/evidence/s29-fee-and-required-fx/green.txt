@@ -1,0 +1,40 @@
+S29.9 T02 GREEN
+===============
+
+Run against the T02 implementation of `spot_fee_fx::derive` (statement derivation + fee-evidence
+projection + approval-bound input + fail-closed gate).
+
+Command:
+    cargo test -p tradex --test binance_rules owning_fee_fx -- --test-threads=1
+
+Result (exit 0):
+    test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 94 filtered out
+
+    test owning_fee_fx_gate_blocks_approval_and_names_the_single_binding_fact ... ok
+    test owning_fee_fx_statement_binds_the_intent_and_fails_closed_without_relaxing_producers ... ok
+    test owning_fee_fx_stays_visible_when_capacity_evidence_is_absent ... ok
+
+Observed statement (S29.8 positive rig, default account fixture with no declared commissionRates,
+BUY crypto:BTC/USDT:spot, workspace base USD):
+
+    "spotFeeFx": {
+      "accountId": "...", "baseAsset": "BTC", "quoteAsset": "USDT", "baseCurrency": "USD",
+      "side": "BUY",
+      "feeCurrency": "UNKNOWN", "feeCurrencyOrigin": "UNKNOWN",
+      "expectedFee": null,
+      "outcome": "UNAVAILABLE",
+      "reasonCode": "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+      "bindingBlocker": "SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE",
+      "expectedSpendQuote": "60",
+      "routes": [
+        { "purpose": "INTENT_FUNDING", "fromCurrency": "USDT", "toCurrency": "USDT", "state": "QUALIFIED" },
+        { "purpose": "INTENT_POLICY",  "fromCurrency": "USDT", "toCurrency": "USD", "state": "UNSUPPORTED_ROUTE" }
+      ],
+      "feeEvidenceVersion":  "sha256:00ce91a6a30d59154d398bf27f03c1481e94c65381aef5cb749d576129acc73d",
+      "routeEvidenceVersion":"sha256:377ebe93c2dd2c6953edf067124f7104ba4c51c62cca0b4cce4c46108f4d21e4",
+      "proposalHash":        "sha256:4a9071f80c62ccdcd435ad9f069ce87949328d6df9ae62381170f970c66fc292",
+      "reason": "The genuinely-required execution conversion USDT -> USD is unsupported by the selected bounded FX producer, so no qualified rate can bound this intent; The venue declares commission rates but not the fee-charging asset, so the fee currency remains UNKNOWN and no fee amount is fabricated."
+    }
+
+All three `sha256:` values are 71 characters. The co-occurring fee-currency fact is reported (fields +
+reason) while the route remains the single binding blocker, per the P2 priority ruling.

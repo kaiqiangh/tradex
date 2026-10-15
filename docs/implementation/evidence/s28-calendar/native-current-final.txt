@@ -1,0 +1,26 @@
+container Alpaca XNAS calendar
+heading Alpaca XNAS calendar, Value: 3
+text Alpaca XNAS calendar
+text Select a saved Alpaca Paper key for read-only calendar access on its fixed Paper host. Calendar, corporate actions and trading eligibility are separate checks.
+container
+text Calendar account
+text Authenticated XNAS calendar is current. Corporate actions, halts, adjustment and all financial guards remain separate.
+description list
+text Calendar receipt
+text 2026-10-01T19:33:43.442Z
+text Calendar version
+text fd79e1fc3033ca3c1adba6a83f9f5809fe7bc69ebe84b0beb61eb2a42945f0f9
+text Requested coverage
+text 2026-09-30 – 2026-10-15
+text MARKET CALENDAR
+text AVAILABLE · Authenticated XNAS calendar is current. Corporate actions, halts, adjustment and all financial guards remain separate.
+text CORPORATE ACTIONS
+text BLOCKED EXTERNAL · Corporate-action production evidence is not configured.
+text HALTS
+text BLOCKED EXTERNAL · Execution-provider halt/tradability evidence is not configured.
+text HISTORICAL ADJUSTMENT
+text UNVERIFIED · Calendar access does not prove historical adjustment.
+text XNAS calendar refreshed. Only its calendar capability is current.
+button Save calendar source
+button Refresh selected calendar
+button Disconnect calendar source

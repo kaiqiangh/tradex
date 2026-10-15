@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-01T06:02:56.466Z",
+  "environment": "isolated SQLite, external fake vault/HTTP and actual loopback WebSocket; no hosted entitlement or financial readiness",
+  "observations": [
+    "Explicit saved SIP configuration is verified through the adapter, with technical access separate from quote/trading readiness.",
+    "Source card and source connection agree; unsaved feed changes disable verification; no renderer password input.",
+    "Actual loopback WebSocket frames activate the public Hot detail only after provider acknowledgements and validated quotes.",
+    "Old fixture time remains non-current despite STREAMING; AAPL to results to MSFT remount displays the requested provider symbol; no overflow at 390/768/1280px."
+  ]
+}

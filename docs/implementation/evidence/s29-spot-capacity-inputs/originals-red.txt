@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.17s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_original_order_quantities_identity_and_future_times_are_not_coerced ... FAILED
+
+failures:
+
+failures:
+    capacity_original_order_quantities_identity_and_future_times_are_not_coerced
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.12s
+
+
+thread 'capacity_original_order_quantities_identity_and_future_times_are_not_coerced' (11050432) panicked at src-tauri/tests/binance_rules.rs:668:9:
+assertion `left == right` failed: Original order field was coerced or ignored: {"data":{"accountId":"6081ea37-f05c-44f8-a0c8-05d63a258b62","baseAsset":"BTC","bindingVersion":"sha256:e18c1ea5c7f3307bcd527749d8ee4720667a67d7ec546d87d4494cb59b4d054d","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"cf1c4256-6817-451e-b0b0-2d9971f3c5b9","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":null,"accountOpenOrders":"2","classificationsComplete":true,"listCoverageComplete":null,"missingListLegs":null,"orderCoverageComplete":true,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":null,"symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderUpdateTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T07:59:29.346Z","startedAt":"2026-10-09T07:59:29.343Z"},{"digest":"1fb27b59a6383858a047a05acef219305851017d0cc095c4da617b49d4a02d4d","kind":"OPEN_ORDERS_ACCOUNT","latestProviderUpdateTimeMs":"1700000000000","oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T07:59:29.351Z","startedAt":"2026-10-09T07:59:29.347Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","PARTIAL_FILL_QUANTITY_SEMANTICS_UNRESOLVED"]},"proposalHash":"sha256:334305cdaaf0488ae2b4f0e289bb1ec6180d49c268622390a69a875a7c3434ad","proposalId":"proposal:63814de5-7f06-413e-96ab-e26e7ae0fb62","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"51c0293e946e482eab86c9a795803daf227a86a5a0592a007bd5c2df3ea0dfd0","sourceVersion":"BINANCE_SPOT_RULES:e3465e95-bf98-43e1-b495-01fab6521cc7:1","stateVersion":"sha256:bf92d200053067897ce189a0f8fb2a8d65049f6f07f07fa1c09f6e150955f7b5","status":"OBSERVED","workspaceId":"e3465e95-bf98-43e1-b495-01fab6521cc7"},"ok":true,"requestId":"capacity-originals","schemaVersion":1}
+  left: String("OBSERVED")
+ right: "UNAVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_original_order_quantities_identity_and_future_times_are_not_coerced' (11050425) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_original_order_quantities_identity_and_future_times_are_not_coerced
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_original_order_quantities_identity_and_future_times_are_not_coerced ... FAILED
+
+failures:
+
+failures:
+    capacity_original_order_quantities_identity_and_future_times_are_not_coerced
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 49 filtered out; finished in 0.36s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -1,0 +1,36 @@
+
+running 1 test
+
+running 1 test
+test interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage ... FAILED
+
+failures:
+
+failures:
+    interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 74 filtered out; finished in 1.24s
+
+test interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage ... FAILED
+
+failures:
+
+failures:
+    interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 74 filtered out; finished in 1.49s
+
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.90s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+thread 'interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage' (11608515) panicked at src-tauri/tests/binance_rules.rs:73:5:
+assertion `left == right` failed: A possible rollover must retire before default3s age: {"data":{"accountId":"1c602de3-51fe-4e24-b979-89bb442881d9","baseAsset":"BTC","bindingVersion":"sha256:77423adb3c491dc3134ab19981dd341b2c88339f6a27039e16fe6b06c07db708","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"clock":{"receivedAt":"2026-10-09T15:30:43.574Z","serverTimeMs":"1791559843300","startedAt":"2026-10-09T15:30:43.571Z"},"collectionId":"63e0b265-e06b-4ff0-af9b-6e14cad20e39","counters":[{"count":"7","interval":"SECOND","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"}],"coverageComplete":true,"declarations":[{"interval":"SECOND","intervalNum":"1","limit":"50","rateLimitType":"ORDERS"}],"providerObservedAt":null,"reads":[{"digest":"7da3c5e99f4db051bb67ee88a5b96b273d0dbb83a6a4ea125bdc4d21a4e23005","kind":"INTERVAL_DEFINITIONS","receivedAt":"2026-10-09T15:30:43.576Z","startedAt":"2026-10-09T15:30:43.574Z"},{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT_IDENTITY","receivedAt":"2026-10-09T15:30:43.581Z","startedAt":"2026-10-09T15:30:43.577Z"},{"digest":"7ee024eb8defc7c4e32c81ecd31eb1e239868c110ede7e8532ff8db98255a91e","kind":"ACCOUNT_INTERVAL_COUNTERS","receivedAt":"2026-10-09T15:30:43.585Z","startedAt":"2026-10-09T15:30:43.582Z"}],"unresolvedObligations":["INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:4088c572d441a4d9dd4de8b782ba850e4353e4dc7027ea9f64db0873f1a05067","proposalId":"proposal:ecdce5b6-2d2b-40a1-89a2-33df7ccdbca1","qualification":"UNAVAILABLE","qualificationReason":"INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"6eb9e5d52919a782206dea06b8af3669d78e50ebf58c8b4bc67a57af6cececc0","scope":"ACCOUNT_ALL_KEYS_IPS_APIS","sourceVersion":"BINANCE_SPOT_RULES:ca5e6cf4-dbef-4c8d-9185-c484850ca91e:1","stateVersion":"sha256:546ee729ff85f53bc2b8a869c9c76f8d29e05d2b8a3b57f90eadcec3391b2eed","status":"OBSERVED","workspaceId":"ca5e6cf4-dbef-4c8d-9185-c484850ca91e"},"ok":true,"requestId":"spot-rules","schemaVersion":1,"stateVersion":"sha256:546ee729ff85f53bc2b8a869c9c76f8d29e05d2b8a3b57f90eadcec3391b2eed"}
+  left: String("OBSERVED")
+ right: "STALE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage' (11608513) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: interval_cached_get_retires_possible_utc_rollover_without_renewing_or_resetting_usage
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--test binance_rules`

@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.07s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+
+running 1 test
+test capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline ... FAILED
+
+failures:
+
+failures:
+    capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 64 filtered out; finished in 0.15s
+
+
+thread 'capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline' (11152285) panicked at src-tauri/tests/binance_rules.rs:1827:5:
+assertion `left == right` failed: Pending authentication retained current success: {"data":{"accountId":"4d4e5132-860b-420e-8950-73a3b9a1b86b","baseAsset":"BTC","bindingVersion":"sha256:5548cffa81e8bf475a66922161ef1e3024b6e85347829f6920a8285e9ad193a8","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"fe1951ab-1379-4462-9529-ee03df123ee9","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":null,"accountOpenOrders":"2","classificationsComplete":true,"listCoverageComplete":null,"missingListLegs":null,"orderCoverageComplete":true,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":null,"symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"728c40f364ab604939e5a75f74def1dd821b8ff594a6389dc9502d2a587274b7","kind":"ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":null,"oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T08:54:55.401Z","startedAt":"2026-10-09T08:54:55.398Z"},{"digest":"1eefa5f66af0d0dae007a968e6225ed0c3fce1bc7c7a11e01c3baacae6de49ec","kind":"OPEN_ORDERS_ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":"1700000000000","oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T08:54:55.408Z","startedAt":"2026-10-09T08:54:55.404Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:0c49462619d98d67fee302d66160ab53c602b96befebb92c91fc00d6ddb5f7c7","proposalId":"proposal:4ede8739-0419-4f33-828b-e2fdffacb41a","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"652cf3da414a7a625f85c1e471939471d392f47323bef743b3b8df0b6f070214","sourceVersion":"BINANCE_SPOT_RULES:cf5156f9-5573-4c35-802b-45e5d42177ea:1","stateVersion":"sha256:4eef4dd59138e09a8fe3794586f79a26af3e4293b1c6eb25b79878fff2d9c469","status":"OBSERVED","workspaceId":"cf5156f9-5573-4c35-802b-45e5d42177ea"},"ok":true,"requestId":"spot-rules","schemaVersion":1,"stateVersion":"sha256:4eef4dd59138e09a8fe3794586f79a26af3e4293b1c6eb25b79878fff2d9c469"}
+  left: String("OBSERVED")
+ right: "NOT_OBSERVED"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline' (11152281) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline ... FAILED
+
+failures:
+
+failures:
+    capacity_authentication_wait_retires_current_success_and_preserves_remaining_http_deadline
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 64 filtered out; finished in 0.43s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 14 tests
+test spot_fee_fx::tests::identity_policy_spend_preserves_the_proposal_amount_without_fx_evidence ... ok
+test spot_fee_fx::tests::a_supported_route_and_commission_without_a_current_model_remain_unavailable ... ok
+test spot_fee_fx::tests::fails_closed_with_evidence_unavailable_when_no_current_commission_is_bound ... ok
+test spot_fee_fx::tests::fails_closed_with_rate_unsupported_when_the_declared_rates_are_not_exact_decimals ... ok
+test spot_fee_fx::tests::active_non_bnb_place_reservation_keeps_discounted_bnb_funding_unresolved ... ok
+test spot_fee_fx::tests::a_complete_current_branch_qualifies_the_estimate_without_claiming_a_future_fee_asset ... ok
+test spot_fee_fx::tests::qualified_policy_spend_uses_ask_for_buy_and_bid_for_sell ... ok
+test spot_fee_fx::tests::conditional_current_model_does_not_qualify_unknown_charging_asset ... ok
+test spot_fee_fx::tests::returns_none_when_the_capacity_does_not_describe_the_same_immutable_intent ... ok
+test spot_fee_fx::tests::fails_closed_with_currency_unknown_when_rates_are_valid_but_the_fee_asset_is_undeclared ... ok
+test spot_fee_fx::tests::shared_commission_binding_rejects_changed_capacity_and_symbol_identity ... ok
+test spot_fee_fx::tests::supported_local_use_and_read_only_fx_qualify_policy_valuation_but_not_execution ... ok
+test spot_fee_fx::tests::reports_evidence_mismatch_when_the_fx_requirements_describe_another_intent ... ok
+test spot_fee_fx::tests::policy_valuation_route_requires_a_current_supported_source_use_purpose ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 254 filtered out; finished in 0.00s
+

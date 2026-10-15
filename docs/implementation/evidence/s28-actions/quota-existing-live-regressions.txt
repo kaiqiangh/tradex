@@ -1,0 +1,19 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.72s
+     Running unittests src/lib.rs (target/debug/deps/tradex-a7d04870edf24fb7)
+
+running 12 tests
+test provider_io::trading212_demo_route_tests::order_posts_are_restricted_to_the_two_demo_routes ... ok
+test provider_io::trading212_demo_route_tests::trading212_order_merge_retains_known_currency_and_rejects_conflicts ... ok
+test provider_io::trading212_demo_route_tests::order_merge_preserves_cancel_pending_until_provider_terminal_state ... ok
+test provider_io::trading212_demo_route_tests::t212_recent_history_parses_official_order_fill_rows_and_rejects_conflicts ... ok
+test provider_io::trading212_demo_route_tests::trading212_order_reads_classify_client_and_server_errors_separately ... ok
+test cancellation_approval_tests::trading212_sell_cancellation_normalizes_signed_filled_quantities ... ok
+test provider_io::trading212_demo_route_tests::trading212_orders_keep_exact_cumulative_fills_and_reject_unknown_states ... ok
+test provider_io::trading212_live_cancel_preflight_tests::live_cancel_preflight_accepts_exact_signed_sell_snapshot_and_rejects_changes ... ok
+test live_approval_tests::accepted_live_place_persists_trading212_order_identity ... ok
+test live_approval_tests::bounded_trading212_market_approval_reserves_its_exact_maximum ... ok
+test cancellation_approval_tests::trading212_exact_order_refresh_persists_fill_race_across_reopen ... ok
+test live_approval_tests::trading212_live_unknown_reconciliation_is_read_only_pageable_and_durable ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 229 filtered out; finished in 10.45s

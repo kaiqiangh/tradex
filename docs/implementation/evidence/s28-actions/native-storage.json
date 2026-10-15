@@ -1,0 +1,23 @@
+{
+  "schema": 34,
+  "sources": [
+    {
+      "kind": "BROKER_INSTRUMENTS",
+      "generation": 1,
+      "storedFields": [
+        "connectionId",
+        "generation"
+      ]
+    },
+    {
+      "kind": "CORPORATE_ACTIONS",
+      "generation": 1,
+      "storedFields": [
+        "connectionId",
+        "generation"
+      ]
+    }
+  ],
+  "auditRows": 2,
+  "latestBackupSchema": 33
+}

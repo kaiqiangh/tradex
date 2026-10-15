@@ -1,0 +1,50 @@
+[
+  {
+    "bodyWidth": 1280,
+    "panels": [
+      {
+        "clientWidth": 440,
+        "scrollWidth": 440,
+        "title": "Current Proposal Spot capacity inputs"
+      },
+      {
+        "clientWidth": 390,
+        "scrollWidth": 390,
+        "title": "Captured Proposal Spot capacity inputs"
+      }
+    ],
+    "viewport": 1280
+  },
+  {
+    "bodyWidth": 768,
+    "panels": [
+      {
+        "clientWidth": 472,
+        "scrollWidth": 472,
+        "title": "Current Proposal Spot capacity inputs"
+      },
+      {
+        "clientWidth": 422,
+        "scrollWidth": 422,
+        "title": "Captured Proposal Spot capacity inputs"
+      }
+    ],
+    "viewport": 768
+  },
+  {
+    "bodyWidth": 390,
+    "panels": [
+      {
+        "clientWidth": 318,
+        "scrollWidth": 318,
+        "title": "Current Proposal Spot capacity inputs"
+      },
+      {
+        "clientWidth": 268,
+        "scrollWidth": 268,
+        "title": "Captured Proposal Spot capacity inputs"
+      }
+    ],
+    "viewport": 390
+  }
+]

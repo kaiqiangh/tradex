@@ -1,0 +1,22 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.30s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test malformed_broker_identity_or_schedule_retires_metadata_without_panicking ... FAILED
+
+failures:
+
+---- malformed_broker_identity_or_schedule_retires_metadata_without_panicking stdout ----
+
+thread 'malformed_broker_identity_or_schedule_retires_metadata_without_panicking' (2419009) panicked at src-tauri/src/financial_sources.rs:918:18:
+end byte index 2 is not a char boundary; it is inside '€' (bytes 0..3 of string)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    malformed_broker_identity_or_schedule_retires_metadata_without_panicking
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--test financial_sources`

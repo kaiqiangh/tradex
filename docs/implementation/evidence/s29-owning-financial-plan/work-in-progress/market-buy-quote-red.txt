@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.13s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-01462f343f6b72a8)
+
+running 1 test
+test owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding ... 
+thread 'owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding' (14501775) panicked at src-tauri/tests/binance_market_hot.rs:2636:5:
+assertion `left == right` failed
+  left: Null
+ right: "0.000999983333611106"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.49s
+
+error: test failed, to rerun pass `-p tradex --test binance_market_hot`

@@ -1,0 +1,5 @@
+2026-10-03 CUA Chrome, real Rust integration bridge, temporary workspace
+Before FinancialSourceSettings implementation, Settings > Data & Storage:
+companySourceCount: 0 (expected 1)
+brokerSourceCount: 0 (expected 1)
+Entry-point RED only; no producer or financial-authority fixture injected.

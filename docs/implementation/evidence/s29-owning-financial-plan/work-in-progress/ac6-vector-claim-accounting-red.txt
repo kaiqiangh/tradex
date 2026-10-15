@@ -1,0 +1,21 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.32s
+     Running unittests src/lib.rs (target/debug/deps/tradex-dd1f215bdfb8663a)
+
+running 1 test
+
+thread 'spot_fee_fx::tests::active_non_bnb_place_reservation_keeps_discounted_bnb_funding_unresolved' (16409735) panicked at src-tauri/src/spot_fee_fx.rs:1169:9:
+assertion `left == right` failed
+  left: "0"
+ right: "0.25"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test spot_fee_fx::tests::active_non_bnb_place_reservation_keeps_discounted_bnb_funding_unresolved ... FAILED
+
+failures:
+
+failures:
+    spot_fee_fx::tests::active_non_bnb_place_reservation_keeps_discounted_bnb_funding_unresolved
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 253 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

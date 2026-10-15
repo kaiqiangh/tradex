@@ -1,0 +1,37 @@
+S29.7 Rust-backed browser acceptance — harness setup corrections
+
+These are instrumentation/configuration mistakes made while running
+tests/spot-proposal-rules-ui.mjs against the integration dev server. None of them
+was a product defect, and none required a production change.
+
+1. binance.live.rules.fixture returned IPC_PAYLOAD_INVALID because the seam is gated
+   behind the http.binance_rules_ui capability. The server was restarted with
+   TRADEX_SOURCE_ONLY_FIXTURE=1 TRADEX_BINANCE_RULE_HTTP_FIXTURE=1
+   TRADEX_LIVE_APPROVAL_FIXTURE=1, matching the standing configuration used by the
+   earlier S29 rule slices.
+
+2. Direction multipliers were asserted as /BID/ and /ASK/. React actually renders
+   "BUY (bid) multipliers" / "SELL (ask) multipliers", so the assertions were
+   corrected to /BUY \(bid\) multipliers/ and /SELL \(ask\) multipliers/.
+
+3. The first wait after selecting a new source expected /reference missing/ to appear
+   after the refresh. A static refresh captures the shared execution reference in the
+   same provider read, so the state is already SNAPSHOT_AVAILABLE afterwards. The
+   missing-reference wait was moved before the refresh and the post-refresh assertion
+   became /snapshot available/.
+
+4. Pressing refresh immediately after switching source hit STATE_VERSION_CONFLICT
+   ("The state cursor cannot be resumed.") because the panel's one-second poll had not
+   yet fetched the new binding. Each switch now waits for /reference missing/ first,
+   which proves the new binding has been polled before the compare-and-set refresh.
+
+5. The evaluate button label changes from "Evaluate risk" to "Evaluate again" after the
+   first assessment. The helper now selects whichever label is present.
+
+6. The final assertion on the explicit-null reference matched both the prose paragraph
+   and the execution-reference definition. It now targets the dd value that carries the
+   digest. The earlier strict-mode failure screenshot is kept as
+   ui-harness-setup-failure.png.
+
+After these corrections the run reports passed=true with the 1280 and 390 screenshots
+archived as ui-1280.png and ui-390.png.

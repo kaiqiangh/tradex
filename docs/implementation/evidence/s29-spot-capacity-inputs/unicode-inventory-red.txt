@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.81s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+
+running 1 test
+test capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership ... FAILED
+
+failures:
+
+failures:
+    capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.11s
+
+
+thread 'capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership' (11202873) panicked at src-tauri/tests/binance_rules.rs:1908:5:
+assertion `left == right` failed: Documented non-ASCII foreign inventory was misclassified as malformed: {"data":{"accountId":"7d055105-70e1-48f6-8b43-663348a6669c","baseAsset":"BTC","bindingVersion":"sha256:deb4e193d492a8572af6f91788e84555a8d3653b794ebc04ae126fc95bb12118","failure":"PROVIDER_RESPONSE_INVALID","instrumentId":"crypto:BTC/USDT:spot","observation":null,"proposalHash":"sha256:ff2f10ced5e13cb6ee6b34b445873367c33818f6fe4bea2b1f788a2a0a6a02ad","proposalId":"proposal:4c99ea1c-8b1a-4261-a9e5-90db48d7b63e","purposes":["OPEN_ORDERS_ACCOUNT","BASE_BALANCES"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"6f93143236fe2aa473953ce271ee9bf0b606eac19571cff7c66a4bd01e473c5b","sourceVersion":"BINANCE_SPOT_RULES:c2fedefc-5fd3-4ad8-83a8-f09aa5090ba3:1","stateVersion":"sha256:979e7238bf684d18d3a21c5d072110d4ce96fa44e5a88caa550e75078aa90734","status":"UNAVAILABLE","workspaceId":"c2fedefc-5fd3-4ad8-83a8-f09aa5090ba3"},"ok":true,"requestId":"capacity-unicode-inventory","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "OBSERVED"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership' (11202869) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership ... FAILED
+
+failures:
+
+failures:
+    capacity_documented_unicode_foreign_inventory_is_counted_without_inventing_base_membership
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.36s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

@@ -1,0 +1,60 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 53 tests
+test actual_halt_evidence_rejects_new_order_rules_and_normal_recovery_never_grants_execution ... ok
+test authentication_reflections_are_rejected_before_typed_projection ... ok
+test base_market_notional_requests_its_required_reference_and_keeps_base_units ... ok
+test capacity_age_starts_at_first_private_receipt_and_cached_get_cannot_renew_it ... ok
+test capacity_capture_retains_aggregate_observation_without_raw_inventory_or_current_renewal ... ok
+test capacity_counts_distinguish_foreign_algorithmic_and_iceberg_orders ... ok
+test capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown ... ok
+test capacity_list_inventory_exposes_missing_pending_legs_without_guessing_reserved_counts ... ok
+test capacity_list_original_transaction_times_and_unknown_fields_do_not_become_complete_snapshots ... ok
+test capacity_original_order_quantities_identity_and_future_times_are_not_coerced ... ok
+test capacity_partial_fill_and_unknown_active_fields_remain_explicitly_unresolved ... ok
+test capacity_purpose_reads_only_symbol_scope_and_refuses_unnecessary_private_collection ... ok
+test capacity_refresh_rejects_renderer_authority_and_late_changed_binding_without_holding_control_lock ... ok
+test changing_the_selected_instrument_during_http_prevents_late_publication ... ok
+test clock_revalidation_and_reopen_retire_active_rule_evidence ... ok
+test collected_constraints_name_the_unresolved_per_order_obligations ... ok
+test current_static_price_violation_rejects_risk_and_preserves_its_proposal_binding ... ok
+test documented_price_and_asset_exponents_remain_original_bounded_integers ... ok
+test elapsed_receipt_expires_rules_without_renewing_retained_evidence ... ok
+test empty_collected_constraints_cannot_qualify_an_ordinary_spot_proposal ... ok
+test explicit_null_reference_uses_only_matching_average_interval ... ok
+test explicit_required_reference_read_qualifies_only_its_bound_percentage_rule ... ok
+test explicit_spot_capacity_read_observes_all_account_orders_without_financial_qualification ... ok
+test fully_observed_applicable_static_rules_do_not_invent_an_absent_notional_filter ... ok
+test future_reference_time_is_not_accepted_as_a_new_receipt ... ok
+test identical_reference_cannot_renew_first_receipt_or_financial_freshness ... ok
+test immutable_spot_proposal_explains_static_rules_without_hiding_dynamic_obligations ... ok
+test late_reference_selection_change_cannot_publish_into_new_rule_binding ... ok
+test malformed_account_and_balance_inventory_is_rejected_even_without_position_purpose ... ok
+test malformed_capacity_order_refresh_retires_previously_observed_inventory ... ok
+test malformed_rule_range_retires_current_evidence_and_retains_the_last_good_observation ... ok
+test max_position_inputs_keep_original_base_balances_and_foreign_exposure_unresolved ... ok
+test mixed_reference_intervals_qualify_only_their_own_rules ... ok
+test notional_market_flags_and_quote_quantity_never_invent_base_amounts ... ok
+test only_documented_price_zero_fields_disable_an_obligation ... ok
+test original_order_form_flags_are_preserved_or_explicitly_unobserved_and_never_grant_advanced_forms ... ok
+test original_wire_types_and_duplicate_fields_cannot_replace_a_good_observation ... ok
+test permission_sets_apply_or_within_and_between_sets_without_granting_per_order_qualification ... ok
+test proposal_explanation_distinguishes_missing_reference_dynamic_and_unknown_rules ... ok
+test proposal_rule_guards_keep_exact_intent_units_and_reference_faults_closed ... ok
+test public_reference_ip_ban_retires_price_and_honors_shared_cooldown ... ok
+test public_rule_refresh_collects_exact_account_and_scoped_constraints_without_execution_authority ... ok
+test public_rule_source_selection_is_versioned_metadata_and_keeps_the_borrowed_key ... ok
+test quote_asset_market_limit_rejects_exact_notional_without_changing_base_quantity ... ok
+test reference_deadline_retires_prior_input_without_blocking_control_plane_reads ... ok
+test refused_reference_read_retires_previous_price_and_never_calls_average_fallback ... ok
+test reopen_preserves_only_captured_digests_and_never_renews_public_references ... ok
+test rule_counts_preserve_large_integers_but_reject_values_outside_documented_int64 ... ok
+test stored_spot_proposal_names_required_capacity_inputs_without_reading_or_qualifying ... ok
+test unmatched_average_is_explained_as_interval_mismatch_without_substitution ... ok
+test unpopulated_permission_sets_never_grant_account_admission ... ok
+test unsupported_provider_order_form_rejects_the_unchanged_proposal ... ok
+test zero_interval_uses_original_last_trade_time_only_after_explicit_null ... ok
+
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 66.85s
+

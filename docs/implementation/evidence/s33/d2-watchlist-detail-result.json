@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "screenId": "D2",
+  "title": "Watchlist Detail",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T17:48:04Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 113,
+    "sha256": "04432221c418da15f37aebb491135420d823d6f2bb97440817c527db17c3e8de"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "No new D2 helper; UI assertions and responsive measurements were performed directly in CUA",
+    "interactions": [
+      "Opened Rename; confirmed the current list name was prefilled; cancelled without saving.",
+      "Opened the two-step Delete confirmation; cancelled before the destructive action."
+    ]
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "watchlist": {
+      "name": "C4 core equities",
+      "watchlistId": "eb5465d7-c686-476d-add6-10b6660ae271",
+      "stateVersion": "watchlist:eb5465d7-c686-476d-add6-10b6660ae271:2",
+      "memberCount": 1,
+      "orderedCanonicalMemberIds": [
+        "equity:US:MSFT"
+      ],
+      "credentialsOrQuotesDisplayed": false
+    },
+    "rename": {
+      "formOpened": true,
+      "prefilledName": "C4 core equities",
+      "cancelled": true,
+      "savedMutationIssued": false
+    },
+    "delete": {
+      "twoStepConfirmationVisible": true,
+      "cancelledBeforeConfirm": true,
+      "deleteMutationIssued": false,
+      "listStillPresentAfterCancel": true
+    },
+    "memberAction": {
+      "removeControlVisible": true,
+      "activated": false
+    },
+    "responsive": [
+      {
+        "width": 1280,
+        "documentClientWidth": 1265,
+        "documentScrollWidth": 1265,
+        "horizontalOverflow": false,
+        "layoutColumns": "194.914px 464.086px",
+        "detailVisible": true,
+        "detailWidth": 464,
+        "memberWithinDocumentWidth": true,
+        "actionsVisible": ["Rename", "Delete", "Remove"]
+      },
+      {
+        "width": 768,
+        "documentClientWidth": 753,
+        "documentScrollWidth": 753,
+        "horizontalOverflow": false,
+        "layoutColumns": "204.375px 486.625px",
+        "detailVisible": true,
+        "detailWidth": 487,
+        "memberWithinDocumentWidth": true,
+        "actionsVisible": ["Rename", "Delete", "Remove"]
+      },
+      {
+        "width": 390,
+        "documentClientWidth": 375,
+        "documentScrollWidth": 375,
+        "horizontalOverflow": false,
+        "layoutColumns": "347px",
+        "detailVisible": true,
+        "detailWidth": 347,
+        "memberWithinDocumentWidth": true,
+        "actionsVisible": ["Rename", "Delete", "Remove"]
+      }
+    ]
+  },
+  "commandLog": {
+    "cursorStart": 3895,
+    "cursorEnd": 3909,
+    "commandCount": 14,
+    "counts": {
+      "account.activity": 1,
+      "runtime.status": 13
+    },
+    "forbiddenProviderModelFinancialTradeOrderGateway": 0,
+    "note": "All commands in this delta were passive local reads; Rename and Delete Cancel did not issue a mutation."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "The workspace contains one member, so ordered multi-member rendering was not directly exercised in this browser run.",
+    "No rename was committed and the destructive Delete and Remove actions were not activated; mutation, stale-version and ordered persistence contracts retain their separate S07 evidence.",
+    "The direct CUA replay did not instrument external HTTP or page errors; no real market source was selected.",
+    "Native VoiceOver, cross-window synchronization, and full S07/S33 acceptance remain open."
+  ]
+}

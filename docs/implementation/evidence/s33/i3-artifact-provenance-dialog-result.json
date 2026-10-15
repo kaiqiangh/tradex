@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "screenId": "I3",
+  "title": "Artifact Provenance Dialog",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/Artifacts.tsx": "6faa3511db6ecc11f7b20feab888ed3426072ea97db09b8eab90dd4f624bdc06",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "tests/s33-artifact-provenance-dialog-playwright.js": "3693be31638b24978a00b8484f3a3e134e180f7c59a392d83ed41e4b96284359",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-artifact-provenance-dialog-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1420 with an isolated disposable workspace",
+  "workspaceId": "c604fc26-470c-436c-9605-8f8d36abd859",
+  "artifactId": "d59dad87-661c-44a9-af15-b585ce8cf351",
+  "fixtureBoundary": "Local synthetic Research Turn and saved artifact only; no provider, broker, export, or financial action",
+  "keyboard": {
+    "initialFocus": "Close provenance",
+    "backgroundInertWhileOpen": true,
+    "tabAndShiftTabWrapCloseAndDone": true,
+    "escapeRestoresBackgroundAndTriggerFocus": true,
+    "doneReachableAt390": true
+  },
+  "provenanceIdentities": {
+    "workspaceId": "c604fc26-470c-436c-9605-8f8d36abd859",
+    "threadId": "88b097bc-82e4-4cd8-88fe-6aaadd8765ae",
+    "turnId": "3b6674db-abb8-4a7a-b8a5-168acc90699d",
+    "itemId": "f43a6ea4-1f78-48fa-9228-f867fd1db917",
+    "lengths": [
+      36,
+      36,
+      75
+    ],
+    "wrapsWithoutClippingAt390": true
+  },
+  "commandCounts": {
+    "total": 51,
+    "workspace.open": 4,
+    "workspace.ready.fixture": 1,
+    "domain.snapshot": 8,
+    "runtime.status": 3,
+    "domain.subscribe": 8,
+    "thread.list": 4,
+    "account.list": 5,
+    "context.catalog": 4,
+    "agent.capabilities": 5,
+    "account.activity": 1,
+    "thread.create": 1,
+    "research.run": 1,
+    "turn.start": 1,
+    "artifact.save": 1,
+    "artifact.list": 2,
+    "artifact.get": 2,
+    "forbiddenProviderFinancialOrExportCommands": 0,
+    "externalHttpRequests": 0
+  },
+  "screenshots": [
+    "artifact-provenance-390.png"
+  ],
+  "scopeLimits": [
+    "This slice verifies modal interaction and workspace/thread/turn/item identity presentation, not every provenance field in PRD \u00a755.1.",
+    "The synthetic local fixture does not establish real provider-attempt, source, market, dataset, or related-order provenance.",
+    "I3 is local S33 evidence and does not complete S12 production acceptance, the remaining screen inventory, S33, or issue #141."
+  ]
+}

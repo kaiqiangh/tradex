@@ -1,0 +1,111 @@
+{
+  "capturedAt": "2026-10-05T08:41:38.501496+00:00",
+  "ticket": 120,
+  "state": "BALANCE_REMEDIATION_VERIFIED_PENDING_SERIAL_RECHECKS",
+  "reviewBaseline": "d7ea48d1e5a5c2a5f95cc3937b02aa0202bc53d4",
+  "branch": "dev",
+  "uncommitted": true,
+  "sourceSha256": {
+    "docs/FILE_MANIFEST.md": "0a6e805be62d2d4f1ba7040274c71327b342bc3daf5948e44b8bd901c4f09ddb",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "a9bfc2019b6a83492b21c0dfdbfe86e9859ee53531092ff4d7161f759e10ad8f",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "7a7106acee8e0616043c629e68ad6f09e40ad67a78d07ba84d5b278270f6b314",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "f5742b846718c5ee3db2f9673286db2e16b76c1057e387bc3f56362247fa4858",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "cdd801b5d87be1a800f81223875a9f43c37c8135c0e2b2216319aa8ddbb7f497",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "34dfbd865b1f001a747e4df34d6ed1a7da0dbd8d07068cedd40b0a15635efbd4",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "2bbe452e901c7e1b5c35eae45d96f1e1ba3c69a7c8d837f64243e2633fbbc265",
+    "shared/ipc-types.ts": "68a5679a3575e34f5e730ef4c5d87156cd28ac75983b7ee1085a01e6f9918607",
+    "shared/ipc-v1.schema.json": "35436002a63980a887ebcdf1b5bed7cdb5b8ae464117c0f1e56a23a050b3fe84",
+    "shared/ipc-validators.d.ts": "2e86105810118f8444ce306ee6ac3e7dd4efdee7f7424f3ca5d6b165d34929bf",
+    "shared/ipc-validators.js": "51476ccdea761a0b1534094d16fd8bca6adb6031824350fdd7658e8eec592fc7",
+    "src-tauri/Cargo.toml": "430850125a45b42785df3f6194ab5ba9eacf21797ac642d9a643da889491e19d",
+    "src-tauri/src/bin/ipc.rs": "c16f56ce062363beb91b758b865280096e659b4c31f3d45abd6c897580e56822",
+    "src-tauri/src/financial_sources.rs": "7c97fe7ee64d4f7e74d45eddf1e00ae895e75207c4bac33fcae097f5c4df1f0d",
+    "src-tauri/src/lib.rs": "4c0846a96156a02dae7d0bed884c8ea13b511a0539d754772f581ada48e16ccb",
+    "src-tauri/src/main.rs": "ef08c297c6564765372dc48b18e03e22ff245dfbea82a1b95471e363f745e4e5",
+    "src-tauri/src/portfolio.rs": "4f17219f6c20e2d5a270bd25b5ad031c10b381c82eaea422c72a741ba36724a0",
+    "src-tauri/src/protocol.rs": "31d7ba5ccb5089503ce864698628bd2e6753204d7424b61a5319cfb814e78753",
+    "src-tauri/src/provider_io.rs": "d2e00608ce545d2639d72b3c19d04b973211441bc8b7b095bd6ca3131d6ec54d",
+    "src-tauri/src/risk.rs": "7c20dc68a0276f5e5278089131cbb17d70c253fbe65f76d9fe5c35996cfd86cc",
+    "src-tauri/src/storage.rs": "2d5e78837e40ffa2703e41ac219386b5f97c5f23a2387931f3a1f985bd3348f7",
+    "src-tauri/tests/financial_sources.rs": "635aacdf79bbdb79017e0acb0a960dba871fa618838f586274f92cc60580dd2d",
+    "src-tauri/tests/support/provider_fixtures.rs": "c69b3a18f4a46dca6d929b579cace59d243a8100341cf8f2617610b2fd813ac4",
+    "src-tauri/tests/support/provider_http.rs": "0149189f7e732b3baf9e3195442baced6e1141321eb1d10f82f440884097a519",
+    "src-tauri/tests/support/provider_https.py": "5dba4bed51888ef18a425e9ca327fea5124eaef57556bf582dc14cd038a169f5",
+    "src-tauri/tests/watchlists.rs": "97cc9efbdd0c0b4cbb0caa5156382f62b018ba4b0d58ebffc6c799d4ff412a32",
+    "src-tauri/tests/workspace.rs": "9a0f7897571f01e24b61b45dcc5f6fe8c99312f9532098fa7212fd09505a8236",
+    "src/DataSources.tsx": "081ebc3a104c8993c8eff8e2607ea65488b40177df22d37d5d6c566f000921c0",
+    "src/FinancialEvidencePanel.tsx": "211a698f57694c08e352f48abf072eadd2a75d846a9f90891cde3301864e2c60",
+    "src/FinancialSourceSettings.tsx": "0cb2a5ec0dcf000a8a3b0f816b16885cc56fe03de5db291b5190c3e7de9f321a",
+    "src/OrderDrafts.tsx": "b2ed720f9838b8987c02668166287a13430454ac0a704e75add2a19923bf1a03",
+    "src/Portfolio.tsx": "7c96a13325e64221e31e65a227247f2b3506f1cbb3052d7e6af13797da7ba501",
+    "src/client.ts": "b55b025b904707cb3295eccb3de6ce07c673d753a0d37230f59be98e0d0e265d",
+    "tests/fx-sources-ui.mjs": "a81e521740c6dc4555f0de90fbf2a6a471bdabfa080d8acaadeb6ee996367bcd",
+    "tests/projection.test.ts": "6642739264a239140840fe93583cf5d33ff7f36f6f8247060d83ee9a7cb094db"
+  },
+  "completed": [
+    "public FX selection and metadata reopen",
+    "actual currency requirements and immutable proposal routes",
+    "precision-preserving fixed GET producer",
+    "no key/provider read without a supported required external route",
+    "immutable risk/approval context and unavailable conversion guard",
+    "legacy portfolio fixture shield including disconnect",
+    "public malformed input and provider-time rejection",
+    "public source/account/workspace/clock/sequence late-result rejection",
+    "schema34 source preservation through schema35",
+    "dual provider/receipt age and metadata-only reopen",
+    "real TLS fixed GET/body/timeout/no-redirect boundary",
+    "source401/403/429 and actual Retry-After handling",
+    "paired English Chinese backend frontend UI contracts",
+    "actual Spot BUY quote-asset funding unit without portfolio currency inference",
+    "SELL excludes BUY funding conversion while retaining actual policy/portfolio routes",
+    "workspace storage migration regressions8pass",
+    "original JSON numeric token validation; object/escaped sentinel rejection for bp/ap/mp",
+    "actual balance monetary-unit requirements without primary fiat inference; supported EUR GET and unsupported USDT/OP/1INCH through public read seam"
+  ],
+  "pending": [
+    "independent serial Standards then Spec rechecks",
+    "scoped commit normal dev push exact source/evidence receipt"
+  ],
+  "parentIssuesRemainOpen": [
+    117,
+    116,
+    115,
+    113,
+    1
+  ],
+  "notClaimed": [
+    "transaction-grade FX",
+    "exact broker conversion costs",
+    "complete monetary data",
+    "positive financial execution acceptance",
+    "CI",
+    "independent final review or commit/push"
+  ],
+  "validation": {
+    "npmCheck": {
+      "status": "PASS",
+      "nodePassed": 17,
+      "rustPassed": 386,
+      "rustIgnored": 39,
+      "receipt": "full-check-balance-final.txt"
+    },
+    "integrationCheck": {
+      "status": "PASS",
+      "rustPassed": 425,
+      "rustIgnored": 39,
+      "receipt": "integration-check-balance-final.txt"
+    },
+    "gatewayCheck": {
+      "status": "PASS",
+      "passed": 23,
+      "receipt": "gateway-check-balance-final.txt"
+    },
+    "nativeBuild": "PASS balance-remediation ordinary build, local signature, compiled Gateway pin and actual ownership",
+    "browserUI": "PASS browser-balance-final:64char prices, named balance route, source/capturedreview390/768/1280, keyboard/errors/expiry/reopen,0console issues",
+    "nativeFXHosted": "PASS current ordinary saved-key endpoint-denial classification, first receipt Not checked, no rates/quality promotion; raw HTTP packet not archived",
+    "review": "Token-remediation Standards PASS / Spec NOT PASS balance routes; public RED/GREEN fixed, new serial rechecks pending",
+    "delivery": "UNCOMMITTED AND UNPUSHED",
+    "browserMaxDecimal": "PASS64character exact bid/ask;390/768/1280source and captured review; no console issues",
+    "subsequentChanges": "Actual balance-unit routes, shared Portfolio currency validator, BALANCE_WORKSPACE generated enum and paired contracts"
+  }
+}

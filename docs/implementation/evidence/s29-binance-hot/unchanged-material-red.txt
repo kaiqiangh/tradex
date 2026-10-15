@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: field `workspace` is never read
+   --> src-tauri/tests/binance_market_hot.rs:243:5
+    |
+238 | struct HotView {
+    |        ------- field in this struct
+...
+243 |     workspace: Value,
+    |     ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "binance_market_hot") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.58s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... FAILED
+
+failures:
+
+---- unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts stdout ----
+
+thread 'unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts' (9328415) panicked at src-tauri/tests/binance_market_hot.rs:284:5:
+assertion `left == right` failed: Unchanged material must retain its original identity, provider event time and first receipt
+  left: Object {"ask": String("60001"), "askSize": String("0.75"), "bid": String("60000"), "bidSize": String("0.5"), "instrumentId": String("crypto:BTC/USDT:spot"), "provenance": Object {"binance": Object {"askKnownCeiling": String("60100"), "asks": Array [Object {"price": String("60001"), "quantity": String("0.75")}, Object {"price": String("60100"), "quantity": String("2")}], "baseAsset": String("BTC"), "bidKnownFloor": String("59900"), "bids": Array [Object {"price": String("60000"), "quantity": String("0.5")}, Object {"price": String("59900"), "quantity": String("2")}], "bookUpdateId": String("9007199254740994"), "connectionGeneration": String("5dc17685-ba31-473a-9b1c-9d59dfe463f9"), "dataUseRights": String("UNVERIFIED"), "depthUnit": String("BASE"), "providerSymbol": String("BTCUSDT"), "quoteAsset": String("USDT"), "sourceVersion": String("binance-market:0c4c852d-ff36-42d3-92e0-96dba9c80192:1")}, "entitlement": String("REALTIME"), "freshness": String("HEALTHY"), "marketSnapshotId": String("b538247e-e59e-4797-b201-03063d3c7953"), "providerTimestamp": String("2026-10-08T09:50:15.289Z"), "receivedTimestamp": String("2026-10-08T09:50:15.29Z"), "source": String("BINANCE_SPOT_PUBLIC"), "venue": String("BINANCE")}}
+ right: Object {"ask": String("60001"), "askSize": String("0.75"), "bid": String("60000"), "bidSize": String("0.5"), "instrumentId": String("crypto:BTC/USDT:spot"), "provenance": Object {"binance": Object {"askKnownCeiling": String("60100"), "asks": Array [Object {"price": String("60001"), "quantity": String("0.75")}, Object {"price": String("60100"), "quantity": String("2")}], "baseAsset": String("BTC"), "bidKnownFloor": String("59900"), "bids": Array [Object {"price": String("60000"), "quantity": String("0.5")}, Object {"price": String("59900"), "quantity": String("2")}], "bookUpdateId": String("9007199254740993"), "connectionGeneration": String("5dc17685-ba31-473a-9b1c-9d59dfe463f9"), "dataUseRights": String("UNVERIFIED"), "depthUnit": String("BASE"), "providerSymbol": String("BTCUSDT"), "quoteAsset": String("USDT"), "sourceVersion": String("binance-market:0c4c852d-ff36-42d3-92e0-96dba9c80192:1")}, "entitlement": String("REALTIME"), "freshness": String("HEALTHY"), "marketSnapshotId": String("5b758c09-a61f-4095-8481-5d74cdc3007b"), "providerTimestamp": String("2026-10-08T09:50:15.071Z"), "receivedTimestamp": String("2026-10-08T09:50:15.071Z"), "source": String("BINANCE_SPOT_PUBLIC"), "venue": String("BINANCE")}}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.32s
+
+error: test failed, to rerun pass `--test binance_market_hot`

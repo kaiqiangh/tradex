@@ -1,0 +1,28 @@
+{
+  "result": "PASS",
+  "boundary": "disposable workspace and synthetic Trading 212-labelled Live account; no provider endpoint or credentials",
+  "initialFocus": "Keep reviewing",
+  "approveEnabled": true,
+  "inertBackground": true,
+  "keyboardTrap": "Tab and Shift+Tab traverse visual order and wrap between 3 enabled dialog controls",
+  "fullIdentityLengths": [
+    36,
+    14
+  ],
+  "identityWrapsWithoutClippingAt390": true,
+  "enterAndEscape": "dismiss without approval/rejection and restore trigger focus",
+  "enterOnApproveBlocked": true,
+  "approvals": 0,
+  "forbiddenCommands": 0,
+  "externalRequests": 0,
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "capturedAt": "2026-10-14T12:47:14.557Z",
+  "limitations": [
+    "Synthetic Trading 212-labelled Live account and local Rust-backed state only; no real provider, broker credentials or endpoint.",
+    "This covers one Live approval dialog and its exact proposal-row keyboard entry path, not every modal, native VoiceOver, or the full 70-screen S33 acceptance."
+  ]
+}

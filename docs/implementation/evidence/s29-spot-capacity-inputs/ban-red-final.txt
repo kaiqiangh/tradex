@@ -1,0 +1,34 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.16s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown ... FAILED
+
+failures:
+
+failures:
+    capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.12s
+
+
+thread 'capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown' (11032372) panicked at src-tauri/tests/binance_rules.rs:390:5:
+Provider 120s ban was shortened: Some(1)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown' (11032370) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown ... FAILED
+
+failures:
+
+failures:
+    capacity_ip_ban_preserves_original_retry_after_in_shared_cooldown
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 44 filtered out; finished in 0.37s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

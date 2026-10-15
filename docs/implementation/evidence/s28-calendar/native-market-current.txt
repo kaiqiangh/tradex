@@ -1,0 +1,21 @@
+text MARKET SESSION
+heading Open, Value: 3
+text Open
+text TRUSTED
+text Authenticated XNAS UTC schedule; calendar only. Corporate actions, halts, tradability, adjustment and financial authority remain separate.
+description list
+text Venue
+text XNAS
+text Source status
+text Available
+text Next open
+text 2026-10-02T13:30:00Z
+text Next close
+text 2026-10-01T20:00:00Z
+text Calendar version
+text fd79e1fc3033ca3c1adba6a83f9f5809fe7bc69ebe84b0beb61eb2a42945f0f9
+text Provider time
+text Unavailable
+text Observed
+text 2026-10-01T19:33:43.442Z
+container History adjustment: Unavailable

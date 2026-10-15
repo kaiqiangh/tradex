@@ -1,0 +1,11 @@
+PASS
+
+0 behavioral defects or remaining Spec blockers. Prior AC8 hosted-read gap resolved by new native records.
+
+All22 reviewed source hashes,3 runtime hashes and61 checkpoint evidence hashes match. Local HEAD and recorded origin/dev resolve to implementation5f723411442cdbfcaa49e42290e8cd323dd47183; no fresh remote query performed by reviewer.
+
+AC8 requires “sanitized real read-only native calendar evidence.” native-hosted-result.json, native AX records and screenshot consistently record authenticated calendar AVAILABLE. Settings/Markets share receipt/version; Market OPEN/TRUSTED with actual UTC boundaries. Earlier observation expires UNKNOWN/UNAVAILABLE while retaining receipt. Other capabilities and external account permissions remain independently blocked/unverified.
+
+Remaining delivery step is procedural: commit/normally push final evidence, paired documentation and this review before child closure. Evidence status preserves that pending step. This PASS does not certify quote #116 positive approval/Prepare/dispatch or close parent prerequisites.
+
+Read-only source/hash/log/AX-record/saved-image inspection only; no tests/build/live UI/network/credential reads during recheck.

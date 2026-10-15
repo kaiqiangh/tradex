@@ -137,11 +137,34 @@ mod local_provider_tests {
         Arc<Mutex<Vec<CapturedRequest>>>,
         thread::JoinHandle<()>,
     ) {
+        fake_provider_with_summary_headers(
+            calls_to_accept,
+            mutation_status,
+            mutation_body,
+            drop_mutation_response,
+            "",
+        )
+    }
+
+    fn fake_provider_with_summary_headers(
+        calls_to_accept: usize,
+        mutation_status: u16,
+        mutation_body: &'static [u8],
+        drop_mutation_response: bool,
+        summary_headers: &'static str,
+    ) -> (
+        String,
+        Arc<Mutex<Vec<CapturedRequest>>>,
+        thread::JoinHandle<()>,
+    ) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         listener.set_nonblocking(true).unwrap();
         let captured = Arc::new(Mutex::new(Vec::new()));
         let capture = captured.clone();
+        // Independent loopback providers represent independent remote accounts;
+        // using one global id would legitimately share the new summary quota.
+        let summary_body = format!("{{\"id\":{}}}", address.port());
         let thread = thread::spawn(move || {
             let expect_no_calls = calls_to_accept == 0;
             let expected_calls = calls_to_accept.max(1);
@@ -168,8 +191,9 @@ mod local_provider_tests {
                 };
                 let (request, mut stream) = read_request(stream);
                 let is_mutation = request.method != "GET";
-                let read_body = if request.path == "/api/v0/equity/account/summary" {
-                    br#"{"id":777}"#.as_slice()
+                let is_summary = request.path == "/api/v0/equity/account/summary";
+                let read_body = if is_summary {
+                    summary_body.as_bytes()
                 } else if request.path == "/api/v0/equity/orders/123457" {
                     br#"{"id":123457,"ticker":"AAPL_US_EQ","side":"BUY","strategy":"QUANTITY","quantity":2,"filledQuantity":0,"status":"NEW"}"#.as_slice()
                 } else if request.path == "/api/v0/equity/orders/123458" {
@@ -193,7 +217,7 @@ mod local_provider_tests {
                     stream,
                     "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{}Connection: close\r\n\r\n",
                     body.len(),
-                    if status == 429 { "Retry-After: 2\r\n" } else { "" }
+                    if is_summary { summary_headers } else if status == 429 { "Retry-After: 2\r\n" } else { "" }
                 )
                 .unwrap();
                 stream.write_all(body).unwrap();
@@ -292,7 +316,11 @@ mod local_provider_tests {
         let captured = Arc::new(Mutex::new(Vec::new()));
         let capture = captured.clone();
         let thread = thread::spawn(move || {
-            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(6);
+            let started = std::time::Instant::now();
+            // Include executable-pin verification and child startup before HTTP.
+            // Match the other loopback providers; a six-second fixture lifetime
+            // can expire before the production twelve-second HTTP deadline.
+            let deadline = started + std::time::Duration::from_secs(15);
             for _ in 0..5 {
                 let (stream, _) = loop {
                     match listener.accept() {
@@ -303,7 +331,14 @@ mod local_provider_tests {
                         {
                             thread::sleep(std::time::Duration::from_millis(5));
                         }
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => return,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            eprintln!(
+                                "Bitget fixture accept window expired after {:?}; requests={}",
+                                started.elapsed(),
+                                capture.lock().unwrap().len()
+                            );
+                            return;
+                        }
                         Err(error) => panic!("fake Bitget provider accept failed: {error}"),
                     }
                 };
@@ -476,7 +511,7 @@ mod local_provider_tests {
                     value: "1".into(),
                 },
                 limit_price: None,
-                maximum_spend: None,
+                maximum_spend: Some("200".into()),
                 time_in_force: TimeInForce::Day,
                 client_label: None,
             },
@@ -582,6 +617,7 @@ mod local_provider_tests {
                     quantity: Some("1".into()),
                     notional: None,
                     filled_quantity: Some("0".into()),
+                    remaining_quantity: Some("1".into()),
                     filled_value: Some("0".into()),
                     currency: Some("USDT".into()),
                     status: "LIVE".into(),
@@ -664,6 +700,8 @@ mod local_provider_tests {
                 capacity_key: "account-1:USD".into(),
                 amount: "200".into(),
                 unit: "USD".into(),
+                asset_claims: Vec::new(),
+                fee_settlement_plan: None,
                 notional: "200".into(),
                 notional_currency: "USD".into(),
                 workspace_notional: Some("200".into()),
@@ -763,6 +801,19 @@ mod local_provider_tests {
         }
     }
 
+    fn bind_fake_remote_account(package: &mut GatewayDispatchPackage, base_url: &str) {
+        if package.account.provider_id == "trading212" {
+            let data = package.account.data.as_mut().unwrap();
+            if data.remote_account_id == "777" {
+                data.remote_account_id = reqwest::Url::parse(base_url)
+                    .unwrap()
+                    .port()
+                    .unwrap()
+                    .to_string();
+            }
+        }
+    }
+
     fn run_child(
         package: GatewayDispatchPackage,
         base_url: String,
@@ -798,6 +849,7 @@ mod local_provider_tests {
                     let mut package = issue_package.lock().unwrap();
                     package.grant.gateway_session_id = session.into();
                     package.local_test_base_url = Some(base_url.clone());
+                    bind_fake_remote_account(&mut package, &base_url);
                     Ok(package.clone())
                 },
                 move |grant_id, session| {
@@ -840,6 +892,7 @@ mod local_provider_tests {
                 let mut package = issue_package.lock().unwrap();
                 package.grant.gateway_session_id = session.into();
                 package.local_test_base_url = Some(base_url.clone());
+                bind_fake_remote_account(&mut package, &base_url);
                 Ok(package.clone())
             },
             move |grant_id, session| {
@@ -937,12 +990,17 @@ mod local_provider_tests {
             br#"{"id":901,"ticker":"AAPL_US_EQ","status":"NEW"}"#,
             false,
         );
-        let (mut gateway, result) = run_child(
+        let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
             package(
                 "place-1",
                 GatewayDispatchIntent::Place(Box::new(proposal())),
             ),
             url,
+        );
+        assert_eq!(
+            *stopped.lock().unwrap(),
+            None,
+            "approved bounded market intent must pass pre-dispatch"
         );
         provider.join().unwrap();
         let requests = calls.lock().unwrap();
@@ -997,9 +1055,102 @@ mod local_provider_tests {
     }
 
     #[test]
+    fn real_child_rejects_unbounded_or_invalid_live_market_intents_before_provider_io() {
+        for maximum in [None, Some("0"), Some("-1"), Some("NaN"), Some("1e3")] {
+            let mut intent = proposal();
+            intent.fields.maximum_spend = maximum.map(str::to_owned);
+            let (url, calls, provider) = fake_provider(0, 200, b"{}", false);
+            let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
+                package(
+                    "invalid-market-bound",
+                    GatewayDispatchIntent::Place(Box::new(intent)),
+                ),
+                url,
+            );
+            provider.join().unwrap();
+            assert!(stopped.lock().unwrap().is_some(), "{maximum:?}");
+            assert!(result.lock().unwrap().is_none(), "{maximum:?}");
+            assert!(calls.lock().unwrap().is_empty(), "{maximum:?}");
+            gateway.stop();
+        }
+    }
+
+    #[test]
+    fn real_child_preserves_exact_live_sell_and_limit_request_fields() {
+        for (order_type, tif, maximum, expected_path, expected_body) in [
+            (
+                OrderType::Market,
+                TimeInForce::Day,
+                Some("200"),
+                "/api/v0/equity/orders/market",
+                json!({"ticker":"AAPL_US_EQ","quantity":-0.125,"extendedHours":false}),
+            ),
+            (
+                OrderType::Limit,
+                TimeInForce::Day,
+                None,
+                "/api/v0/equity/orders/limit",
+                json!({"ticker":"AAPL_US_EQ","quantity":-0.125,"limitPrice":180.125,"timeValidity":"DAY"}),
+            ),
+            (
+                OrderType::Limit,
+                TimeInForce::Gtc,
+                None,
+                "/api/v0/equity/orders/limit",
+                json!({"ticker":"AAPL_US_EQ","quantity":-0.125,"limitPrice":180.125,"timeValidity":"GOOD_TILL_CANCEL"}),
+            ),
+        ] {
+            let mut intent = proposal();
+            intent.fields.side = OrderSide::Sell;
+            intent.fields.quantity.value = "0.125".into();
+            intent.fields.order_type = order_type;
+            intent.fields.time_in_force = tif;
+            intent.fields.maximum_spend = maximum.map(str::to_owned);
+            intent.fields.limit_price = (order_type == OrderType::Limit).then(|| "180.125".into());
+            let (url, calls, provider) = fake_provider(
+                2,
+                200,
+                br#"{"id":901,"ticker":"AAPL_US_EQ","status":"NEW"}"#,
+                false,
+            );
+            let (mut gateway, result, stopped) = run_child_recording_pre_dispatch(
+                package(
+                    "exact-live-sell",
+                    GatewayDispatchIntent::Place(Box::new(intent)),
+                ),
+                url,
+            );
+            assert_eq!(*stopped.lock().unwrap(), None);
+            provider.join().unwrap();
+            let requests = calls.lock().unwrap();
+            assert_eq!(requests.len(), 2);
+            assert_eq!(requests[1].method, "POST");
+            assert_eq!(requests[1].path, expected_path);
+            assert_eq!(requests[1].body, expected_body);
+            assert_eq!(
+                result.lock().unwrap().as_ref().unwrap().state,
+                ExecutionAttemptState::Accepted
+            );
+            drop(requests);
+            gateway.stop();
+        }
+    }
+
+    #[test]
     fn real_child_sends_the_exact_live_cancel_and_records_only_pending_acknowledgement() {
         let intent = cancel_intent("123456");
-        let (url, calls, provider) = fake_provider(3, 204, b"", false);
+        let (url, calls, provider) = fake_provider_with_summary_headers(
+            3,
+            204,
+            b"",
+            false,
+            "X-RateLimit-Remaining: 0\r\nRetry-After: 30\r\n",
+        );
+        let remote = reqwest::Url::parse(&url)
+            .unwrap()
+            .port()
+            .unwrap()
+            .to_string();
         let (mut gateway, result) = run_child(
             package("cancel-1", GatewayDispatchIntent::Cancel(Box::new(intent))),
             url,
@@ -1024,6 +1175,38 @@ mod local_provider_tests {
         assert_eq!(outcome.broker_order_id.as_deref(), Some("123456"));
         assert_eq!(outcome.provider_status.as_deref(), Some("NEW"));
         drop(requests);
+        // Reuse this existing legacy cancellation fixture to check that a second
+        // child preflight cannot bypass the parent summary endpoint cooldown.
+        // The normal five-second minimum has elapsed; exhausted success headers
+        // must still hold the parent-owned budget across separate child reads.
+        thread::sleep(std::time::Duration::from_millis(5_100));
+        let (second_url, second_calls, second_provider) = fake_provider(0, 204, b"", false);
+        let stopped = Arc::new(Mutex::new(None));
+        let stopped_callback = stopped.clone();
+        let second = gateway.dispatch_attempt(
+            "cancel-1",
+            |_, session| {
+                let mut saved = package(
+                    "cancel-1",
+                    GatewayDispatchIntent::Cancel(Box::new(cancel_intent("123456"))),
+                );
+                saved.grant.gateway_session_id = session.into();
+                saved.account.data.as_mut().unwrap().remote_account_id = remote.clone();
+                saved.local_test_base_url = Some(second_url.clone());
+                Ok(saved)
+            },
+            |_, _| panic!("quota-blocked preflight must not begin submission"),
+            move |_, reason| *stopped_callback.lock().unwrap() = Some(reason.to_owned()),
+            |_, _| panic!("quota-blocked preflight must not mutate"),
+        );
+        assert_eq!(second, Ok(()));
+        second_provider.join().unwrap();
+        assert_eq!(
+            stopped.lock().unwrap().as_deref(),
+            Some("PROVIDER_RATE_LIMITED")
+        );
+        assert!(second_calls.lock().unwrap().is_empty());
+
         let duplicate = gateway.dispatch_attempt(
             "cancel-1",
             |_, _| Err("EXECUTION_DISPATCH_NOT_READY".into()),

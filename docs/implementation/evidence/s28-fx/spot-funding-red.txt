@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.58s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt_parity ... FAILED
+
+failures:
+
+---- spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt_parity stdout ----
+
+thread 'spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt_parity' (5422429) panicked at src-tauri/tests/financial_sources.rs:3834:5:
+assertion `left == right` failed
+  left: String("UNKNOWN_CURRENCY")
+ right: "IDENTITY"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    spot_buy_uses_actual_quote_asset_without_inventing_portfolio_currency_or_usdt_parity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.40s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

@@ -1,0 +1,19 @@
+{
+  "workspaceId": "085e489d-516e-4232-86c5-2050381639ba",
+  "status": "STREAMING",
+  "source": "BINANCE_SPOT_PUBLIC",
+  "material": "63e05ddd-45aa-41b7-aa1e-8e3f6f7eb2cd",
+  "peer": {
+    "closedConnections": 1,
+    "connections": 1,
+    "frames": 3,
+    "requests": [
+      "/api/v3/time",
+      "/api/v3/depth?symbol=BTCUSDT&limit=1000"
+    ],
+    "streams": [
+      "/ws/btcusdt@depth@100ms"
+    ]
+  },
+  "seededAuthority": false
+}

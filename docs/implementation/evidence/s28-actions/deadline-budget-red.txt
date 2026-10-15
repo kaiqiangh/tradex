@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.81s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test a_late_vault_read_cannot_start_http_without_the_full_timeout_budget ... FAILED
+
+failures:
+
+---- a_late_vault_read_cannot_start_http_without_the_full_timeout_budget stdout ----
+
+thread 'a_late_vault_read_cannot_start_http_without_the_full_timeout_budget' (2565910) panicked at src-tauri/tests/financial_sources.rs:1865:5:
+assertion `left == right` failed: A 12-second HTTP operation cannot fit within the remaining 11-second job budget
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_late_vault_read_cannot_start_http_without_the_full_timeout_budget
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 18 filtered out; finished in 49.09s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

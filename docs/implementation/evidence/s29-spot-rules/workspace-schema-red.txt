@@ -1,0 +1,38 @@
+✔ the UI applies only contiguous supported events and ignores exact duplicates (6.70225ms)
+✖ workspace snapshots accept the current storage schema version (0.1465ms)
+✔ generated result schema rejects false success, mixed envelopes and foreign payloads (10.894458ms)
+✔ research venue schema keeps unavailable values nullable and rejects numeric zero (0.479042ms)
+✔ Bitget Spot order schema accepts external origins and plan trigger states (1.179041ms)
+✔ research payload schema rejects unbounded scenarios, artifact refs and venue rows (0.939375ms)
+✔ model projection accepts both provider event types and rejects foreign aggregates (0.518208ms)
+✔ thread projection preserves identity and contiguous event ordering (0.364041ms)
+✔ account projection applies durable Live arming transitions (0.591875ms)
+✔ Live settlement events preserve the exact attempt and reservation binding (0.579667ms)
+✔ Alpaca Paper attempts use their own aggregate identity and preserve order bindings (1.487459ms)
+✔ Trading 212 Demo attempts replay by attempt identity without inventing a client order ID (0.348916ms)
+✔ Trading 212 Demo order books replay exact cumulative observations under Demo account identity (0.981083ms)
+✔ managed Hot quote replies pass the public envelope and reject foreign lease fields (1.022375ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 13
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 145.791958
+
+✖ failing tests:
+
+test at tests/projection.test.ts:33:1
+✖ workspace snapshots accept the current storage schema version (0.1465ms)
+  Error: IPC_SCHEMA_INCOMPATIBLE
+      at decode (file:///Users/kai/Desktop/my-repo/tradex/src/projection.ts:8:44)
+      at snapshotOf (file:///Users/kai/Desktop/my-repo/tradex/src/projection.ts:40:20)
+      at fromSnapshot (file:///Users/kai/Desktop/my-repo/tradex/src/projection.ts:47:67)
+      at TestContext.<anonymous> (file:///Users/kai/Desktop/my-repo/tradex/tests/projection.test.ts:35:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)

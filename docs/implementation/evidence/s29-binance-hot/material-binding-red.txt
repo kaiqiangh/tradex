@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.02s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ... FAILED
+
+failures:
+
+---- public_depth_provenance_binds_runtime_scope_and_bounded_known_material stdout ----
+
+thread 'public_depth_provenance_binds_runtime_scope_and_bounded_known_material' (9356856) panicked at src-tauri/tests/binance_market_hot.rs:385:5:
+assertion `left == right` failed: Public quote provenance must bind its workspace: {"askKnownCeiling":"60100","asks":[{"price":"60001","quantity":"0.75"},{"price":"60100","quantity":"2"}],"baseAsset":"BTC","bidKnownFloor":"59900","bids":[{"price":"60000","quantity":"0.5"},{"price":"59900","quantity":"2"}],"bookUpdateId":"9007199254740993","connectionGeneration":"e90fe103-34a8-4d39-a1de-7b5f8ed8e905","dataUseRights":"UNVERIFIED","depthUnit":"BASE","providerSymbol":"BTCUSDT","quoteAsset":"USDT","sourceVersion":"binance-market:faf2f1a6-6cd1-4f91-89e4-9e9adc027944:1"}
+  left: Null
+ right: String("faf2f1a6-6cd1-4f91-89e4-9e9adc027944")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    public_depth_provenance_binds_runtime_scope_and_bounded_known_material
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.30s
+
+error: test failed, to rerun pass `--test binance_market_hot`

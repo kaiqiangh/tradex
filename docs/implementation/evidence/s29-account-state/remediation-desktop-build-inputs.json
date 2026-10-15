@@ -1,0 +1,29 @@
+{
+  "baseline": "fe20d0aae1c0eea9df43c1e24f32199a92ff30b9",
+  "candidate": "ec9929ec8d449cad142e03da6acb19545a1ceb7d",
+  "build": "npm run desktop:build; desktop without integration-test, no bundle",
+  "nativeRuntimeAcceptance": false,
+  "inputs": {
+    "shared/ipc-types.ts": "9ebeaf0c1bb3a3ed6158ed8e3f0515f35c502c80eb3a58a74315b12b954c4a5c",
+    "shared/ipc-v1.schema.json": "658858e94b779d16fae87348cca4a08f6a5d85f870ed520b4ec2333f7b5ca066",
+    "shared/ipc-validators.d.ts": "79d48506a64e493b2ad91488bb277a95ef45f438475e2e8b54ae929a00822cd6",
+    "shared/ipc-validators.js": "1252fe7d0d82bd262135bfec5d0ad3678118813211294e94feb1c09f75857bab",
+    "src-tauri/src/bin/ipc.rs": "0195b4a394262e1aa6081eac0996eaf8c98c456eb99a20ac7a4c1d0066d9b43e",
+    "src-tauri/src/binance.rs": "aa664591e844b1abec3d4d160448dc7a252c943d8f4c648376736641e9f9a46c",
+    "src-tauri/src/bitget.rs": "51a187bf971a178e44340318fc4ebe22ea90b44ffb4e767a53ee49da5adb4a7c",
+    "src-tauri/src/lib.rs": "bb88ccfa208baeea50d38bb2f9c3c0873c88ac28c1d7a5ed69166eb57d83dd2f",
+    "src-tauri/src/paper.rs": "0da245fcf9886012c2cb1214cc87036d50183f93794e32be1d8c03a92c908509",
+    "src-tauri/src/provider_io.rs": "856ba2ae6862db6120c1c377cdf677dbdfbd477652a803c9a21e5ba777b24b87",
+    "src-tauri/src/providers.rs": "b7ebde455608efebfdfda243e75d9f47556f38f61fdeefaab344b95ef06a507a",
+    "src-tauri/src/risk.rs": "3697142e6fb3748b4c8fd1d7c6152800d31150a96f41ec420ba7a7d9cedcdfc9",
+    "src-tauri/src/trading212.rs": "52b5147bd6f72405630581d7b009b66bd2bcc294f03224d2c9fc14bee69a5296",
+    "src-tauri/tests/binance.rs": "ce9787de68a1a2c4b6954b09071cc63d726a435a4207bb1a9747512f5a9a88e5",
+    "src-tauri/tests/support/provider_fixtures.rs": "0a8a274846b01f73f799e29e51b98f48ff541d46a2b5eb80d94a314bb1fb0ef5",
+    "src/Accounts.tsx": "3f35b2f40859ea7280f554899c97465b9b5832276f7033eb3d698c6e72b9b726"
+  },
+  "binaries": {
+    "target/release/tradex": "a9d65eb269bd1fb382d34fa0270a127a23ac208e96168a35b1ad2729027d0976",
+    "target/release/tradex-order-gateway": "22ef6d89eef58672c5a2dae99bfe1a188582da248c0c57b21f855d890b1d4df8"
+  },
+  "gatewayPinFoundInDesktopExecutable": true
+}

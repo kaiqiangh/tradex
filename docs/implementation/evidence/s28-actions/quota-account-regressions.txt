@@ -1,0 +1,83 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+warning: methods `set_order_info`, `set_order_info_error`, `set_order_info_transport_error`, and `order_writes` are never used
+  --> src-tauri/tests/support/bitget_fixtures.rs:23:12
+   |
+22 | impl Http {
+   | --------- methods in this implementation
+23 |     pub fn set_order_info(&self, order: Option<Value>) {
+   |            ^^^^^^^^^^^^^^
+...
+29 |     pub fn set_order_info_error(&self, code: Option<String>) {
+   |            ^^^^^^^^^^^^^^^^^^^^
+...
+34 |     pub fn set_order_info_transport_error(&self, enabled: bool) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+39 |     pub fn order_writes(&self) -> usize {
+   |            ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (test "trading212") generated 1 warning
+warning: `tradex` (test "providers") generated 1 warning (1 duplicate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.81s
+     Running tests/providers.rs (target/debug/deps/providers-5caac3a1349d369f)
+
+running 46 tests
+test account_delete_allows_acknowledged_attempt_after_terminal_order_reconciliation ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test account_delete_blocks_open_orders_actionable_proposals_and_unresolved_attempts ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test account_arm_rejects_non_live_connections_at_the_control_plane_boundary ... ok
+test alpaca_paper_classifies_known_403_reasons_without_persisting_provider_text ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_paper_definitive_http_rejections_are_persisted_without_resubmission ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test account_delete_rejects_ineligible_state_version_and_environment ... ok
+test alpaca_cancel_review_records_intent_before_io_and_waits_for_provider_truth ... ok
+test alpaca_paper_order_submit_is_persisted_before_io_and_never_posts_twice ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_paper_reconcile_never_reads_an_order_from_a_different_account ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_paper_rejects_notional_above_fresh_buying_power_before_order_io ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_paper_reopen_recovers_submitting_attempt_to_query_only_unknown_state ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_paper_sell_cannot_open_or_increase_a_short_position ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_paper_timeout_stays_unknown_after_empty_lookup_and_reconcile_never_reposts ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_order_book_degrades_without_replacing_last_complete_data ... ok
+test alpaca_paper_fractional_equity_orders_require_market_day ... ok
+test alpaca_cancel_rejection_and_fill_race_preserve_provider_truth ... ok
+test eligible_failed_trading212_demo_account_deletes_local_observations_atomically ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test alpaca_cancel_identity_mismatch_and_workspace_reopen_never_delete ... ok
+test native_keychain_roundtrip_drives_the_real_connection_lifecycle ... ignored, Explicit native OS Keychain integration; creates and deletes disposable synthetic credentials
+test duplicate_and_interrupted_connections_keep_owned_credentials_recoverable ... ok
+test alpaca_private_stream_gap_reopens_stale_and_rest_reconciliation_dedupes_fills ... ok
+test alpaca_paper_ioc_and_fok_without_verified_account_capability_never_post ... ok
+test provider_schema_precedes_native_entry_and_never_accepts_renderer_secrets ... ok
+test provider_faults_cannot_publish_unvalidated_or_cross_account_observations ... ok
+test disconnected_or_switched_workspaces_reject_late_results_and_cleanup_can_be_retried ... ok
+test order_id_pagination_is_complete_and_repeated_pages_fail_closed ... ok
+test public_connection_lifecycle_preserves_scope_events_decimal_values_and_secret_boundaries ... ok
+test risk_decision_blocks_provider_submits_without_evidence_or_io ... ok
+test risk_policy_weakening_invalidates_pending_proposals_and_rechecks_the_old_version ... ok
+test alpaca_order_book_rejects_repeated_cursor_and_over_cap_without_false_empty ... ok
+test trading212_demo_order_book_reads_are_scoped_bounded_and_event_persisted ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test trading212_demo_refuses_to_submit_after_remote_account_identity_changes ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test trading212_demo_rejected_or_mismatched_response_never_allows_a_resubmit ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test tightening_policy_change_invalidates_old_proposal_without_marking_weakening ... ok
+test risk_policy_change_fans_out_to_workspace_accounts_and_proposals_only ... ok
+test trading212_demo_reopen_recovers_interrupted_submit_as_query_only_unknown ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test trading212_demo_sell_limit_preserves_signed_decimal_and_good_till_cancel ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test trading212_demo_submit_is_persisted_before_io_and_duplicate_never_posts_twice ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test trading212_demo_timeout_freezes_account_and_never_posts_again ... ignored, S21: submit stays blocked while trusted market, calendar, or instrument-rule evidence is unavailable; re-enable with the owning evidence work.
+test trading212_demo_cancel_account_change_and_timeout_never_repeat_delete ... ok
+test trading212_demo_reopen_recovers_interrupted_cancel_as_unknown_without_delete ... ok
+test trading212_demo_rejects_unsupported_order_fields_before_persisting_or_sending ... ok
+test failed_initial_tests_remove_their_credential_and_keep_failed_cleanup_blocked_after_restart ... ok
+test trading212_demo_cancel_rejects_unconfirmed_expired_stale_and_unknown_review ... ok
+test alpaca_order_book_reads_max_complete_pages_exactly_and_survives_reopen ... ok
+test trading212_demo_cancel_is_persisted_once_and_a_racing_fill_wins ... ok
+
+test result: ok. 27 passed; 0 failed; 19 ignored; 0 measured; 0 filtered out; finished in 4.07s
+
+     Running tests/trading212.rs (target/debug/deps/trading212-d2513c75654c4dc4)
+
+running 3 tests
+test native_keychain_keeps_demo_and_live_items_separate ... ignored, Explicit OS Keychain integration with disposable Trading 212 credentials
+test demo_and_live_preserve_exact_observations_and_independent_credentials ... ok
+test failed_or_hostile_reads_preserve_identity_data_and_last_success ... ok
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.17s

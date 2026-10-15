@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.04s
+     Running tests/binance_market_hot.rs (target/debug/deps/binance_market_hot-fd4054fbe4d4a750)
+
+running 1 test
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... FAILED
+
+failures:
+
+---- configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials stdout ----
+
+thread 'configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials' (9265273) panicked at src-tauri/tests/binance_market_hot.rs:34:5:
+assertion `left == right` failed: Configured public Spot Hot leases are unsupported: {"error":{"blocking":true,"category":"UNSUPPORTED_CAPABILITY","code":"PROVIDER_UNSUPPORTED","message":"This provider/environment does not support the requested operation.","remediationActions":[{"id":"choose_provider","label":"Choose a supported provider"}],"retryable":false},"ok":false,"requestId":"spot-acquire","schemaVersion":1}
+  left: Bool(false)
+ right: true
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--test binance_market_hot`

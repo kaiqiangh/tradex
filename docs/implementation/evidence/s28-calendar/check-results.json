@@ -1,0 +1,78 @@
+[
+  {
+    "name": "full-check",
+    "command": [
+      "npm",
+      "run",
+      "check"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 56.07,
+    "rustTestsPassed": 348,
+    "rustTestsIgnoredUnverified": 36
+  },
+  {
+    "name": "full-integration",
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--features",
+      "integration-test"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 172.92,
+    "rustTestsPassed": 382,
+    "rustTestsIgnoredUnverified": 36
+  },
+  {
+    "name": "full-gateway",
+    "command": [
+      "cargo",
+      "test",
+      "-p",
+      "tradex",
+      "--features",
+      "order-gateway-runtime",
+      "--bin",
+      "tradex-order-gateway"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 20.62,
+    "rustTestsPassed": 0,
+    "rustTestsIgnoredUnverified": 0,
+    "coverageNote": "Incorrect binary-unit target ran0 tests; superseded for coverage by gateway-integration-result.json and gateway-integration.txt"
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 1.26
+  },
+  {
+    "name": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 0.14
+  },
+  {
+    "name": "desktop-build",
+    "command": [
+      "npm",
+      "run",
+      "desktop:build"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 557.72
+  }
+]

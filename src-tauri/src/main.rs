@@ -25,7 +25,8 @@ use tradex::binance_stream::{BinancePrivateStreamSupervisor, mark_connected_acco
 #[cfg(unix)]
 use tradex::order_gateway::OrderGatewayHost;
 use tradex::{
-    BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor, data_sources,
+    BacktestSupervisor, ControlPlane, RuntimeSupervisor, StrategySupervisor,
+    WorkspaceArchiveCredentialStatuses,
     gateway_process::GatewayHost,
     model,
     model_credentials::{ModelVault, NativeModelVault},
@@ -199,6 +200,7 @@ async fn control(
     events: Channel<DomainEvent>,
     window: tauri::WebviewWindow,
     service: tauri::State<'_, Service>,
+    hot: tauri::State<'_, tradex::quote_source::hot::QuoteHotSupervisor>,
 ) -> Result<Value, ()> {
     let consumer = window.label().to_owned();
     let trusted = window.url().is_ok_and(|url| {
@@ -212,6 +214,7 @@ async fn control(
     if consumer != "main" || !trusted {
         return Ok(failed(&request, "IPC_ACCESS_DENIED"));
     }
+    let hot = hot.inner().clone();
     let engine = service.0.clone();
     let gateway = service.1.clone();
     let supervisor = service.2.clone();
@@ -238,20 +241,84 @@ async fn control(
                 Err(code) => return failed(&request, code),
             }
         }
+        #[cfg(target_os = "macos")]
+        if matches!(
+            request.get("command").and_then(Value::as_str),
+            Some("data.source.configure" | "data.source.disconnect" | "data.source.cleanup")
+        ) {
+            return tradex::quote_source::execute_configuration(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                || tradex::native_credentials::capture_source(window.app_handle()),
+            );
+        }
+        if matches!(
+            request.get("command").and_then(Value::as_str),
+            Some(
+                "data.actions.refresh"
+                    | "data.instrument.refresh"
+                    | "data.fx.refresh"
+                    | "data.binance_rules.refresh"
+                    | "trade.spot_rules.refresh"
+                    | "trade.spot_capacity.refresh"
+                    | "trade.spot_commission.refresh"
+                    | "trade.spot_order_intervals.refresh"
+            )
+        ) {
+            return tradex::financial_sources::execute_refresh(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
+        }
+        if request.get("command").and_then(Value::as_str) == Some("data.calendar.refresh") {
+            return tradex::calendar_source::execute_refresh(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
+        }
         if request.get("command").and_then(Value::as_str) == Some("data.source.probe") {
-            let job = match engine.lock() {
-                Ok(mut engine) => match engine.prepare_data_source_probe(&request) {
-                    Ok(Some(job)) => job,
-                    Ok(None) => return failed(&request, "IPC_COMMAND_UNKNOWN"),
-                    Err(error) => return failed(&request, &error.code),
-                },
-                Err(_) => return failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
-            };
-            let outcome = data_sources::probe(&job.input.source_id, job.source.clone());
-            return match engine.lock() {
-                Ok(mut engine) => engine.complete_data_source_probe(&job, outcome),
-                Err(_) => failed(&request, "IPC_CONTROL_PLANE_UNAVAILABLE"),
-            };
+            return tradex::quote_source::execute_probe(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
+        }
+        if matches!(
+            request.get("command").and_then(Value::as_str),
+            Some(
+                "market.hot.acquire"
+                    | "market.hot.release"
+                    | "trade.spot_fee_market.acquire"
+                    | "trade.spot_fee_market.release"
+            )
+        ) {
+            return hot.dispatch_with(
+                &engine,
+                &request,
+                &consumer,
+                Arc::new(NativeVault),
+                Arc::new(BrokerHttp::default()),
+                tradex::quote_source::hot::StockStreamConnector::default(),
+            );
+        }
+        if request.get("command").and_then(Value::as_str) == Some("market.get") {
+            return tradex::quote_source::execute_market(
+                &engine,
+                &request,
+                &consumer,
+                &NativeVault,
+                &BrokerHttp::default(),
+            );
         }
         let model_job = match engine.lock() {
             Ok(mut engine) => match engine.prepare_model(&request) {
@@ -329,8 +396,11 @@ async fn control(
             #[cfg(target_os = "macos")]
             mark_connected_accounts_degraded(&engine);
         }
-        let command = request.get("command").and_then(Value::as_str);
-        if command == Some("turn.start") || command == Some("turn.retry") {
+        let command = request
+            .get("command")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        if command.as_deref() == Some("turn.start") || command.as_deref() == Some("turn.retry") {
             let runtime_access = request
                 .get("payload")
                 .and_then(|payload| payload.get("workspaceId"))
@@ -341,25 +411,25 @@ async fn control(
                         .ok()
                         .and_then(|host| host.codex_runtime_access(workspace_id))
                 });
-            return if command == Some("turn.start") {
+            return if command.as_deref() == Some("turn.start") {
                 supervisor.start(engine, request, runtime_access)
             } else {
                 supervisor.retry(engine, request, runtime_access)
             };
         }
-        if command == Some("turn.cancel") {
+        if command.as_deref() == Some("turn.cancel") {
             return supervisor.cancel(engine, request);
         }
-        if command == Some("strategy.run") {
+        if command.as_deref() == Some("strategy.run") {
             return strategy_supervisor.start(engine, request);
         }
-        if command == Some("strategy.cancel") {
+        if command.as_deref() == Some("strategy.cancel") {
             return strategy_supervisor.cancel(engine, request);
         }
-        if command == Some("backtest.run") {
+        if command.as_deref() == Some("backtest.run") {
             return backtest_supervisor.start(engine, request);
         }
-        if command == Some("backtest.cancel") {
+        if command.as_deref() == Some("backtest.cancel") {
             return backtest_supervisor.cancel(engine, request);
         }
         let execution_engine = engine.clone();
@@ -384,11 +454,50 @@ async fn control(
                     let fixture_request = request.clone();
                     let is_live_execution_prepare = request.get("command").and_then(Value::as_str)
                         == Some("trade.execution.prepare");
-                    let reply = engine.dispatch_with_runtime(
+                    let archive_credential_statuses = match command.as_deref() {
+                        Some("workspace.archive.preview" | "workspace.archive.restore") => {
+                            let Some(payload) = request.get("payload") else {
+                                return failed(&request, "IPC_PAYLOAD_INVALID");
+                            };
+                            let Some(workspace_id) =
+                                payload.get("workspaceId").and_then(Value::as_str)
+                            else {
+                                return failed(&request, "IPC_PAYLOAD_INVALID");
+                            };
+                            let Some(archive_path) =
+                                payload.get("archivePath").and_then(Value::as_str)
+                            else {
+                                return failed(&request, "IPC_PAYLOAD_INVALID");
+                            };
+                            let (manifest_hash, references) = match engine
+                                .workspace_archive_credential_references(
+                                    workspace_id,
+                                    std::path::Path::new(archive_path),
+                                ) {
+                                Ok(result) => result,
+                                Err(error) => return failed(&request, &error.code),
+                            };
+                            Some(WorkspaceArchiveCredentialStatuses {
+                                manifest_hash,
+                                statuses: references
+                                    .into_iter()
+                                    .map(|(connection_id, credential_reference)| {
+                                        (
+                                            connection_id,
+                                            NativeVault.check_reference(&credential_reference),
+                                        )
+                                    })
+                                    .collect(),
+                            })
+                        }
+                        _ => None,
+                    };
+                    let reply = engine.dispatch_with_credential_statuses(
                         request,
                         &consumer,
                         Some(Arc::new(move |event| events.send(event).is_ok())),
                         None,
+                        archive_credential_statuses.as_ref(),
                     );
                     #[cfg(feature = "integration-test")]
                     let reply = if opening_workspace
@@ -747,6 +856,7 @@ fn main() {
                 Arc::new(Mutex::new(host))
             };
             let exiting = Arc::new(AtomicBool::new(false));
+            app.manage(tradex::quote_source::hot::QuoteHotSupervisor::new());
             #[cfg(target_os = "macos")]
             register_live_safety_observers(engine.clone());
             #[cfg(target_os = "macos")]
@@ -882,6 +992,8 @@ fn main() {
                 }
             }
             if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<tradex::quote_source::hot::QuoteHotSupervisor>()
+                    .stop_all();
                 app.state::<Service>().2.stop_all();
                 app.state::<Service>().3.stop_all();
                 app.state::<Service>().4.stop_all();

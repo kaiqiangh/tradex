@@ -1,0 +1,80 @@
+{
+  "observedAt": "2026-09-30T20:36:44.329680+00:00",
+  "status": "SOURCE_CONFIGURATION_AND_OWNED_CREDENTIAL_STAGE_LOCAL_PASS_ONLY",
+  "startCommit": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "implementationIssue": "https://github.com/kaiqiangh/tradex/issues/116",
+  "delivery": "Uncommitted worktree progress; no issue/parent/map completion; no quote producer or financial readiness claim.",
+  "checks": {
+    "nodeProjectionTests": 13,
+    "rustSourceWorkspaceWatchlistTests": 18,
+    "publicUIObservations": 6,
+    "widths": [
+      390,
+      768,
+      1280
+    ],
+    "schemaTypeFmtDiff": "PASS",
+    "nativeDesktopCargoCheck": "PASS",
+    "integrationBinaryBuild": "PASS"
+  },
+  "publicUIBoundary": "Public Settings and Accounts through real Rust/temporary SQLite; synthetic external vault and broker responses. No actual native secure-entry/Keychain UI or provider-hosted entitlement evidence.",
+  "tddEvidence": [
+    "Dedicated native transport missing at first compile; implemented actual native and integration routing",
+    "Dedicated UI choice initially missing; public scenario RED then GREEN",
+    "Native requests with extra key/secret/reference/endpoint fields reached capture through a unit enum; public RED then struct-variant validation GREEN"
+  ],
+  "regressionEvidence": [
+    "Cancel preserves current source and its active dedicated key",
+    "Racing completion cannot overwrite a newer feed or retain its discarded key",
+    "Interrupted external key write recovers pending cleanup after restart without deleting an unrelated broker key",
+    "Failed deletion remains visibly pending until explicit cleanup; cleanup does not change source selection/version",
+    "Reused broker account remains CONNECTED after source disconnect"
+  ],
+  "captureNormalization": "Check output trailing whitespace removed; command text and results preserved.",
+  "unrun": [
+    "Full suite and ordinary desktop packaging/build (required at complete-ticket end)",
+    "Independent serial Standards and Spec reviews (required after full implementation)",
+    "Actual native secure-entry and Keychain data-key save/delete UI acceptance",
+    "Current ordinary native account read after the latest authentication reply; no ordinary TradeX process was running when checked"
+  ],
+  "remaining": [
+    "Fixed read-only quote/metadata adapter and exact feed verification",
+    "Quote cache, exact provenance/coverage/depth and trusted-time validation",
+    "Managed Hot connection, scoped subscriptions and ephemeral generations/updates",
+    "Risk/approval/Prepare/dispatch integration and representative failure/remediation cases",
+    "Final full checks, build, serial review, commit/push and whole-ticket acceptance",
+    "Actual read-only provider evidence remains separate from fixtures"
+  ],
+  "sourceSha256": {
+    "src-tauri/src/quote_source.rs": "93ea7d4801feee8e107f509b419f2fb7277615eaa941509ec52c1531fc09ac6e",
+    "src-tauri/src/protocol.rs": "c9910b691b5071df582191e19d717c336212c5b3f2a35aa9fb0fdf08f2fd13fd",
+    "src-tauri/src/storage.rs": "72d6c6ea94f57e05c251ecfd13bc663aac105ef9e1df3b520a617a87c1c79e59",
+    "src-tauri/src/lib.rs": "7a8c448c711780392e887a1f15af30a8e0fd3a03aab5e134e57fe8f81dbe0c51",
+    "src-tauri/src/main.rs": "9dcce5cb8ad3070f36e7188381e41c285b3855b6db85115046a31de2166f762f",
+    "src-tauri/src/bin/ipc.rs": "6664dc0c909d17a5d96299fde15cebe743849b7c09a558062683012990cb016b",
+    "src-tauri/src/native_credentials.rs": "8bd043dc3638692b98a972ccee480ee482c9e56edce9af91f8b7b707befc57bc",
+    "src-tauri/tests/data_sources.rs": "ffdcab60bfe19eac2d4efd77de42c57a3931f1757f5190d22e4195d29a253c89",
+    "src-tauri/tests/workspace.rs": "d43816e69bbf0fcf9bf0a39c3b73cdf4d4166d487493edb585bfc117c2b2dde0",
+    "src-tauri/tests/watchlists.rs": "db654e23b3dd081e433e421e9116db41e6f8f6007b760311356a14e1dae73460",
+    "src/App.tsx": "8af63f5434604968b1e0e279abe7c1aa4abbfd8ef1316cc5f598049c67c6900e",
+    "src/DataSources.tsx": "53990cd23d9d6d8bfb94da6d4d727217be49e99d387347540128fa356426daf3",
+    "src/client.ts": "ef2dd285e786707a1469fa3ce9f3c4e519d456bf80bbf8b9b349a66aa53081d5",
+    "tests/quote-source-ui.mjs": "b5ec8410d3bb9206e9b66bdd2014fd9738c561ab081420382486f14e30c41220",
+    "shared/ipc-types.ts": "f74894022aaaa0d5ebfc922ed59c71e6b57b52bb647db69dcc48efda37a8acf9",
+    "shared/ipc-v1.schema.json": "d5f1ff3cb13bba172640b50b975179e38775e9928e3d0903a273ec5d6fe5b62b",
+    "shared/ipc-validators.js": "3c35db7eae565076e8103a224f394bd77d8ce21b9ca0761b6897ae62cf709405",
+    "shared/ipc-validators.d.ts": "7182fcd5f4e33556b6ef21772f521f1ee7537f43bd859a7e0a9a1aa221ed44b2",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "0ef67447daec61bbd138d3962c6cd96ad9adb96cb4fafc12c7844ea621f2cc0a",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "982856c604d6dd94f208124df1e9f4082ff0b7cc6000907c3faf56dc906b0625",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "430284c89051433a685133e4c324e956bba9d36842eec1cc70dfb3ef1d62ac7d",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "65b3b67a6378a01ab24f87007b2b281e9e44ca709ca5d49f58ac6a441d85b17b",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "b10ce3b1c03c055501e4ac3f74e87650d04b9c03a76e1020185cfcccdbd6342e",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "9153dfc8bf0fea549a9393f911a32b92c789c97062a12f562e1016c108f1b26a"
+  },
+  "integrationBinarySha256": "4d229eb690f004c4e8c6902b0d38e4677e54550573ab53b87cc27c6e2810c204",
+  "evidenceSha256": {
+    "dedicated-key-check.txt": "42a253ddf48529f0a9d8a956462a0b5138d4b4ee3fa4aa575b97807ef5a6c7a5",
+    "dedicated-key-ui.json": "efe87587bd9c07b6ab78050cd39fbac9cd4a738bc4acbb900a5d291de042aea9",
+    "dedicated-key-ui.png": "b3bfd3ef99276a38344ee7654ad1dbed050acb84502ccac6109263794894055a"
+  }
+}

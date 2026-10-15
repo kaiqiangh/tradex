@@ -1,0 +1,60 @@
+{
+  "checkedAt": "2026-09-30T22:15:20.797906+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "delivery": "Uncommitted #116 worktree progress only; no issue/parent/map completion, hosted feed entitlement, active Hot stream or financial-readiness claim.",
+  "checks": {
+    "defaultRustTargeted": "21 passed: data_sources/workspace/watchlists/market",
+    "integrationSource": "10 passed, includes actual loopback HTTP latest/condition/exchange paths; outside Control Plane lock",
+    "nodeProjection": "13 passed",
+    "desktopCargoCheck": "PASS",
+    "integrationBinaryBuild": "PASS",
+    "schemaTypeFmtDiff": "PASS",
+    "planningTraceability": "203 requirements/70 screens/13 QA scenarios/23 historical baseline files; not runtime acceptance",
+    "publicUI": "4 observations; source verification and actual adapter quote projection, 390/768/1280px; external synthetic vault/HTTP boundary"
+  },
+  "redEvidence": [
+    "Missing public execute_market API before producer implementation",
+    "Recovered quotes retained prior consent identity before connection generation invalidation",
+    "Market UI received a quote but omitted the actual bid/ask prices before display implementation",
+    "Reused account update retained AVAILABLE verification before account-version binding"
+  ],
+  "remaining": [
+    "Managed Hot stream with auth/full-symbol acknowledgement, actual frames, typed ephemeral leases, navigation/reconnect cleanup",
+    "Coverage-aware quote-only risk/approval/Prepare/dispatch integration without inventing last trades",
+    "Remaining provider failure/condition/quote/time/size/order/cooldown and stale-response scenarios",
+    "Actual ordinary native secure-vault/provider read evidence; no new native authentication/account-read evidence was claimed in this stage",
+    "Final whole-ticket full suite and independent serial Standards then Spec review against start SHA",
+    "Original S28 external financial gates; S17 and S27 remain open/scheduling-skipped"
+  ],
+  "sha256": {
+    "src-tauri/src/quote_source.rs": "78a1b8c392c38b83f0b12d2f54460d33752d43b88aeb12f6093b63011f138086",
+    "src-tauri/src/lib.rs": "b6b853be9a6ce293eef044eeff45b2da149c4908359952758564109025b6c6cb",
+    "src-tauri/src/main.rs": "22262c6a05be4764037292e98b08c72794547ba70515526aae44ca0489ffeeb5",
+    "src-tauri/src/bin/ipc.rs": "92848dca75d999e20f585e0dcf103fd67bbaf0ad937e789d1cdc06e8311d2b75",
+    "src-tauri/src/provider_io.rs": "84dcc57ecacc79d03eb9d333e738b0b131e31709b54ac84803317ec3b1f51c16",
+    "src-tauri/src/protocol.rs": "7ced7f4fb4a3afd69013625cb6d033c813fa0d91ab958603965c3856473c7ace",
+    "src-tauri/src/market.rs": "127748cdd2aa2c691fdf33ddd812bd28696d4cd6d640efdaaf172d919577fe8a",
+    "src-tauri/tests/data_sources.rs": "31377aeff8c61daa8e0d43a0960f2a4481548c4300eea2105939eb1ea53b2ce0",
+    "src-tauri/tests/support/provider_fixtures.rs": "a275513ee0b6f364505dbfdc421895c9ad8fb3074391ae2e16c4300c86a5044a",
+    "src/DataSources.tsx": "191247e6633a148186063c906a7930cb48a1ed926b53d99230984e9d3605f995",
+    "src/Markets.tsx": "365b94e52121d6348de146fd7a78e5451a88e4cbeea7f7c1a70561b90a41f759",
+    "tests/quote-source-ui.mjs": "ce65ebaadc0768d7bab04d91ad4b65a8648dcf2f46b7f95f3fc87eba8fbd4275",
+    "shared/ipc-v1.schema.json": "ba4c3f71258d4e5fcbfd1d0189d3126c01affba44a0c8f74e29c0d3dbe7217a1",
+    "shared/ipc-types.ts": "426e9712605b75e01bf48f5b8957a3b0f1678dad55daeaf0ce4aae7e9e8f181f",
+    "shared/ipc-validators.js": "ee154cb444207fda16622ac8848c756292826c643d6156e826f99bec5155003a",
+    "shared/ipc-validators.d.ts": "9b1927daf49e6aeac08587d3209a02c83c308cfc38d750a0a2106e5374ff8afa",
+    "docs/TradeX_Backend_ARD_v1.0_RevC.md": "4cee9a4343e687cdbd68f0a818fd520998e7a4a6927335a0d65420830e57a476",
+    "docs/zh/TradeX_Backend_ARD_v1.0_RevC_zh.md": "84e7c856eba3da15174009cf0fb02472c4a311f3e684f4009443e5c90733fad3",
+    "docs/TradeX_Frontend_ARD_v1.0_RevC.md": "a749824dd615bbbb5b376c0048643d600721088ba087634895d233142fb06bc1",
+    "docs/zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md": "08f49eb0c7fe724858a4f8b8ea135a62b76c8efd8a22d22a76771897bc757299",
+    "docs/TradeX_UI_Prototype_Spec_v1.0_RevC.md": "c2d3c5d2e1f9b88dde070a2c1028d84fcb4aae264cca72a356141d6cf77f6d71",
+    "docs/zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md": "491e2cd7b66ec29345c4173146901438cbf492695ce013a4f6d91bba21d37fa7",
+    "docs/implementation/requirements.csv": "5eb8db75b733da70d285d28358b223dd3a32e433b1d85c3047bb7fd6711cafc3",
+    "docs/implementation/s28-alpaca-production-quotes.md": "fbdec3b79d322052f2788666481e609ec8c6bb6382cd82ec3054e01eda1f540f",
+    "docs/implementation/s28-alpaca-production-quotes_zh.md": "9b93ae7fee7933a8cafdafffe98f5d15e711f96b95e38685d3c36e46e5e4a3ec",
+    "docs/implementation/evidence/s28-source-progress/http-quote-ui.json": "4cca181d2968d1d694295f230d6965ab85857329d8167f99a100834e984c307c",
+    "docs/implementation/evidence/s28-source-progress/http-quote-ui.png": "e589496309b638c09036e45bc0ddc5596c78e0be21bca55b5cea65e241495652",
+    "docs/implementation/evidence/s28-source-progress/http-quote-check.txt": "a5a8efa12d46286e259629919a9452ab2feb0261815e0e3be9706ca308dceb70"
+  }
+}

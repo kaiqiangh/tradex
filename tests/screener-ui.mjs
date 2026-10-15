@@ -6,15 +6,45 @@ async function assertComposerContextTargets(ui, currentCount) {
   assert.equal(await ui.locator('.turn-composer .composer-footer').getByText(`Context references: ${currentCount}`, { exact: true }).isVisible(), true);
 }
 
+async function waitForEnabled(ui, control, description) {
+  for (let attempt = 0; attempt < 100 && !(await control.isEnabled()); attempt += 1) {
+    await ui.waitForTimeout(50);
+  }
+  assert.equal(await control.isEnabled(), true, `${description} becomes available after the revision update`);
+}
+
+async function openScreenerFromExplorer(ui) {
+  const open = ui.getByRole('button', { name: 'Open screener', exact: true });
+  if (!(await open.isVisible())) {
+    const close = ui.getByRole('button', { name: 'Close screener', exact: true });
+    assert.equal(await close.isVisible(), true, 'An already-open screener can return to the explorer');
+    await close.press('Enter');
+    await open.waitFor({ state: 'visible' });
+  }
+  await open.press('Enter');
+}
+
 export async function checkScreenerUI(tab, browser) {
   const ui = tab.playwright;
   const viewport = await browser.capabilities.get('viewport');
   const observed = [];
+  const assertAnnouncedState = async state => {
+    const status = ui.getByRole('status', { name: 'Screener status', exact: true });
+    assert.match(await status.innerText(), new RegExp(`^${state} · \\d+ candidates?$`));
+    const result = ui.locator('.screener-results');
+    assert.equal(await result.getAttribute('aria-live'), null);
+    const candidateList = ui.locator('.screener-candidates');
+    if (await candidateList.count()) {
+      const candidateLiveAncestor = await candidateList.evaluate(element =>
+        element.closest('[aria-live], [role="status"], [role="alert"]')?.getAttribute('aria-label') ?? null);
+      assert.equal(candidateLiveAncestor, null);
+    }
+  };
   try {
     await viewport.set({ width: 1280, height: 900 });
     await ui.getByRole('button', { name: 'Markets', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Markets', exact: true }).waitFor({ state: 'visible' });
-    await ui.getByRole('button', { name: 'Open screener', exact: true }).press('Enter');
+    await openScreenerFromExplorer(ui);
     const query = ui.getByLabel('Describe the market', { exact: true });
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await query.focus();
@@ -26,7 +56,9 @@ export async function checkScreenerUI(tab, browser) {
     await threshold.fill('0.20');
     assert.equal(await ui.getByRole('button', { name: 'Run screen', exact: true }).isEnabled(), false);
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
-    await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
+    const runScreen = ui.getByRole('button', { name: 'Run screen', exact: true });
+    await waitForEnabled(ui, runScreen, 'Run screen');
+    await runScreen.press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
     const result = ui.locator('.screener-results');
     assert.match(await result.innerText(), /AAPL/);
@@ -34,7 +66,7 @@ export async function checkScreenerUI(tab, browser) {
     assert.match(await result.innerText(), /Provider 2026-09-14T00:00:00Z/);
     assert.match(await result.innerText(), /Received 2026-09-14T00:00:00Z/);
     assert.match(await result.innerText(), /SYNTHETIC_SCREENER_FIXTURE|Synthetic screener fixture/);
-    assert.equal(await result.getAttribute('aria-live'), 'polite');
+    await assertAnnouncedState('COMPLETED');
     const wideSize = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     assert.ok(wideSize.scroll <= wideSize.width, `Screener page overflow at 1280px: ${JSON.stringify(wideSize)}`);
     observed.push('PARSE exposes FilterSpec/RankSpec, edits invalidate Run until revision recalculation, and fixture RUN renders canonical candidate/provenance evidence.');
@@ -50,6 +82,7 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
     await ui.getByRole('button', { name: 'Save changes', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Updated screener Growth leaders.' }).waitFor({ state: 'visible' });
+    await waitForEnabled(ui, ui.getByRole('button', { name: 'Run screen', exact: true }), 'Run screen');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
     await ui.getByLabel('Select equity:US:AAPL', { exact: true }).check();
@@ -62,7 +95,7 @@ export async function checkScreenerUI(tab, browser) {
 
     await ui.getByRole('button', { name: 'Markets', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Markets', exact: true }).waitFor({ state: 'visible' });
-    await ui.getByRole('button', { name: 'Open screener', exact: true }).press('Enter');
+    await openScreenerFromExplorer(ui);
     const reopenedQuery = ui.getByLabel('Describe the market', { exact: true });
     await reopenedQuery.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
@@ -70,16 +103,19 @@ export async function checkScreenerUI(tab, browser) {
     const reopenedThreshold = ui.getByLabel('Condition 1 threshold', { exact: true });
     await reopenedThreshold.fill('1');
     assert.equal(await ui.getByRole('button', { name: 'Run screen', exact: true }).isEnabled(), false);
-    assert.match(await ui.getByRole('status').innerText(), /Conditions changed/);
+    assert.match(await ui.getByText('Conditions changed; recalculate the revision before running.', { exact: true }).innerText(), /Conditions changed/);
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await waitForEnabled(ui, ui.getByRole('button', { name: 'Run screen', exact: true }), 'Run screen');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'EMPTY', exact: true }).waitFor({ state: 'visible' });
     assert.match(await ui.locator('.screener-results').innerText(), /0 candidates|No candidates matched/);
+    await assertAnnouncedState('EMPTY');
     await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'EMPTY', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await reopenedThreshold.fill('0.20');
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await waitForEnabled(ui, ui.getByRole('button', { name: 'Run screen', exact: true }), 'Run screen');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
     observed.push('Stale edits, EMPTY state, aria-live result announcements and retry input preservation are asserted.');
@@ -98,7 +134,11 @@ export async function checkScreenerUI(tab, browser) {
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
     assert.match(await ui.getByRole('alert').innerText(), /Unsupported filter field/);
     await ui.getByRole('heading', { name: 'FAILED', exact: true }).waitFor({ state: 'visible' });
-    assert.equal(await ui.locator('.screener-results').getAttribute('aria-live'), 'polite');
+    assert.equal(await ui.getByText('Revision ready', { exact: true }).count(), 0,
+      'An unsupported parse must not expose a ready revision.');
+    assert.equal(await ui.getByRole('heading', { name: 'FilterSpec and RankSpec', exact: true }).count(), 0,
+      'An unsupported parse must not present a prior structured interpretation as current.');
+    await assertAnnouncedState('FAILED');
     await ui.getByRole('button', { name: 'Retry screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'FAILED', exact: true }).waitFor({ state: 'visible' });
     assert.equal(await ui.evaluate(() => document.querySelector('#screener-natural-language')?.value), 'Find stocks with P/E below 20.');
@@ -114,20 +154,26 @@ export async function checkScreenerUI(tab, browser) {
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'FilterSpec and RankSpec', exact: true }).waitFor({ state: 'visible' });
+    await waitForEnabled(ui, ui.getByRole('button', { name: 'Run screen', exact: true }), 'Run screen');
     await setScreenerMode(true);
     try {
       await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'BLOCKED EXTERNAL', exact: true }).waitFor({ state: 'visible' });
       const blockedResult = ui.locator('.screener-results');
-      assert.match(await blockedResult.innerText(), /no network request was made|source(s) unavailable or unverified/i);
+      assert.match(await blockedResult.innerText(), /no network request was made|source(?:s|\(s\)) unavailable or unverified/i);
       assert.equal(await ui.locator('.screener-candidate').count(), 0);
+      await assertAnnouncedState('BLOCKED EXTERNAL');
     } finally {
       await setScreenerMode(false);
     }
     observed.push('The rendered non-fixture Rust-backed path announces BLOCKED EXTERNAL with no candidates; the helper also asserts natural-language focus.');
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
-    await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await ui.getByText('Revision ready', { exact: true }).waitFor({ state: 'visible' });
+    const recalculate = ui.getByRole('button', { name: 'Recalculate revision', exact: true });
+    await waitForEnabled(ui, recalculate, 'Recalculate revision after parsing the current input');
+    await recalculate.press('Enter');
+    await waitForEnabled(ui, ui.getByRole('button', { name: 'Run screen', exact: true }), 'Run screen');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Open equity:US:AAPL market detail', exact: true }).press('Enter');
@@ -136,15 +182,16 @@ export async function checkScreenerUI(tab, browser) {
     observed.push('Candidate rows open the canonical Market detail while preserving the exact instrument ID.');
 
     await ui.getByRole('button', { name: 'Back to results', exact: true }).press('Enter');
-    await ui.getByRole('button', { name: 'Open screener', exact: true }).press('Enter');
+    await openScreenerFromExplorer(ui);
     await query.fill('US large-cap technology stocks with revenue growth above 15%, positive estimate revisions, and RSI below 70.');
     await ui.getByRole('button', { name: 'Parse conditions', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'FilterSpec and RankSpec', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Recalculate revision', exact: true }).press('Enter');
+    await waitForEnabled(ui, ui.getByRole('button', { name: 'Run screen', exact: true }), 'Run screen');
     await ui.getByRole('button', { name: 'Run screen', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'COMPLETED', exact: true }).waitFor({ state: 'visible' });
     await ui.getByLabel('Select equity:US:MSFT', { exact: true }).check();
-    await ui.getByLabel('Attach selected to', { exact: true }).selectOption('current');
+    await ui.getByRole('combobox', { name: 'Attach selected to', exact: true }).selectOption('current');
     await ui.getByRole('button', { name: 'Attach selected (1)', exact: true }).press('Enter');
     await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
     await assertComposerContextTargets(ui, 2);

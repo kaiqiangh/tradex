@@ -1,0 +1,26 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "QA-03",
+  "scenario": {
+    "attemptId": "290a2b96-50a7-46c8-8ef0-d71aa53a43d3",
+    "candidateClientOid": "tx-290a2b9650a746c88ef0d71aa53a43d3",
+    "providerOrderWrites": 0
+  },
+  "providerData": "local deterministic fixture only",
+  "checkedResponsiveWidthsPx": [
+    1280,
+    768,
+    390
+  ],
+  "confirmedSubmitted": true,
+  "confirmedNotSubmittedAvailable": false,
+  "reservationAfterResolution": "ACTIVE",
+  "accountArmingAfterResolution": "DISARMED",
+  "providerOrderWrites": 0,
+  "externalHttpRequests": [],
+  "browserErrors": [],
+  "screenshot": "qa03-manual-resolution-390.png",
+  "screenshotScope": "Exact candidate identity, non-fill warning, frozen-reservation/disabled-account consequence, and explicit Confirm submitted button at 390px immediately before resolution.",
+  "limitation": "Does not establish real Bitget provider behavior, sufficient-absence proof, native VoiceOver, or full QA-03/S25/S33 acceptance.",
+  "capturedAt": "2026-10-14T11:59:22.865Z"
+}

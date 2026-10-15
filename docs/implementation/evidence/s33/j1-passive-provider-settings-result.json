@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "surfaceId": "J1",
+  "title": "Providers & Models passive S33 slice",
+  "result": "PASS",
+  "surfaceStatus": "IN_PROGRESS",
+  "s33SliceStatus": "PASS",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/SettingsSurfaces.tsx": "a72739442654140d7bebd9409246d8ac9d40d23e25306054c7a6c79844abd4cd",
+    "src/Accounts.tsx": "72f4dc97898dbeae419b7cab0efd16a0d2295009554533a6d374272cc09f55a5",
+    "src/Markets.tsx": "9dcb12b910a7e1a776d9f23185dabf01d86dd6765b1e5aecb307a3c7d0f3329c",
+    "src/App.tsx": "ced57dea569ea339a9cd685903153a2d02e07ea514d13087a91790e6113dedeb",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "tests/s33-passive-pages-playwright.js": "fc7934c431cbf9b4f47ebf291384c767052afe0898d94894665bbfbaa514339d",
+    "tests/s33-passive-provider-pages-ui.mjs": "ffc06badd5a80298114c0c2019458baa6dd1dc9c471d58b709b77b6197bbac9e"
+  },
+  "focusedPassiveProviderPageRun": {
+    "workspaceId": "ca816d15-b947-4c42-8893-cbe2c8e9d603",
+    "surfacesVisited": [
+      "Order Drafts",
+      "Settings \u2192 Providers & Models",
+      "Settings \u2192 Data & Storage",
+      "Accounts",
+      "Markets"
+    ],
+    "forbiddenProviderOrFinancialCommands": 0,
+    "externalHttpRequests": 0,
+    "consoleErrors": 0
+  },
+  "crossSurfaceResponsiveRun": {
+    "workspaceId": "26233b34-d9be-4f48-bce3-ee7972539900",
+    "viewports": [
+      1280,
+      768,
+      390
+    ],
+    "surfaceViewportCombinations": 45,
+    "documentHorizontalOverflow": 0,
+    "providerRequests": 0,
+    "forbiddenProviderModelDataMarketOrFinancialCommands": 0
+  },
+  "allowedObservedLocalReads": {
+    "provider.list_definitions": "Static local provider catalog reads only",
+    "otherLocalWorkspaceAndDomainReads": "Observed during navigation; no provider I/O or execution mutation"
+  },
+  "scopeLimits": [
+    "No credentials, provider connection, probe, permission change, disconnect, refresh, or model verification was exercised.",
+    "Alpaca, Binance, Bitget, Trading 212, and physical sleep/wake remain skipped/open by user direction.",
+    "The J1 parent remains IN_PROGRESS; this only advances its passive S33 UI slice."
+  ]
+}

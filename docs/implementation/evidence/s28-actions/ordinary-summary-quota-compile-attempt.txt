@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+error[E0277]: the trait bound `&impl ProviderHttp: provider_io::ProviderHttp` is not satisfied
+    --> src-tauri/src/provider_io.rs:2830:25
+     |
+2829 |                     read_live_summary(
+     |                     ----------------- required by a bound introduced by this call
+2830 |                         &http,
+     |                         ^^^^^ the trait `provider_io::ProviderHttp` is not implemented for `&impl ProviderHttp`
+     |
+note: required by a bound in `read_live_summary`
+    --> src-tauri/src/provider_io.rs:5079:17
+     |
+5078 | fn read_live_summary(
+     |    ----------------- required by a bound in this function
+5079 |     http: &impl ProviderHttp,
+     |                 ^^^^^^^^^^^^ required by this bound in `read_live_summary`
+help: consider removing the leading `&`-reference
+     |
+2830 -                         &http,
+2830 +                         http,
+     |
+
+For more information about this error, try `rustc --explain E0277`.
+error: could not compile `tradex` (lib) due to 1 previous error

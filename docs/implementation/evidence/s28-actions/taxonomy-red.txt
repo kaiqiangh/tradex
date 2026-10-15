@@ -1,0 +1,24 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.96s
+     Running tests/financial_sources.rs (target/debug/deps/financial_sources-fb981ddc9e59bd52)
+
+running 1 test
+test every_official_company_event_category_is_preserved_without_legacy_reclassification ... FAILED
+
+failures:
+
+---- every_official_company_event_category_is_preserved_without_legacy_reclassification stdout ----
+
+thread 'every_official_company_event_category_is_preserved_without_legacy_reclassification' (2378527) panicked at src-tauri/tests/financial_sources.rs:396:5:
+assertion `left == right` failed: Official categories were discarded or reclassified: {"data":{"availabilityReason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","capabilityStatuses":[{"capability":"KNOWN_ACTIONS","reason":"Evidence expired, changed binding or failed to refresh. Revalidate time and refresh the selected source; no prior positive evidence is retained.","status":"UNAVAILABLE"},{"capability":"ACTION_QUERY_COMPLETION","reason":"Pagination exhaustion applies only to the returned processing-date query, not prospective event completeness.","status":"UNAVAILABLE"},{"capability":"COMPLETE_ACTION_COVERAGE","reason":"The provider documents processing delays and no immediate-announcement completeness guarantee. An empty query cannot certify no pending action or complete delisting coverage.","status":"BLOCKED_EXTERNAL"},{"capability":"HISTORICAL_ADJUSTMENT","reason":"Known events do not prove historical prices were adjusted; actual history provenance is still required.","status":"UNVERIFIED"}],"configured":true,"connectionId":"88427e07-69ec-426f-9fca-91ee73e37b27","eligibleAccounts":[{"connectionId":"88427e07-69ec-426f-9fca-91ee73e37b27","displayName":"Read-only source"}],"environment":"PAPER","kind":"CORPORATE_ACTIONS","stateVersion":"CORPORATE_ACTIONS:625f2b6b-f3af-45fe-8e44-4ae41596d600:1","status":"UNAVAILABLE","workspaceId":"625f2b6b-f3af-45fe-8e44-4ae41596d600"},"ok":true,"requestId":"all-events","schemaVersion":1}
+  left: String("UNAVAILABLE")
+ right: "AVAILABLE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    every_official_company_event_category_is_preserved_without_legacy_reclassification
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p tradex --test financial_sources`

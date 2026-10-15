@@ -1,0 +1,7 @@
+error: no bin target named `ipc` in `tradex` package
+help: available bin targets:
+    schema-export
+    strategy-worker
+    tradex
+    tradex-ipc
+    tradex-order-gateway

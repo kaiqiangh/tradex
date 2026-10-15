@@ -1,0 +1,128 @@
+{
+  "evidenceKind": "temporary browser integration fixture; synthetic Binance responses; not a real account or rights determination",
+  "workspaceId": "1ff51911-e42a-4da6-b2fc-530d115beb18",
+  "proposalId": "proposal:828e5e42-aee2-4b15-8258-d0f43b855141",
+  "proposalHash": "sha256:6347669faa5e3b7ed203cf8f8a6cf55ff9c9f761213c24a1d9261ce721be8db5",
+  "decision": {
+    "id": "risk-decision:4a172323-3d0f-465b-8dfa-fca4f43a6762",
+    "status": "UNAVAILABLE",
+    "evaluatedAt": "2026-10-11T18:36:08.787499Z"
+  },
+  "account": {
+    "label": "S29.11 wallet UI verification",
+    "arming": "DISARMED"
+  },
+  "marketDataRights": "UNVERIFIED",
+  "feeFx": {
+    "outcome": "UNAVAILABLE",
+    "reasonCode": "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
+    "bindingBlocker": "SPOT_REQUIRED_FX_EVIDENCE_UNAVAILABLE",
+    "requiredFx": [
+      {
+        "purpose": "INTENT_FUNDING",
+        "fromCurrency": "USDT",
+        "toCurrency": "USDT",
+        "state": "QUALIFIED"
+      },
+      {
+        "purpose": "INTENT_POLICY",
+        "fromCurrency": "USDT",
+        "toCurrency": "USD",
+        "providerPair": "USDTUSD",
+        "state": "EVIDENCE_UNAVAILABLE"
+      }
+    ],
+    "walletFundingEvidence": {
+      "accountId": "a7af1b2b-bfc5-410f-b3d2-ec3931e5846e",
+      "accountReadStartedAt": "2026-10-11T18:36:08.73Z",
+      "balances": [
+        {
+          "asset": "BTC",
+          "effectiveFree": "0.10000000",
+          "free": "0.10000000",
+          "localClaims": "0",
+          "locked": "0.02000000"
+        },
+        {
+          "asset": "USDT",
+          "effectiveFree": "99999999999999999999.9999999999999999999",
+          "free": "99999999999999999999.9999999999999999999",
+          "localClaims": "0",
+          "locked": "0.0000000000000000002"
+        },
+        {
+          "asset": "BNB",
+          "effectiveFree": "0.00000000",
+          "free": "0.00000000",
+          "localClaims": "0",
+          "locked": "2.00000000"
+        }
+      ],
+      "capacityBindingVersion": "sha256:b9f322da5913686a34f09169d8c63f517a38ebfb37b5db5b0ff2b266653bd013",
+      "collectionId": "8ebd206d-390e-43bf-8949-7acb00c57ccb",
+      "firstReceipt": "2026-10-11T18:36:08.735Z",
+      "missingAssets": [],
+      "originalDigest": "b30e707e4c759dd58aec0b102e1e60007e0688e14236d58e3a0d1dbf1cde8f7b",
+      "proposalHash": "sha256:6347669faa5e3b7ed203cf8f8a6cf55ff9c9f761213c24a1d9261ce721be8db5",
+      "proposalId": "proposal:828e5e42-aee2-4b15-8258-d0f43b855141",
+      "requiredAssets": [
+        "BTC",
+        "USDT",
+        "BNB"
+      ],
+      "ruleMaterialVersion": "f85aaad3679dd62289d203096f3d4321db33f0a149671f8ad8f1e714a1211416",
+      "sourceVersion": "BINANCE_SPOT_RULES:1ff51911-e42a-4da6-b2fc-530d115beb18:1",
+      "status": "COMPLETE",
+      "workspaceId": "1ff51911-e42a-4da6-b2fc-530d115beb18"
+    },
+    "currentFeeModel": {
+      "method": "SPOT_THREE_FAMILY_RATIONAL_CEIL18_V1",
+      "chargingCondition": "CONDITIONAL_BNB_INPUTS_REQUIRED",
+      "fallback": {
+        "netReceived": "0.00094999718",
+        "preRounding": {
+          "special": {
+            "denominator": "20000",
+            "numerator": "1"
+          },
+          "standard": {
+            "denominator": "2000000000",
+            "numerator": "1"
+          },
+          "tax": {
+            "denominator": "12500000000",
+            "numerator": "29"
+          },
+          "total": {
+            "denominator": "50000000000",
+            "numerator": "2500141"
+          }
+        },
+        "role": "TAKER",
+        "special": "0.00005",
+        "standard": "0.0000000005",
+        "tax": "0.00000000232",
+        "total": "0.00005000282"
+      },
+      "bnbFundingEvidence": {
+        "asset": "BNB",
+        "capacityBindingVersion": "sha256:b9f322da5913686a34f09169d8c63f517a38ebfb37b5db5b0ff2b266653bd013",
+        "collectionId": "8ebd206d-390e-43bf-8949-7acb00c57ccb",
+        "effectiveFree": "0.00000000",
+        "firstReceipt": "2026-10-11T18:36:08.735Z",
+        "free": "0.00000000",
+        "localClaims": "0",
+        "locked": "2.00000000",
+        "originalDigest": "b30e707e4c759dd58aec0b102e1e60007e0688e14236d58e3a0d1dbf1cde8f7b",
+        "startedAt": "2026-10-11T18:36:08.73Z"
+      }
+    }
+  },
+  "authorizedActions": {
+    "arm": false,
+    "consent": false,
+    "prepare": false,
+    "approval": false,
+    "dispatch": false
+  }
+}

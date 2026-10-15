@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-10-01T08:21:11.009818+00:00",
+  "branch": "dev",
+  "startSha": "dc4c350397bbe500983b47fdfd5d1c3af2f20455",
+  "scope": "Ordinary native desktop build, macOS Keychain, existing saved credential, hosted Alpaca read-only interfaces. No integration provider/vault or broker writes.",
+  "binarySha256": "653c975ae60e01f076fcd8c388c718fad12868066516e08d0b1b8edc3911aa60",
+  "buildEvidence": "quote-risk-manifest.json (historical runtime source hashes; later pending-quote correction is not in this running binary)",
+  "observed": [
+    "User completed current system authentication; Alpaca account refresh returned VALID, CONFIGURED, CURRENT and private stream connected at observation",
+    "Public Settings reused an eligible saved Alpaca credential and explicitly selected IEX",
+    "Hosted authenticated IEX quote access verified twice, separately from account connection",
+    "Hosted IEX Hot authentication and exact AAPL subscription confirmed; no actual stream quote frame observed during this window",
+    "Explicit SIP read denied with DATA_SOURCE_FEED_DENIED; selection remained SIP without fallback",
+    "Explicitly restored IEX and reverified successfully; user workspace now retains IEX source selection"
+  ],
+  "limits": [
+    "No account IDs, balances, positions, keys, credential references, workspace IDs or raw provider payloads recorded here",
+    "Current hosted quote projection/Hot tick acceptance remains unverified; protocol acknowledgement is not a quote",
+    "The running older build exposed the missing-quote legacy reason; public regression correction and new UI proof are recorded separately",
+    "Complete ticket, financial readiness, original S28 financial gates and map remain unverified"
+  ]
+}

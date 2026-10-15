@@ -703,6 +703,10 @@ Threads
 - 恢复线程绝不恢复先前已被消费或已过期的实盘执行审批;
 - 用户可以在不丢失先前线程状态的情况下新建线程。
 
+### Saved Thread 生命周期（B2 #148）
+
+Archive Thread 将 ACTIVE Thread 移入 Saved（ARCHIVED）。运行中的 Turn 会阻止归档并显示原因。选择 Saved 只恢复查看上下文；保留归档 Thread 自己的身份、上游会话引用、默认值、关联上下文和只读时间线。Restore to active 是独立的显式本地操作，继续工作还需另行 Send。归档/恢复不会删除上游会话或衍生 Artifact、启动/取消工作、授予数据使用权、续期金融审批、改变账户 arming 或释放预留。即使绕过 renderer 控件，后端版本/状态门禁仍生效。非法/过期转换不改变历史。UI §14.44 与 Backend §41.61 定义契约；native/完整 S33 验收继续独立。
+
 ## 11.5 上下文、账户、Agent Mode 与模型选择器
 
 输入区控件是可交互的产品原语,而非装饰性标签。
@@ -1296,7 +1300,24 @@ Save risk policy
 
 策略拒绝优先。如果没有检查拒绝,但必需证据缺失、过期或不可信,结果为 `UNAVAILABLE`。缺失证据不得变成空组合、零活动或假定币种平价。Submit 命令必须在可信边界重新求值;结果为 `REJECTED` 或 `UNAVAILABLE` 时不得产生 provider/simulator 订单副作用。Renderer 与 Agent 不能提供求值输入或覆盖结果。`ALLOWED` 仅代表策略求值通过,不授予审批、账户 Arm、预留或发送订单的权限。普通 Bitget Live 账户映射到 `LIVE` 策略环境,在后续金融权限门禁实现前保持只读。
 
+普通 Binance Spot Live 展示每个 Proposal 的静态规则结果，保留精确账户/hash、原始 scope/origin 与 BASE/QUOTE 单位。只有真实且用途匹配的参考输入可核验百分比/notional；错误、未来、过期或未知输入仍为 unavailable。完整规则 PASS 要求满足每项实际适用义务；捕获历史不能续当前证据。只读规则采集和静态成功不授予报价/数据使用权、费用/FX、Arm、同意或即时 preflight。Backend §41.44 与 UI §14.28 定义共享契约；原型代码未改。
+
+精确账户容量输入是显式只读前置项，不是动态金融资格。保留有界账户/标的明细覆盖区别、原始 BASE free/locked 与开放 BUY 数量组成、部分成交/外部资产/列表腿不确定性，以及非原子原始时间/收据。缓存历史不续当前观察，缺失计数不变成零。Backend §41.45 与 UI §14.29 定义当前/捕获契约；所有金融审批、权利、资金、Arm 与即时 preflight 门禁保持独立。
+
+跨账户全部 key/IP/API 的未成交订单时段输入是独立只读前置项。实际 ORDERS 定义与认证原始整数计数不替代开放订单库存、HTTP 预算或 reservation；缺失用量不是零/unlimited，local fill/cancel 不制造 decrement/reset，clock/收据不变成 counter snapshot time。在当前/捕获审核保留有界不完整覆盖及导出的时间不确定性/撤下。资格仍 UNAVAILABLE；拥有方动态规则和全部完整金融门禁独立。Backend §41.46 与 UI §14.30 定义契约；原型代码未改。
+
+拥有方 Live PLACE 准入陈述由那些已交付的只读观测推导，绝不来自第二套投影。用平实语言给出精确原因，并在同一处给出交易所自身声明的剩余下单额度及其绑定声明桶，或在无法依赖任何额度时给出唯一类型化事实，使二者总是相邻呈现。标明单位、每个数字的声明出处、声明的开放订单数与开放买单数量（仅作为声明敞口）、声明的 free/locked 数字（不做二次扣减），以及底层读取的固定局限——它们是证据如何取得，而非覆盖缺口。声明缺失、不完整、身份不匹配或用尽时，阻塞审批与 Prepare，而不是把数字调小。任何陈述无论多新，都不授予 Arm、consent、派发、费用、所需 FX 或任何执行资格，因为交易所按自己的时钟重算窗口。Backend §41.48 与 UI §14.32 定义契约；原型代码未改。
+
+PRICE_RANGE 执行规则按快照解释，绝不作为资格。展示选定 side 的实际配置乘数（官方缺省即不实施，实际报告的零是真实乘数）、唯一可资格化该边界的真正 provider 参考价、带单位的精确选定 side 快照边界，并清晰区分「已验证不实施」、提供方显式 null、查询不可用/过期与不支持配置。明确保留 taker 阶段重算、可能过期，以及无任何成交或准入承诺。任何快照预览、参考价读取或捕获审核都不审批、不下单、不预留、不承诺交易，且交易所参考价绝不持久化进已保存历史。Backend §41.47 与 UI §14.31 定义契约；原型代码未改。
+
+拥有方Spot费用/所需FX复核消费已读取账户佣金与Proposal专属路径，保留声明rate、比较基准、精确单位/出处及独立缺失的fee/route证据。未知fee currency、不支持USDT换汇或绑定mismatch阻断金融approval/Prepare，不制造费额/parity/换算maximum。捕获历史不续期。当前输入拒绝仅为来源切片；完整Live仍须真正建立费用与所需执行FX。Backend §41.49/UI §14.33定义契约；原型代码未改。
+
 ---
+
+独立显式精确标的佣金来源可为已保存 Proposal 采集完整声明费率类别及条件扣费分支。原账户比较费率与此来源声明不同；两者都不建立数值总费用、保证的未来扣费资产或必需执行 FX。缺失或变化条款使当前证据退役，保存评估保留原始收讫。Backend §41.50/UI §14.34 定义限定来源契约。
+
+
+拥有方当前费用情景可由准确symbol当前声明派生完整standard/tax/special角色+方向金额，明确收到资产、舍入方法、模型净收入及不确定性；它与账户比较、金融审批额度、原生券商边界及真实收费不同。金额估算本身不资格化所需FX/资金/执行。Backend§41.51/UI§14.35定义新增当前模型契约；完整S29.11实现/真实验收仍待完成，原型代码未改。
 
 # 22. 审批前与执行前校验
 
@@ -1791,6 +1812,10 @@ data quality / freshness state
 
 UI 不得将延迟数据当作实时数据呈现。
 
+对已选定的 Alpaca 美国股票数据源，feed coverage 与 bid/ask venue 必须和标的上市/执行目标分开。显式 `iex` 是单 venue 实时数据，`delayed_sip` 是合并延迟数据，有 entitlement 的 `sip` 是美国市场合并实时覆盖；被拒绝的 feed 不得静默回退。合并报价标识为 `US_SIP`，并单独保留 provider 的 bid/ask exchange code，不得重标为 XNAS 订单簿。仅当 canonical 美国上市标的受支持、Proposal venue 匹配已核验的上市映射，且普通报价 condition、可信当前时间与有文档依据的 BASE 数量均有效时，才能满足报价覆盖检查。IEX、延迟、未知或不匹配 coverage 不能满足该执行检查。此检查不授予券商权限，不证明市场时段/公司行为/可交易性/FX，不 Arm 账户，也不批准执行。 对此仅供报价的 producer，报价 freshness 与显示深度下的市价单 slippage 检查使用其有效 bid/ask 和 coverage 证据，不要求或虚构 last trade。若已配置限价偏离检查但缺少所需 last-trade 参考，该检查仍为 unavailable。
+
+重复的相同 provider 证据保留最初的 TradeX 接收时间；读取缓存报价不得刷新其 freshness。Provider/receipt 时间戳及 source/connection generation 继续绑定不可变 observation 和审批 digest。数据源变更、重连及 observation 变化使旧同意失效。生产 producer 目标见 Backend §41.37；本地测试不证明实际 feed entitlement。
+
 ### 时间同步要求
 
 TradeX 维护 `TimeService` 用于 quote age、approval TTL、reconciliation window 与审计排序。它同时记录 wall-clock 与 monotonic time,检测显著时钟跳变,在可用时估计 provider/server offset,并在超出配置容差时暴露 `CLOCK_SKEW`/stale remediation。若时间不确定性使 freshness/TTL 判断不可信,Live 审批/执行必须 fail closed。
@@ -1809,6 +1834,12 @@ TradeX 维护 `TimeService` 用于 quote age、approval TTL、reconciliation win
 - 支持的法域。
 
 TradeX 不应假定本地缓存市场数据即自动获得再分发权利。
+
+版本化的本地 source-use policy 可以基于用户报告的账户计划、法域、协议复核日期、用途范围和原始数据去向，评估有界的本地用途。该评估必须与 provider entitlement 分离：用户报告的事实和本地政策支持的用途本身不能证明 provider 权利，也不能授权再分发。用户可通过单独、明确的 Control Plane 确认，将 `FX_DATA_USE_RIGHTS=VERIFIED` 记录为 `USER_ATTESTED_LOCAL_ONLY`，并绑定准确的 workspace、Alpaca Paper 账户、dataset/location、`POLICY_VALUATION` 用途及 `LOCAL_ONLY` 去向。界面必须标明“由你确认”，这不是 Alpaca 独立验证，也不授予共享、商业、model/tool 传输、导出、交易 FX、费用/资金、交易、审批、Arm、Prepare 或执行权限。任一绑定来源或上下文变化时，该确认失效。原始 provider 数据必须留在本地；任何更广或外部用途仍需独立证明适用的 provider entitlement 和允许的下游用途。
+
+当provider未发布支持法域清单并指引用户联系Support时，本地policy可以要求用户报告带日期和reference、且对应准确账户法域的确认。逐国确认仍与市场数据权利分离，也不构成provider entitlement。
+
+对本地Spot `INTENT_POLICY`估值路径，按原样保留provider返回的币对、精确数值、报价币种、size和时间。展示quote不会将其换算到workspace本位币，也不会合成EUR/其他币种金额、FX腿、倒数或平价。只有估值的精确币种代码与workspace本位币一致，且独立source-use、quote新鲜度、账户、费用、市场、审批和授权门禁全部通过时，拥有方货币RiskDecision/Prepare consumer才可消费该估值。币种不匹配时仍展示原始quote，但返回typed估值币种阻断，不推导本位币金额，也不创建审批权限或reservation。本规则仅适用于本地政策估值路径；跨账户组合归一化和明确必需的资金/执行FX仍由独立契约定义。
 
 ---
 
@@ -2197,6 +2228,10 @@ v1.0 不提供可绕过审批的 broker-native amend/replace 快捷方式。修�
 - 私有流断开；
 - 启动对账。
 
+## 43.6 精确 Live 钱包证据
+
+每个不可变Live金融审阅都将钱包覆盖绑定到准确的workspace、Proposal/hash、account及source/rule/capacity generation。对观察到的必需BASE、QUOTE和条件性BNB资产，保留唯一经认证account读取的receipt及原始free/locked金额。缺失、陈旧、重复、格式错误或不匹配的持仓保持不可用；缺失行绝不等于零。Broker free已经排除锁定资金。按原生资产只扣减已知活动本地claims一次，并在审阅中保留原始free、locked和claim值。仅receipt不同的重读保留捕获provenance，不改变未变化的金融material；持仓或claims变化必须重新审阅。钱包证据为只读，不能单独授予approval、Prepare、Arm或dispatch。Backend §41.56、Frontend §13.42和UI §14.40定义此契约；完整S29.11验收仍待完成。
+
 ---
 
 # 44. 市价单安全
@@ -2228,6 +2263,10 @@ Spread: 1.7 bps
 
 若实际所需花费将超过已批准的硬性上限，TradeX 拒绝提交。
 
+对于 QUOTE 数量的 BUY MARKET Proposal，原生本金仍是准确的 `quoteOrderQty`。它必须与独立的本地总成本授权上限 `maximumSpend` 区分；更高的上限不会增加原生本金容量。
+
+对于 BUY LIMIT Proposal，原生 QUOTE 本金是准确的 BASE 数量乘以不可变限价。已提供的 `maximumSpend` 仍是独立的本地授权上限；若低于所需本金，应拒绝复核，而不是缩小原生本金金额。
+
 ---
 
 # 45. 订单状态模型与 UI 映射
@@ -2254,7 +2293,7 @@ UNKNOWN_RECONCILING
 
 `REJECTED` 是券商/交易所拒绝的规范化订单状态。`SUBMISSION_REJECTED` 是解释状态为何变为 `REJECTED` 的错误类别；不得引入 `BROKER_REJECTED` 作为第三种机器状态。
 
-审批过期与券商订单过期是不同事件。过期审批不可复用，但过期本身不能证明订单尚未提交。每个过期事件必须记录作用对象（`approval` 或 `broker_order`）、权威来源/证据引用，以及预留处置结果；只有实际释放容量时才产生预留释放事件。
+审批过期与券商订单过期是不同事件。过期审批不可复用，但过期本身不能证明订单尚未提交。每个过期事件必须记录作用对象（`approval` 或 `broker_order`）、权威来源/证据引用，以及预留处置结果；只有实际释放容量时才产生预留释放事件。对于已消费审批，应记录授权过期，同时保留其 `CONSUMED` 状态和消费历史。
 
 | 触发条件与已知执行状态 | 权威状态转换 | 预留处置 |
 |---|---|---|
@@ -2596,6 +2635,14 @@ TradeX 应提供:
 - 数据集 / 回测清单哈希;
 - 相关提案/订单 ID;
 - 创建时间戳。
+
+## 55.2 工作区归档与保留边界（S31 #137）
+
+v1 工作区归档是一个有界、带版本的本地文件，包含一个经过校验的 SQLite 工作区快照。清单绑定工作区身份、捕获时间、存储 schema、固定成员路径、字节长度和 SHA-256 摘要。快照保留已保存的工作区记录及其溯源，包括未决订单、撤单、预留、结算与审计历史。凭据仅由不透明的本地引用表示；除非另有数据权限决议允许导出，否则排除券商/API secret、OAuth material、Keychain 内容、日志、DuckDB 行情历史和缓存文件。
+
+预览只读，并报告归档兼容性、包含的数据类别与记录数、凭据引用状态及警告。恢复需要用户明确确认；系统在独立位置暂存并校验数据库、运行支持的迁移与完整性检查、备份当前工作区，然后单独发布恢复的工作区。恢复会使先前 approval 与当前撤单 consent 失效、停止 model gateway、让所有 Live 账户保持 DISARMED 和 stale，并要求重新认证与对账后才能恢复执行 readiness。Keychain 条目存在只表示本机引用检查通过；不证明提供方认证成功或具备交易权限。
+
+类别未设置保留期限时不会对其进行清理。保存期限本身不会删除数据；单独明确执行 Apply 后，只删除没有订单引用且已过期的普通 artifact、工作区 cache 目录顶层的普通文件，以及较旧的本地行情历史行。绝不自动删除未决金融执行、对账、预留、结算、风险、审批或审计记录。
 
 ---
 
@@ -3655,3 +3702,11 @@ Ask a market question
 LLM 链不可用时,用户仍可查看既有 artifacts、处理已创建且仍有效的 approval、cancel/reconcile open orders、检查 account health 与使用非模型 control-plane 功能。任何 Live authority 都不依赖模型可用性。
 
 > **Agent 负责推理。TradeX Control Plane 负责授权。Broker/Exchange 是执行事实来源。**
+
+# 74. S29.11 原生资产结算契约
+
+拥有方Spot PLACE在累计提供方成交与实际费用旁保存不可变的初始本金/费用claim向量。当前claims依据该原始向量和精确原生十进制重新计算，重复的累计观察不会对同一成交或费用重复扣减。BUY本金按累计成交quote value消耗；SELL本金按累计成交base数量消耗；每笔费用只减少其实际收费原生资产的预留容量。向收到收益收取的费用保留为实际扣款，不消耗无关的支出claim。
+
+不完整、矛盾、未知或成交/费用累计值减少的broker事实保留上次可信reservation；provider时间戳较早时不得替换已保存观察。未预留的支出费用或超过claim的扣款会产生类型化核对冻结。只有完整的broker终态事实才能释放未用原生容量。Provider accepted、取消请求、超时或缺少费用行均不是结算事实。旧标量记录仍可读取，并明确其不含完整向量。增量wire/UI契约见Backend§41.58、Frontend§13.44和UI§14.42。本契约不表示S29.11验收完成；真实权利、producer到Prepare正向路径、Gateway preflight、公开结算/重放/并发、响应式current/captured/pre-arm证据和独立剩余门禁仍开放。
+
+已消费Live PLACE可能到达提供方后，只要其reservation仍活动，用户可以显式刷新该准确attempt的订单证据。Control Plane将读取绑定到已消费approval、保存的account、不可变Proposal、已保存provider订单ID及当前账户版本，推导提供方所需的symbol namespace，并按相同累计结算规则持久化成交/费用。该恢复读取仅发送GET，不授权或重复任何金融操作；证据不完整时继续冻结capacity。撤单竞态读取是相同命令下独立的approval绑定用途。

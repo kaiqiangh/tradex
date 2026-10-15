@@ -1,0 +1,105 @@
+{
+  "scenario": "S33 B3 Ask Mode",
+  "result": "PASS_LIMITED",
+  "verifiedAt": "2026-10-14T15:04:11.425Z",
+  "branch": "dev",
+  "reviewBaseline": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "fixtureBoundary": "One disposable Rust-backed workspace; workspace.ready.fixture synthetic ready state only; no model/provider runtime or inference.",
+  "workspaceId": "e8021392-081d-4590-be02-fd7715f82b20",
+  "threadId": "5c265c62-251f-4537-886f-baa8c414528c",
+  "ask": {
+    "mode": "ASK",
+    "executionContext": "NONE_READ_ONLY",
+    "capability": "C0",
+    "linkedInstrument": "equity:US:MSFT",
+    "noExecutionAccountSelected": true,
+    "persistedTurns": 0,
+    "tradePreparationControls": 0
+  },
+  "responsive": {
+    "widths": [
+      {
+        "width": 1280,
+        "mode": "ASK",
+        "executionContext": "NONE_READ_ONLY",
+        "capability": "C0",
+        "documentOverflow": false
+      },
+      {
+        "width": 768,
+        "mode": "ASK",
+        "executionContext": "NONE_READ_ONLY",
+        "capability": "C0",
+        "documentOverflow": false
+      },
+      {
+        "width": 390,
+        "mode": "ASK",
+        "executionContext": "NONE_READ_ONLY",
+        "capability": "C0",
+        "documentOverflow": false
+      }
+    ]
+  },
+  "upgradeOptions": [
+    {
+      "value": "ASK",
+      "label": "Ask · read only"
+    },
+    {
+      "value": "RESEARCH",
+      "label": "Research · read only"
+    },
+    {
+      "value": "BACKTEST",
+      "label": "Backtest · historical simulation"
+    },
+    {
+      "value": "TRADE",
+      "label": "Trade · later approval required"
+    }
+  ],
+  "promotions": {
+    "research": {
+      "capability": "C0",
+      "executionContext": "NONE_READ_ONLY",
+      "strategiesEntryVisible": true
+    },
+    "backtest": {
+      "capability": "C2",
+      "executionContext": "HISTORICAL_SIMULATION",
+      "runStarted": false
+    },
+    "trade": {
+      "executionContext": "NONE_READ_ONLY",
+      "capability": "UNSUPPORTED_CAPABILITY",
+      "remediation": "Choose a supported context",
+      "accountRemainedUnselected": true
+    }
+  },
+  "threadDefaultsAfterModeExploration": {
+    "mode": "ASK",
+    "executionContext": "NONE_READ_ONLY",
+    "persistedTurns": 0,
+    "instrument": "equity:US:MSFT"
+  },
+  "threadCreates": 1,
+  "turnsStarted": 0,
+  "researchRuns": 0,
+  "providerMutationCommands": 0,
+  "externalHttpRequests": 0,
+  "pageErrors": 0,
+  "consoleErrors": 0,
+  "testSha256": "182654e779d0afceff91eab479cf33527c9875ebd38f3c169ed9ecb5db46a8db",
+  "screenshots": {
+    "askMode390": {
+      "path": "b3-ask-mode-390.png",
+      "sha256": "e9e055fa4fe1787bcd56bd2c77faedb1a8b7df4572fef0f9f600336702bb6c82"
+    }
+  },
+  "limitations": [
+    "This test did not send a request; actual answer generation and model inference were not evaluated.",
+    "Native VoiceOver, real provider behavior, and full S33 acceptance remain open."
+  ],
+  "modelRequestStarted": false
+}

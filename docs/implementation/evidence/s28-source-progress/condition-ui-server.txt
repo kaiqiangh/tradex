@@ -1,0 +1,4 @@
+
+  VITE v8.2.2   integration   ready in 178 ms
+
+  ➜  Local:   http://127.0.0.1:1422/

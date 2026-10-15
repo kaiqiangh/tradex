@@ -1,0 +1,17 @@
+S29.11 AC11 owning financial material versus immutable collection provenance — focused public regression
+
+Commands:
+cargo test --manifest-path src-tauri/Cargo.toml --test binance_rules owning_fee_fx_binds_exact_symbol_commission_separately_from_account_comparison_rates -- --exact
+cargo test --manifest-path src-tauri/Cargo.toml --test binance_rules intent_policy_fx_qualifies_price_only_quote_without_execution_cost_or_depth -- --exact
+cargo test --manifest-path src-tauri/Cargo.toml --lib matching_prepare_revalidation_preserves_the_issued_approval_expiry
+
+Result: both focused public regressions passed (1 test each; 118 filtered each).
+The complete `binance_rules` integration suite then passed: 119 passed, 0 failed.
+The generic synthetic Live preparation revalidation test passed: 1 passed, 265 filtered.
+The complete Rust library suite passed: 266 passed, 0 failed.
+
+The public Control Plane regressions confirm that changing historical account-level commission comparisons does not change the owning fee-evidence or SpotFeeFx input digest; a repeated exact-symbol commission read receives a new collection identity while both approval-bound material digests remain stable; and changing an exact-symbol commission term changes the fee-evidence version and owning statement input digest. A matching synthetic source-use report and selected quote change the purpose-qualified route and SpotFeeFx input digest; a dislocated replacement quote also changes the digest and becomes unqualified. The immutable commission observations retain their distinct collection provenance. Separately, a generic synthetic Trading 212 Live preparation advances five seconds within the original approval lifetime, revalidates the same review digest, consumes the same approval and retains its original `expiresAt`.
+
+Scope: disposable synthetic provider/vault fixture and public Control Plane commands. No real account or provider was read or written, and no real Arm, user consent, Gateway dispatch, or order occurred. The separate expiry-retention regression used only synthetic Trading 212 Live approval and Prepare.
+
+Limit: the Binance owning review remains ineligible because current exact required-FX evidence and a declared fee-charging asset are unavailable. The expiry test exercises the shared generic Live preparation path with a Trading 212 fixture, not an eligible Binance owning financial plan. This is a material-versus-provenance AC11 slice plus generic expiry-retention evidence, not full Binance consent invalidation, positive qualification, or owning-plan Prepare evidence. The real Alpaca source-use remains UNRESOLVED and FX_DATA_USE_RIGHTS remains UNVERIFIED.

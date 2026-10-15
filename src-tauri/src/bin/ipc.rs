@@ -15,14 +15,96 @@ mod fake_live_provider;
 #[path = "../../tests/support/provider_fixtures.rs"]
 mod fixtures;
 
+#[cfg(feature = "integration-test")]
+#[path = "../../tests/support/binance_market_stream_fixture.rs"]
+mod binance_market_stream_fixture;
+#[cfg(feature = "integration-test")]
+#[path = "../../tests/support/quote_stream_fixture.rs"]
+mod quote_stream_fixture;
+#[cfg(feature = "integration-test")]
+#[derive(Clone, Default)]
+struct SharedVault(Arc<Mutex<fixtures::Vault>>);
+#[cfg(feature = "integration-test")]
+impl tradex::provider_io::CredentialVault for SharedVault {
+    fn put(&self, r: &str, c: &tradex::provider_io::Credentials) -> tradex::protocol::Result<()> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))?
+            .put(r, c)
+    }
+    fn get(&self, r: &str) -> tradex::protocol::Result<tradex::provider_io::Credentials> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))?
+            .get(r)
+    }
+    fn remove(&self, r: &str) -> tradex::protocol::Result<()> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("CREDENTIAL_UNAVAILABLE"))?
+            .remove(r)
+    }
+}
+#[cfg(feature = "integration-test")]
+#[derive(Default)]
+struct QuoteHttp(Mutex<fixtures::Http>);
+#[cfg(feature = "integration-test")]
+impl tradex::provider_io::ProviderHttp for QuoteHttp {
+    fn get(
+        &self,
+        e: tradex::provider_io::ProviderEndpoint,
+        p: &str,
+        h: reqwest::header::HeaderMap,
+    ) -> tradex::protocol::Result<Vec<u8>> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("PROVIDER_UNAVAILABLE"))?
+            .get(e, p, h)
+    }
+    fn request(
+        &self,
+        e: tradex::provider_io::ProviderEndpoint,
+        m: tradex::provider_io::ProviderHttpMethod,
+        p: &str,
+        h: reqwest::header::HeaderMap,
+        b: Option<&Value>,
+    ) -> tradex::protocol::Result<tradex::provider_io::ProviderHttpResponse> {
+        self.0
+            .lock()
+            .map_err(|_| tradex::protocol::TradeXError::new("PROVIDER_UNAVAILABLE"))?
+            .request(e, m, p, h, b)
+    }
+}
 fn main() -> io::Result<()> {
     #[cfg(feature = "integration-test")]
-    let (vault, http) = (fixtures::Vault::default(), fixtures::Http::default());
+    let (vault, http) = {
+        let mut http = fixtures::Http::default();
+        http.fx_ui = std::env::var_os("TRADEX_FX_HTTP_FIXTURE").is_some();
+        http.binance_rules_ui = std::env::var_os("TRADEX_BINANCE_RULE_HTTP_FIXTURE").is_some();
+        (Arc::new(SharedVault::default()), http)
+    };
     let Some(path) = std::env::args_os().nth(1) else {
         eprintln!("Usage: tradex-ipc <isolated-workspace-directory>");
         std::process::exit(2);
     };
     let control = Arc::new(Mutex::new(ControlPlane::new(PathBuf::from(path))));
+    #[cfg(feature = "integration-test")]
+    let quote_hot = tradex::quote_source::hot::QuoteHotSupervisor::new();
+    #[cfg(feature = "integration-test")]
+    let quote_http = Arc::new(QuoteHttp::default());
+    #[cfg(feature = "integration-test")]
+    let quote_connector = if std::env::var_os("TRADEX_QUOTE_STREAM_FIXTURE").is_some() {
+        Some(quote_stream_fixture::start()?)
+    } else {
+        None
+    };
+    #[cfg(feature = "integration-test")]
+    let binance_market_fixture =
+        if std::env::var_os("TRADEX_BINANCE_MARKET_STREAM_FIXTURE").is_some() {
+            Some(binance_market_stream_fixture::start()?)
+        } else {
+            None
+        };
     let supervisor = RuntimeSupervisor::new();
     let strategy_supervisor = StrategySupervisor::new();
     let backtest_supervisor = BacktestSupervisor::new();
@@ -219,6 +301,183 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.permission.fixture") {
+                // Change only the synthetic external key-permission response, never an account row.
+                let permission = match request["payload"]["scenario"].as_str() {
+                    Some("SAFE") => Some(fixtures::BinancePermissionFixture::Safe),
+                    Some("WITHDRAWAL") => Some(fixtures::BinancePermissionFixture::Withdrawal),
+                    Some("INTERNAL_TRANSFER") => {
+                        Some(fixtures::BinancePermissionFixture::InternalTransfer)
+                    }
+                    Some("UNIVERSAL_TRANSFER") => {
+                        Some(fixtures::BinancePermissionFixture::UniversalTransfer)
+                    }
+                    Some("MARGIN") => Some(fixtures::BinancePermissionFixture::Margin),
+                    Some("FUTURES") => Some(fixtures::BinancePermissionFixture::Futures),
+                    Some("OPTIONS") => Some(fixtures::BinancePermissionFixture::Options),
+                    Some("PORTFOLIO_MARGIN") => {
+                        Some(fixtures::BinancePermissionFixture::PortfolioMargin)
+                    }
+                    Some("FIX_TRADE") => Some(fixtures::BinancePermissionFixture::FixTrade),
+                    Some("READING_DISABLED") => {
+                        Some(fixtures::BinancePermissionFixture::ReadingDisabled)
+                    }
+                    _ => None,
+                };
+                let reply = if let Some(permission) = permission.filter(|_| http.binance_rules_ui) {
+                    http.binance_permission_ui.set(permission);
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.commission.fixture") {
+                // Only the external HTTP producer changes; this never sets Control Plane evidence.
+                let mode = match request["payload"]["scenario"].as_str() {
+                    Some("NORMAL") => Some(fixtures::BinanceCommissionFixture::Normal),
+                    Some("CHANGED") => Some(fixtures::BinanceCommissionFixture::Changed),
+                    Some("INCOMPLETE") => Some(fixtures::BinanceCommissionFixture::Incomplete),
+                    Some("EXTENSIONS") => Some(fixtures::BinanceCommissionFixture::Extensions),
+                    Some("ZERO_BNB") => Some(fixtures::BinanceCommissionFixture::ZeroBnb),
+                    Some("TINY_BNB") => Some(fixtures::BinanceCommissionFixture::TinyBnb),
+                    Some("BNB_SUFFICIENT") => {
+                        Some(fixtures::BinanceCommissionFixture::BnbSufficient)
+                    }
+                    Some("ZERO_EXPRESSION") => {
+                        Some(fixtures::BinanceCommissionFixture::ZeroExpression)
+                    }
+                    _ => None,
+                };
+                let reply = if let Some(mode) = mode.filter(|_| http.binance_rules_ui) {
+                    http.binance_commission_ui.set(mode);
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.capacity.fixture") {
+                // Only external HTTP responses change. No Control Plane capacity
+                // or financial authority is populated by this disposable UI seam.
+                let mode = match request["payload"]["scenario"].as_str() {
+                    Some("NORMAL") => Some(fixtures::BinanceCapacityFixture::Normal),
+                    Some("BASE_LISTS") => Some(fixtures::BinanceCapacityFixture::BaseLists),
+                    Some("MALFORMED") => Some(fixtures::BinanceCapacityFixture::Malformed),
+                    Some("DELAYED") => Some(fixtures::BinanceCapacityFixture::Delayed),
+                    Some("COMPLETE_COVERAGE") => {
+                        Some(fixtures::BinanceCapacityFixture::CompleteCoverage)
+                    }
+                    Some("ORDER_RATE_EXHAUSTED") => {
+                        Some(fixtures::BinanceCapacityFixture::OrderRateExhausted)
+                    }
+                    Some("FEE_DECLARED") => Some(fixtures::BinanceCapacityFixture::FeeDeclared),
+                    Some("FEE_CHANGED") => Some(fixtures::BinanceCapacityFixture::FeeChanged),
+                    _ => None,
+                };
+                let reply = if let Some(mode) = mode.filter(|_| http.binance_rules_ui) {
+                    http.binance_capacity_ui.set(mode);
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")})
+                };
+                write_frame(&output, &json!({"kind":"result","result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.rules.fixture") {
+                let p = &request["payload"];
+                let result = match (p["scenario"].as_str(), p["symbol"].as_str()) {
+                    (
+                        Some(
+                            "NORMAL"
+                            | "HALT"
+                            | "BREAK"
+                            | "MALFORMED"
+                            | "PERCENT_REFERENCE"
+                            | "PRICE_REJECT"
+                            | "PRICE_RANGE_PARTIAL"
+                            | "PRICE_RANGE_NULL",
+                        ),
+                        Some(symbol @ ("BTCUSDT" | "ETHUSDT")),
+                    ) if http.binance_rules_ui => {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map_or(0, |elapsed| elapsed.as_millis() as u64);
+                        let mut external = fixtures::binance_spot_exchange_info(symbol);
+                        *http.binance_execution_rules.borrow_mut() = None;
+                        *http.binance_reference_price.borrow_mut() = None;
+                        match p["scenario"].as_str().unwrap() {
+                            "HALT" | "BREAK" => {
+                                external["symbols"][0]["status"] = p["scenario"].clone()
+                            }
+                            "MALFORMED" => {
+                                external["symbols"][0]["filters"][1]["minQty"] = json!("200")
+                            }
+                            "PERCENT_REFERENCE" => external["symbols"][0]["filters"].as_array_mut().unwrap().push(json!({"filterType":"PERCENT_PRICE","multiplierDown":"0.8","multiplierUp":"1.2","avgPriceMins":5})),
+                            "PRICE_REJECT" => external["symbols"][0]["filters"][0]["tickSize"] = json!("7"),
+                            // Documented partial PRICE_RANGE configuration: only one multiplier.
+                            "PRICE_RANGE_PARTIAL" => *http.binance_execution_rules.borrow_mut() = Some(json!({"symbolRules":[{"symbol":symbol,"rules":[{"ruleType":"PRICE_RANGE","bidLimitMultUp":"1.0001"}]}]})),
+                            // Documented explicit null reference price: not enforced, not a failure.
+                            "PRICE_RANGE_NULL" => *http.binance_reference_price.borrow_mut() = Some(json!({"symbol":symbol,"referencePrice":null,"timestamp":now_ms})),
+                            _ => (),
+                        }
+                        *http.binance_exchange_info.borrow_mut() = if p["scenario"] == "NORMAL" {
+                            None
+                        } else {
+                            Some(external)
+                        };
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                    }
+                    _ => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.live.trading-status.fixture") {
+                let scenario = request
+                    .get("payload")
+                    .and_then(|p| p.get("scenario"))
+                    .and_then(Value::as_str);
+                let reply = match scenario {
+                    Some("NORMAL" | "MAINTENANCE" | "LOCKED" | "MALFORMED") => {
+                        *http.binance_system_status.borrow_mut() = Some(
+                            json!({"status": if scenario == Some("MAINTENANCE") {1} else {0}}),
+                        );
+                        *http.binance_api_trading_status.borrow_mut() = Some(
+                            if scenario == Some("MALFORMED") {
+                                json!({"data":{}})
+                            } else {
+                                json!({"data":{"isLocked": scenario == Some("LOCKED"),"plannedRecoverTime":0,"updateTime":1547630471725u64}})
+                            },
+                        );
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                    }
+                    _ => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":{"code":"IPC_PAYLOAD_INVALID"}})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("binance.testnet.cancel.fixture") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let scenario = payload.get("scenario").and_then(Value::as_str);
@@ -401,6 +660,35 @@ fn main() -> io::Result<()> {
                     Err(error) => {
                         json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
                     }
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("model.route.fixture") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let seeded = match payload.get("workspaceId").and_then(Value::as_str) {
+                    Some(workspace_id) => match control.lock() {
+                        Ok(mut control) => {
+                            control.seed_browser_deepseek_route_fixture(workspace_id)
+                        }
+                        Err(_) => Err(tradex::protocol::TradeXError::new(
+                            "IPC_CONTROL_PLANE_UNAVAILABLE",
+                        )),
+                    },
+                    None => Err(tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")),
+                };
+                let reply = match seeded {
+                    Ok(()) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                        "data":{"seeded":true,"route":"DEEPSEEK:deepseek-v4-flash"}
+                    }),
+                    Err(error) => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":error
+                    }),
                 };
                 write_frame(&output, &json!({"kind":"result", "result":reply}))?;
                 frame.clear();
@@ -591,14 +879,73 @@ fn main() -> io::Result<()> {
             }
             #[cfg(feature = "integration-test")]
             if command == Some("trading212.live.cancel.fixture.seed_order") {
-                http.seed_trading212_live_cancel_order();
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let order_id = payload
+                    .get("orderId")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(9_007_199_254_740_996);
+                if order_id == 0 || order_id > i64::MAX as u64 {
+                    write_frame(
+                        &output,
+                        &json!({
+                            "kind":"result",
+                            "result":{
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                            }
+                        }),
+                    )?;
+                    frame.clear();
+                    oversized = false;
+                    continue;
+                }
+                http.seed_trading212_live_cancel_order(order_id);
                 write_frame(
                     &output,
                     &json!({
                         "kind":"result",
-                        "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"seeded":true}}
+                        "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"seeded":true,"orderId":order_id.to_string()}}
                     }),
                 )?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("account.open_order.fixture.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let connection_id = payload.get("connectionId").and_then(Value::as_str);
+                let broker_order_id = payload.get("brokerOrderId").and_then(Value::as_str);
+                let reply = match (workspace_id, connection_id, broker_order_id) {
+                    (Some(workspace_id), Some(connection_id), Some(broker_order_id)) => {
+                        match control.lock() {
+                            Ok(mut control) => match control.seed_live_open_order_fixture(
+                                workspace_id,
+                                connection_id,
+                                broker_order_id,
+                            ) {
+                                Ok(account) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                    "data":account
+                                }),
+                                Err(error) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":error
+                                }),
+                            },
+                            Err(_) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                            }),
+                        }
+                    }
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
                 frame.clear();
                 oversized = false;
                 continue;
@@ -611,6 +958,20 @@ fn main() -> io::Result<()> {
                     &json!({
                         "kind":"result",
                         "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"filled":true}}
+                    }),
+                )?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("trading212.live.place.fixture.seed_partial") {
+                http.seed_trading212_live_place_partial_order();
+                write_frame(
+                    &output,
+                    &json!({
+                        "kind":"result",
+                        "result":{"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{"seeded":true}}
                     }),
                 )?;
                 frame.clear();
@@ -631,7 +992,13 @@ fn main() -> io::Result<()> {
                             label,
                         ) {
                             Ok(account) => {
-                                vault.present.borrow_mut().insert(account.credential_ref());
+                                vault
+                                    .0
+                                    .lock()
+                                    .unwrap()
+                                    .present
+                                    .borrow_mut()
+                                    .insert(account.credential_ref());
                                 json!({
                                     "requestId":request["requestId"],"schemaVersion":1,"ok":true,
                                     "data":account
@@ -658,6 +1025,45 @@ fn main() -> io::Result<()> {
                 continue;
             }
             #[cfg(feature = "integration-test")]
+            if command == Some("trade.live_approval.market.fixture.set") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let instrument_id = payload.get("instrumentId").and_then(Value::as_str);
+                let revision = payload.get("revision").and_then(Value::as_str);
+                let reply = match (workspace_id, instrument_id, revision) {
+                    (Some(workspace_id), Some(instrument_id), Some(revision)) => {
+                        match control.lock() {
+                            Ok(mut control) => match control.set_live_approval_market_fixture(
+                                workspace_id,
+                                instrument_id,
+                                revision,
+                            ) {
+                                Ok(snapshot) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                    "data":snapshot
+                                }),
+                                Err(error) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":error
+                                }),
+                            },
+                            Err(_) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                            }),
+                        }
+                    }
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
             if command == Some("account.arming.fixture.seed") {
                 let payload = request.get("payload").unwrap_or(&Value::Null);
                 let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
@@ -669,7 +1075,13 @@ fn main() -> io::Result<()> {
                             match control.seed_live_arming_fixture(workspace_id, provider_id, label)
                             {
                                 Ok(account) => {
-                                    vault.present.borrow_mut().insert(account.credential_ref());
+                                    vault
+                                        .0
+                                        .lock()
+                                        .unwrap()
+                                        .present
+                                        .borrow_mut()
+                                        .insert(account.credential_ref());
                                     if account.provider_id == "trading212"
                                         && account.environment == "LIVE"
                                         && let Some(remote_id) =
@@ -701,6 +1113,112 @@ fn main() -> io::Result<()> {
                     }),
                 };
                 write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("account.authentication_failure.fixture.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let provider_id = payload.get("providerId").and_then(Value::as_str);
+                let label = payload.get("label").and_then(Value::as_str);
+                let reply = match (workspace_id, provider_id, label) {
+                    (Some(workspace_id), Some(provider_id), Some(label)) => match control.lock() {
+                        Ok(mut control) => {
+                            match control.seed_authentication_failure_fixture(
+                                workspace_id,
+                                provider_id,
+                                label,
+                            ) {
+                                Ok(account) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                    "data":account
+                                }),
+                                Err(error) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":error
+                                }),
+                            }
+                        }
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("account.private_stream_disconnect.fixture.seed") {
+                let payload = request.get("payload").unwrap_or(&Value::Null);
+                let workspace_id = payload.get("workspaceId").and_then(Value::as_str);
+                let provider_id = payload.get("providerId").and_then(Value::as_str);
+                let label = payload.get("label").and_then(Value::as_str);
+                let reply = match (workspace_id, provider_id, label) {
+                    (Some(workspace_id), Some(provider_id), Some(label)) => match control.lock() {
+                        Ok(mut control) => match control.seed_private_stream_disconnect_fixture(
+                            workspace_id,
+                            provider_id,
+                            label,
+                        ) {
+                            Ok(account) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":true,
+                                "data":account
+                            }),
+                            Err(error) => json!({
+                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                "error":error
+                            }),
+                        },
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    },
+                    _ => json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_PAYLOAD_INVALID")
+                    }),
+                };
+                write_frame(&output, &json!({"kind":"result", "result":reply}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("trade.execution.fixture.prepare_reserved") {
+                let result = if std::env::var("TRADEX_LIVE_APPROVAL_FIXTURE").as_deref() != Ok("1")
+                {
+                    json!({
+                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                        "error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")
+                    })
+                } else {
+                    // Exercise the real durable Prepare transaction, then hold at RESERVED so
+                    // the synthetic clock can deterministically win before Gateway dispatch.
+                    let mut prepare_request = request.clone();
+                    prepare_request["command"] = json!("trade.execution.prepare");
+                    match control.lock() {
+                        Ok(mut control) => control.dispatch_with_events(
+                            prepare_request,
+                            "stdio",
+                            Some(sink.clone()),
+                        ),
+                        Err(_) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                        }),
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
                 frame.clear();
                 oversized = false;
                 continue;
@@ -762,7 +1280,13 @@ fn main() -> io::Result<()> {
                             label,
                         ) {
                             Ok(account) => {
-                                vault.present.borrow_mut().insert(account.credential_ref());
+                                vault
+                                    .0
+                                    .lock()
+                                    .unwrap()
+                                    .present
+                                    .borrow_mut()
+                                    .insert(account.credential_ref());
                                 if provider_id == "binance" {
                                     http.binance_uid.set(9_007_199_254_740_993);
                                 }
@@ -1117,34 +1641,221 @@ fn main() -> io::Result<()> {
                 oversized = false;
                 continue;
             }
-            if command == Some("data.source.probe") {
-                let prepared = match control.lock() {
-                    Ok(mut control) => control.prepare_data_source_probe(&request),
-                    Err(_) => Err(tradex::protocol::TradeXError::new(
-                        "IPC_CONTROL_PLANE_UNAVAILABLE",
-                    )),
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.market.fixture.gap") {
+                let result = match (
+                    binance_market_fixture.as_ref(),
+                    request["payload"]["enabled"].as_bool(),
+                ) {
+                    (Some(fixture), Some(enabled)) => {
+                        fixture.set_gap(enabled);
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":{}})
+                    }
+                    _ => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")})
+                    }
                 };
-                let result = match prepared {
-                    Ok(Some(job)) => {
-                        let outcome =
-                            tradex::data_sources::probe(&job.input.source_id, job.source.clone());
-                        match control.lock() {
-                            Ok(mut control) => control.complete_data_source_probe(&job, outcome),
-                            Err(_) => json!({
-                                "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                                "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
-                            }),
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("binance.market.fixture.inspect") {
+                let result = match binance_market_fixture.as_ref() {
+                    Some(fixture) => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":true,"data":fixture.inspect()})
+                    }
+                    None => {
+                        json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")})
+                    }
+                };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if matches!(
+                command,
+                Some(
+                    "market.hot.acquire"
+                        | "market.hot.release"
+                        | "trade.spot_fee_market.acquire"
+                        | "trade.spot_fee_market.release"
+                )
+            ) {
+                let fee_only = matches!(
+                    command,
+                    Some("trade.spot_fee_market.acquire" | "trade.spot_fee_market.release")
+                );
+                let instrument = if fee_only {
+                    Some("internal:BNB/USDT:fee")
+                } else {
+                    request["payload"]["instrumentId"].as_str()
+                };
+                let binance = fee_only || instrument.is_some_and(|id| id.starts_with("crypto:"));
+                let result = if binance && binance_market_fixture.is_some() {
+                    let fixture = binance_market_fixture.as_ref().unwrap();
+                    match fixture.connector(instrument.unwrap()) {
+                        Ok(connector) => quote_hot.dispatch_with(
+                            &control,
+                            &request,
+                            "stdio",
+                            Arc::new(binance_market_stream_fixture::NoTradingKey),
+                            fixture.http.clone(),
+                            tradex::quote_source::hot::QuoteStreamConnectors {
+                                stock: Default::default(),
+                                binance: connector,
+                            },
+                        ),
+                        Err(error) => {
+                            json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":error})
                         }
                     }
-                    Ok(None) => json!({
-                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                        "error":tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")
-                    }),
-                    Err(error) => json!({
-                        "requestId":request["requestId"],"schemaVersion":1,"ok":false,
-                        "error":error
-                    }),
+                } else if command == Some("market.hot.release") && binance_market_fixture.is_some()
+                {
+                    // Release carries lease identity only; the manager owns its transport.
+                    quote_hot.dispatch_with(
+                        &control,
+                        &request,
+                        "stdio",
+                        Arc::new(binance_market_stream_fixture::NoTradingKey),
+                        binance_market_fixture.as_ref().unwrap().http.clone(),
+                        tradex::quote_source::hot::QuoteStreamConnectors::default(),
+                    )
+                } else if !binance && let Some(connector) = quote_connector.as_ref() {
+                    quote_hot.dispatch_with(
+                        &control,
+                        &request,
+                        "stdio",
+                        vault.clone(),
+                        quote_http.clone(),
+                        connector.clone(),
+                    )
+                } else {
+                    json!({"requestId":request["requestId"],"schemaVersion":1,"ok":false,"error":tradex::protocol::TradeXError::new("IPC_ACCESS_DENIED")})
                 };
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("market.get") {
+                let result = tradex::quote_source::execute_market(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if matches!(
+                command,
+                Some(
+                    "data.actions.refresh"
+                        | "data.instrument.refresh"
+                        | "data.fx.refresh"
+                        | "data.binance_rules.refresh"
+                        | "trade.spot_rules.refresh"
+                        | "trade.spot_capacity.refresh"
+                        | "trade.spot_commission.refresh"
+                        | "trade.spot_order_intervals.refresh"
+                )
+            ) {
+                let result = tradex::financial_sources::execute_refresh(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if command == Some("data.calendar.refresh") {
+                let result = tradex::calendar_source::execute_refresh(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                write_frame(&output, &json!({"kind":"result","result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            if command == Some("data.source.probe") {
+                #[cfg(feature = "integration-test")]
+                let result = tradex::quote_source::execute_probe(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    &http,
+                );
+                #[cfg(not(feature = "integration-test"))]
+                let result = {
+                    let prepared = match control.lock() {
+                        Ok(mut control) => control.prepare_data_source_probe(&request),
+                        Err(_) => Err(tradex::protocol::TradeXError::new(
+                            "IPC_CONTROL_PLANE_UNAVAILABLE",
+                        )),
+                    };
+                    let result = match prepared {
+                        Ok(Some(job)) => {
+                            let outcome = tradex::data_sources::probe(
+                                &job.input.source_id,
+                                job.source.clone(),
+                            );
+                            match control.lock() {
+                                Ok(mut control) => {
+                                    control.complete_data_source_probe(&job, outcome)
+                                }
+                                Err(_) => json!({
+                                    "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                                    "error":tradex::protocol::TradeXError::new("IPC_CONTROL_PLANE_UNAVAILABLE")
+                                }),
+                            }
+                        }
+                        Ok(None) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":tradex::protocol::TradeXError::new("IPC_COMMAND_UNKNOWN")
+                        }),
+                        Err(error) => json!({
+                            "requestId":request["requestId"],"schemaVersion":1,"ok":false,
+                            "error":error
+                        }),
+                    };
+                    result
+                };
+                write_frame(&output, &json!({"kind":"result", "result":result}))?;
+                frame.clear();
+                oversized = false;
+                continue;
+            }
+            #[cfg(feature = "integration-test")]
+            if matches!(
+                command,
+                Some("data.source.configure" | "data.source.disconnect" | "data.source.cleanup")
+            ) {
+                let result = tradex::quote_source::execute_configuration(
+                    &control,
+                    &request,
+                    "stdio",
+                    vault.as_ref(),
+                    fixtures::credentials,
+                );
                 write_frame(&output, &json!({"kind":"result", "result":result}))?;
                 frame.clear();
                 oversized = false;
@@ -1161,7 +1872,7 @@ fn main() -> io::Result<()> {
             let result = match prepared {
                 Ok(Some(job)) => {
                     let outcome = job.run(
-                        &vault,
+                        vault.as_ref(),
                         |definition| {
                             if definition.provider_id == "bitget" {
                                 fixtures::bitget::credentials()
@@ -1179,7 +1890,9 @@ fn main() -> io::Result<()> {
                     match control.lock() {
                         Ok(mut control) => {
                             let reply = control.complete_provider(&job, outcome);
-                            if let Some(cleanup) = job.cleanup_after_failed_commit(&reply, &vault) {
+                            if let Some(cleanup) =
+                                job.cleanup_after_failed_commit(&reply, vault.as_ref())
+                            {
                                 control.record_credential_cleanup(&job, cleanup);
                             }
                             reply
@@ -1286,6 +1999,8 @@ fn main() -> io::Result<()> {
     if gateway.stop() {
         let _ = std::fs::remove_dir_all(runtime_path);
     }
+    #[cfg(feature = "integration-test")]
+    quote_hot.stop_all();
     Ok(())
 }
 

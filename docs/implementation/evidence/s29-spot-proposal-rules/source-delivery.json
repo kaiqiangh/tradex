@@ -1,0 +1,38 @@
+{
+  "sourceCommit": "ecc2860b197e3806d14f1eb9871c52246bd8378f",
+  "remoteDevVerified": "ecc2860b197e3806d14f1eb9871c52246bd8378f",
+  "checkpointFilesMatched": {
+    "src-tauri/src/spot_proposal_rules.rs": true,
+    "src-tauri/src/lib.rs": true,
+    "src-tauri/src/binance.rs": true,
+    "src-tauri/src/financial_sources.rs": true,
+    "src-tauri/src/protocol.rs": true,
+    "src-tauri/src/risk.rs": true,
+    "src-tauri/src/main.rs": true,
+    "src-tauri/src/bin/ipc.rs": true,
+    "src-tauri/tests/binance_rules.rs": true,
+    "src-tauri/tests/support/provider_fixtures.rs": true,
+    "src/SpotProposalRules.tsx": true,
+    "src/OrderDrafts.tsx": true,
+    "src/client.ts": true,
+    "src/styles.css": true,
+    "tests/spot-proposal-rules-ui.mjs": true,
+    "shared/ipc-types.ts": true,
+    "shared/ipc-v1.schema.json": true,
+    "shared/ipc-validators.js": true,
+    "shared/ipc-validators.d.ts": true
+  },
+  "validationExecutionState": "frozen worktree before commit creation; exact committed bytes verified afterwards",
+  "githubWorkflows": 0,
+  "remoteCiPassClaimed": false,
+  "closure": {
+    "closedAt": "2026-10-09T05:36:48Z",
+    "number": 125,
+    "state": "CLOSED",
+    "url": "https://github.com/kaiqiangh/tradex/issues/125",
+    "resolutionUrl": "https://github.com/kaiqiangh/tradex/issues/125#issuecomment-6075002255",
+    "sourceCommit": "ecc2860b197e3806d14f1eb9871c52246bd8378f"
+  },
+  "mainChanged": false,
+  "prototypeChanged": false
+}

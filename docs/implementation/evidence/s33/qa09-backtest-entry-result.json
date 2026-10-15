@@ -1,0 +1,31 @@
+{
+  "result": "PASS_LIMITED",
+  "backtestRuns": 6,
+  "cancels": 1,
+  "comparisons": 1,
+  "syntheticTurns": 1,
+  "frozenVersion": "835a98dc-104e-494c-a596-46cc8e603a80",
+  "runIds": [
+    "e612b3bd-3990-4b9c-9499-707a3c175f8f",
+    "f30b4f79-7ad8-4e9f-957a-aeb77a76165c",
+    "a34afdd7-5a1d-4c82-869d-fca432389810",
+    "7b5843ee-3928-482c-82f8-7b55fa170505",
+    "7b29e3d9-517e-46cb-8a01-29edbf7b568e",
+    "52497337-883a-4d5c-b141-254658ca46a2"
+  ],
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "workspaceRuntimeRefresh": true,
+  "forbiddenCommands": 0,
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "boundary": "One disposable Rust-backed workspace; local Codex readiness fixture and deterministic historical backtest fixtures only. No provider or broker access.",
+  "limitations": [
+    "Historical generation and market data are synthetic fixtures; no real datasets or model inference were used.",
+    "This validates six local run lifecycles and convergence of the Thread/editor entries, not full S14/S15, native accessibility, real model setup, or S33 acceptance."
+  ],
+  "capturedAt": "2026-10-14T12:29:23.777Z"
+}

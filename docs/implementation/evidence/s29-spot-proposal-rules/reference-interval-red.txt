@@ -1,0 +1,36 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.76s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-6a454c9e45801a7e)
+
+running 1 test
+
+running 1 test
+test unmatched_average_is_explained_as_interval_mismatch_without_substitution ... FAILED
+
+failures:
+
+failures:
+    unmatched_average_is_explained_as_interval_mismatch_without_substitution
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.11s
+
+
+thread 'unmatched_average_is_explained_as_interval_mismatch_without_substitution' (10814075) panicked at src-tauri/tests/binance_rules.rs:1094:5:
+assertion `left == right` failed: {"applicable":true,"origin":"EXCHANGE_INFO","outcome":"UNAVAILABLE","reasonCode":"REFERENCE_PRICE_MISSING","ruleType":"PERCENT_PRICE","scope":"SYMBOL","unit":"USDT/BTC"}
+  left: String("REFERENCE_PRICE_MISSING")
+ right: "REFERENCE_PRICE_INTERVAL_MISMATCH"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'unmatched_average_is_explained_as_interval_mismatch_without_substitution' (10814068) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: unmatched_average_is_explained_as_interval_mismatch_without_substitution
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test unmatched_average_is_explained_as_interval_mismatch_without_substitution ... FAILED
+
+failures:
+
+failures:
+    unmatched_average_is_explained_as_interval_mismatch_without_substitution
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.35s
+
+error: test failed, to rerun pass `--test binance_rules`

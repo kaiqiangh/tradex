@@ -698,6 +698,10 @@ Requirements:
 - resuming a thread never restores a previously consumed or expired live execution approval;
 - users can create a new thread without losing prior thread state.
 
+### Saved Thread lifecycle (B2 #148)
+
+Archive Thread moves an ACTIVE Thread into Saved (ARCHIVED). A running Turn prevents archiving with a visible reason. Selecting Saved restores viewing context only; the archived Thread's own identity, upstream conversation reference, defaults, linked contexts and timeline remain intact and read-only. Restore to active is a separate explicit local action, followed by a separate Send to continue. Archive/restore never deletes the upstream conversation or derived Artifacts, starts/cancels work, grants data rights, renews financial approval, changes account arming, or releases reservations. Backend version/status guards apply even when renderer controls are bypassed. Invalid/stale transitions leave history unchanged. UI §14.44 and Backend §41.61 define this contract; native/full S33 acceptance remains separate.
+
 ## 11.5 Context, Account, Agent Mode, and Model Pickers
 
 The composer controls are interactive product primitives, not decorative labels.
@@ -1291,7 +1295,24 @@ The trusted Control Plane evaluates an immutable OrderProposal against the curre
 
 A policy rejection takes precedence. If no check rejects but required evidence is missing, stale, or untrusted, the result is `UNAVAILABLE`. Missing evidence never becomes an empty portfolio, zero activity, or assumed currency parity. Submit commands must re-evaluate at the trusted boundary and produce no provider/simulator order side effect when the result is `REJECTED` or `UNAVAILABLE`; the renderer and agent cannot provide inputs or override the result. `ALLOWED` is only a policy result and does not grant approval, account arming, reservation, or order-send authority. Ordinary Bitget Live account identity maps to `LIVE` policy while remaining read-only until later financial authority gates exist.
 
+For ordinary Binance Spot Live, show per-Proposal static rule results with exact account/hash, original scope/origin and BASE/QUOTE units. Only genuine purpose-matching reference inputs may qualify percentages/notionals; error, future, stale or unknown inputs remain unavailable. Complete rules PASS requires every actually applicable obligation; captured history cannot renew current evidence. Read-only rule collection and static success do not grant quote/data-use rights, fees/FX, Arm, consent or immediate preflight. Backend §41.44 and UI §14.28 define the shared contract; prototype code is unchanged.
+
+Exact-account capacity inputs are an explicit read-only prerequisite, not dynamic financial qualification. Preserve bounded account versus symbol inventory/coverage, original BASE free/locked and open BUY quantity components, partial/foreign/list-leg uncertainty and non-atomic original times/receipts. Cached history never renews current observation, and no absent count becomes zero. Backend §41.45 and UI §14.29 define the current/captured contract; all financial approval, rights, funding, Arm and immediate preflight gates remain independent.
+
+Account-wide unfilled-order interval inputs are a separate read-only prerequisite. Actual declared ORDERS intervals and authenticated original integer counts never substitute for open-order inventory, HTTP budgets or reservations; missing usage is not zero/unlimited, local fills/cancellations cannot invent decrement/reset, and clocks/receipts do not become counter snapshot times. Preserve bounded incomplete coverage and derived temporal uncertainty/retirement in current/captured review. Qualification stays UNAVAILABLE; owning dynamic rules and all complete financial gates remain separate. Backend §41.46 and UI §14.30 define this contract; prototype code unchanged.
+
+The owning Live PLACE admission statement is derived from those already-delivered read-only observations and never from a second projection. Show the exact reason in plain language, the venue's own remaining declared order slots with the binding declared bucket, or the one typed fact that stops it, always adjacent to each other. State the unit, the declared origin of each number, the declared open-order and open-buy figures as declared exposure only, the declared free/locked figures with no second subtraction, and the standing limitations of the underlying reads as how they were obtained rather than as a coverage gap. A missing, incomplete, mismatched or exhausted declaration blocks approval and Prepare rather than shrinking the number. No statement, however current, grants Arm, consent, dispatch, fees, required FX or any execution qualification, because the venue recalculates its windows on its own clock. Backend §41.48 and UI §14.32 define this contract; prototype code unchanged.
+
+The PRICE_RANGE execution rule is explained as a snapshot, never as eligibility. Show the selected side's actual configured multipliers, where a documented omission is not enforced and a reported zero is a real multiplier, the genuine provider reference price that alone qualifies the bound, the exact selected-side snapshot bound with its unit, and clear separation between verified non-enforcement, a provider-reported explicit null, an unavailable or stale lookup and an unsupported configuration. Keep the taker-phase recalculation, possible expiry and the absence of any fill or admission promise explicit. No snapshot preview, reference read or captured review approves, places, reserves or promises a trade, and the venue reference price is never persisted into saved history. Backend §41.47 and UI §14.31 define this contract; prototype code unchanged.
+
+Owning Spot fee/required-FX review consumes the already-read account commission and proposal-scoped routes, preserving declared rates, comparison basis, exact units/origins and independently missing fee/route evidence. Unknown fee currency, unsupported USDT conversion or binding mismatch prevents financial approval/Prepare rather than fabricating a fee, parity or converted maximum. Captured history cannot be renewed. Current input refusal is a source slice only; genuinely established fees and required execution FX remain mandatory for the complete Live path. Backend §41.49/UI §14.33 define this contract; prototype code unchanged.
+
 ---
+
+A separate explicit exact-symbol commission source may collect the complete declared rate families and conditional charging branches for the saved Proposal. Original account comparison rates and this source declaration are distinct; neither establishes a numeric total fee, a guaranteed future charging asset or required execution FX. Missing or changed terms retire current evidence; saved assessments retain original receipts. Backend §41.50/UI §14.34 define the source-only contract.
+
+
+An owning current fee scenario may derive complete standard/tax/special role+side amounts from the current exact-symbol declaration, with explicit received asset, rounding method, net modeled receipt and uncertainty. It is distinct from account-rate comparisons, financial approval allowances, native broker bounds and realized charges; a numeric estimate alone does not qualify required FX, funding or execution. Backend§41.51/UI§14.35 define the additive current-model contract; full S29.11 implementation and real acceptance remain pending, prototype unchanged.
 
 # 22. Pre-approval and Pre-execution Validation
 
@@ -1792,6 +1813,10 @@ data quality / freshness state
 
 The UI must not present delayed data as realtime.
 
+For the selected Alpaca US-equity source, feed coverage and bid/ask venues are distinct from the instrument's listing and execution target. Explicit `iex` is single-venue realtime, `delayed_sip` is delayed consolidated data, and entitled `sip` is realtime consolidated US coverage; no denied feed silently falls back. A consolidated quote is identified as `US_SIP`, with the provider's bid/ask exchange codes retained separately, rather than relabeled as an XNAS order book. It can meet the quote-coverage check only for a supported canonical US-listed instrument whose proposal venue matches its verified listing mapping, with validated regular quote conditions, trusted current timestamps and documented BASE sizes. IEX, delayed, unknown or mismatched coverage cannot meet that execution check. This check does not grant broker permissions, establish market sessions/actions/tradability/FX, Arm an account, or approve execution. For this quote-only producer, quote-freshness and displayed-depth market-order slippage checks use its validated bid/ask and coverage evidence without requiring or inventing a last trade. A configured limit-price deviation check remains unavailable when its required last-trade reference is absent.
+
+Repeated identical provider evidence retains its first TradeX receipt time; reading a cached quote does not freshen it. Provider/receipt timestamps and source/connection generation stay bound to the immutable observation and approval digests. Source changes, reconnects and changed observations invalidate old consent. The production producer target is specified in Backend §41.37; local tests do not establish actual feed entitlement.
+
 ### Time synchronization requirements
 
 TradeX maintains a `TimeService` for quote age, approval TTLs, reconciliation windows, and audit ordering. It records wall-clock and monotonic time, detects material clock jumps, estimates provider/server offset where available, and exposes `CLOCK_SKEW`/stale-state remediation when configured tolerance is exceeded. Live approval/execution is blocked when time uncertainty makes freshness/TTL checks unreliable.
@@ -1810,6 +1835,12 @@ Each market-data integration must explicitly define:
 - supported jurisdictions.
 
 TradeX should not assume that locally caching market data automatically grants redistribution rights.
+
+A versioned local source-use policy may assess user-reported account plan, jurisdiction, agreement-review date, intended scope and raw-data destination for a bounded local purpose. Keep this assessment separate from provider entitlement: user-reported facts and a locally supported purpose alone never establish provider rights or authorize redistribution. A separate explicit Control Plane confirmation may record `FX_DATA_USE_RIGHTS=VERIFIED` with provenance `USER_ATTESTED_LOCAL_ONLY`, bound to the exact workspace, Alpaca Paper account, dataset/location, `POLICY_VALUATION` purpose and `LOCAL_ONLY` destination. Render this state as “verified by you”: it is not independent provider verification and grants no shared, commercial, model/tool-transfer, export, transaction-FX, fee/funding, trading, approval, Arm, Prepare or execution permission. Retire it when any bound source or context changes. Keep raw provider data local; any broader or external use still requires independently established provider entitlement and permitted downstream use.
+
+When the provider does not publish a supported-jurisdiction list and directs users to Support, the local policy may require a dated, referenced, user-reported confirmation for the exact account jurisdiction. This country-specific confirmation remains distinct from market-data rights and does not establish provider entitlement.
+
+For the local Spot `INTENT_POLICY` valuation path, retain the provider-returned pair, exact numeric values, quote denomination, sizes and timestamps as received. Showing a quote does not convert it to the workspace base currency or synthesize an EUR/other-currency value, FX leg, reciprocal or parity. The owning monetary RiskDecision/Prepare consumer may use the valuation only when its exact currency code matches the workspace base currency and every independent source-use, quote-freshness, account, fee, market, approval and authorization gate passes. On mismatch, keep the raw quote visible but return a typed valuation-currency blocker and do not derive a workspace-base amount or create approval authority/reservation. This rule is specific to the local policy-valuation path; cross-account portfolio normalization and explicitly required funding/execution FX remain separate contracts.
 
 ---
 
@@ -2200,6 +2231,10 @@ The product must visibly represent at least:
 - private-stream disconnection;
 - startup reconciliation.
 
+## 43.6 Exact Live Wallet Evidence
+
+Every immutable Live financial review binds wallet coverage to the exact workspace, Proposal/hash, account and source/rule/capacity generation. It preserves one authenticated account-read receipt and the original free/locked amount for each observed required BASE, QUOTE and conditional BNB asset. Missing, stale, duplicate, malformed or mismatched holdings remain unavailable; a missing row is never zero. Broker free already excludes locked funds. Subtract known active local claims once per native asset and retain the original free, locked and claim values for review. Receipt-only rereads preserve captured provenance without changing unchanged financial material; changed holdings or claims require fresh review. Wallet evidence is read-only and does not itself grant approval, Prepare, Arm or dispatch. Backend §41.56, Frontend §13.42 and UI §14.40 define the contract; full S29.11 acceptance remains pending.
+
 
 ---
 
@@ -2232,6 +2267,10 @@ Spread: 1.7 bps
 
 If actual required spend would exceed the approved hard limit, TradeX rejects submission.
 
+For a BUY MARKET Proposal with QUOTE quantity, the native principal remains the exact `quoteOrderQty`. Keep it distinct from `maximumSpend`, which is the separate local total-cost authorization limit; a larger limit does not increase native principal capacity.
+
+For a BUY LIMIT Proposal, the native QUOTE principal is the exact BASE quantity multiplied by its immutable limit price. A supplied `maximumSpend` remains a separate local authorization ceiling; when it is below the required principal, refuse the review rather than reducing the native principal amount.
+
 ---
 
 # 45. Order State Model and UI Mapping
@@ -2258,7 +2297,7 @@ UNKNOWN_RECONCILING
 
 `REJECTED` is the canonical order state for broker/exchange rejection. `SUBMISSION_REJECTED` is an error category explaining why the state became `REJECTED`; `BROKER_REJECTED` must not be introduced as a third machine state.
 
-Approval expiry and broker order expiry are distinct events. An expired approval is never reusable, but expiry does not by itself prove that an order was not submitted. Every expiry event records its scope (`approval` or `broker_order`), authority/evidence reference, and reservation disposition; emit a reservation-release event only for capacity actually released.
+Approval expiry and broker order expiry are distinct events. An expired approval is never reusable, but expiry does not by itself prove that an order was not submitted. Every expiry event records its scope (`approval` or `broker_order`), authority/evidence reference, and reservation disposition; emit a reservation-release event only for capacity actually released. For an already consumed approval, record authority expiry while preserving its `CONSUMED` status and consumption history.
 
 | Trigger and known execution state | Authoritative transition | Reservation disposition |
 |---|---|---|
@@ -2599,6 +2638,14 @@ At minimum, provenance should include where applicable:
 - dataset / backtest manifest hash;
 - related proposal/order IDs;
 - creation timestamp.
+
+## 55.2 Workspace archive and retention boundary (S31 #137)
+
+The v1 workspace archive is a bounded, versioned local file containing one validated SQLite workspace snapshot. Its manifest binds the workspace identity, capture time, storage schema, fixed member path, byte length, and SHA-256 digest. The snapshot retains saved workspace records and their provenance, including unresolved orders, cancellations, reservations, settlements, and audit history. Credentials remain represented only by opaque local references; broker/API secrets, OAuth material, Keychain contents, logs, DuckDB market history, and cache files are excluded unless a separate data-rights decision permits their export.
+
+Preview is read-only and reports archive compatibility, included data categories and record counts, credential-reference status, and warnings. Restore requires an explicit user confirmation, stages and validates the database, runs supported migrations and integrity checks, creates a backup of the current workspace, and publishes the restored workspace separately. It invalidates prior approvals and current cancellation consent, stops the model gateway, leaves every Live account DISARMED and stale, and requires fresh authentication and reconciliation before execution readiness. A present Keychain entry is only a local reference check; it does not prove provider authentication or trading permission.
+
+Retention has no effect while a category has no configured limit. Saving limits does not delete data; a separate explicit Apply action removes only expired ordinary artifacts without order references, regular files directly under the workspace cache directory, and old local market-history rows. It never removes unresolved financial execution, reconciliation, reservation, settlement, risk, approval, or audit records.
 
 ---
 
@@ -3663,3 +3710,11 @@ Experience goals:
 When the LLM chain is unavailable, the user can still review existing artifacts, approve/reject already-created valid approvals, cancel/reconcile open orders, inspect account health, and use non-model control-plane functions. No live authority depends on model availability.
 
 > **The agent reasons. The TradeX control plane authorizes. The broker/exchange is execution truth.**
+
+# 74. S29.11 Native-Asset Settlement Contract
+
+An owning Spot PLACE stores its immutable initial principal/fee claim vector beside cumulative provider fills and actual fees. Current claims are recomputed from that original vector using exact native decimals, so repeated cumulative observations cannot charge a fill or fee twice. BUY principal follows cumulative filled quote value; SELL principal follows cumulative filled base quantity; each fee reduces reserved capacity only in its charged native asset. A fee charged from received proceeds is preserved as an actual debit and does not consume an unrelated outgoing claim.
+
+Incomplete, contradictory, unknown or decreasing cumulative fill/fee facts preserve the last trusted reservation; an older provider timestamp cannot replace the saved observation. An unreserved outgoing fee or a debit above the claim produces a typed reconciliation hold. Only complete broker-terminal facts release unused native capacity. Provider acceptance, cancellation request, timeout or an absent fee row is not settlement truth. Older scalar-only records remain readable and explicitly lack a full vector. The additive wire and UI contracts are Backend§41.58, Frontend§13.44 and UI§14.42. This contract does not establish S29.11 acceptance; real rights, positive producer-to-Prepare, Gateway preflight, public settlement/replay/concurrency, responsive current/captured/pre-arm evidence and the independent remaining gates remain open.
+
+After a consumed Live PLACE attempt may have reached the provider, the user may explicitly refresh that exact attempt's order evidence while its reservation remains active. The Control Plane binds the read to the consumed approval, saved account, immutable Proposal, saved provider-order ID and current account version, derives any provider-specific symbol namespace, and persists fills/fees through the same cumulative settlement rules. This is a GET-only recovery read and does not authorize or repeat any financial action; incomplete evidence keeps the capacity held. Cancellation-race reads remain a separate approval-bound use of the same command.

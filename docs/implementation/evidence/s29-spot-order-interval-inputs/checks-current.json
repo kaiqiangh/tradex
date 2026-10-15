@@ -1,0 +1,99 @@
+{
+  "stage": "Before independent review, current uncommitted implementation",
+  "head": "e2371f1e1e88c7ce901f438672578a8eaadb1fb7",
+  "checks": [
+    {
+      "name": "ordinary-rust-current",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace"
+      ],
+      "exitCode": 0,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/ordinary-rust-current.txt",
+      "sha256": "86e107d76e1948b2daa4ce388f711a7bc097a55a07ccb88bb39488f587f4dbe3"
+    },
+    {
+      "name": "node-unit-current",
+      "command": [
+        "npm",
+        "run",
+        "test:unit"
+      ],
+      "exitCode": 0,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/node-unit-current.txt",
+      "sha256": "81f9524571056402c90016cc2729255271f408164b5ed3adafdcd9a72d4ff34d"
+    },
+    {
+      "name": "binance-hot-current",
+      "command": [
+        "npm",
+        "run",
+        "test:binance-hot"
+      ],
+      "exitCode": 0,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/binance-hot-current.txt",
+      "sha256": "d8f34a92516f28c34cd12185cf0e5aecad629a657623a16fca8c420a754b419b"
+    },
+    {
+      "name": "stock-hot-current",
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "stock_hot_source",
+        "--features",
+        "integration-test"
+      ],
+      "exitCode": 101,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/stock-hot-current.txt",
+      "sha256": "9a952ffdba767ccba80d3852d3187005bafa8dbe5bf13a72db1b2eb941231057"
+    },
+    {
+      "name": "stock-hot-corrected-current",
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "quote_hot",
+        "--features",
+        "integration-test"
+      ],
+      "exitCode": 0,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/stock-hot-corrected-current.txt",
+      "sha256": "d4941db608d968644066c573f6c661cb34ad1f690e466322b5c4c7439bcde49d"
+    },
+    {
+      "name": "gateway-corrected-current",
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "order_gateway",
+        "--features",
+        "integration-test"
+      ],
+      "exitCode": 0,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/gateway-corrected-current.txt",
+      "sha256": "63452aeb857a4639e8a2b6aad05156685907cb8ae1ddc84caf4cbba74f860506"
+    },
+    {
+      "name": "gateway-complete-current",
+      "command": [
+        "cargo",
+        "test",
+        "--test",
+        "order_gateway",
+        "--features",
+        "integration-test,order-gateway-runtime"
+      ],
+      "exitCode": 0,
+      "log": "docs/implementation/evidence/s29-spot-order-interval-inputs/gateway-complete-current.txt",
+      "sha256": "1c35fa8ae3a460a331b19c77557d52a01ab4b3530a1f6b3c5c956aa706a2c775"
+    }
+  ],
+  "configurationNotes": [
+    "stock_hot_source was a nonexistent target; quote_hot corrected it.",
+    "order_gateway with integration-test alone runs5 base host checks; adding order-gateway-runtime enables the authenticated local-provider suite. Neither configuration mistake is a product test failure."
+  ]
+}

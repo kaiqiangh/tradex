@@ -1,0 +1,32 @@
+{
+  "builtAt": "2026-10-03T15:59:31.144266+00:00",
+  "app": "/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-actions-gateway-pin-native-6vhqt53v/TradeX.app",
+  "baseline": "2f42df60407ef695f6393c84bc24dcaff7e83332",
+  "integrationFeature": false,
+  "ordinaryReleaseSha256": "0c0baa69c92d95021f4a8aa8e7bc82d655b6d32da506382fa3aa973542612d35",
+  "signedBinarySha256": "b3142dbe2eb885ccfa1c73abcdc43f92ab6361987d33651965091468cbfe7302",
+  "gatewaySha256": "6118be1f8bd898acc658c45f1d3e62fdf8759e76e14021d848ec4ad3345a20b7",
+  "gatewayCopySha256": "6118be1f8bd898acc658c45f1d3e62fdf8759e76e14021d848ec4ad3345a20b7",
+  "compiledPinMatches": true,
+  "sourceHashes": {
+    "src-tauri/src/financial_sources.rs": "e8c844ed85216510133c2f0c05d369f2093cbd7d90a76b52133e0d2326db9017",
+    "src-tauri/src/provider_io.rs": "5b5a5e991b3e01a3f3598608225d509cf660eca1a9d58828507d6c398a05f95d",
+    "src-tauri/src/lib.rs": "e0e7f2a8516abb18baa96b62024f774c967cf5ce3a3cc474b3e3d13307a40eeb",
+    "src/FinancialEvidencePanel.tsx": "1642f3e155a76f389cc4930a3c7efa053cd5eb4cd4eb261f618eecd2a40ad34b",
+    "src/OrderDrafts.tsx": "6fc5ee22fbc89f051e42730f83ae5e20b73b7e03eeb6b9fcb996fc805f53d2f7",
+    "src-tauri/src/order_gateway.rs": "0ed5059e71ac9e7de74679cfe96fbafc8f84008a5d420b394887027b703517fe",
+    "src-tauri/src/bin/tradex-order-gateway.rs": "74fd43a91f2fc85a8c544e8862e1d5ac28d40d9eed33da6ca445bd5ff9d4cbc0",
+    "scripts/desktop-order-gateway.mjs": "98a9fbb54e996a4cb09be1cb56dedb38d5bb4765739c4b35490a8e5232215376"
+  },
+  "signing": "Local ad-hoc validation bundle; gateway bytes retain compiled pin; not distribution signing",
+  "hostedReadState": "latest ordinary process launched; Alpaca refresh awaiting result/possible Keychain authentication; T212 selected saved account currently FAILED",
+  "ordinaryStartup": {
+    "observedAt": "2026-10-03T16:02:57.141166+00:00",
+    "actualParentImageMatchesBundle": true,
+    "actualGatewayChildImageMatchesBundle": true,
+    "childParentMatches": true,
+    "privateHandshakeChildRemainsRunning": true,
+    "ui": "tauri://localhost",
+    "financialMutation": false
+  }
+}

@@ -1,0 +1,34 @@
+   Compiling tradex v0.1.0 (/Users/kai/Desktop/my-repo/tradex/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.80s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-3328355685de7afe)
+
+running 1 test
+
+running 1 test
+test capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated ... FAILED
+
+failures:
+
+failures:
+    capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.14s
+
+
+thread 'capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated' (11121763) panicked at src-tauri/tests/binance_rules.rs:1002:5:
+Unknown account field silently disappeared: {"data":{"accountId":"1fe2c3ca-2779-4a7e-8eab-c34d5ed51ba4","baseAsset":"BTC","bindingVersion":"sha256:3482606d2aed0644774697979207ccc58f51ca4a26b20dc5ad933881d140b786","failure":null,"instrumentId":"crypto:BTC/USDT:spot","observation":{"atomic":false,"baseBalance":null,"collectionId":"7dd58718-9480-4e30-8a50-7974b053da5b","counts":{"accountAlgoOrders":"0","accountIcebergOrders":"0","accountOpenOrderLists":null,"accountOpenOrders":"2","classificationsComplete":true,"listCoverageComplete":null,"missingListLegs":null,"orderCoverageComplete":true,"symbolAlgoOrders":"0","symbolIcebergOrders":"0","symbolOpenOrderLists":null,"symbolOpenOrders":"1"},"position":null,"providerObservedAt":null,"quality":"READ_ONLY_SPOT_CAPACITY","reads":[{"digest":"7081c1c2b3d8597defb59bf5efe6b43be198556bbb88881184aea52c96cbc50a","kind":"ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":null,"oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":null,"receivedAt":"2026-10-09T08:38:39.423Z","startedAt":"2026-10-09T08:38:39.418Z"},{"digest":"1eefa5f66af0d0dae007a968e6225ed0c3fce1bc7c7a11e01c3baacae6de49ec","kind":"OPEN_ORDERS_ACCOUNT","latestProviderTransactionTimeMs":null,"latestProviderUpdateTimeMs":"1700000000000","oldestProviderTransactionTimeMs":null,"oldestProviderUpdateTimeMs":"1700000000000","receivedAt":"2026-10-09T08:38:39.431Z","startedAt":"2026-10-09T08:38:39.425Z"}],"unresolvedObligations":["NON_ATOMIC_PROVIDER_SNAPSHOT","DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED"]},"proposalHash":"sha256:4c3f46b1986199d624c16bb8a3848c0a9fac8a5eea018bb6213752a7e9e60c35","proposalId":"proposal:474c8446-d83e-47b6-bafd-1e12fff9c58a","purposes":["OPEN_ORDERS_ACCOUNT"],"qualification":"UNAVAILABLE","qualificationReason":"DYNAMIC_INPUTS_NOT_EXECUTION_QUALIFIED","quoteAsset":"USDT","ruleMaterialVersion":"388e07ec08703653a0da408c1136569ea8b9f89e1dd021e61fc14e2b343e24a1","sourceVersion":"BINANCE_SPOT_RULES:59b3ad06-deb4-40d6-a9b5-c1638060cd82:1","stateVersion":"sha256:016349365544b82862dd6809208e22faf385fab4b414c8f69bd80f85bef73d27","status":"OBSERVED","workspaceId":"59b3ad06-deb4-40d6-a9b5-c1638060cd82"},"ok":true,"requestId":"capacity-account-extensions","schemaVersion":1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated' (11121760) panicked at src-tauri/tests/binance_rules.rs:34:5:
+Isolated scenario failed: capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated ... FAILED
+
+failures:
+
+failures:
+    capacity_account_extensions_are_unresolved_and_optional_original_fields_are_validated
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.42s
+
+error: test failed, to rerun pass `-p tradex --test binance_rules`

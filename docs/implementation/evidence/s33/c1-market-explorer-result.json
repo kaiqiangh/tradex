@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "screenId": "C1",
+  "title": "Market Explorer",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T16:24:42Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 109,
+    "sha256": "d5ccb12570ac2202069b37d68c8a6aad9ac2b8e20f964d886732552f1bb02e74"
+  },
+  "test": {
+    "path": "tests/s33-c1-market-explorer-playwright.js",
+    "sha256": "8d7e0b0ba588afcef2e8a64077cd573e81718cb867295e1a4e10e04e21bfd5d8"
+  },
+  "harness": "Rust-backed local integration Vite on 127.0.0.1:1426 with one disposable fixture-ready workspace",
+  "fixtureOnly": true,
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "assertions": {
+    "marketSections": [
+      "US Stocks",
+      "Crypto",
+      "Screeners"
+    ],
+    "defaultSection": "US Stocks",
+    "canonicalEquity": "equity:US:AAPL",
+    "canonicalCrypto": "crypto:BTC/USDT:spot",
+    "cryptoSearchPreservesCanonicalIdentity": true,
+    "sourceGatedMarketMetrics": true,
+    "catalogInstrumentCounts": {
+      "usEquityMatches": 2,
+      "cryptoSpotMatches": 2
+    },
+    "selectedMarketSource": null,
+    "marketWidePriceIndexAndPerformanceMetrics": "UNAVAILABLE until a verified source and aggregate contract exist",
+    "topMovers": "UNAVAILABLE; no market-wide movers snapshot is returned by the current catalog contract",
+    "savedScreener": "C1 local saved screen",
+    "savedScreenerCreateAndReopen": true,
+    "noSyntheticPriceOrPercentageChange": true,
+    "noHorizontalOverflow": true
+  },
+  "commands": {
+    "names": [
+      "workspace.open",
+      "workspace.ready.fixture",
+      "market.catalog",
+      "data.binance_market.connection",
+      "market.get",
+      "screener.list",
+      "market.screen",
+      "screener.save"
+    ],
+    "forbiddenProviderOrFinancialCommands": 0,
+    "externalHttpRequests": 0,
+    "pageErrors": 0,
+    "consoleErrors": 0
+  },
+  "buildChecks": {
+    "typecheck": "PASS",
+    "productionBuild": "PASS",
+    "productionChunkWarning": "Main JavaScript bundle exceeds 500 kB; build still succeeded."
+  },
+  "worktreeFileSha256": {
+    "src/Markets.tsx": "84c031b1b047d309a57e16bafdcb8d0c87bbeada71c3704b2fb429a44c3e483c",
+    "src/styles.css": "d27893227cd0102bb55e1b7a9ca8a7b65a4a43cc7f7d86a9500f60860bd51ded",
+    "tests/s33-c1-market-explorer-playwright.js": "8d7e0b0ba588afcef2e8a64077cd573e81718cb867295e1a4e10e04e21bfd5d8"
+  },
+  "screenshot": {
+    "path": "c1-market-explorer-390.png",
+    "sha256": "adc74e32beb10805daa002041f73babba336b1922af2832ce0436d3c6850496a"
+  },
+  "limitations": [
+    "The UI Spec requests market metrics and movers, but Backend ARD §41.10 currently exposes canonical catalog/detail only; no market-wide index or movers aggregate is available, so those values remain unavailable rather than fabricated.",
+    "No real market-data provider, credential, endpoint, or entitlement was exercised; provider-backed snapshots, native VoiceOver, and complete S07/S33 acceptance remain open.",
+    "The QA-08 cross-run helper session closed before its assertions; this C1 run independently verifies canonical equity/crypto selection and the saved-screener path. Earlier QA-08 evidence remains unchanged."
+  ],
+  "rerunNote": "The first local test run exposed a test expectation that contradicted the normative Market Explorer heading; the UI heading was restored and the final C1 run passed. Subsequent assertion text was aligned with the complete source-gating disclosure. The separate QA-08 helper session closed before its assertions and is not counted as a pass."
+}
