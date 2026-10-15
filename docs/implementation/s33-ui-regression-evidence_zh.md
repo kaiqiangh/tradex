@@ -342,3 +342,13 @@ G2 对 `c14ef06...1ccb38f`（含证据补充 `6cae59d`）完成独立串行审�
 受影响检查通过：integration 二进制构建、`RUST_TEST_THREADS=1 cargo test --workspace permission`（6 项通过、1 项既有 ignored、零失败）、脚本语法、受影响 Rust 格式、追踪及 diff 检查。此次仅 fixture 改动未声称重跑全量测试；此前全量检查仍绑定源码 `1ccb38f`。
 
 对 `57058e9...66cbf5b` 的独立串行审查完成：在已声明内部转账切片内，**Standards 零问题，Spec 零可执行问题**。审查确认 integration-only HTTP 响应边界、生产 parser/Control Plane 未变、fixture RED 表述准确、必须显式重测、保留 DISARMED、双语证据一致且 A3 状态未变。其他权限变体及完整原生/provider/S33 验收仍开放。
+
+## A3 禁止及不支持权限响应变体 — 2026-10-15
+
+固定起点 `3b00c6e`。共用公开 UI helper 使用字面 oracle 覆盖 INTERNAL_TRANSFER、UNIVERSAL_TRANSFER、MARGIN、FUTURES、OPTIONS、PORTFOLIO_MARGIN、FIX_TRADE、READING_DISABLED。七个新增 fixture 选择器先返回 IPC_PAYLOAD_INVALID；这是 fixture 覆盖缺口的 RED，不代表生产权限绕过。随后逐一增加选择器与 HTTP flag，当前项通过后才处理下一项。仅 integration-test 响应模式变化；未修改生产 parser、权限策略或可信账户行。
+
+固定源码后，八项分别在隔离的一次性工作区及 harness 会话通过：准确 forbidden/unsupported 数组、UI 确认与 Arm 禁用、公开 confirm 返回 PROVIDER_PERMISSION_BLOCKED 且版本/状态/arming 不变、仅将 producer 改为 SAFE 仍不能确认、一次显式重测及确认后仍 DISARMED。现明确等重测结束且确认按钮可用后再按 Enter；此前一次 universal-transfer 在 blocker 消失后未完成确认而超时，不计入结果。共 24 项 1280/768/390 阻止说明观察通过；每项准确三次 connect（含一次拒绝）、一次账户刷新及两次 fixture 修改。准确命令白名单、浏览器外部 HTTP、console errors、page errors 均通过。[全部结果、RED 诊断及源码/截图哈希](evidence/s33/a3-permission-variants-result.json)。新截图使用 `a3-variants-*` 路径，保留此前证据。
+
+原四家 schema、提款权限及 UNVERIFIED 流程也使用最终 fixture 源码通过；仅将截图路径重定向到临时目录（[原 A3 回归](evidence/s33/a3-after-variants-regression-result.json)）。这些仅是合成 Binance 单 flag 响应；其他 provider 变体/组合、原生凭据输入/取消、VoiceOver、真实 provider 真值与完整 S33 仍开放。A3 保持 IN_PROGRESS。
+
+受影响检查通过：integration 构建、脚本语法、受影响 Rust 格式、追踪、diff 检查、权限筛选 Rust 回归（6 项通过、1 项既有 ignored、零失败）及 `cargo clippy --workspace --all-targets`。保留 fixture dead code/type complexity 和 library 等警告，未笼统声称所有警告均未变化。此次仅测试 fixture 批次未重跑全套测试；此前结果仍独立绑定 `1ccb38f`。

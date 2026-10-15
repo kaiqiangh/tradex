@@ -102,6 +102,13 @@ pub enum BinancePermissionFixture {
     Safe,
     Withdrawal,
     InternalTransfer,
+    UniversalTransfer,
+    ReadingDisabled,
+    FixTrade,
+    PortfolioMargin,
+    Options,
+    Futures,
+    Margin,
 }
 
 pub struct Http {
@@ -1292,7 +1299,7 @@ impl ProviderHttp for Http {
                 },
                 "/sapi/v1/account/apiRestrictions"=>{
                     assert_eq!(endpoint,tradex::provider_io::ProviderEndpoint::BinanceLive);
-                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":true,"enableWithdrawals":self.binance_permission_ui.get()==BinancePermissionFixture::Withdrawal,"enableInternalTransfer":self.binance_permission_ui.get()==BinancePermissionFixture::InternalTransfer,"enableMargin":false,"enableFutures":false,"permitsUniversalTransfer":false,"enableVanillaOptions":false,"enableFixApiTrade":false,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":false})
+                    json!({"ipRestrict":true,"createTime":1623840271000u64,"enableReading":self.binance_permission_ui.get()!=BinancePermissionFixture::ReadingDisabled,"enableWithdrawals":self.binance_permission_ui.get()==BinancePermissionFixture::Withdrawal,"enableInternalTransfer":self.binance_permission_ui.get()==BinancePermissionFixture::InternalTransfer,"enableMargin":self.binance_permission_ui.get()==BinancePermissionFixture::Margin,"enableFutures":self.binance_permission_ui.get()==BinancePermissionFixture::Futures,"permitsUniversalTransfer":self.binance_permission_ui.get()==BinancePermissionFixture::UniversalTransfer,"enableVanillaOptions":self.binance_permission_ui.get()==BinancePermissionFixture::Options,"enableFixApiTrade":self.binance_permission_ui.get()==BinancePermissionFixture::FixTrade,"enableFixReadOnly":false,"enableSpotAndMarginTrading":true,"enablePortfolioMarginTrading":self.binance_permission_ui.get()==BinancePermissionFixture::PortfolioMargin})
                 },
                 _=>panic!("Unexpected Binance operation"),
             }).unwrap());

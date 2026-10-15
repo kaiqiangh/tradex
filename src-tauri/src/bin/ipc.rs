@@ -309,6 +309,19 @@ fn main() -> io::Result<()> {
                     Some("INTERNAL_TRANSFER") => {
                         Some(fixtures::BinancePermissionFixture::InternalTransfer)
                     }
+                    Some("UNIVERSAL_TRANSFER") => {
+                        Some(fixtures::BinancePermissionFixture::UniversalTransfer)
+                    }
+                    Some("MARGIN") => Some(fixtures::BinancePermissionFixture::Margin),
+                    Some("FUTURES") => Some(fixtures::BinancePermissionFixture::Futures),
+                    Some("OPTIONS") => Some(fixtures::BinancePermissionFixture::Options),
+                    Some("PORTFOLIO_MARGIN") => {
+                        Some(fixtures::BinancePermissionFixture::PortfolioMargin)
+                    }
+                    Some("FIX_TRADE") => Some(fixtures::BinancePermissionFixture::FixTrade),
+                    Some("READING_DISABLED") => {
+                        Some(fixtures::BinancePermissionFixture::ReadingDisabled)
+                    }
                     _ => None,
                 };
                 let reply = if let Some(permission) = permission.filter(|_| http.binance_rules_ui) {

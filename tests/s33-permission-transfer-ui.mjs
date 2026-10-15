@@ -3,7 +3,20 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
-export async function checkTransferPermissionS33(page) {
+export async function checkPermissionReviewS33(page, scenario = 'INTERNAL_TRANSFER') {
+  const cases = {
+    INTERNAL_TRANSFER: { forbidden: ['transfer.internal'], unsupported: [] },
+    UNIVERSAL_TRANSFER: { forbidden: ['transfer.universal'], unsupported: [] },
+    READING_DISABLED: { forbidden: [], unsupported: ['reading.disabled'] },
+    FIX_TRADE: { forbidden: [], unsupported: ['fix.trade'] },
+    PORTFOLIO_MARGIN: { forbidden: [], unsupported: ['portfolio.margin'] },
+    OPTIONS: { forbidden: [], unsupported: ['options'] },
+    FUTURES: { forbidden: [], unsupported: ['futures'] },
+    MARGIN: { forbidden: [], unsupported: ['margin'] },
+  };
+  const expected = cases[scenario];
+  assert.ok(expected, `Unknown permission test case ${scenario}`);
+  const blocker = [...expected.forbidden, ...expected.unsupported][0];
   const origin = 'http://127.0.0.1:1420';
   const consoleErrors = [], pageErrors = [], externalRequests = [];
   page.on('request', request => {
@@ -33,7 +46,7 @@ export async function checkTransferPermissionS33(page) {
   await page.getByText('Browser verification · isolated temporary workspace · provider responses are test fixtures', { exact: true }).waitFor();
   const bootstrap = await command('workspace.open', {});
   const stamp = randomUUID();
-  const name = `S33 transfer permission ${stamp}`;
+  const name = `S33 ${scenario} permission ${stamp}`;
   const path = `${bootstrap.path}-permission-transfer-${stamp}`;
   const opened = await command('workspace.open', { name, path, baseCurrency: 'USD' });
   const workspaceId = opened.workspaceId;
@@ -49,16 +62,16 @@ export async function checkTransferPermissionS33(page) {
   await form.waitFor();
   assert.ok(!(await log(cursor)).commands.some(item => ['provider.connect', 'account.refresh'].includes(item.command)));
   await form.getByRole('combobox', { name: 'Provider / environment', exact: true }).selectOption('binance/LIVE');
-  const label = `S33 synthetic transfer ${stamp}`;
+  const label = `S33 synthetic ${scenario} ${stamp}`;
   await form.getByRole('textbox', { name: 'Connection label', exact: true }).fill(label);
-  await command('binance.live.permission.fixture', { scenario: 'INTERNAL_TRANSFER' });
+  await command('binance.live.permission.fixture', { scenario });
   await form.getByRole('button', { name: 'Connect account securely', exact: true }).press('Enter');
   const detail = page.getByRole('region', { name: label, exact: true });
   const permission = detail.locator('.permission-review').filter({ has: page.getByRole('heading', { name: 'Permission review', exact: true }) });
-  await permission.getByRole('alert').filter({ hasText: 'transfer.internal' }).waitFor();
+  await permission.getByRole('alert').filter({ hasText: blocker }).waitFor();
   const account = (await command('account.list', { workspaceId })).accounts.find(item => item.label === label);
-  assert.deepEqual(account.permissions.forbidden, ['transfer.internal']);
-  assert.deepEqual(account.permissions.unsupported, []);
+  assert.deepEqual(account.permissions.forbidden, expected.forbidden);
+  assert.deepEqual(account.permissions.unsupported, expected.unsupported);
   assert.equal(account.connectionState, 'REVIEW_REQUIRED');
   assert.equal(account.health.arming, 'DISARMED');
   assert.equal(await permission.getByRole('button', { name: 'Confirm connection', exact: true }).isDisabled(), true);
@@ -79,7 +92,7 @@ export async function checkTransferPermissionS33(page) {
     assert.ok(box && box.x >= 0 && box.x + box.width <= width + 1 && box.y >= 0 && box.y + box.height <= 901);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
     layouts.push({ width, blockerReachable: true, noDocumentOverflow: true });
-    if (width === 390) await permission.screenshot({ path: 'docs/implementation/evidence/s33/a3-internal-transfer-blocked-390.png' });
+    if (width === 390) await permission.screenshot({ path: `docs/implementation/evidence/s33/a3-variants-${scenario.toLowerCase().replaceAll('_', '-')}-blocked-390.png` });
   }
   await command('binance.live.permission.fixture', { scenario: 'SAFE' });
   assert.equal(await permission.getByRole('button', { name: 'Confirm connection', exact: true }).isDisabled(), true,
@@ -87,10 +100,15 @@ export async function checkTransferPermissionS33(page) {
   await page.waitForTimeout(5100);
   await detail.getByRole('button', { name: 'Refresh account', exact: true }).press('Enter');
   await permission.getByRole('alert').waitFor({ state: 'hidden' });
-  await permission.getByRole('button', { name: 'Confirm connection', exact: true }).press('Enter');
+  const confirm = permission.getByRole('button', { name: 'Confirm connection', exact: true });
+  for (let attempt = 0; attempt < 200 && !(await confirm.isEnabled()); attempt += 1) await page.waitForTimeout(50);
+  assert.equal(await confirm.isEnabled(), true, 'Explicit re-test must finish before keyboard confirmation');
+  await confirm.press('Enter');
   await detail.getByText('binance · LIVE · CONNECTED', { exact: true }).waitFor();
   const confirmed = await command('account.get', { workspaceId, connectionId: account.connectionId });
   assert.deepEqual(confirmed.permissions.forbidden, []);
+  assert.deepEqual(confirmed.permissions.unsupported, []);
+  assert.equal(confirmed.permissions.scope, 'VERIFIED');
   assert.equal(confirmed.health.arming, 'DISARMED');
   const commands = (await log(cursor)).commands.map(item => item.command);
   const allowed = new Set(['account.activity', 'account.get', 'account.list', 'account.refresh',
@@ -101,7 +119,7 @@ export async function checkTransferPermissionS33(page) {
   assert.equal(commands.filter(name => name === 'provider.connect').length, 3);
   assert.equal(commands.filter(name => name === 'account.refresh').length, 1);
   assert.deepEqual(externalRequests, []); assert.deepEqual(consoleErrors, []); assert.deepEqual(pageErrors, []);
-  return { status: 'PASS_LIMITED', testedAt: new Date().toISOString(), workspaceId, scenario: 'INTERNAL_TRANSFER', layouts,
+  return { status: 'PASS_LIMITED', testedAt: new Date().toISOString(), workspaceId, scenario, expected, layouts,
     rejectedConfirmation: 'PROVIDER_PERMISSION_BLOCKED', rejectedConfirmationPreservedState: true,
     producerChangeRequiresExplicitRetest: true, finalArming: confirmed.health.arming,
     commandCounts: Object.fromEntries([...new Set(commands)].sort().map(name => [name, commands.filter(item => item === name).length])),
