@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "screenId": "J2",
+  "title": "Risk & Limits",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/SettingsSurfaces.tsx": "a72739442654140d7bebd9409246d8ac9d40d23e25306054c7a6c79844abd4cd",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-risk-limits-screen-playwright.js": "361eb2a55d5f7f2f2f145b4749de74663d0854d9524351adefa840d507486142",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-risk-limits-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with isolated disposable USD workspace",
+  "workspaceId": "21fdd803-c1e8-41c7-942b-4385ac77c696",
+  "fixtureBoundary": "Synthetic workspace seed only; no risk policy edits in the browser scenario",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "observations": [
+    {
+      "width": 1280,
+      "labeledPolicyFieldsReachable": 20,
+      "environmentChoicesReachable": 5,
+      "marketOrdersToggleReachable": true,
+      "hardRulesVisibleAndReadOnly": true,
+      "noOverflow": true
+    },
+    {
+      "width": 768,
+      "labeledPolicyFieldsReachable": 20,
+      "environmentChoicesReachable": 5,
+      "marketOrdersToggleReachable": true,
+      "hardRulesVisibleAndReadOnly": true,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "labeledPolicyFieldsReachable": 20,
+      "environmentChoicesReachable": 5,
+      "marketOrdersToggleReachable": true,
+      "hardRulesVisibleAndReadOnly": true,
+      "noOverflow": true
+    }
+  ],
+  "fixturePolicyValueVisible": {
+    "maximumSingleInstrumentExposurePercent": "10.25",
+    "otherUnsetLimitsRemainBlank": true
+  },
+  "marketOrdersDefault": "OFF",
+  "policySaveCommands": 0,
+  "observedCommandCounts": {
+    "account.activity": 1,
+    "provider.list_definitions": 1,
+    "domain.snapshot": 3,
+    "account.list": 1,
+    "paper.get": 1,
+    "runtime.status": 2,
+    "domain.subscribe": 5
+  },
+  "commandTotals": {
+    "observed": 14,
+    "unexpected": 0,
+    "forbidden": 0
+  },
+  "providerActions": 0,
+  "financialCommands": 0,
+  "externalHttpRequests": 0,
+  "consoleErrors": 0,
+  "pageErrors": 0,
+  "screenshots": [
+    "risk-limits-390.png"
+  ],
+  "scopeLimits": [
+    "This validates the bounded J2 render and passive read path only; it does not validate the deterministic risk evaluator.",
+    "S21 #82 policy-version effects are covered by separate evidence and were not re-verified here.",
+    "No real provider integration or financial command was used; J2 remains IMPLEMENTED_UNVERIFIED."
+  ]
+}

@@ -521,6 +521,7 @@ export type RiskCheckId =
   | "DAILY_REALIZED_LOSS"
   | "OPEN_ORDER_COUNT"
   | "RESERVED_CAPITAL"
+  | "RESERVED_CAPACITY"
   | "MARKET_ORDER"
   | "MARKET_ORDER_SLIPPAGE"
   | "PRICE_DEVIATION"
@@ -573,6 +574,7 @@ export type RiskDecisionReasonCode =
   | "HISTORICAL_ADJUSTMENT_UNAVAILABLE"
   | "COUNTER_UNAVAILABLE"
   | "RESERVATION_UNAVAILABLE"
+  | "RESERVED_CAPACITY"
   | "CALENDAR_UNAVAILABLE"
   | "CLOCK_UNCERTAIN"
   | "NOT_APPLICABLE"
@@ -833,6 +835,7 @@ export type FinancialApproval = {
   consumedAt?: string;
   environment: ExecutionContext;
   expiresAt: string;
+  expiry?: FinancialApprovalExpiry | null;
   invalidationReason?: string | null;
   issuedAt: string;
   policyVersion: number;
@@ -844,6 +847,21 @@ export type FinancialApproval = {
   workspaceId: string;
   [k: string]: unknown;
 } & FinancialApproval1;
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalExpiryAuthority".
+ */
+export type ApprovalExpiryAuthority = "TRUSTED_TIME_SERVICE";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalExpiryReservationDisposition".
+ */
+export type ApprovalExpiryReservationDisposition = "NONE" | "RETAINED" | "RELEASED" | "ALREADY_RELEASED";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ApprovalExpiryScope".
+ */
+export type ApprovalExpiryScope = "approval";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "FinancialApprovalStatus".
@@ -1232,6 +1250,7 @@ export type ReplyData =
   | FinancialApprovalHistory
   | ExecutionPreparation
   | ExecutionPreparationQueryResult
+  | ExecutionOrderLinks
   | ResolutionEvidenceLedger
   | ResolutionEvidenceQueryResult
   | ApprovalRejection
@@ -1467,6 +1486,8 @@ export interface IpcSchema {
   equityPoint: EquityPoint;
   event: DomainEvent;
   executionAttempt: ExecutionAttempt;
+  executionOrderLinks: ExecutionOrderLinks;
+  executionOrderLinksQuery: ExecutionOrderLinksQuery;
   executionPreparation: ExecutionPreparation;
   executionPreparationQuery: ExecutionPreparationQuery;
   executionPreparationQueryResult: ExecutionPreparationQueryResult;
@@ -1985,6 +2006,7 @@ export interface OpenOrder {
   limitPrice?: string | null;
   notional?: string | null;
   quantity?: string | null;
+  remainingQuantity?: string | null;
   side: string;
   status: string;
   symbol: string;
@@ -5713,6 +5735,21 @@ export interface CancellationApprovalHistory {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "FinancialApprovalExpiry".
+ */
+export interface FinancialApprovalExpiry {
+  authority: ApprovalExpiryAuthority;
+  authorityReference: string;
+  executionAttemptId?: string;
+  expiresAt: string;
+  observedAt: string;
+  reservationDisposition: ApprovalExpiryReservationDisposition;
+  reservationId?: string;
+  reservationStateVersion?: string;
+  scope: ApprovalExpiryScope;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "CancellationIntentHistoryEntry".
  */
 export interface CancellationIntentHistoryEntry {
@@ -7483,6 +7520,40 @@ export interface Trading212DemoRateLimits {
   historyRetryAt?: string | null;
   orderDetailRetryAt?: string | null;
   pendingOrdersRetryAt?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionOrderLinks".
+ */
+export interface ExecutionOrderLinks {
+  accountId: string;
+  /**
+   * @maxItems 2000
+   */
+  links: ExecutionOrderLink[];
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionOrderLink".
+ */
+export interface ExecutionOrderLink {
+  brokerOrderId: string;
+  executionAttemptId: string;
+  proposalId?: string | null;
+  reservation?: ExecutionReservation | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "ExecutionOrderLinksQuery".
+ */
+export interface ExecutionOrderLinksQuery {
+  accountId: string;
+  /**
+   * @maxItems 2000
+   */
+  brokerOrderIds: string[];
+  workspaceId: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -9651,6 +9722,10 @@ export interface StrategyDefinition {
  * via the `definition` "StrategyRun".
  */
 export interface StrategyRun {
+  /**
+   * @maxItems 32
+   */
+  contextRefs?: ThreadContextRef[];
   createdAt: string;
   datasetId: string;
   endAt: string;
@@ -9952,6 +10027,10 @@ export interface StrategyRunQuery {
  * via the `definition` "StrategyRunRequest".
  */
 export interface StrategyRunRequest {
+  /**
+   * @maxItems 32
+   */
+  contextRefs?: ThreadContextRef[];
   datasetId: string;
   endAt: string;
   expectedStrategyHash?: string | null;
@@ -9961,6 +10040,7 @@ export interface StrategyRunRequest {
    * @maxItems 32
    */
   parameters?: StrategyParameter[];
+  retryOfRunId?: string | null;
   startAt: string;
   strategyVersionId: string;
   workspaceId: string;

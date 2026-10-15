@@ -769,6 +769,7 @@ fn live_order_snapshot(
         notional: optional_nonnegative_decimal(&order["origQuoteOrderQty"])?
             .filter(|value| value != "0"),
         filled_quantity: filled_quantity.clone(),
+        remaining_quantity: remaining_quantity.clone(),
         filled_value: filled_value.clone(),
         currency: None,
         status: raw_status.clone(),
@@ -3578,6 +3579,15 @@ fn recent_order(value: &Value, expected_symbol: &str) -> Result<OpenOrder> {
     }
     let quantity = positive(&value["origQty"])?;
     let notional = positive(&value["origQuoteOrderQty"])?;
+    let filled_quantity = positive(&value["executedQty"])?;
+    let remaining_quantity = if quantity == "0" {
+        None
+    } else {
+        Some(crate::provider_io::decimal_subtract(
+            &quantity,
+            &filled_quantity,
+        )?)
+    };
     let limit_price = positive(&value["price"])?;
     Ok(OpenOrder {
         broker_order_id: format!("{symbol}:{}", numeric_id(value, "orderId")?),
@@ -3586,7 +3596,8 @@ fn recent_order(value: &Value, expected_symbol: &str) -> Result<OpenOrder> {
         side,
         quantity: (quantity != "0").then_some(quantity),
         notional: (notional != "0").then_some(notional),
-        filled_quantity: Some(positive(&value["executedQty"])?),
+        filled_quantity: Some(filled_quantity),
+        remaining_quantity,
         filled_value: Some(positive(&value["cummulativeQuoteQty"])?),
         currency: None,
         status,
@@ -3680,9 +3691,18 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
             let price = positive(&o["price"])?;
             let qty = positive(&o["origQty"])?;
             let quote = positive(&o["origQuoteOrderQty"])?;
+            let filled_quantity = positive(&o["executedQty"])?;
             if qty == "0" && quote == "0" {
                 return Err(invalid());
             }
+            let remaining_quantity = if qty == "0" {
+                None
+            } else {
+                Some(crate::provider_io::decimal_subtract(
+                    &qty,
+                    &filled_quantity,
+                )?)
+            };
             Ok(OpenOrder {
                 kind: None,
                 trigger_price: None,
@@ -3692,7 +3712,8 @@ fn observe(account: Value, orders: Value, restrictions: Option<Value>) -> Result
                 side,
                 quantity: if qty == "0" { None } else { Some(qty) },
                 notional: if quote == "0" { None } else { Some(quote) },
-                filled_quantity: Some(positive(&o["executedQty"])?),
+                filled_quantity: Some(filled_quantity),
+                remaining_quantity,
                 filled_value: None,
                 currency: None,
                 status,

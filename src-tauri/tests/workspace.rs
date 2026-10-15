@@ -36,6 +36,56 @@ fn a_workspace_keeps_its_identity_and_events_after_process_state_is_dropped() {
     assert_eq!(snapshot["data"]["projection"], reopened["data"]);
 }
 
+#[test]
+fn local_paper_remains_healthy_and_simulation_ready_after_workspace_reopen() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("local-paper-reopen");
+    let mut control = ControlPlane::new(path.clone());
+    let opened = command(&mut control, "workspace.open", json!({}));
+    assert_eq!(opened["ok"], true, "{opened}");
+    let workspace_id = opened["data"]["workspaceId"].as_str().unwrap().to_owned();
+    let first = command(
+        &mut control,
+        "account.list",
+        json!({"workspaceId":workspace_id}),
+    );
+    let first_local = first["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|account| account["providerId"] == "local-paper")
+        .unwrap();
+    assert_eq!(first_local["connectionState"], "CONNECTED");
+    assert_eq!(first_local["health"]["connection"], "ONLINE");
+    assert_eq!(first_local["health"]["authentication"], "NOT_REQUIRED");
+    assert_eq!(first_local["health"]["credential"], "NOT_REQUIRED");
+    assert_eq!(
+        first_local["health"]["executionEligibility"],
+        "SIMULATION_ONLY"
+    );
+    drop(control);
+
+    let mut restarted = ControlPlane::new(path);
+    let reopened = command(&mut restarted, "workspace.open", json!({}));
+    assert_eq!(reopened["ok"], true, "{reopened}");
+    let restored = command(
+        &mut restarted,
+        "account.list",
+        json!({"workspaceId":workspace_id}),
+    );
+    let local = restored["data"]["accounts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|account| account["providerId"] == "local-paper")
+        .unwrap();
+    assert_eq!(local["connectionState"], "CONNECTED");
+    assert_eq!(local["health"]["connection"], "ONLINE");
+    assert_eq!(local["health"]["authentication"], "NOT_REQUIRED");
+    assert_eq!(local["health"]["credential"], "NOT_REQUIRED");
+    assert_eq!(local["health"]["executionEligibility"], "SIMULATION_ONLY");
+}
+
 #[cfg(unix)]
 #[test]
 fn released_workspace_reopens_while_an_unrelated_child_is_waiting_to_exec() {

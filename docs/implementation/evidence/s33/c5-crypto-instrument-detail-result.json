@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "screenId": "C5",
+  "title": "Crypto Instrument Detail",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T17:38:14Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 113,
+    "sha256": "04432221c418da15f37aebb491135420d823d6f2bb97440817c527db17c3e8de"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "tests/s33-crypto-instrument-detail-playwright.js",
+    "helperSha256": "4e0d183ae7afa7b5cd92474d39022f4679dbd29bd913fa45fd553270bd5d32e1",
+    "helperSyntaxCheck": "PASS",
+    "updatedHelperRun": "NOT_RUN; equivalent UI assertions and responsive measurements were performed directly in CUA",
+    "build": "npm run build PASS; TypeScript PASS; Vite reports a 5,447.51 kB main JavaScript chunk warning",
+    "exactSpreadUnitTest": {
+      "command": "node --test tests/marketSpread.test.ts",
+      "result": "PASS",
+      "passed": 2,
+      "failed": 0
+    }
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "canonicalInstrument": "crypto:BTC/USDT:spot",
+    "venue": "BINANCE",
+    "venueState": {
+      "value": "MAINTENANCE",
+      "syntheticFixtureDisclosed": true,
+      "equityCalendarNotUsedForSpot": true
+    },
+    "spotOnlyWarning": {
+      "visible": true,
+      "unsupportedActionsUnavailable": [
+        "futures",
+        "leverage",
+        "margin",
+        "transfer"
+      ]
+    },
+    "sourceAndFreshness": {
+      "source": "No source selected",
+      "entitlement": "Not verified",
+      "freshness": "Unavailable — no validated quote",
+      "providerTimestamp": "Unavailable",
+      "receivedTimestamp": "Unavailable"
+    },
+    "venueQuote": {
+      "bid": "Unavailable — no validated quote",
+      "ask": "Unavailable — no validated quote",
+      "spread": "Unavailable — no validated quote",
+      "bidSize": "Unavailable — no validated quote",
+      "askSize": "Unavailable — no validated quote",
+      "depth": "Unavailable — no validated venue depth evidence",
+      "chartHistory": "Unavailable — no validated historical series contract",
+      "fabricatedValues": false
+    },
+    "tradeAction": {
+      "status": "Unavailable until exact venue, account, and complete Spot order-rule compatibility are verified",
+      "buttonVisible": false,
+      "financialCommandIssued": false
+    },
+    "responsive": [
+      {
+        "width": 1280,
+        "innerWidth": 1280,
+        "layoutViewportWidth": 1265,
+        "documentScrollWidth": 1265,
+        "detailWidth": 385,
+        "detailClientWidth": 385,
+        "detailControlsReachable": true
+      },
+      {
+        "width": 768,
+        "innerWidth": 768,
+        "layoutViewportWidth": 753,
+        "documentScrollWidth": 753,
+        "detailWidth": 405,
+        "detailClientWidth": 405,
+        "detailControlsReachable": true
+      },
+      {
+        "width": 390,
+        "innerWidth": 390,
+        "layoutViewportWidth": 375,
+        "documentScrollWidth": 375,
+        "detailWidth": 303,
+        "detailClientWidth": 303,
+        "detailControlsReachable": true
+      }
+    ]
+  },
+  "commandLog": {
+    "cursorStart": 2123,
+    "cursorEnd": 3200,
+    "commandCount": 1077,
+    "counts": {
+      "data.source.connection": 268,
+      "market.get": 272,
+      "runtime.status": 73,
+      "account.activity": 2,
+      "data.binance_market.connection": 456,
+      "market.catalog": 3,
+      "screener.list": 3
+    },
+    "forbiddenProviderModelFinancialTradeOrderGateway": 0,
+    "note": "The delta includes passive local polling while the isolated browser remained open."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "No real source, provider entitlement, credentials, account compatibility, financial action, or provider endpoint was activated.",
+    "The source-backed positive quote, spread rendering, and venue depth path were not end-to-end exercised; only exact decimal spread arithmetic was unit-tested.",
+    "External HTTP and page errors were not instrumented in this direct CUA replay.",
+    "The expanded Playwright helper was syntax-checked but not run after the edit.",
+    "Native VoiceOver, real provider lifecycle, full S07, and full S33 remain open."
+  ]
+}

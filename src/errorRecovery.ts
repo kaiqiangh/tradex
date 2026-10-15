@@ -11,20 +11,20 @@ export type CanonicalRecoveryCode = typeof canonicalRecoveryCodes[number];
 export type RecoveryVariant = { title: string; message: string; action: string };
 
 const variants: Record<CanonicalRecoveryCode, RecoveryVariant> = {
-  AUTH_ERROR: { title: 'Authentication needs attention', message: 'Review the credential or authorization state before retrying.', action: 'Review authentication' },
+  AUTH_ERROR: { title: 'Authentication needs attention', message: 'Reconnect and verify credentials before retrying. Live execution remains disabled until account health is restored.', action: 'Reconnect credentials' },
   PERMISSION_ERROR: { title: 'Permission needs attention', message: 'Review the provider permissions before continuing.', action: 'Review permissions' },
-  RATE_LIMITED: { title: 'Provider rate limit reached', message: 'Wait for the provider cooldown before retrying.', action: 'Retry later' },
+  RATE_LIMITED: { title: 'Provider rate limit reached', message: 'Back off low-priority provider traffic until the provider cooldown ends; keep execution reconciliation at highest priority.', action: 'Retry after cooldown' },
   NETWORK_ERROR: { title: 'Network source unavailable', message: 'The last trusted observation is preserved while the source recovers.', action: 'Retry source' },
   UNSUPPORTED_CAPABILITY: { title: 'Capability unavailable', message: 'This operation is outside the current provider or workspace capability.', action: 'Review capability' },
   MARKET_CLOSED: { title: 'Market session is closed', message: 'Live authority remains blocked until the next authoritative session boundary.', action: 'View market state' },
   INSTRUMENT_HALTED: { title: 'Instrument is halted', message: 'Live authority remains blocked until the venue reports recovery.', action: 'View market state' },
   INVALID_ORDER: { title: 'Order needs correction', message: 'Review the order fields and retry after the validation issue is resolved.', action: 'Review order' },
   INSUFFICIENT_FUNDS: { title: 'Funds are insufficient', message: 'Review the account capacity before preparing another proposal.', action: 'Review account' },
-  RISK_REJECTED: { title: 'Risk policy rejected this action', message: 'Review the current risk policy and its blocking reason.', action: 'Review risk policy' },
-  RISK_EVIDENCE_UNAVAILABLE: { title: 'Risk evidence is unavailable', message: 'No order was submitted. Review the saved RiskDecision for missing or untrusted inputs.', action: 'Review risk decision' },
+  RISK_REJECTED: { title: 'Risk policy rejected this action', message: 'No order attempt or provider/simulator order side effect was created. Review the recorded rejection and its blocking risk or capacity checks.', action: 'Review risk policy' },
+  RISK_EVIDENCE_UNAVAILABLE: { title: 'Risk evidence is unavailable', message: 'No order attempt or provider/simulator order side effect was created. Review the persisted RiskDecision and execution evidence to identify missing or untrusted inputs.', action: 'Review risk decision' },
   SUBMISSION_REJECTED: { title: 'Submission was rejected', message: 'The provider rejected the submission; review the preserved response.', action: 'Review submission' },
   SUBMISSION_AMBIGUOUS: { title: 'Submission needs reconciliation', message: 'Query authoritative provider state before retrying.', action: 'Review reconciliation' },
-  STREAM_DISCONNECTED: { title: 'Stream disconnected', message: 'Reload the authoritative snapshot before continuing.', action: 'Reload state' },
+  STREAM_DISCONNECTED: { title: 'Stream disconnected', message: 'Reconcile the saved account state before continuing. Live execution remains disabled until account health is restored.', action: 'Reload state' },
   STATE_STALE: { title: 'State is stale', message: 'Reload authoritative state before continuing.', action: 'Reload state' },
   RECONCILIATION_REQUIRED: { title: 'Reconciliation required', message: 'Resolve the provider state before another authority decision.', action: 'Review reconciliation' },
   MODEL_UNAVAILABLE: { title: 'Model is unavailable', message: 'Verify a supported route before retrying.', action: 'Review model' },
@@ -47,12 +47,21 @@ function stringField(value: Record<string, unknown> | undefined, key: string): s
   return typeof value?.[key] === 'string' ? value[key] as string : undefined;
 }
 
+function errorEnvelope(error: unknown): Record<string, unknown> | undefined {
+  return isRecord(error) && isRecord(error.detail) ? error.detail : isRecord(error) ? error : undefined;
+}
+
+function errorCode(error: unknown): string | undefined {
+  return typeof error === 'string' ? error : stringField(errorEnvelope(error), 'code');
+}
+
 export function resolveCanonicalRecoveryCode(error: unknown): CanonicalRecoveryCode {
-  const envelope = isRecord(error) && isRecord(error.detail) ? error.detail : isRecord(error) ? error : undefined;
-  const code = typeof error === 'string' ? error : stringField(envelope, 'code');
+  const envelope = errorEnvelope(error);
+  const code = errorCode(error);
   const category = stringField(envelope, 'category');
 
   if (code && recognizedCodes.has(code)) return code as CanonicalRecoveryCode;
+  if (code === 'TURN_CONTEXT_INVALID') return 'UNSUPPORTED_CAPABILITY';
   if (category && recognizedCodes.has(category)) return category as CanonicalRecoveryCode;
 
   if (code === 'MODEL_OAUTH_EXPIRED' || code === 'MODEL_LOGIN_FAILED' || code === 'MODEL_LOGIN_TIMEOUT') return 'OAUTH_EXPIRED';
@@ -80,6 +89,13 @@ export function resolveCanonicalRecoveryCode(error: unknown): CanonicalRecoveryC
 
 export function describeCanonicalRecovery(error: unknown): string {
   const code = resolveCanonicalRecoveryCode(error);
-  const variant = getRecoveryVariant(code);
-  return `${code} · ${variant.title}. Next step: ${variant.action}`;
+  const variant = getRecoveryVariantForError(error);
+  return `${code} · ${variant.title}. ${variant.message} Next step: ${variant.action}`;
+}
+
+export function getRecoveryVariantForError(error: unknown): RecoveryVariant {
+  const variant = getRecoveryVariant(resolveCanonicalRecoveryCode(error));
+  return errorCode(error) === 'TURN_CONTEXT_INVALID'
+    ? { ...variant, action: 'Choose a supported context' }
+    : variant;
 }

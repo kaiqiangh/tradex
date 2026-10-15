@@ -161,6 +161,27 @@ pub struct AccountContext {
 }
 
 pub const MAX_CONTEXT_CATALOG_ENTRIES: usize = 256;
+
+impl ContextCatalog {
+    pub fn append_bounded(&mut self, kind: &str, entries: Vec<ContextCatalogEntry>) {
+        if entries.is_empty() {
+            return;
+        }
+        self.empty_states.retain(|state| state.kind != kind);
+        let total = entries.len();
+        let shown = total.min(MAX_CONTEXT_CATALOG_ENTRIES.saturating_sub(self.entries.len()));
+        self.entries.extend(entries.into_iter().take(shown));
+        if shown < total {
+            self.empty_states.push(ContextCatalogEmptyState {
+                kind: kind.into(),
+                availability_reason: format!(
+                    "Context catalog limit ({MAX_CONTEXT_CATALOG_ENTRIES}): showing {shown} of {total} {kind} references. The remaining references are not listed in this bounded picker."
+                ),
+            });
+        }
+    }
+}
+
 const SYNTHETIC_RESEARCH_ARTIFACT_ID: &str = "artifact-1";
 const SYNTHETIC_RESEARCH_ARTIFACT_HASH: &str =
     "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

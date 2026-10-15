@@ -1,0 +1,45 @@
+{
+  "result": "PASS",
+  "boundary": "one disposable workspace and local Thread; no provider action",
+  "widths": [
+    768,
+    390
+  ],
+  "navigationDestinations": 9,
+  "newThread": true,
+  "historyResume": true,
+  "settingsSections": 6,
+  "zeroDocumentOverflow": true,
+  "forbiddenCommands": 0,
+  "providerActionsVisible": true,
+  "providerActionsUnobscured": true,
+  "observed": [
+    {
+      "width": 768,
+      "destinations": 9,
+      "surfaceOverflow": false,
+      "headerIdentity": true
+    },
+    {
+      "width": 768,
+      "newThread": true,
+      "historyResume": true,
+      "secondaryPages": 6,
+      "settingsSections": 6
+    },
+    {
+      "width": 390,
+      "destinations": 9,
+      "surfaceOverflow": false,
+      "headerIdentity": true
+    },
+    {
+      "width": 390,
+      "newThread": true,
+      "historyResume": true,
+      "secondaryPages": 6,
+      "settingsSections": 6
+    }
+  ],
+  "capturedAt": "2026-10-14T13:01:06.899Z"
+}

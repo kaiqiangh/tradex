@@ -1,5 +1,9 @@
 import type { ExecutionAttempt } from '../shared/ipc-types.ts';
 
+function assertNever(value: never): never {
+  throw new Error(`Unsupported execution attempt state: ${String(value)}`);
+}
+
 export function liveExecutionStatus(attempt: ExecutionAttempt): string {
   switch (attempt.state) {
     case 'RESERVED':
@@ -22,5 +26,7 @@ export function liveExecutionStatus(attempt: ExecutionAttempt): string {
       return 'The provider outcome is uncertain. Capacity remains held; do not resend this request.';
     case 'CANCEL_PENDING':
       return 'The provider acknowledged cancellation; the order is not confirmed cancelled. The original commitment remains until provider evidence confirms a terminal state or a fill.';
+    default:
+      return assertNever(attempt.state);
   }
 }

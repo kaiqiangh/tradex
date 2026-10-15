@@ -392,6 +392,7 @@ pub enum ReplyData {
     FinancialApprovalHistory(FinancialApprovalHistory),
     ExecutionPreparation(Box<ExecutionPreparation>),
     ExecutionPreparationQuery(ExecutionPreparationQueryResult),
+    ExecutionOrderLinks(ExecutionOrderLinks),
     ResolutionEvidence(Box<ResolutionEvidenceLedger>),
     ResolutionEvidenceQuery(Box<ResolutionEvidenceQueryResult>),
     ApprovalRejection(Box<ApprovalRejection>),
@@ -554,6 +555,8 @@ pub struct IpcSchema {
     pub execution_preparation: ExecutionPreparation,
     pub execution_preparation_query: ExecutionPreparationQuery,
     pub execution_preparation_query_result: ExecutionPreparationQueryResult,
+    pub execution_order_links_query: ExecutionOrderLinksQuery,
+    pub execution_order_links: ExecutionOrderLinks,
     pub resolution_evidence_query: ResolutionEvidenceQuery,
     pub resolution_evidence_refresh: ResolutionEvidenceRefresh,
     pub manual_resolution_request: ManualResolutionRequest,
@@ -1391,6 +1394,9 @@ pub struct StrategyRun {
     pub observed_at: String,
     #[serde(default)]
     #[schemars(length(max = 32))]
+    pub context_refs: Vec<ThreadContextRef>,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
     pub parameters: Vec<StrategyParameter>,
     pub state: StrategyRunState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1474,6 +1480,9 @@ pub struct StrategyRunRequest {
     #[schemars(length(min = 1, max = 128))]
     pub strategy_version_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub retry_of_run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(min = 1, max = 80))]
     pub expected_strategy_hash: Option<String>,
     #[schemars(length(min = 1, max = 128))]
@@ -1484,6 +1493,9 @@ pub struct StrategyRunRequest {
     pub start_at: String,
     #[schemars(length(min = 1, max = 64))]
     pub end_at: String,
+    #[serde(default)]
+    #[schemars(length(max = 32))]
+    pub context_refs: Vec<ThreadContextRef>,
     #[serde(default)]
     #[schemars(length(max = 32))]
     pub parameters: Vec<StrategyParameter>,
@@ -4293,6 +4305,50 @@ pub struct EstimatedFee {
     pub currency: String,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalExpiryScope {
+    Approval,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ApprovalExpiryAuthority {
+    TrustedTimeService,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ApprovalExpiryReservationDisposition {
+    None,
+    Retained,
+    Released,
+    AlreadyReleased,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FinancialApprovalExpiry {
+    pub scope: ApprovalExpiryScope,
+    pub authority: ApprovalExpiryAuthority,
+    #[schemars(length(min = 1, max = 128))]
+    pub authority_reference: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub expires_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub observed_at: String,
+    pub reservation_disposition: ApprovalExpiryReservationDisposition,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub execution_attempt_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 128))]
+    pub reservation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "String", length(min = 1, max = 256))]
+    pub reservation_state_version: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FinancialApproval {
@@ -4324,6 +4380,8 @@ pub struct FinancialApproval {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "String", length(min = 1, max = 64))]
     pub consumed_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expiry: Option<FinancialApprovalExpiry>,
     #[schemars(length(min = 1, max = 256))]
     pub state_version: String,
 }
@@ -4386,6 +4444,42 @@ pub struct ExecutionPreparationQueryResult {
     pub preparation: Option<ExecutionPreparation>,
     #[schemars(length(max = 32))]
     pub rejections: Vec<ExecutionPreparationRejection>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionOrderLinksQuery {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(max = 2000))]
+    pub broker_order_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionOrderLink {
+    #[schemars(length(min = 1, max = 128))]
+    pub broker_order_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub execution_attempt_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128))]
+    pub proposal_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reservation: Option<Box<ExecutionReservation>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ExecutionOrderLinks {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 128))]
+    pub account_id: String,
+    #[schemars(length(max = 2000))]
+    pub links: Vec<ExecutionOrderLink>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -5134,11 +5228,43 @@ impl<'de> Deserialize<'de> for FinancialApproval {
             invalidation_reason: Option<String>,
             #[serde(default)]
             consumed_at: Option<String>,
+            #[serde(default)]
+            expiry: Option<FinancialApprovalExpiry>,
             state_version: String,
         }
 
         use serde::de::Error;
         let wire = Wire::deserialize(deserializer)?;
+        if let Some(expiry) = &wire.expiry {
+            let observed = time::OffsetDateTime::parse(
+                &expiry.observed_at,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| D::Error::custom("Invalid approval expiry observation"))?;
+            let deadline = time::OffsetDateTime::parse(
+                &expiry.expires_at,
+                &time::format_description::well_known::Rfc3339,
+            )
+            .map_err(|_| D::Error::custom("Invalid approval expiry deadline"))?;
+            let has_reservation = expiry.reservation_id.is_some()
+                && expiry.reservation_state_version.is_some()
+                && expiry.execution_attempt_id.is_some();
+            if expiry.authority_reference != wire.approval_id
+                || expiry.expires_at != wire.expires_at
+                || observed < deadline
+                || !matches!(
+                    wire.status,
+                    FinancialApprovalStatus::Expired | FinancialApprovalStatus::Consumed
+                )
+                || (expiry.reservation_disposition == ApprovalExpiryReservationDisposition::None
+                    && (expiry.reservation_id.is_some()
+                        || expiry.reservation_state_version.is_some()))
+                || (expiry.reservation_disposition != ApprovalExpiryReservationDisposition::None
+                    && !has_reservation)
+            {
+                return Err(D::Error::custom("Approval expiry evidence is inconsistent"));
+            }
+        }
         let intent = match wire.operation {
             FinancialOperation::PlaceOrder => {
                 if wire.cancellation_intent_id.is_some()
@@ -5200,6 +5326,7 @@ impl<'de> Deserialize<'de> for FinancialApproval {
             status: wire.status,
             invalidation_reason: wire.invalidation_reason,
             consumed_at: wire.consumed_at,
+            expiry: wire.expiry,
             state_version: wire.state_version,
         })
     }
@@ -7394,7 +7521,7 @@ impl TradeXError {
                 "Review artifact",
             ),
             "ARTIFACT_EXPORT_PATH_INVALID" => (
-                "Choose a safe local JSON filename inside the TradeX exports folder.",
+                "Choose a valid local JSON destination with a safe filename and non-symlinked parent folder.",
                 "retry_request",
                 "Choose another filename",
             ),
@@ -7755,6 +7882,7 @@ impl TradeXError {
                 code,
                 "PROVIDER_UNSUPPORTED"
                     | "UNSUPPORTED_CAPABILITY"
+                    | "TURN_CONTEXT_INVALID"
                     | "RESEARCH_RESULT_INVALID"
                     | "DATA_SOURCE_UNKNOWN"
                     | "ORDER_INSTRUMENT_PROVIDER_UNSUPPORTED"

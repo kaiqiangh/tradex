@@ -1,0 +1,154 @@
+{
+  "screenId": "F11",
+  "result": "PASS_LIMITED",
+  "runDate": "2026-10-14",
+  "branch": "dev",
+  "codeBaselineSha": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "harness": {
+    "kind": "Rust-backed local integration",
+    "origin": "http://127.0.0.1:1427",
+    "workspace": "disposable",
+    "account": "synthetic Trading 212-labelled fixture",
+    "marketEvidence": "SYNTHETIC_INTEGRATION_FIXTURE",
+    "realProviderCredentialsOrEndpointsUsed": false,
+    "externalHttpInstrumented": false
+  },
+  "reservationConflict": {
+    "firstProposalAmount": "400",
+    "accountAvailable": "1000",
+    "providerCommitted": "0",
+    "preparedAttemptState": "RESERVED",
+    "reservationStatus": "ACTIVE",
+    "reservationAmount": "400",
+    "reservationEffectiveAvailable": "600",
+    "gatewayPostCountBefore": 0,
+    "gatewayPostCountAfter": 0,
+    "conflictingProposalAmount": "700",
+    "riskDecisionStatus": "REJECTED",
+    "riskCheckId": "RESERVED_CAPACITY",
+    "riskCheckOutcome": "REJECT",
+    "riskReasonCode": "RESERVED_CAPACITY",
+    "blocker": "ReservedCapacity: Requested capacity 700 USD exceeds effective available capacity 600 after existing TradeX reservations.",
+    "genericRiskDecisionChangedBlockerPresent": false,
+    "approveEnabled": false,
+    "issuedApprovalsForConflictingProposal": 0,
+    "conflictingProposalStatus": "NEEDS_APPROVAL"
+  },
+  "staleCapacity": {
+    "accountArming": "ARMED",
+    "riskDecisionStatus": "UNAVAILABLE",
+    "providerAvailable": "Unavailable",
+    "providerCommitted": "Unavailable",
+    "tradeXReserved": "Unavailable",
+    "effectiveAvailable": "Unavailable",
+    "requestedCapacityRowPresent": false,
+    "staleAlertAriaLive": "polite",
+    "approveEnabled": false,
+    "genericRiskDecisionChangedBlockerPresent": false
+  },
+  "responsiveLayout": [
+    {
+      "width": 1280,
+      "dialogLeft": 282.5,
+      "dialogRight": 982.5,
+      "documentScrollWidth": 1265
+    },
+    {
+      "width": 768,
+      "dialogLeft": 26.5,
+      "dialogRight": 726.5,
+      "documentScrollWidth": 753
+    },
+    {
+      "width": 390,
+      "dialogLeft": 16,
+      "dialogRight": 344,
+      "documentScrollWidth": 375
+    }
+  ],
+  "rustRegression": {
+    "test": "live_approval_tests::rejected_capacity_review_uses_specific_blocker_and_allowed_change_stays_distinct",
+    "result": "PASS",
+    "additionalTests": [
+      {
+        "test": "live_approval_tests::concurrent_live_place_preparations_isolate_account_capacity",
+        "result": "PASS"
+      },
+      {
+        "test": "live_approval_tests::live_place_preparation_capacity_race_persists_rejection_and_preserves_approval",
+        "result": "PASS",
+        "assertions": [
+          "durable RESERVED_CAPACITY rejection at the atomic Prepare boundary",
+          "approval remains ISSUED and retryable",
+          "same-key replay returns the stored rejection without another event",
+          "approval-history reconciliation does not invalidate consent for a capacity-only change"
+        ]
+      },
+      {
+        "test": "live_approval_tests::live_place_preparation_subtracts_existing_account_reservations",
+        "result": "PASS",
+        "assertions": [
+          "known insufficient effective capacity is REJECTED before approval",
+          "no approval is issued for the blocked proposal",
+          "the existing active reservation remains unchanged"
+        ]
+      }
+    ]
+  },
+  "staticChecks": {
+    "nodeCheckLiveApprovalHelper": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "review": {
+    "standards": "PASS, no actionable findings for this bounded F11 change",
+    "spec": "PASS for the pre-approval reservation-capacity rejection and mismatch messaging",
+    "sources": [
+      "PRD §23",
+      "UI Prototype Spec F11"
+    ],
+    "reviewer": "primary agent, serial review; not an independent review"
+  },
+  "screenshots": [
+    "docs/implementation/evidence/s33/f11-capacity-rejected-1280.png",
+    "docs/implementation/evidence/s33/f11-capacity-rejected-risk-1280.png",
+    "docs/implementation/evidence/s33/f11-capacity-stale-1280.png"
+  ],
+  "limitations": [
+    "The full checkLiveApprovalUI helper was not run because it continues into separate Gateway scenarios.",
+    "The manual UI run did not instrument external HTTP; all explicit fixture commands used the local integration bridge, and the isolated Gateway POST count stayed zero.",
+    "Full S23/S33 acceptance, real-provider evidence, native accessibility, and process-restart recovery remain open."
+  ],
+  "fullCheck": {
+    "command": "RUST_TEST_THREADS=1 npm run check",
+    "result": "PASS",
+    "checks": {
+      "ipcSchema": "PASS",
+      "typescriptTypecheck": "PASS",
+      "viteProductionBuild": "PASS",
+      "nodeUnitTests": {
+        "passed": 31,
+        "failed": 0
+      },
+      "rustWorkspace": "PASS",
+      "rustMainLibraryTests": {
+        "passed": 263,
+        "failed": 0
+      },
+      "logSecretScan": "PASS",
+      "requirementsTraceability": {
+        "result": "PASS",
+        "requirements": 203,
+        "screens": 70,
+        "qaScenarios": 13,
+        "baselineFiles": 23
+      }
+    },
+    "notes": [
+      "Existing provider and native Keychain integration tests explicitly marked ignored remained skipped.",
+      "Vite reported the existing minified client chunk exceeds 500 kB.",
+      "Rust test compilation emitted existing dead_code warnings for unused fixture variants and methods."
+    ],
+    "sourceState": "Checks ran against the current uncommitted working tree."
+  },
+  "sourceState": "Uncommitted working-tree changes on dev based on codeBaselineSha; the SHA is the underlying HEAD, not a clean commit of this evidence."
+}

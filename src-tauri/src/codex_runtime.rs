@@ -211,7 +211,7 @@ fn run_fake(
         .codex_thread_id
         .clone()
         .unwrap_or_else(|| format!("codex-thread-{}", &uuid::Uuid::new_v4().to_string()[..8]));
-    let frames = [
+    let mut frames = vec![
         RuntimeEvent::ThreadStarted {
             key: "thread/started:1".into(),
             thread_id: codex_thread_id,
@@ -219,6 +219,91 @@ fn run_fake(
         RuntimeEvent::TurnStarted {
             key: "turn/started:1".into(),
         },
+    ];
+    if scenario == "tool-failure-once" && request.codex_thread_id.is_none() {
+        frames.extend([
+            RuntimeEvent::ItemStarted {
+                key: "item/started:tool-call-failure".into(),
+                item_id: "item-tool-call-failure".into(),
+                item_type: "tool_call".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:tool-call-failure".into(),
+                item_id: "item-tool-call-failure".into(),
+                item_type: "tool_call".into(),
+                delta: "Synthetic read-only tool fixture: no tool was executed and no financial state was mutated; MODEL_UNAVAILABLE before a result.".into(),
+            },
+        ]);
+        for event in frames {
+            if cancelled.load(Ordering::Acquire) {
+                return Ok(RuntimeOutcome::Cancelled);
+            }
+            emit(event)?;
+            for _ in 0..10 {
+                if cancelled.load(Ordering::Acquire) {
+                    return Ok(RuntimeOutcome::Cancelled);
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+        return Err(TradeXError::new("MODEL_UNAVAILABLE"));
+    }
+    if scenario == "research-plan-tools" {
+        frames.extend([
+            RuntimeEvent::ItemStarted {
+                key: "item/started:plan-1".into(),
+                item_id: "item-plan-1".into(),
+                item_type: "plan".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:plan-1".into(),
+                item_id: "item-plan-1".into(),
+                item_type: "plan".into(),
+                delta: "SYNTHETIC PLAN: read the typed result; summarize its findings; preserve its source limitations.".into(),
+            },
+            RuntimeEvent::ItemCompleted {
+                key: "item/completed:plan-1".into(),
+                item_id: "item-plan-1".into(),
+                item_type: "plan".into(),
+                content: None,
+            },
+            RuntimeEvent::ItemStarted {
+                key: "item/started:tool-call-1".into(),
+                item_id: "item-tool-call-1".into(),
+                item_type: "tool_call".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:tool-call-1".into(),
+                item_id: "item-tool-call-1".into(),
+                item_type: "tool_call".into(),
+                delta: "SYNTHETIC TOOL EVENT EXAMPLE: public_market_read · EQUITY; not executed by runtime.".into(),
+            },
+            RuntimeEvent::ItemCompleted {
+                key: "item/completed:tool-call-1".into(),
+                item_id: "item-tool-call-1".into(),
+                item_type: "tool_call".into(),
+                content: None,
+            },
+            RuntimeEvent::ItemStarted {
+                key: "item/started:tool-result-1".into(),
+                item_id: "item-tool-result-1".into(),
+                item_type: "tool_result".into(),
+            },
+            RuntimeEvent::ItemDelta {
+                key: "item/delta:tool-result-1".into(),
+                item_id: "item-tool-result-1".into(),
+                item_type: "tool_result".into(),
+                delta: "SYNTHETIC TOOL RESULT EXAMPLE: no second research command; local fixture only.".into(),
+            },
+            RuntimeEvent::ItemCompleted {
+                key: "item/completed:tool-result-1".into(),
+                item_id: "item-tool-result-1".into(),
+                item_type: "tool_result".into(),
+                content: None,
+            },
+        ]);
+    }
+    frames.extend([
         RuntimeEvent::ItemStarted {
             key: "item/started:1".into(),
             item_id: "item-agent-1".into(),
@@ -245,7 +330,7 @@ fn run_fake(
         RuntimeEvent::TurnCompleted {
             key: "turn/completed:1".into(),
         },
-    ];
+    ]);
     for (index, event) in frames.into_iter().enumerate() {
         if cancelled.load(Ordering::Acquire) {
             return Ok(RuntimeOutcome::Cancelled);

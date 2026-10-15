@@ -1,0 +1,27 @@
+{
+  "result": "PASS",
+  "boundary": "disposable disconnected Demo records and test-only eligible Live fixture; no provider credentials or external requests",
+  "initialFocus": "Cancel",
+  "keyboardTrap": "Tab and Shift+Tab wrap inside native modal",
+  "enter": "dismissed without account.delete; records unchanged",
+  "escape": "dismissed; records unchanged",
+  "focusReturn": "Delete local account",
+  "positiveDelete": "one confirmed synthetic account removed; same-label sibling and Local Paper preserved; no provider/Gateway/execution commands",
+  "forbiddenCommands": 0,
+  "liveArm": "Tab and Shift+Tab wrap; Enter on Keep reviewing leaves the account DISARMED",
+  "responsiveWidths": {
+    "accountDelete": [
+      768,
+      390
+    ],
+    "liveArm": [
+      768,
+      390
+    ]
+  },
+  "capturedAt": "2026-10-14T12:47:05.482Z",
+  "limitations": [
+    "Disposable local synthetic Demo records only; no provider credential, endpoint or real account.",
+    "This covers the Delete and Arm native dialog variants only; native VoiceOver and full S33 remain open."
+  ]
+}

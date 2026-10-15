@@ -6541,6 +6541,7 @@ fn alpaca(account: Value, positions: Value, orders: Value) -> Result<Observation
                 quantity,
                 notional,
                 filled_quantity: Some(decimal(&o["filled_qty"])?),
+                remaining_quantity: None,
                 filled_value: None,
                 currency: Some(currency.clone()),
                 status,

@@ -76,7 +76,10 @@ export function WorkspaceArchive({ workspace, onOpenRestored }: { workspace: Wor
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       if (shell) shell.inert = false;
-      queueMicrotask(() => { if (importTriggerRef.current?.isConnected) importTriggerRef.current.focus(); else if (previousFocus?.isConnected) previousFocus.focus(); });
+      queueMicrotask(() => {
+        if (importTriggerRef.current?.isConnected && !importTriggerRef.current.disabled) importTriggerRef.current.focus();
+        else if (previousFocus?.isConnected) previousFocus.focus();
+      });
     };
   }, [importOpen, preview, busy]);
 
@@ -185,7 +188,7 @@ export function WorkspaceArchive({ workspace, onOpenRestored }: { workspace: Wor
       {!preview ? <button ref={archiveButtonRef} type="button" className="primary" onClick={() => void chooseArchive()} disabled={busy}>{busy ? 'Validating archive…' : 'Choose archive'}</button> : <>
         <p className="workspace-archive-validated" role="status">Archive validated; the stored schema is supported by this TradeX version.</p>
         <dl className="artifact-meta"><div><dt>Workspace</dt><dd>{preview.workspaceName}</dd></div><div><dt>Workspace ID</dt><dd className="identity">{preview.workspaceId}</dd></div><div><dt>Captured</dt><dd><time dateTime={preview.capturedAt}>{new Date(preview.capturedAt).toLocaleString()}</time></dd></div><div><dt>Schema / members</dt><dd>{preview.storageSchemaVersion} · {preview.memberCount}</dd></div><div><dt>Archive size</dt><dd>{preview.bytes.toLocaleString()} bytes</dd></div></dl>
-        <section className="workspace-data-categories" aria-labelledby="workspace-data-heading"><h3 id="workspace-data-heading">Included data</h3><dl>{preview.dataCategories.map(category => <div key={category.categoryId}><dt>{archiveCategoryLabel(category.categoryId)}</dt><dd>{category.recordCount.toLocaleString()} records</dd></div>)}</dl></section>
+        <section className="workspace-data-categories" aria-labelledby="workspace-data-heading"><h3 id="workspace-data-heading">Included data</h3><dl>{preview.dataCategories.map(category => <div key={category.categoryId}><dt>{archiveCategoryLabel(category.categoryId)}</dt><dd>{category.recordCount.toLocaleString()} {category.recordCount === 1 ? 'record' : 'records'}</dd></div>)}</dl></section>
         {preview.credentialChecks.length > 0 && <div className="workspace-credential-checks" aria-label="Credential reference checks"><h3>Saved account credentials</h3><ul>{preview.credentialChecks.map(check => <li key={check.connectionId}><strong>{check.label}</strong> <span>({check.providerId} {check.environment})</span><p>{check.status === 'PRESENT_UNVERIFIED' ? 'Keychain entry exists. The account still needs fresh authentication and reconciliation after restore.' : check.status === 'MISSING' ? 'Keychain entry is missing. The restored account will remain blocked until reconnected.' : check.status === 'UNAVAILABLE' ? 'Keychain could not be checked. The restored account will remain unchecked and blocked.' : 'Keychain entry has not been checked; the restored account will remain unchecked and blocked.'}</p></li>)}</ul></div>}
         <ul>{preview.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
         <div className="field"><span>Restore destination</span><div className="folder-input"><span className="path">{destinationParent ?? 'Choose a folder for the restored workspace'}</span><button ref={destinationButtonRef} type="button" onClick={() => void chooseDestination()} disabled={busy}>Choose folder…</button></div></div>
@@ -197,7 +200,14 @@ export function WorkspaceArchive({ workspace, onOpenRestored }: { workspace: Wor
   </div>, document.body) : null;
 
   return <section className="workspace-archive card" aria-labelledby="workspace-archive-heading">
-    <div className="account-heading"><div><h3 id="workspace-archive-heading">Workspace backup &amp; retention</h3><p className="muted">SQLite stores workspace state; DuckDB stores historical market data; files store exports and backups.</p></div></div>
+    <div className="account-heading"><div><h3 id="workspace-archive-heading">Workspace backup &amp; retention</h3>
+      <ul className="workspace-storage-profile" aria-label="Storage responsibilities">
+        <li><strong>SQLite</strong> — transactional/domain state and financial audit.</li>
+        <li><strong>DuckDB</strong> — persistent 1-minute+ OHLCV, analytics, and MVP backtest data.</li>
+        <li><strong>Filesystem</strong> — artifacts, strategies, exports, and backups.</li>
+        <li><strong>Parquet</strong> — optional Phase 2+ for large immutable historical datasets and interchange; not required for v1.0 MVP correctness.</li>
+      </ul>
+    </div></div>
     <div className="artifact-actions">
       <button type="button" disabled={!desktop || busy} onClick={() => void backupNow()}>{busy ? 'Creating backup…' : 'Backup Now'}</button>
       <button type="button" disabled={!desktop || busy} onClick={() => void exportWorkspace()}>{busy ? 'Exporting…' : 'Export Workspace'}</button>

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "surface": "G5",
+  "title": "Bitget Spot Demo fail-closed submission UI regression",
+  "recordedDate": "2026-10-14",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "status": "IMPLEMENTED_UNVERIFIED",
+  "scope": "S33 local synthetic UI and fail-closed RiskDecision evidence only; no real Bitget Demo account or endpoint, and no order side effect",
+  "runner": "node /tmp/run-tradex-g5-only.mjs",
+  "check": "tests/provider-ui.mjs::checkProviderUI(tab, browser, 'bitget/DEMO')",
+  "workspaceId": "fc4c6741-46d5-4609-b6d8-ebb9d7e5f5a2",
+  "providerResponses": "Synthetic local account and provider fixtures only; the order path stopped before provider or simulator side effects",
+  "proposalReview": [
+    "Bitget Spot Demo · DEMO, exact connection label, full TradeX connection ID, and remote account ID",
+    "Immutable Proposal ID and SHA-256 hash",
+    "crypto:BTC/USDT:spot · BUY · 0.1 BASE · LIMIT · GTC · base coin (BTC)",
+    "Estimated notional 6500 USDT; maximum spend —; limit price 65000",
+    "BITGET · BITGET_DEMO venue/context"
+  ],
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 900
+    },
+    {
+      "width": 768,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 900
+    }
+  ],
+  "observed": [
+    "Secure connection setup contains no renderer password inputs; the synthetic Bitget Demo permission scope is reviewed before connection.",
+    "Escape safely dismisses the confirmation without an attempt; explicit keyboard confirmation reaches the unavailable-evidence gate.",
+    "RiskDecision returns RISK_EVIDENCE_UNAVAILABLE for QUOTE_FRESHNESS, MARKET_SESSION, and INSTRUMENT_RULES. The UI states that no attempt or provider/simulator side effect was created.",
+    "The exact Proposal remains available. Reload neither invents nor replays an attempt, and the submit action stays reviewable.",
+    "Account controls and Account Health are reachable at 768 px and 390 px; disconnect hides local credential access and disables refresh."
+  ],
+  "attemptAfterConfirmation": null,
+  "attemptAfterReload": null,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "externalHttpRequests": [],
+  "notEstablished": [
+    "Real Bitget Demo authentication, order acknowledgement, fills, order history, cancellation, or provider-hosted acceptance; Demo lifecycle acceptance was withdrawn by user scope decision and is not verified.",
+    "Current S06/S29 market, time/calendar, and instrument-rule evidence required for an eligible Demo submission.",
+    "Native VoiceOver and overall S33/#141 acceptance."
+  ],
+  "realProviderGate": "No real Bitget account or endpoint was used; provider integration remains skipped by user scope."
+}

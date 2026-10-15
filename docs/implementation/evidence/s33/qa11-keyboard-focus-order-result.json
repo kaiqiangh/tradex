@@ -1,0 +1,495 @@
+{
+  "result": "PASS",
+  "workspace": "3e3b6752-fb16-4d81-ba56-04ae7f9c0245",
+  "viewportWidths": [
+    1280,
+    768,
+    390
+  ],
+  "surfaceViewportPairs": 47,
+  "tabStopsAcrossSurfaceViewportPairs": 893,
+  "visualReadingOrderGroups": 282,
+  "visualReadingOrderControls": 1460,
+  "mainContentGeometryGroups": 171,
+  "mainContentGeometryControls": 614,
+  "mobileNavigationVisualReadingOrderPairs": 2,
+  "forbiddenCommandCount": 0,
+  "observations": [
+    {
+      "surface": "+ New Thread",
+      "width": 1280,
+      "focusableControls": 19,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 26,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 8,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Threads",
+      "width": 1280,
+      "focusableControls": 18,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 24,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Markets",
+      "width": 1280,
+      "focusableControls": 18,
+      "visualOrderGroups": 6,
+      "visualOrderControls": 24,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Watchlists",
+      "width": 1280,
+      "focusableControls": 12,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 12,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 1,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Order Drafts",
+      "width": 1280,
+      "focusableControls": 28,
+      "visualOrderGroups": 8,
+      "visualOrderControls": 44,
+      "mainContentGeometryGroups": 5,
+      "mainContentGeometryControls": 17,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Accounts",
+      "width": 1280,
+      "focusableControls": 20,
+      "visualOrderGroups": 7,
+      "visualOrderControls": 28,
+      "mainContentGeometryGroups": 4,
+      "mainContentGeometryControls": 9,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Strategies",
+      "width": 1280,
+      "focusableControls": 31,
+      "visualOrderGroups": 6,
+      "visualOrderControls": 50,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 20,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Artifacts",
+      "width": 1280,
+      "focusableControls": 11,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 10,
+      "mainContentGeometryGroups": 0,
+      "mainContentGeometryControls": 0,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings",
+      "width": 1280,
+      "focusableControls": 33,
+      "visualOrderGroups": 10,
+      "visualOrderControls": 54,
+      "mainContentGeometryGroups": 7,
+      "mainContentGeometryControls": 22,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Providers & Models",
+      "width": 1280,
+      "focusableControls": 33,
+      "visualOrderGroups": 10,
+      "visualOrderControls": 54,
+      "mainContentGeometryGroups": 7,
+      "mainContentGeometryControls": 22,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Risk & Limits",
+      "width": 1280,
+      "focusableControls": 46,
+      "visualOrderGroups": 6,
+      "visualOrderControls": 80,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 35,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Data & Storage",
+      "width": 1280,
+      "focusableControls": 52,
+      "visualOrderGroups": 20,
+      "visualOrderControls": 92,
+      "mainContentGeometryGroups": 17,
+      "mainContentGeometryControls": 41,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Account Health",
+      "width": 1280,
+      "focusableControls": 19,
+      "visualOrderGroups": 6,
+      "visualOrderControls": 26,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 8,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Appearance",
+      "width": 1280,
+      "focusableControls": 17,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 22,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 6,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → About",
+      "width": 1280,
+      "focusableControls": 18,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 24,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Mobile navigation drawer",
+      "width": 768,
+      "focusableControls": 19,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 25,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "+ New Thread",
+      "width": 768,
+      "focusableControls": 11,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 18,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 8,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Threads",
+      "width": 768,
+      "focusableControls": 10,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Markets",
+      "width": 768,
+      "focusableControls": 10,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Watchlists",
+      "width": 768,
+      "focusableControls": 4,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 4,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 1,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Order Drafts",
+      "width": 768,
+      "focusableControls": 20,
+      "visualOrderGroups": 7,
+      "visualOrderControls": 36,
+      "mainContentGeometryGroups": 5,
+      "mainContentGeometryControls": 17,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Accounts",
+      "width": 768,
+      "focusableControls": 12,
+      "visualOrderGroups": 6,
+      "visualOrderControls": 20,
+      "mainContentGeometryGroups": 4,
+      "mainContentGeometryControls": 9,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Strategies",
+      "width": 768,
+      "focusableControls": 23,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 42,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 20,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Artifacts",
+      "width": 768,
+      "focusableControls": 3,
+      "visualOrderGroups": 2,
+      "visualOrderControls": 2,
+      "mainContentGeometryGroups": 0,
+      "mainContentGeometryControls": 0,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings",
+      "width": 768,
+      "focusableControls": 10,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Providers & Models",
+      "width": 768,
+      "focusableControls": 25,
+      "visualOrderGroups": 9,
+      "visualOrderControls": 46,
+      "mainContentGeometryGroups": 7,
+      "mainContentGeometryControls": 22,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Risk & Limits",
+      "width": 768,
+      "focusableControls": 38,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 72,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 35,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Data & Storage",
+      "width": 768,
+      "focusableControls": 44,
+      "visualOrderGroups": 19,
+      "visualOrderControls": 84,
+      "mainContentGeometryGroups": 17,
+      "mainContentGeometryControls": 41,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Account Health",
+      "width": 768,
+      "focusableControls": 11,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 18,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 8,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Appearance",
+      "width": 768,
+      "focusableControls": 9,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 14,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 6,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → About",
+      "width": 768,
+      "focusableControls": 10,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Mobile navigation drawer",
+      "width": 390,
+      "focusableControls": 19,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 25,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "+ New Thread",
+      "width": 390,
+      "focusableControls": 11,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 18,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 8,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Threads",
+      "width": 390,
+      "focusableControls": 10,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Markets",
+      "width": 390,
+      "focusableControls": 10,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Watchlists",
+      "width": 390,
+      "focusableControls": 4,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 4,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 1,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Order Drafts",
+      "width": 390,
+      "focusableControls": 20,
+      "visualOrderGroups": 7,
+      "visualOrderControls": 36,
+      "mainContentGeometryGroups": 5,
+      "mainContentGeometryControls": 17,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Accounts",
+      "width": 390,
+      "focusableControls": 12,
+      "visualOrderGroups": 6,
+      "visualOrderControls": 20,
+      "mainContentGeometryGroups": 4,
+      "mainContentGeometryControls": 9,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Strategies",
+      "width": 390,
+      "focusableControls": 23,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 42,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 20,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Artifacts",
+      "width": 390,
+      "focusableControls": 3,
+      "visualOrderGroups": 2,
+      "visualOrderControls": 2,
+      "mainContentGeometryGroups": 0,
+      "mainContentGeometryControls": 0,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings",
+      "width": 390,
+      "focusableControls": 10,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Providers & Models",
+      "width": 390,
+      "focusableControls": 25,
+      "visualOrderGroups": 9,
+      "visualOrderControls": 46,
+      "mainContentGeometryGroups": 7,
+      "mainContentGeometryControls": 22,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Risk & Limits",
+      "width": 390,
+      "focusableControls": 38,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 72,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 35,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Data & Storage",
+      "width": 390,
+      "focusableControls": 44,
+      "visualOrderGroups": 19,
+      "visualOrderControls": 84,
+      "mainContentGeometryGroups": 17,
+      "mainContentGeometryControls": 41,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Account Health",
+      "width": 390,
+      "focusableControls": 11,
+      "visualOrderGroups": 5,
+      "visualOrderControls": 18,
+      "mainContentGeometryGroups": 3,
+      "mainContentGeometryControls": 8,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → Appearance",
+      "width": 390,
+      "focusableControls": 9,
+      "visualOrderGroups": 3,
+      "visualOrderControls": 14,
+      "mainContentGeometryGroups": 1,
+      "mainContentGeometryControls": 6,
+      "documentOverflow": 0
+    },
+    {
+      "surface": "Settings → About",
+      "width": 390,
+      "focusableControls": 10,
+      "visualOrderGroups": 4,
+      "visualOrderControls": 16,
+      "mainContentGeometryGroups": 2,
+      "mainContentGeometryControls": 7,
+      "documentOverflow": 0
+    }
+  ],
+  "capturedAt": "2026-10-14T12:46:36.694Z",
+  "limitations": [
+    "DOM/browser keyboard audit only; it does not establish native VoiceOver output or all native dialog variants.",
+    "This focused QA-11 slice complements the synthetic Live approval dialog check; S33 remains open."
+  ],
+  "closedNativeDialogsHidden": true
+}

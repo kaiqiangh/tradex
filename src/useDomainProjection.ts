@@ -10,7 +10,8 @@ export function useDomainProjection<T extends DomainProjection>(kind: 'workspace
   const [projection, setProjection] = useState<Projection<T> | null>(null);
   const [streamError, setStreamError] = useState<unknown>(null);
   const snapshot = useQuery({
-    queryKey: [kind, id], enabled: Boolean(id),
+    // This snapshot seeds the event projection; remounting another observer must not restart it.
+    queryKey: [kind, id], enabled: Boolean(id), staleTime: Infinity,
     queryFn: () => request('domain.snapshot', { aggregateType: kind, aggregateId: id! }),
   });
   useEffect(() => {

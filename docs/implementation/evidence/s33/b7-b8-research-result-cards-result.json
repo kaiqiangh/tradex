@@ -1,0 +1,141 @@
+{
+  "result": "PASS",
+  "cases": 12,
+  "observations": [
+    {
+      "focus": "EQUITY",
+      "mode": "RESEARCH",
+      "width": 1280,
+      "cardWidth": 406,
+      "documentOverflow": false
+    },
+    {
+      "focus": "EQUITY",
+      "mode": "RESEARCH",
+      "width": 768,
+      "cardWidth": 438,
+      "documentOverflow": false
+    },
+    {
+      "focus": "EQUITY",
+      "mode": "RESEARCH",
+      "width": 390,
+      "cardWidth": 284,
+      "documentOverflow": false
+    },
+    {
+      "focus": "CRYPTO_SPOT",
+      "mode": "RESEARCH",
+      "width": 1280,
+      "cardWidth": 406,
+      "documentOverflow": false
+    },
+    {
+      "focus": "CRYPTO_SPOT",
+      "mode": "RESEARCH",
+      "width": 768,
+      "cardWidth": 438,
+      "documentOverflow": false
+    },
+    {
+      "focus": "CRYPTO_SPOT",
+      "mode": "RESEARCH",
+      "width": 390,
+      "cardWidth": 284,
+      "documentOverflow": false
+    },
+    {
+      "focus": "EQUITY",
+      "mode": "TRADE",
+      "width": 1280,
+      "cardWidth": 406,
+      "documentOverflow": false
+    },
+    {
+      "focus": "EQUITY",
+      "mode": "TRADE",
+      "width": 768,
+      "cardWidth": 438,
+      "documentOverflow": false
+    },
+    {
+      "focus": "EQUITY",
+      "mode": "TRADE",
+      "width": 390,
+      "cardWidth": 284,
+      "documentOverflow": false
+    },
+    {
+      "focus": "CRYPTO_SPOT",
+      "mode": "TRADE",
+      "width": 1280,
+      "cardWidth": 406,
+      "documentOverflow": false
+    },
+    {
+      "focus": "CRYPTO_SPOT",
+      "mode": "TRADE",
+      "width": 768,
+      "cardWidth": 438,
+      "documentOverflow": false
+    },
+    {
+      "focus": "CRYPTO_SPOT",
+      "mode": "TRADE",
+      "width": 390,
+      "cardWidth": 284,
+      "documentOverflow": false
+    }
+  ],
+  "researchRunCommands": 12,
+  "forbiddenCommands": 0,
+  "commandNames": [
+    "account.activity",
+    "account.list",
+    "agent.capabilities",
+    "context.catalog",
+    "domain.snapshot",
+    "domain.subscribe",
+    "research.run",
+    "runtime.status",
+    "thread.create",
+    "thread.list",
+    "workspace.open",
+    "workspace.ready.fixture"
+  ],
+  "externalRequests": 0,
+  "fixtureOnly": true,
+  "capturedAt": "2026-10-14T15:58:33Z",
+  "test": {
+    "path": "tests/s33-research-result-cards-playwright.js",
+    "sha256": "1f6776f3bc3f6f0678e318cea3c10a8302a6c13e0a832211812a67e64427fba6"
+  },
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/research-equity-research-390.png",
+      "sha256": "f6718706a6c6ef191d899be69c032e238acb30d6b35d4137767792c673717941"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/research-equity-trade-390.png",
+      "sha256": "6bafe96f82327eb9f4f0cccc7d36361e2b0afac5a61529d0e980a0f52c9918bb"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/research-crypto_spot-research-390.png",
+      "sha256": "4481c3caaf3cb2db9c97a8e51465ddd2417e69fb20ef447eee474ddb080f6d0c"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/research-crypto_spot-trade-390.png",
+      "sha256": "8468d4119b8da8dda5c763d4e4cc767e5203425aa1c2ffebda27cfdba14d2940"
+    }
+  ],
+  "latestRerun": {
+    "capturedAt": "2026-10-14T15:58:33Z",
+    "result": "PASS",
+    "cases": 12,
+    "b7EquityCases": 6,
+    "researchRunCommands": 12,
+    "forbiddenCommands": 0,
+    "externalRequests": 0,
+    "testSha256": "1f6776f3bc3f6f0678e318cea3c10a8302a6c13e0a832211812a67e64427fba6"
+  }
+}

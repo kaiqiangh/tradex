@@ -28,19 +28,21 @@ use crate::model::ModelState;
 use crate::protocol::{
     AlpacaPaperCancelState, AlpacaPaperOrder, AlpacaPaperOrderAttempt,
     AlpacaPaperOrderAttemptState, AlpacaPaperOrderBook, AlpacaPaperOrderBookStatus,
-    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit, ApprovalRejection,
-    Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult, ArtifactKind, ArtifactLibrary,
-    ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary, BacktestRun, BacktestRunRequest,
-    BacktestRunState, BacktestRunSummary, BinanceTestnetOrderAttempt,
-    BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook, BinanceTestnetOrderBookStatus,
-    BinanceTestnetOrderCancel, BinanceTestnetOrderCancelState, BinanceTestnetOrderOrigin,
-    BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt, BitgetDemoOrderAttemptState,
-    BitgetDemoOrderSubmit, CancellationApprovalHistory, CancellationApprovalRejection,
-    CancellationIntent, CancellationIntentHistoryEntry, DomainEvent, DomainProjection, EventSink,
-    ExecutionAttempt, ExecutionAttemptState, ExecutionContext, ExecutionDispatchDisposition,
-    ExecutionDispatchGrant, ExecutionDispatchGrantStatus, ExecutionPreparation,
-    ExecutionPreparationRejection, ExecutionReservation, ExecutionReservationStatus,
-    FinancialApproval, FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
+    AlpacaPaperOrderCancel, AlpacaPaperOrderOrigin, AlpacaPaperOrderSubmit,
+    ApprovalExpiryAuthority, ApprovalExpiryReservationDisposition, ApprovalExpiryScope,
+    ApprovalRejection, Artifact, ArtifactContent, ArtifactExport, ArtifactExportResult,
+    ArtifactKind, ArtifactLibrary, ArtifactSummary, AssetClass, BacktestFailure, BacktestLibrary,
+    BacktestRun, BacktestRunRequest, BacktestRunState, BacktestRunSummary,
+    BinanceTestnetOrderAttempt, BinanceTestnetOrderAttemptState, BinanceTestnetOrderBook,
+    BinanceTestnetOrderBookStatus, BinanceTestnetOrderCancel, BinanceTestnetOrderCancelState,
+    BinanceTestnetOrderOrigin, BinanceTestnetOrderSubmit, BitgetDemoOrderAttempt,
+    BitgetDemoOrderAttemptState, BitgetDemoOrderSubmit, CancellationApprovalHistory,
+    CancellationApprovalRejection, CancellationIntent, CancellationIntentHistoryEntry, DomainEvent,
+    DomainProjection, EventSink, ExecutionAttempt, ExecutionAttemptState, ExecutionContext,
+    ExecutionDispatchDisposition, ExecutionDispatchGrant, ExecutionDispatchGrantStatus,
+    ExecutionOrderLink, ExecutionOrderLinks, ExecutionPreparation, ExecutionPreparationRejection,
+    ExecutionReservation, ExecutionReservationStatus, FinancialApproval, FinancialApprovalExpiry,
+    FinancialApprovalHistory, FinancialApprovalIntent, FinancialApprovalStatus,
     LiveOrderDisposition, LiveOrderFee, LiveOrderSettlement, LiveOrderSettlementStatus,
     LiveOrderTradeFact, LocalPaperEvent, LocalPaperEventKind, LocalPaperFill, LocalPaperOrder,
     LocalPaperState, MAX_SEQUENCE, ManualResolutionDecision, ManualResolutionRecord, OpenWorkspace,
@@ -4397,6 +4399,129 @@ impl Store {
         })
     }
 
+    pub fn execution_order_links(
+        &self,
+        workspace_id: &str,
+        account_id: &str,
+        broker_order_ids: &[String],
+    ) -> Result<ExecutionOrderLinks> {
+        if workspace_id != self.workspace_id()?
+            || !valid_order_text(account_id, 128)
+            || broker_order_ids.len() > 2_000
+        {
+            return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+        }
+        let account = self.account(account_id)?;
+        if account.workspace_id != workspace_id {
+            return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
+        }
+        let mut requested = HashSet::with_capacity(broker_order_ids.len());
+        for broker_order_id in broker_order_ids {
+            if !valid_order_text(broker_order_id, 128)
+                || !requested.insert(broker_order_id.as_str())
+            {
+                return Err(TradeXError::new("IPC_PAYLOAD_INVALID"));
+            }
+        }
+        if requested.is_empty() {
+            return Ok(ExecutionOrderLinks {
+                workspace_id: workspace_id.to_owned(),
+                account_id: account_id.to_owned(),
+                links: Vec::new(),
+            });
+        }
+
+        let rows = {
+            let mut statement = self
+                .connection
+                .prepare(
+                    "SELECT attempt_id,operation,state,sequence,projection FROM execution_attempts WHERE workspace_id=?1 AND account_id=?2 ORDER BY sequence DESC,attempt_id",
+                )
+                .map_err(storage_error)?;
+            statement
+                .query_map(params![workspace_id, account_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, String>(4)?,
+                    ))
+                })
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+
+        let mut links = Vec::new();
+        let mut linked_order_ids = HashSet::new();
+        for (row_id, row_operation, row_state, sequence, projection) in rows {
+            let attempt: ExecutionAttempt = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let expected_operation = serde_json::to_value(attempt.operation)
+                .map_err(storage_error)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            let expected_state = serde_json::to_value(attempt.state)
+                .map_err(storage_error)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if sequence < 1
+                || row_id != attempt.attempt_id
+                || attempt.workspace_id != workspace_id
+                || attempt.account_id != account_id
+                || row_operation != expected_operation
+                || row_state != expected_state
+                || attempt.state_version
+                    != format!("execution-attempt:{}:{sequence}", attempt.attempt_id)
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if attempt.operation != crate::protocol::FinancialOperation::PlaceOrder {
+                continue;
+            }
+            let Some(broker_order_id) = attempt.broker_order_id.as_deref() else {
+                continue;
+            };
+            if !requested.contains(broker_order_id) {
+                continue;
+            }
+            if !linked_order_ids.insert(broker_order_id.to_owned()) {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let reservation = load_execution_reservation_for_attempt(
+                &self.connection,
+                workspace_id,
+                &attempt.attempt_id,
+            )?;
+            if attempt.reservation_id.is_some() && reservation.is_none() {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if let Some(reservation) = reservation.as_ref() {
+                if attempt.reservation_id.as_deref() != Some(reservation.reservation_id.as_str())
+                    || attempt.proposal_id.as_deref() != Some(reservation.proposal_id.as_str())
+                    || reservation.account_id != account_id
+                    || reservation.workspace_id != workspace_id
+                {
+                    return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+                }
+            }
+            links.push(ExecutionOrderLink {
+                broker_order_id: broker_order_id.to_owned(),
+                execution_attempt_id: attempt.attempt_id,
+                proposal_id: attempt.proposal_id,
+                reservation: reservation.map(Box::new),
+            });
+        }
+        Ok(ExecutionOrderLinks {
+            workspace_id: workspace_id.to_owned(),
+            account_id: account_id.to_owned(),
+            links,
+        })
+    }
+
     pub fn unknown_live_place_attempts(&self, workspace_id: &str) -> Result<Vec<ExecutionAttempt>> {
         if workspace_id != self.workspace_id()? {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
@@ -5240,7 +5365,7 @@ impl Store {
         Ok(events)
     }
 
-    pub fn expire_unsubmitted_approvals(
+    pub fn expire_financial_approval_authority(
         &mut self,
         workspace_id: &str,
         now: &str,
@@ -5249,15 +5374,15 @@ impl Store {
             return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
         }
         OffsetDateTime::parse(now, &Rfc3339).map_err(|_| TradeXError::new("CLOCK_SKEW"))?;
-        let has_unsubmitted_work: bool = self
+        let has_pending_expiry: bool = self
             .connection
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM financial_approvals WHERE workspace_id=?1 AND status='ISSUED') OR EXISTS(SELECT 1 FROM execution_attempts WHERE workspace_id=?1 AND state='RESERVED')",
+                "SELECT EXISTS(SELECT 1 FROM financial_approvals WHERE workspace_id=?1 AND (status='ISSUED' OR (status='CONSUMED' AND json_extract(projection,'$.expiry') IS NULL))) OR EXISTS(SELECT 1 FROM execution_attempts WHERE workspace_id=?1 AND state='RESERVED')",
                 [workspace_id],
                 |row| row.get(0),
             )
             .map_err(storage_error)?;
-        if !has_unsubmitted_work {
+        if !has_pending_expiry {
             return Ok(Vec::new());
         }
         let tx = self
@@ -5323,7 +5448,7 @@ impl Store {
         {
             let attempt: ExecutionAttempt = serde_json::from_str(&attempt_projection)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
-            let approval: FinancialApproval = serde_json::from_str(&approval_projection)
+            let mut approval: FinancialApproval = serde_json::from_str(&approval_projection)
                 .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
             if sequence < 1
                 || approval_sequence < 1
@@ -5355,6 +5480,7 @@ impl Store {
                     return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
                 }
             };
+            let stopped_attempt_id = attempt.attempt_id.clone();
             events.extend(invalidate_reserved_execution_attempt_tx(
                 &tx,
                 attempt,
@@ -5362,6 +5488,69 @@ impl Store {
                 reason,
                 now,
             )?);
+            if reason == "APPROVAL_EXPIRED"
+                && approval.status == FinancialApprovalStatus::Consumed
+                && approval.expiry.is_none()
+            {
+                let stopped = load_execution_attempt(&tx, workspace_id, &stopped_attempt_id)?
+                    .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+                let reservation =
+                    load_execution_reservation_for_attempt(&tx, workspace_id, &stopped_attempt_id)?;
+                approval.expiry = Some(approval_expiry_evidence(
+                    &approval,
+                    now,
+                    Some(&stopped),
+                    reservation.as_ref(),
+                    true,
+                )?);
+                events.push(write_financial_approval_tx(&tx, approval, None, now)?);
+            }
+        }
+        // A used authority can expire without changing its consumed history or order capacity.
+        let consumed = {
+            let mut statement = tx
+                .prepare("SELECT projection FROM financial_approvals WHERE workspace_id=?1 AND status='CONSUMED' AND json_extract(projection,'$.expiry') IS NULL ORDER BY approval_id")
+                .map_err(storage_error)?;
+            statement
+                .query_map([workspace_id], |row| row.get::<_, String>(0))
+                .map_err(storage_error)?
+                .collect::<std::result::Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for projection in consumed {
+            let mut approval: FinancialApproval = serde_json::from_str(&projection)
+                .map_err(|_| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if approval.workspace_id != workspace_id
+                || approval.status != FinancialApprovalStatus::Consumed
+                || approval.expiry.is_some()
+            {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            if !approval_expired(&approval.expires_at, now) {
+                continue;
+            }
+            let attempt_id: String = tx
+                .query_row(
+                    "SELECT attempt_id FROM execution_attempts WHERE workspace_id=?1 AND approval_id=?2",
+                    params![workspace_id, approval.approval_id],
+                    |row| row.get(0),
+                )
+                .map_err(storage_error)?;
+            let attempt = load_execution_attempt(&tx, workspace_id, &attempt_id)?
+                .ok_or_else(|| TradeXError::new("WORKSPACE_INTEGRITY_FAILED"))?;
+            if attempt.state == ExecutionAttemptState::Reserved {
+                return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+            }
+            let reservation =
+                load_execution_reservation_for_attempt(&tx, workspace_id, &attempt_id)?;
+            approval.expiry = Some(approval_expiry_evidence(
+                &approval,
+                now,
+                Some(&attempt),
+                reservation.as_ref(),
+                false,
+            )?);
+            events.push(write_financial_approval_tx(&tx, approval, None, now)?);
         }
         tx.commit().map_err(storage_error)?;
         Ok(events)
@@ -7966,15 +8155,31 @@ impl Store {
         let request = StrategyRunRequest {
             workspace_id: run.workspace_id.clone(),
             strategy_version_id: run.strategy_version_id.clone(),
+            retry_of_run_id: None,
             expected_strategy_hash: Some(run.strategy_hash.clone()),
             instrument_id: run.instrument_id.clone(),
             dataset_id: run.dataset_id.clone(),
             start_at: run.start_at.clone(),
             end_at: run.end_at.clone(),
+            context_refs: run.context_refs.clone(),
             parameters: run.parameters.clone(),
             fixture_scenario: None,
         };
         crate::strategy::validate_run_request(&request).map_err(|_| invalid())?;
+        crate::capability::validate_contexts(&run.context_refs).map_err(|_| invalid())?;
+        if !run.context_refs.is_empty()
+            && !run.context_refs.iter().any(|context| {
+                context.kind == "instrument"
+                    && context.id == run.instrument_id
+                    && context
+                        == &crate::capability::instrument_context_ref(
+                            &run.workspace_id,
+                            &run.instrument_id,
+                        )
+            })
+        {
+            return Err(invalid());
+        }
         let allowed: std::collections::HashSet<&str> = version
             .definition
             .parameters
@@ -11258,6 +11463,9 @@ impl Store {
         credential_statuses: Option<&HashMap<String, WorkspaceArchiveCredentialStatus>>,
     ) -> Result<()> {
         for mut account in self.accounts()? {
+            if account.is_local_paper() {
+                continue;
+            }
             let was_armed = account.environment == "LIVE" && account.health.arming == "ARMED";
             if credential_statuses.and_then(|statuses| statuses.get(&account.connection_id))
                 == Some(&WorkspaceArchiveCredentialStatus::Missing)
@@ -13950,12 +14158,62 @@ pub(crate) fn approval_expired(expires_at: &str, now: &str) -> bool {
     expires <= now
 }
 
+fn approval_expiry_evidence(
+    approval: &FinancialApproval,
+    now: &str,
+    attempt: Option<&ExecutionAttempt>,
+    reservation: Option<&ExecutionReservation>,
+    released_now: bool,
+) -> Result<FinancialApprovalExpiry> {
+    if attempt.is_some_and(|attempt| {
+        attempt.approval_id != approval.approval_id
+            || attempt.workspace_id != approval.workspace_id
+            || attempt.account_id != approval.account_id
+    }) || reservation.is_some_and(|reservation| {
+        reservation.workspace_id != approval.workspace_id
+            || reservation.account_id != approval.account_id
+            || attempt.is_none_or(|attempt| reservation.attempt_id != attempt.attempt_id)
+    }) {
+        return Err(TradeXError::new("WORKSPACE_INTEGRITY_FAILED"));
+    }
+    let reservation_disposition = match reservation.map(|reservation| reservation.status) {
+        None => ApprovalExpiryReservationDisposition::None,
+        Some(ExecutionReservationStatus::Active) => ApprovalExpiryReservationDisposition::Retained,
+        Some(ExecutionReservationStatus::Released) if released_now => {
+            ApprovalExpiryReservationDisposition::Released
+        }
+        Some(ExecutionReservationStatus::Released) => {
+            ApprovalExpiryReservationDisposition::AlreadyReleased
+        }
+    };
+    Ok(FinancialApprovalExpiry {
+        scope: ApprovalExpiryScope::Approval,
+        authority: ApprovalExpiryAuthority::TrustedTimeService,
+        authority_reference: approval.approval_id.clone(),
+        expires_at: approval.expires_at.clone(),
+        observed_at: now.into(),
+        reservation_disposition,
+        execution_attempt_id: attempt.map(|attempt| attempt.attempt_id.clone()),
+        reservation_id: reservation.map(|reservation| reservation.reservation_id.clone()),
+        reservation_state_version: reservation.map(|reservation| reservation.state_version.clone()),
+    })
+}
+
 fn write_financial_approval_tx(
     tx: &Transaction<'_>,
     mut approval: FinancialApproval,
     nonce: Option<&str>,
     occurred_at: &str,
 ) -> Result<DomainEvent> {
+    if approval.status == FinancialApprovalStatus::Expired && approval.expiry.is_none() {
+        approval.expiry = Some(approval_expiry_evidence(
+            &approval,
+            occurred_at,
+            None,
+            None,
+            false,
+        )?);
+    }
     let previous: Option<(i64, String)> = tx
         .query_row(
             "SELECT sequence,nonce FROM financial_approvals WHERE approval_id=?1",
@@ -14001,6 +14259,7 @@ fn write_financial_approval_tx(
         FinancialApprovalStatus::Issued => "trade.approval.issued",
         FinancialApprovalStatus::Invalidated => "trade.approval.invalidated",
         FinancialApprovalStatus::Expired => "trade.approval.expired",
+        FinancialApprovalStatus::Consumed if approval.expiry.is_some() => "trade.approval.expired",
         FinancialApprovalStatus::Consumed => "trade.approval.consumed",
     };
     let event = DomainEvent {

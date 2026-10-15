@@ -1,0 +1,78 @@
+{
+  "scenario": "S33 B2 Thread History / Resume",
+  "result": "PASS_LIMITED",
+  "verifiedAt": "2026-10-14T14:57:03.612Z",
+  "branch": "dev",
+  "reviewBaseline": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "fixtureBoundary": "One disposable Rust-backed workspace; workspace.ready.fixture synthetic ready state only; no real provider/model connection or inference.",
+  "workspaceId": "6a439c96-b6b2-4fb9-92d0-a71dfc74dd52",
+  "threadIds": {
+    "research": "5855805b-fedc-449f-97c3-d73bd68dce14",
+    "ask": "55944a45-1717-4c69-aa13-f928a64783b2"
+  },
+  "historyGroups": {
+    "beforeDateAdvance": {
+      "todayThreads": 2,
+      "earlierHeadingVisible": true,
+      "savedHeadingVisible": true,
+      "savedEmptyStateVisible": true
+    },
+    "afterOneLocalDayAdvance": {
+      "earlierThreads": 2,
+      "todayEmptyStateVisible": true
+    },
+    "classification": "Today/Earlier contain ACTIVE threads by local updatedAt date; Saved renders ARCHIVED threads. Populated Saved/ARCHIVED behavior was not exercised."
+  },
+  "responsive": {
+    "widths": [
+      {
+        "width": 1280,
+        "todayThreads": 2,
+        "resumeRestoredMode": "RESEARCH",
+        "resumeRestoredInstrument": "equity:US:MSFT",
+        "documentOverflow": false
+      },
+      {
+        "width": 768,
+        "todayThreads": 2,
+        "resumeRestoredMode": "RESEARCH",
+        "resumeRestoredInstrument": "equity:US:MSFT",
+        "documentOverflow": false
+      },
+      {
+        "width": 390,
+        "todayThreads": 2,
+        "resumeRestoredMode": "RESEARCH",
+        "resumeRestoredInstrument": "equity:US:MSFT",
+        "documentOverflow": false
+      }
+    ]
+  },
+  "resume": {
+    "selectedThreadTitle": "B2 saved research defaults",
+    "savedMode": "RESEARCH",
+    "savedLinkedInstrument": "equity:US:MSFT",
+    "persistedTurnsBeforeResume": 0,
+    "turnStartCommandsAfterResume": 0,
+    "providerMutationCommandsAfterResume": 0
+  },
+  "externalHttpRequests": 0,
+  "pageErrors": 0,
+  "consoleErrors": 0,
+  "testSha256": "dfc41337cd82c1b4b8bd4740e27eaa7f4a7a078762c04b7c92ec8ec911e61395",
+  "screenshots": {
+    "threadHistoryToday390": {
+      "path": "b2-thread-history-today-390.png",
+      "sha256": "0ebad49cd8de6042f47aa6e79dd7b521c2b60de634048c8b7ba3086faa1758f6"
+    },
+    "resumeContext390": {
+      "path": "b2-thread-resume-context-390.png",
+      "sha256": "673aae223bb3e4103e796ef4c33ccf7c5d954e9bc82277946f40c6cd6dcd2e0c"
+    }
+  },
+  "limitations": [
+    "Only active history and the empty Saved state were exercised; no archive action exists in the tested UI.",
+    "Existing loading/error/retry paths were not forced in this scenario.",
+    "Native VoiceOver and full S33 acceptance remain open."
+  ]
+}

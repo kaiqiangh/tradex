@@ -1268,3 +1268,7 @@ BUY LIMIT应将Control Plane准确的 BASE 数量 × 不可变限价作为原生
 并列渲染不可变`initialAssetClaims`与已保存reservation当前`assetClaims`、累计成交数量/金额、各原生资产提供方费用、证据完整性及结算状态。保留准确的提供方十进制字符串，区分缺失的旧向量与空/零费用向量。显示未预留费用资产和超出commitment等类型化未解决原因；证据不完整、未知、矛盾或回退时明确容量继续冻结。只有完整broker事实下的终态结算才显示释放的未用claims。React只渲染Control Plane投影，不自行扣减累计数值。历史/当前证据只读，并区分提供方accepted与实际成交。适用Backend§41.58/UI§14.42；完整公开producer、重放、故障、并发、响应式及原型验收仍待完成。
 
 对于具有`MAY_HAVE_SUBMITTED`处置、活动reservation且尚未结算的已消费PLACE审批，仅当保存的Live账户已连接，或处于在线且认证有效、凭据可用的review状态时，显示显式“Refresh exact order”操作。把attempt保存的provider订单ID及当前account state version发送给`trade.live_order.refresh`；Control Plane根据已消费approval、不可变Proposal、account和reservation推导并验证提供方准确读取身份。请求只读且限于精确订单，不会PLACE、重试、撤单、审批、Arm或dispatch。结算只从已保存的Control Plane投影显示；证据不完整时保留冻结容量，不自动轮询。该PLACE恢复操作与现有撤单竞态刷新契约分开。
+
+### 13.45 Live open-order identity 与 reservation context（E4）
+
+Accounts surface 展示每个 Live open order 的 provider state、完整 provider order ID、原始与已成交数量，以及在 provider 观察可确定时提供的精确剩余数量；无法确定时仍显示 `Unavailable`。只读 `trade.execution.order_links` 查询按当前 workspace 和完整 TradeX account ID 限定，并且只匹配完整 broker order ID。精确匹配到已持久化 PLACE 时，展示 Proposal ID、execution attempt ID，以及存在时的 reservation 金额/单位/状态。无匹配时明确显示 “No exact TradeX PLACE match” 和 “Reservation: Not linked”；部分/相似 ID、CANCEL 及其他账户的记录都不会被关联。该查询不联系 provider，也不授权执行。符合条件的撤单仍使用独立的精确订单 `Review cancellation` 流程和权限复核。

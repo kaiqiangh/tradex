@@ -1,0 +1,70 @@
+{
+  "result": "PASS",
+  "scope": "working-tree validation; not overall S33 acceptance",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "workingTree": "modified",
+  "capturedAt": "2026-10-14T13:27:14.680Z",
+  "npmRunCheck": {
+    "command": "RUST_TEST_THREADS=1 npm run check",
+    "exitCode": 0,
+    "checks": [
+      "IPC schema",
+      "TypeScript",
+      "Vite production build",
+      "29 Node unit tests",
+      "all enabled Rust workspace tests",
+      "secret scan",
+      "requirement traceability: 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files"
+    ],
+    "notes": [
+      "Rust tests skipped by existing conditional guards remain skipped; they are not counted as passes."
+    ],
+    "warnings": [
+      "Existing Rust fixture dead_code warnings.",
+      "Vite production JavaScript chunk: 5427.61 kB, above the 500 kB warning threshold."
+    ]
+  },
+  "cargoClippy": {
+    "command": "cargo clippy --workspace --all-targets",
+    "exitCode": 0,
+    "warnings": [
+      "Existing result_large_err, test-fixture dead-code/type-complexity, and unused-unit warnings."
+    ]
+  },
+  "desktopBuild": {
+    "command": "npm run desktop:build",
+    "exitCode": 0,
+    "artifacts": [
+      "Order Gateway release build",
+      "target/release/tradex"
+    ],
+    "applicationLaunched": false,
+    "warnings": [
+      "Vite production JavaScript chunk: 5427.61 kB, above the 500 kB warning threshold."
+    ]
+  },
+  "remainingAcceptance": [
+    "Complete 70-screen state review",
+    "Per-screen Live-control inventory",
+    "Native VoiceOver",
+    "Overall S33 issue #141"
+  ],
+  "scopeSkipped": [
+    "Real provider integrations",
+    "Physical sleep/wake"
+  ],
+  "postCheckVerification": {
+    "capturedAt": "2026-10-14T13:55:49.874247Z",
+    "applicationSourceChanged": false,
+    "testHarnessChanges": "Playwright-only URL classification compatibility adjustments; K6 result now includes its command count.",
+    "targetedChecks": [
+      "S33 J7 About, K2 Startup Reconciliation, K3 Authentication Failure, K4 Private Stream Disconnect, K5 Rate Limiting, and K6 Clock/Freshness browser slices rerun PASS.",
+      "S33 K7 canonical error surface: 11/11 unit tests PASS.",
+      "S33 B7/B8 research result cards: 12/12 focus/mode/viewport cases PASS; zero forbidden commands and external requests.",
+      "S33 primary navigation: 45/45 route/Settings viewport observations PASS; zero forbidden commands; initial local favicon 404 recorded.",
+      "S33 A1 Workspace form: all three named fields remained visible and within viewport at 1280/768/390; primary navigation and Settings remained 45/45 PASS."
+    ],
+    "note": "The full npm run check predates these test-only and documentation/evidence updates; no production source changed afterward."
+  }
+}

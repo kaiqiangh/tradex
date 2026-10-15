@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "screenId": "I1",
+  "title": "Artifact Library",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/Artifacts.tsx": "6faa3511db6ecc11f7b20feab888ed3426072ea97db09b8eab90dd4f624bdc06",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-artifact-library-screen-playwright.js": "eed9d14f5bf665b2edea5b3152660e25da8de35b4bc1ff2c4fbebc6358e99d6f",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-artifact-library-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "4e0a0209-a5ef-412d-a669-f8c7197b3f46",
+  "fixtureBoundary": "One explicitly saved synthetic Decision artifact in a local disposable workspace",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "scenarios": {
+    "emptyLibraryVisible": true,
+    "oneSavedArtifact": true,
+    "titleTypeSourceThreadAndContentHashVisible": true,
+    "detailRemainsUnselected": true,
+    "noHorizontalOverflow": true
+  },
+  "commandCounts": {
+    "totalAllowlistedLocalCommands": 23,
+    "unexpectedCommands": 0,
+    "artifact.get": 0,
+    "artifact.export": 0,
+    "externalHttpRequests": 0
+  },
+  "screenshots": [
+    "artifact-library-390.png"
+  ],
+  "scopeLimits": [
+    "Only one local synthetic Decision artifact was used; no provider or entitlement state was observed.",
+    "Prototype-only Backtest/Trade review filters and full-text search remain outside S12 v1.",
+    "I1 is local S33 evidence and does not complete the remaining screen inventory, S12 production acceptance, S33, or issue #141."
+  ]
+}

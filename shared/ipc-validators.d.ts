@@ -34,6 +34,9 @@ declare const validators: {
   AlpacaPaperOrderSubmit: (value: unknown) => boolean;
   AlpacaQuoteEvidence: (value: unknown) => boolean;
   ApprovalAction: (value: unknown) => boolean;
+  ApprovalExpiryAuthority: (value: unknown) => boolean;
+  ApprovalExpiryReservationDisposition: (value: unknown) => boolean;
+  ApprovalExpiryScope: (value: unknown) => boolean;
   ApprovalRejection: (value: unknown) => boolean;
   ApprovalRejectionReason: (value: unknown) => boolean;
   ApprovalReview: (value: unknown) => boolean;
@@ -175,6 +178,9 @@ declare const validators: {
   ExecutionAttemptState: (value: unknown) => boolean;
   ExecutionContext: (value: unknown) => boolean;
   ExecutionDispatchDisposition: (value: unknown) => boolean;
+  ExecutionOrderLink: (value: unknown) => boolean;
+  ExecutionOrderLinks: (value: unknown) => boolean;
+  ExecutionOrderLinksQuery: (value: unknown) => boolean;
   ExecutionPreparation: (value: unknown) => boolean;
   ExecutionPreparationQuery: (value: unknown) => boolean;
   ExecutionPreparationQueryResult: (value: unknown) => boolean;
@@ -201,6 +207,7 @@ declare const validators: {
   FeeUnroundedFamilies: (value: unknown) => boolean;
   FilterSpec: (value: unknown) => boolean;
   FinancialApproval: (value: unknown) => boolean;
+  FinancialApprovalExpiry: (value: unknown) => boolean;
   FinancialApprovalHistory: (value: unknown) => boolean;
   FinancialApprovalHistoryQuery: (value: unknown) => boolean;
   FinancialApprovalStatus: (value: unknown) => boolean;

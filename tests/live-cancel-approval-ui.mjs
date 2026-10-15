@@ -105,13 +105,15 @@ export async function checkLiveCancellationApprovalUI(tab, browser) {
   const unknownInstrumentRow = ui.locator('tr').filter({ hasText: '9007199254740996' });
   assert.equal(await unknownInstrumentRow.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 0, 'Unmapped provider instruments do not expose an unusable cancellation action.');
   assert.match(await unknownInstrumentRow.innerText(), /Unavailable for cancellation review/);
-  const firstOrderRow = reviewButtons.first().locator('xpath=ancestor::tr');
-  const firstOrderText = await firstOrderRow.innerText();
+  const firstCandidateRow = reviewButtons.first().locator('xpath=ancestor::tr');
+  const firstOrderText = await firstCandidateRow.innerText();
   assert.match(firstOrderText, /9007199254740995/);
   const firstBrokerOrderId = firstOrderText.match(/([A-Z]+:9007199254740995)/)?.[1];
   assert.ok(firstBrokerOrderId, `TradeX shows the full provider order identity: ${firstOrderText}`);
+  const firstOrderRow = ui.locator('tr').filter({ hasText: firstBrokerOrderId });
+  const firstOrderReviewButton = firstOrderRow.getByRole('button', { name: 'Review cancellation', exact: true });
 
-  await reviewButtons.first().click();
+  await firstOrderReviewButton.click();
   const dialog = ui.getByRole('dialog', { name: 'Review Live cancellation', exact: true });
   await dialog.waitFor({ state: 'visible' });
   const initial = await dialog.innerText();
@@ -130,7 +132,7 @@ export async function checkLiveCancellationApprovalUI(tab, browser) {
   assert.equal(history.approvals.length, 0, 'Enter does not approve the cancellation.');
   observed.push('Enter activates the focused safe-close action and records no cancellation approval.');
 
-  await reviewButtons.first().click();
+  await firstOrderReviewButton.click();
   await dialog.waitFor({ state: 'visible' });
   const reopened = await dialog.innerText();
   originalIntentId = reopened.match(/CANCEL intent ID\s+([^\n]+)/)?.[1];

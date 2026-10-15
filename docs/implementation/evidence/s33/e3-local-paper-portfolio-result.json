@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "screenId": "E3",
+  "title": "Portfolio",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T18:05:57Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 114,
+    "sha256": "98397eed18fbacc11fdf12e46f734d66818b3bf61a28da5abfb11c73daa37f52"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "Direct UI checks; tests/portfolio-ui.mjs gained a Local Paper fills-empty-state assertion and passed node --check, but the helper was not executed.",
+    "route": "Accounts → Open portfolio in the existing disposable workspace; verified 1280x900, 768x900, and 390x844, then restored the browser's default viewport."
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "portfolioStatus": "AVAILABLE",
+    "workspaceBaseCurrency": "USD",
+    "observedAt": "2026-10-14T18:05:04.318Z",
+    "simulationDisclosure": "TRADEX_SIMULATION · LOCAL_PAPER; Local Paper is TradeX simulation; its balances and results are not provider truth or Live execution.",
+    "totals": {
+      "equity": "100000 USD",
+      "cash": "100000 USD",
+      "exposure": "0 USD",
+      "unrealizedPnl": "0 USD",
+      "realizedPnl": "0 USD"
+    },
+    "liveRisk": {
+      "eligible": false,
+      "reason": "TRADEX_SIMULATION_NOT_LIVE"
+    },
+    "fxRoutes": [
+      {
+        "pairPath": "USD -> USD",
+        "sourceId": "IDENTITY",
+        "rate": "1",
+        "providerTimestamp": "Unavailable",
+        "receivedTimestamp": "2026-10-14T18:05:04.318Z",
+        "quality": "VERIFIED",
+        "freshness": "HEALTHY",
+        "depegWarning": null
+      }
+    ],
+    "requiredCurrencyRoutes": [
+      "USD -> USD · account workspace · identity",
+      "USD -> USD · balance workspace · identity"
+    ],
+    "savedExternalCurrencySource": false,
+    "currencySourceMessage": "No saved currency-rate source is selected. Configure a source in Settings if an external rate is required.",
+    "accounts": [
+      {
+        "providerId": "local-paper",
+        "environment": "LOCAL",
+        "accountCurrency": "USD",
+        "equity": "100000 USD",
+        "cash": "100000 USD",
+        "health": "ONLINE · LOCAL_PROJECTION",
+        "positionsCount": 0,
+        "openOrdersCount": 0
+      }
+    ],
+    "holdings": [
+      {
+        "asset": "USD",
+        "quantity": "100000",
+        "workspaceValue": "100000 USD",
+        "instrument": "No canonical instrument"
+      }
+    ],
+    "openOrdersEmptyState": "No open orders are available.",
+    "fillsEmptyState": "No fills in the Local Paper simulation.",
+    "responsive": [
+      {
+        "width": 1280,
+        "height": 900,
+        "documentClientWidth": 1265,
+        "documentScrollWidth": 1265,
+        "horizontalOverflow": false
+      },
+      {
+        "width": 768,
+        "height": 900,
+        "documentClientWidth": 753,
+        "documentScrollWidth": 753,
+        "horizontalOverflow": false
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "documentClientWidth": 375,
+        "documentScrollWidth": 375,
+        "horizontalOverflow": false
+      }
+    ]
+  },
+  "commandLog": {
+    "cursorStart": 4076,
+    "cursorEnd": 4549,
+    "commandCount": 473,
+    "counts": {
+      "account.activity": 2,
+      "account.list": 71,
+      "agent.capabilities": 2,
+      "context.catalog": 2,
+      "data.fx.connection": 170,
+      "data.fx.requirements": 170,
+      "domain.snapshot": 2,
+      "domain.subscribe": 7,
+      "paper.get": 1,
+      "portfolio.get": 3,
+      "provider.list_definitions": 1,
+      "runtime.status": 40,
+      "thread.list": 1,
+      "workspace.open": 1
+    },
+    "dataFxRefreshCount": 0,
+    "forbiddenSideEffectCount": 0,
+    "note": "The large data.fx.requirements/data.fx.connection counts are the documented 1-second local projection/expiry polls; they did not call an external source. No data.fx.refresh, provider action, Gateway, order, or financial write ran."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": "NOT_INSTRUMENTED",
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "Only the single built-in Local Paper account was present. No mixed-currency cross-account holdings or external provider account was read; the USD-to-USD identity route does not verify external FX or stablecoin data use.",
+    "No saved currency-rate source was selected and no external rate refresh occurred. Per user direction, S29.11 data-use basis remains skipped because no basis was provided.",
+    "The USD 100000 equity/cash and zero P&L/exposure are Local Paper simulation state, not provider truth or live portfolio performance.",
+    "External HTTP, browser console warnings/errors, and page errors were not instrumented in this direct CUA replay.",
+    "Native VoiceOver and broader S09/S33 acceptance remain open; E3 stays IMPLEMENTED_UNVERIFIED."
+  ]
+}

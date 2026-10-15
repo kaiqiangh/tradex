@@ -4,7 +4,16 @@ import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { save as saveFile } from '@tauri-apps/plugin-dialog';
 import type { Artifact, ArtifactKind, ArtifactProvenance, ArtifactSummary, ResearchToolResult, ThreadItem, ThreadTurn } from '../shared/ipc-types.ts';
-import { desktop, explainError, request } from './client.ts';
+import { CommandError, desktop, explainError, request } from './client.ts';
+
+const artifactExportErrorCodes = new Set([
+  'ARTIFACT_EXPORT_PATH_INVALID', 'ARTIFACT_EXPORT_EXISTS', 'ARTIFACT_EXPORT_FAILED',
+]);
+
+function artifactExportError(error: unknown): string {
+  if (error instanceof CommandError && artifactExportErrorCodes.has(error.detail.code)) return error.detail.message;
+  return explainError(error);
+}
 
 function ArtifactSourceList({ result }: { result?: ResearchToolResult | null }) {
   if (!result) return <p className="muted">No typed research result was attached.</p>;
@@ -101,7 +110,7 @@ function ArtifactDetail({ workspaceId, artifactId }: { workspaceId: string; arti
       const result = await request('artifact.export', { workspaceId, artifactId, ...(destinationPath ? { destinationPath } : {}) });
       setExportStatus(`Exported ${result.bytes} bytes to ${result.path}`);
       await queryClient.invalidateQueries({ queryKey: ['artifacts', workspaceId] });
-    } catch (error) { setExportError(explainError(error)); }
+    } catch (error) { setExportError(artifactExportError(error)); }
   };
   return <section className="card artifact-detail" aria-labelledby="artifact-detail-title">
     <div className="account-heading"><div><h2 id="artifact-detail-title">{artifact.title}</h2><p className="muted">{artifact.kind} · version {artifact.version}</p></div><span className="badge">Saved locally</span></div>

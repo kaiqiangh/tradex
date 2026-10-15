@@ -12,11 +12,19 @@ export async function checkStrategyUI(tab, browser) {
     await ui.getByLabel('Start date', { exact: true }).fill('2026-01-01T00:00');
     await ui.getByLabel('End date', { exact: true }).fill('2026-01-02T00:00');
   };
+  const threadBacktestResult = () => ui.locator('.strategy-run')
+    .filter({ hasText: 'Historical simulation only. Backtests never place trades or call a provider.' })
+    .locator('.strategy-result');
+  const strategyResult = () => ui.locator('.strategy-surface .strategy-run').first().locator('.strategy-result');
+  const strategyBacktestResult = () => ui.locator('.strategy-surface .strategy-run').last().locator('.strategy-result');
   const viewport = await browser.capabilities.get('viewport');
   await viewport.set({ width: 1280, height: 900 });
-  await ui.getByText('Model not configured', { exact: false }).waitFor({ state: 'visible' });
-  await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
   await setBacktestMode('delay');
+  // Clear the app's query cache so the delayed first backtest.list read is visible.
+  await tab.reload();
+  await ui.getByRole('complementary', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
+  await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
+  await ui.getByRole('heading', { name: 'Threads', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Loading saved backtests…', { exact: true }).waitFor({ state: 'visible' });
@@ -47,20 +55,23 @@ export async function checkStrategyUI(tab, browser) {
   await threadBacktestScenario.selectOption('SUCCESS');
   await setFixtureRange();
   await threadBacktestRun.press('Enter');
-  await ui.getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
+  await threadBacktestResult().getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('0.015', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Reproducibility manifest', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve|Provider/ }).count(), 0);
   await threadBacktestScenario.selectOption('FAILURE');
   await threadBacktestRun.press('Enter');
-  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await threadBacktestResult().getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('BACKTEST_FIXTURE_FAILED:', { exact: false }).waitFor({ state: 'visible' });
   await ui.getByRole('heading', { name: 'Frozen configuration', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Strategies', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Strategies', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Complete a second backtest to compare runs.', { exact: true }).waitFor({ state: 'visible' });
   await setBacktestMode('list-error');
+  // Force a cold query so the injected list failure reaches the visible error state.
+  await tab.reload();
+  await ui.getByRole('complementary', { name: 'Workspace', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Threads', exact: true }).press('Enter');
   await ui.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('BACKTEST');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
@@ -76,7 +87,7 @@ export async function checkStrategyUI(tab, browser) {
   await scenario.selectOption('SUCCESS');
   await setFixtureRange();
   await run.press('Enter');
-  await ui.getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
+  await strategyResult().getByText('COMPLETED', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByText('HOLD', { exact: true }).count(), 1);
   assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve/ }).count(), 0);
   assert.equal(await ui.locator('.strategy-result').getAttribute('aria-live'), 'polite');
@@ -90,14 +101,13 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByLabel('Compare right run', { exact: true }).waitFor({ state: 'visible' });
   await setBacktestMode('compare-error');
   await ui.getByRole('button', { name: 'Compare runs', exact: true }).press('Enter');
-  await ui.getByText('The backtest runtime failed closed without producing synthetic results.', { exact: false }).waitFor({ state: 'visible' });
+  await ui.getByRole('alert').filter({ hasText: /INTERNAL_ERROR.*TradeX needs attention/ }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Retry compare', exact: true }).waitFor({ state: 'visible' });
   await setBacktestMode('normal');
   await ui.getByRole('button', { name: 'Retry compare', exact: true }).press('Enter');
   await ui.getByRole('heading', { name: 'Backtest comparison', exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Equity curve summary', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('Run identity', { exact: true }).waitFor({ state: 'visible' });
-  await ui.getByText('Model not configured', { exact: false }).waitFor({ state: 'visible' });
   await ui.getByText('Completed result · historical simulation', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.getByRole('button', { name: /Trade|Approve|Reserve|Provider/ }).count(), 0);
   await ui.getByRole('button', { name: 'Back to backtest', exact: true }).press('Enter');
@@ -105,17 +115,17 @@ export async function checkStrategyUI(tab, browser) {
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Compare runs');
   await scenario.selectOption('FAILURE');
   await run.press('Enter');
-  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await strategyResult().getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
   const retry = ui.getByRole('button', { name: 'Retry run', exact: true });
   await retry.press('Enter');
-  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await strategyResult().getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
   await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
   await scenario.selectOption('CANCELLED');
   await run.press('Enter');
-  await ui.getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
+  await strategyResult().getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Cancel run', exact: true }).press('Enter');
-  await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
+  await strategyResult().getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry run');
   await ui.getByRole('heading', { name: 'Backtest', exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('combobox', { name: 'Bar interval', exact: true }).selectOption('1d');
@@ -124,7 +134,7 @@ export async function checkStrategyUI(tab, browser) {
   await ui.getByLabel('Slippage', { exact: true }).fill('0');
   await backtestScenario.selectOption('FAILURE');
   await backtestRun.press('Enter');
-  await ui.getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
+  await strategyBacktestResult().getByText('FAILED', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByText('BACKTEST_FIXTURE_FAILED:', { exact: false }).waitFor({ state: 'visible' });
   const firstBacktestRun = /Run ([0-9a-f-]+)/.exec(await ui.locator('.strategy-result').last().innerText())?.[1];
   await ui.getByRole('button', { name: 'Retry backtest', exact: true }).press('Enter');
@@ -137,9 +147,9 @@ export async function checkStrategyUI(tab, browser) {
   assert.ok(firstBacktestRun && retriedBacktestRun && firstBacktestRun !== retriedBacktestRun, 'Backtest retry must create a new run ID');
   await backtestScenario.selectOption('CANCELLED');
   await backtestRun.press('Enter');
-  await ui.getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
+  await strategyBacktestResult().getByText('RUNNING', { exact: true }).waitFor({ state: 'visible' });
   await ui.getByRole('button', { name: 'Cancel backtest', exact: true }).press('Enter');
-  await ui.getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
+  await strategyBacktestResult().getByText('CANCELLED', { exact: true }).waitFor({ state: 'visible' });
   await new Promise(resolve => setTimeout(resolve, 100));
   assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Retry backtest');
   for (const width of [768, 390]) {

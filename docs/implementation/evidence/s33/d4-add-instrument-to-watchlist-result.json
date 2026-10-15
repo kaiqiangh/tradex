@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "screenId": "D4",
+  "title": "Add Instrument to Watchlist",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T17:51:02Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 113,
+    "sha256": "04432221c418da15f37aebb491135420d823d6f2bb97440817c527db17c3e8de"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "No new D4 helper; UI assertions and responsive measurements were performed directly in CUA",
+    "flow": "Searched the local Census catalog for AAPL, added the canonical equity ID to the new disposable watchlist, then verified the authoritative refreshed membership projection."
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "targetWatchlist": {
+      "name": "S33 D3 Watchlist Fixture",
+      "watchlistId": "2ba47011-e848-4fba-90dc-1bc75d6233ad",
+      "stateVersionBeforeAdd": "watchlist:2ba47011-e848-4fba-90dc-1bc75d6233ad:1",
+      "stateVersionAfterAdd": "watchlist:2ba47011-e848-4fba-90dc-1bc75d6233ad:2"
+    },
+    "catalogSearch": {
+      "tier": "CENSUS",
+      "query": "AAPL",
+      "resultCount": 1,
+      "symbol": "AAPL",
+      "displayName": "Apple Inc.",
+      "canonicalInstrumentId": "equity:US:AAPL",
+      "sourceEntitlementOrQuoteDisplayed": false
+    },
+    "membership": {
+      "addCommandIssued": 1,
+      "authoritativeListRefetched": true,
+      "memberIds": [
+        "equity:US:AAPL"
+      ],
+      "memberCount": 1,
+      "successAnnouncement": "Instrument added.",
+      "successAnnouncementRole": "status",
+      "duplicateAddLabel": "Added",
+      "duplicateAddDisabled": true,
+      "financialOrProviderMutation": false
+    },
+    "responsive": [
+      {
+        "width": 1280,
+        "documentClientWidth": 1265,
+        "documentScrollWidth": 1265,
+        "horizontalOverflow": false,
+        "layoutColumns": "194.914px 464.086px",
+        "searchVisibleAndWithinDocument": true,
+        "resultVisibleAndWithinDocument": true,
+        "duplicateAddDisabled": true
+      },
+      {
+        "width": 768,
+        "documentClientWidth": 753,
+        "documentScrollWidth": 753,
+        "horizontalOverflow": false,
+        "layoutColumns": "204.375px 486.625px",
+        "searchVisibleAndWithinDocument": true,
+        "resultVisibleAndWithinDocument": true,
+        "duplicateAddDisabled": true
+      },
+      {
+        "width": 390,
+        "documentClientWidth": 375,
+        "documentScrollWidth": 375,
+        "horizontalOverflow": false,
+        "layoutColumns": "347px",
+        "searchVisibleAndWithinDocument": true,
+        "resultVisibleAndWithinDocument": true,
+        "duplicateAddDisabled": true
+      }
+    ]
+  },
+  "commandLog": {
+    "cursorStart": 3921,
+    "cursorEnd": 3934,
+    "commandCount": 13,
+    "counts": {
+      "account.activity": 1,
+      "market.catalog": 1,
+      "runtime.status": 9,
+      "watchlist.add": 1,
+      "watchlist.list": 1
+    },
+    "forbiddenProviderModelFinancialTradeOrderGateway": 0,
+    "note": "One explicit watchlist.add and its authoritative list refresh were observed; other commands were passive local reads."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "Only one catalog match and one member were added; unknown-instrument and duplicate backend mutation responses were not exercised in this browser slice.",
+    "The source, entitlement, quotes, and provider compatibility were not selected or established; the catalog result is identity only.",
+    "The direct CUA replay did not instrument external HTTP or page errors.",
+    "Native VoiceOver, live market data, cross-window synchronization, and full S07/S33 acceptance remain open."
+  ]
+}

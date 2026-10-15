@@ -1,0 +1,63 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "F7",
+  "testedAt": "2026-10-14",
+  "test": "tests/s33-risk-decision-submit-blocks-playwright.js",
+  "riskRejected": {
+    "persistedStatus": "REJECTED",
+    "check": "ORDER_NOTIONAL · REJECT",
+    "submitError": "RISK_REJECTED",
+    "latestDecisionDisplayedAfterSubmit": true,
+    "proposalStatus": "NEEDS_APPROVAL",
+    "simulatorOrders": 0,
+    "simulatorFills": 0,
+    "freshDecisionAppendedAndExactIdDisplayedAfterSubmit": true
+  },
+  "riskEvidenceUnavailable": {
+    "persistedStatus": "UNAVAILABLE",
+    "check": "DAILY_REALIZED_LOSS · UNAVAILABLE",
+    "submitError": "RISK_EVIDENCE_UNAVAILABLE",
+    "freshDecisionPersistedAndDisplayedAfterSubmit": true,
+    "proposalStatus": "NEEDS_APPROVAL",
+    "simulatorOrders": 0,
+    "simulatorFills": 0,
+    "freshDecisionAppendedAndExactIdDisplayedAfterSubmit": true
+  },
+  "missingExecutionFx": {
+    "persistedReviewStatus": "ALLOWED",
+    "prepareError": "RISK_EVIDENCE_UNAVAILABLE",
+    "approvalStatus": "ISSUED",
+    "proposalStatus": "NEEDS_APPROVAL",
+    "preparation": null,
+    "fakeGatewayPostDelta": 0,
+    "riskDecisionHistoryRefreshTriggeredAfterPrepareError": true,
+    "samePersistedAllowedDecisionIdDisplayedAfterRefresh": true
+  },
+  "responsiveWidths": [
+    1280,
+    768,
+    390
+  ],
+  "commands": {
+    "blockedLocalPaperSubmits": 2,
+    "executionPrepareAttempts": 1,
+    "providerIntegrationCommands": 0,
+    "orderGatewayCommands": 0,
+    "externalHttpRequests": 0,
+    "consoleErrors": 0,
+    "pageErrors": 0
+  },
+  "screenshots": [
+    "evidence/s33/risk-rejected-390.png",
+    "evidence/s33/risk-rejected-390-risk-decision.png",
+    "evidence/s33/risk-evidence-unavailable-local-paper-390.png",
+    "evidence/s33/risk-evidence-unavailable-local-paper-390-risk-decision.png",
+    "evidence/s33/preparation-fx-evidence-unavailable-390.png",
+    "evidence/s33/preparation-fx-evidence-unavailable-390-risk-decision.png"
+  ],
+  "limitations": [
+    "Disposable local synthetic workspace and fixture data only.",
+    "No real provider endpoint or credential was used.",
+    "Full S21, FR-050, and S33 acceptance remain open."
+  ]
+}

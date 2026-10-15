@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FocusEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { StrategyFixtureScenario, StrategyRun, StrategyRunRequest, StrategySave, StrategyVersion, ThreadContextRef } from '../shared/ipc-types.ts';
+import type { StrategyFixtureScenario, StrategyParameter, StrategyRun, StrategyRunRequest, StrategySave, StrategyVersion, ThreadContextRef } from '../shared/ipc-types.ts';
 import { browserIntegration, explainError, request } from './client.ts';
 import { BacktestRunPanel } from './BacktestRunPanel.tsx';
 
@@ -16,6 +16,21 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
   const [source, setSource] = useState('signal = HOLD\nreturn signal');
   const [language, setLanguage] = useState('python');
   const [runtime, setRuntime] = useState('sandbox-v1');
+  const [parameters, setParameters] = useState<StrategyParameter[]>([]);
+  const parameterDraftError = (() => {
+    if (parameters.length > 32) return 'A strategy version can contain at most 32 parameters.';
+    if (parameters.some(parameter => !parameter.name.trim()
+      || Array.from(parameter.name).length > 64
+      || /[\u0000-\u001f\u007f]/u.test(parameter.name)
+      || Array.from(parameter.value).length > 256
+      || /[\u0000-\u001f\u007f]/u.test(parameter.value))) {
+      return 'Each parameter needs a name of 1–64 characters; values must be 256 characters or fewer.';
+    }
+    if (new Set(parameters.map(parameter => parameter.name.trim())).size !== parameters.length) {
+      return 'Parameter names must be unique.';
+    }
+    return undefined;
+  })();
   const contextInstrumentId = entryContext?.contextRefs.find(context => context.kind === 'instrument')?.id;
   const [instrumentId, setInstrumentId] = useState(contextInstrumentId ?? 'equity:US:AAPL');
   const [datasetId, setDatasetId] = useState('historical:fixture');
@@ -58,15 +73,20 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
     setSource(version.definition.source);
     setLanguage(version.definition.language);
     setRuntime(version.definition.runtime);
+    setParameters((version.definition.parameters ?? []).map(parameter => ({ ...parameter })));
     setError(undefined);
   };
   const save = async () => {
+    if (parameterDraftError) { setError(parameterDraftError); return; }
     setBusy(true); setError(undefined);
     try {
       const input: StrategySave = {
         workspaceId,
         ...(selected ? { strategyId: selected.strategyId } : {}),
-        definition: { name: name.trim(), source, language: language.trim(), runtime: runtime.trim(), parameters: [] },
+        definition: {
+          name: name.trim(), source, language: language.trim(), runtime: runtime.trim(),
+          parameters: parameters.map(parameter => ({ ...parameter, name: parameter.name.trim() })),
+        },
       };
       const version = await request('strategy.save_version', input);
       edit(version);
@@ -78,11 +98,12 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
     workspaceId,
     strategyVersionId: selected.strategyVersionId,
     expectedStrategyHash: selected.sourceHash,
+    contextRefs: entryContext?.contextRefs ?? [],
     instrumentId,
     datasetId,
     startAt: new Date(Date.now() - 86_400_000).toISOString(),
     endAt: new Date().toISOString(),
-    parameters: [],
+    parameters: selected.definition.parameters ?? [],
     ...(browserIntegration ? { fixtureScenario } : {}),
   }) : undefined;
   const execute = async (input = buildRequest()) => {
@@ -105,6 +126,7 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
         workspaceId,
         strategyVersionId: loaded.strategyVersionId,
         expectedStrategyHash: loaded.strategyHash,
+        contextRefs: loaded.contextRefs ?? [],
         instrumentId: loaded.instrumentId,
         datasetId: loaded.datasetId,
         startAt: loaded.startAt,
@@ -136,6 +158,16 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
   return <div className="strategy-surface">
     <div className="page-heading"><h1>Strategies</h1><p>Save immutable versions and inspect signal-only sandbox runs.</p></div>
     {entryContext && <section className="notice" aria-label="Strategy entry context"><strong>Opened from {entryContext.source} context</strong><p>{entryContext.contextRefs.length ? entryContext.contextRefs.map(context => `${context.kind}:${context.id}#${context.hash}`).join(' · ') : 'No context reference attached; choose an instrument before running.'}</p></section>}
+    <section className="notice strategy-boundary" aria-labelledby="strategy-boundary-title">
+      <h2 id="strategy-boundary-title">Blocked capabilities</h2>
+      <ul>
+        <li>Broker credentials</li>
+        <li>OS keychain</li>
+        <li>Privileged Order Gateway</li>
+        <li>Unrestricted network</li>
+      </ul>
+      <p>Strategy output is a signal only. Trade, approval, reservation and provider actions are unavailable here.</p>
+    </section>
     {error && <p className="error-banner" role="alert">{error}</p>}
     <div className="strategy-grid">
       <section className="card" aria-labelledby="strategy-editor-title">
@@ -144,14 +176,52 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
         <label className="field">Language<input value={language} maxLength={32} onChange={event => setLanguage(event.target.value)} /></label>
         <label className="field">Runtime<input value={runtime} maxLength={64} onChange={event => setRuntime(event.target.value)} /></label>
         <label className="field">Source<textarea value={source} maxLength={100_000} rows={8} onChange={event => setSource(event.target.value)} /></label>
-        <div className="form-actions"><button className="primary" type="button" disabled={busy || !name.trim() || !source.trim()} onClick={() => void save()}>Save version</button></div>
+        <fieldset className="strategy-parameters">
+          <legend>Parameters</legend>
+          {!parameters.length && <p className="form-hint">No parameters are defined.</p>}
+          {!!parameters.length && <div className="strategy-parameter-list">
+            {parameters.map((parameter, index) => <div className="strategy-parameter-row" key={index}>
+              <label className="field">Parameter name {index + 1}<input
+                value={parameter.name}
+                maxLength={64}
+                aria-invalid={Boolean(parameterDraftError)}
+                aria-describedby={parameterDraftError ? 'strategy-parameter-error' : undefined}
+                onChange={event => setParameters(current => current.map((item, itemIndex) => itemIndex === index
+                  ? { ...item, name: event.target.value } : item))}
+              /></label>
+              <label className="field">Parameter value {index + 1}<input
+                value={parameter.value}
+                maxLength={256}
+                aria-invalid={Boolean(parameterDraftError)}
+                aria-describedby={parameterDraftError ? 'strategy-parameter-error' : undefined}
+                onChange={event => setParameters(current => current.map((item, itemIndex) => itemIndex === index
+                  ? { ...item, value: event.target.value } : item))}
+              /></label>
+              <button type="button" aria-label={`Remove parameter ${index + 1}`} disabled={busy}
+                onClick={() => setParameters(current => current.filter((_, itemIndex) => itemIndex !== index))}>Remove</button>
+            </div>)}
+          </div>}
+          <div className="form-actions"><button type="button" disabled={busy || parameters.length >= 32}
+            onClick={() => setParameters(current => [...current, { name: '', value: '' }])}>Add parameter</button></div>
+          {parameterDraftError && <p id="strategy-parameter-error" role="alert">{parameterDraftError}</p>}
+        </fieldset>
+        <div className="form-actions"><button className="primary" type="button"
+          disabled={busy || !name.trim() || !source.trim() || Boolean(parameterDraftError)} onClick={() => void save()}>Save version</button></div>
         {selected && <p className="form-hint">Selected {selected.strategyVersionId} · v{selected.revision} · {selected.sourceHash}</p>}
       </section>
       <section className="card" aria-labelledby="strategy-list-title">
         <h2 id="strategy-list-title">Saved versions</h2>
         {!library.data.versions.length && <p className="muted">No saved strategy versions.</p>}
         <ul className="strategy-list">{library.data.versions.map(version => <li key={version.strategyVersionId}>
-          <button type="button" onClick={() => edit(version)} aria-pressed={selected?.strategyVersionId === version.strategyVersionId}><strong>{version.definition.name}</strong><span>v{version.revision} · {version.definition.language}</span><code>{version.sourceHash}</code></button>
+          <button type="button" onClick={() => edit(version)} aria-pressed={selected?.strategyVersionId === version.strategyVersionId}>
+            <strong>{version.definition.name}</strong>
+            <span>v{version.revision} · {version.definition.language} · {version.definition.runtime}</span>
+            <time dateTime={version.createdAt}>Created {new Date(version.createdAt).toLocaleString()}</time>
+            <span>Parameters: {version.definition.parameters?.length
+              ? version.definition.parameters.map(parameter => `${parameter.name}=${parameter.value}`).join(' · ')
+              : 'None'}</span>
+            <code>{version.sourceHash}</code>
+          </button>
         </li>)}</ul>
         <p className="form-hint">Saved versions are immutable. Save again to create a new revision.</p>
         {!!library.data.runs.length && <><h3>Recent runs</h3><ul className="strategy-run-list">{library.data.runs.map(item => <li key={item.runId}><button type="button" onClick={() => void loadRun(item.runId)} disabled={busy}><code>{item.runId}</code><span>{item.state}</span></button></li>)}</ul></>}
@@ -167,12 +237,36 @@ export function Strategies({ workspaceId, entryContext }: { workspaceId: string;
       <div className="form-actions">
         <button type="button" className="primary" disabled={busy || !selected} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void execute(); }}>Run selected version</button>
         <button type="button" disabled={busy || !displayedRun || !activeStates.includes(displayedRun.state)} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void cancel(); }}>Cancel run</button>
-        <button ref={retryAction} type="button" disabled={busy || !lastRequest || !displayedRun || activeStates.includes(displayedRun.state)} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void execute(lastRequest); }}>Retry run</button>
+        <button ref={retryAction} type="button" disabled={busy || !lastRequest || !displayedRun || !['FAILED', 'CANCELLED'].includes(displayedRun.state)} onFocus={rememberActionFocus} onClick={event => { focusedAction.current = event.currentTarget; void execute(displayedRun && lastRequest ? { ...lastRequest, retryOfRunId: displayedRun.runId } : undefined); }}>Retry run</button>
       </div>
-      {displayedRun && <div className="strategy-result" aria-live="polite"><strong>{displayedRun.state}</strong><span>Run {displayedRun.runId}</span>{displayedRun.failure && <><p role="alert">{displayedRun.failure.code}: {displayedRun.failure.reason}</p>{displayedRun.failure.remediation?.length ? <ul><li>{displayedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{displayedRun.signal && <dl><div><dt>Instrument</dt><dd>{displayedRun.signal.instrumentId}</dd></div><div><dt>Direction</dt><dd>{displayedRun.signal.direction}</dd></div><div><dt>Exposure</dt><dd>{displayedRun.signal.desiredExposure}</dd></div><div><dt>Observed</dt><dd>{displayedRun.signal.observedAt}</dd></div><div><dt>Source</dt><dd>{displayedRun.signal.sourceRef}</dd></div><div><dt>Dataset</dt><dd>{displayedRun.signal.datasetId}</dd></div></dl>}{displayedRun.fixtureLabel && <p className="form-hint">Integration fixture: {displayedRun.fixtureLabel}</p>}</div>}
+      {displayedRun && <div className="strategy-result">
+        <div className="strategy-run-announcement" role="status" aria-live="polite">
+          <strong>{displayedRun.state}</strong><span>Run {displayedRun.runId}</span>
+        </div>
+        <dl>
+          <div><dt>Strategy version</dt><dd>{displayedRun.strategyVersionId}</dd></div>
+          <div><dt>Strategy hash</dt><dd>{displayedRun.strategyHash}</dd></div>
+          <div><dt>Request hash</dt><dd>{displayedRun.requestHash}</dd></div>
+          <div><dt>Parameters</dt><dd>{displayedRun.parameters?.length
+            ? displayedRun.parameters.map(parameter => `${parameter.name}=${parameter.value}`).join(' · ')
+            : 'None'}</dd></div>
+          <div><dt>Context references</dt><dd>{displayedRun.contextRefs?.length
+            ? displayedRun.contextRefs.map(context => `${context.kind}:${context.id}#${context.hash}`).join(' · ')
+            : 'None'}</dd></div>
+          {displayedRun.signal && <>
+            <div><dt>Instrument</dt><dd>{displayedRun.signal.instrumentId}</dd></div>
+            <div><dt>Direction</dt><dd>{displayedRun.signal.direction}</dd></div>
+            <div><dt>Exposure</dt><dd>{displayedRun.signal.desiredExposure}</dd></div>
+            <div><dt>Observed</dt><dd>{displayedRun.signal.observedAt}</dd></div>
+            <div><dt>Source</dt><dd>{displayedRun.signal.sourceRef}</dd></div>
+            <div><dt>Dataset</dt><dd>{displayedRun.signal.datasetId}</dd></div>
+          </>}
+        </dl>
+        {displayedRun.failure && <><p role="alert">{displayedRun.failure.code}: {displayedRun.failure.reason}</p>{displayedRun.failure.remediation?.length ? <ul><li>{displayedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}
+        {displayedRun.fixtureLabel && <p className="form-hint">Integration fixture: {displayedRun.fixtureLabel}</p>}
+      </div>}
       {!selected && <p className="form-hint">Select a saved version before running.</p>}
     </section>
     <BacktestRunPanel workspaceId={workspaceId} strategy={selected} strategyOptions={library.data.versions} onStrategyChange={edit} instrumentId={instrumentId} datasetId={datasetId} onInstrumentChange={setInstrumentId} onDatasetChange={setDatasetId} />
-    <p className="notice">Strategy output is a signal only. Trade, approval, reservation and provider actions are unavailable here.</p>
   </div>;
 }

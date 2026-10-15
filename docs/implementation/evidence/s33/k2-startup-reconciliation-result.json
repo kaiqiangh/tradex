@@ -1,0 +1,73 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "K2",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:34:12.873Z",
+  "workspace": "036e2c3b-2f7b-42b1-81f7-4c15998406d4",
+  "fixture": "temporary persisted synthetic Live record; no credential or provider request",
+  "test": "tests/s33-startup-reconciliation-screen-playwright.js",
+  "testSha256": "e20a11f15bdce5c3253b78e599db7c8284f6101844d85d80c9a6e4e8ac6e5a44",
+  "reopenedHealth": {
+    "arming": "DISARMED",
+    "armingReason": "SYNTHETIC_FIXTURE",
+    "authentication": "UNVERIFIED",
+    "connection": "STALE",
+    "credential": "UNCHECKED",
+    "executionEligibility": "BLOCKED",
+    "privateStream": "CURRENT",
+    "reconciliation": "STALE"
+  },
+  "remediationReason": "Re-test the connection to verify credentials and refresh saved observations.",
+  "responsive": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "staleReasonVisible": true,
+      "armDisabled": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "staleReasonVisible": true,
+      "armDisabled": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "staleReasonVisible": true,
+      "armDisabled": true
+    }
+  ],
+  "commands": [
+    "account.arming.fixture.seed",
+    "workspace.open",
+    "account.list",
+    "account.activity",
+    "provider.list_definitions",
+    "domain.snapshot",
+    "account.list",
+    "paper.get",
+    "domain.subscribe",
+    "domain.subscribe",
+    "domain.snapshot",
+    "domain.subscribe",
+    "domain.subscribe",
+    "trade.cancel_approval.list"
+  ],
+  "unexpectedCommands": [],
+  "providerOrActionCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "armActivated": false,
+  "scope": "local stale/disarmed startup projection only; native desktop provider recovery is not exercised",
+  "screenshot": "docs/implementation/evidence/s33/startup-reconciliation-390.png",
+  "screenshotSha256": "00165e9a040191c3c18a10162ac7ee2d4c5baff8541a6c7129fd9f40372b8e22",
+  "limits": [
+    "One synthetic account only.",
+    "No fresh TimeService startup, all-account recovery, reconciliation read/write result, native scheduling, or startup timing was tested.",
+    "The synthetic privateStream=CURRENT field is seed state and is not K4 evidence."
+  ],
+  "overallSurfaceStatus": "IN_PROGRESS"
+}

@@ -1,0 +1,78 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "QA-05",
+  "boundary": "Synthetic local-only workspaces; isolated Rust-backed Vite service for each browser case; physical sleep/wake and real provider access skipped per user scope.",
+  "browserScenarios": [
+    {
+      "name": "global-disable-before-prepare",
+      "source": "tests/s33-global-disable-before-prepare-playwright.js",
+      "result": "PASS",
+      "approvalBeforeDisable": "ISSUED",
+      "accountAfterDisable": "DISARMED",
+      "approvalAfterDisable": "INVALIDATED",
+      "fakeGatewayRequestsAdded": 0,
+      "forbiddenCommands": 0,
+      "responsiveWidths": [
+        768,
+        390
+      ],
+      "screenshot": "disable-all-live-390.png"
+    },
+    {
+      "name": "startup-reconciliation",
+      "source": "tests/s33-startup-reconciliation-screen-playwright.js",
+      "result": "PASS",
+      "reopenedHealth": {
+        "arming": "DISARMED",
+        "connection": "STALE",
+        "authentication": "UNVERIFIED",
+        "credential": "UNCHECKED",
+        "executionEligibility": "BLOCKED",
+        "reconciliation": "STALE"
+      },
+      "armDisabled": true,
+      "armActivated": false,
+      "responsiveWidths": [
+        1280,
+        768,
+        390
+      ],
+      "externalHttpRequests": 0,
+      "browserErrors": 0,
+      "screenshot": "startup-reconciliation-390.png"
+    }
+  ],
+  "focusedRustRegressions": [
+    {
+      "test": "account_disarm_and_disable_all_release_only_reserved_place_attempts",
+      "passed": 1
+    },
+    {
+      "test": "disable_all_after_submitting_preserves_may_have_submitted_capacity",
+      "passed": 1
+    },
+    {
+      "test": "disable_all_winning_before_submit_revokes_grant_and_releases_place_reservation",
+      "passed": 1
+    },
+    {
+      "test": "account_disable_is_scoped_and_disable_all_disarms_every_live_account",
+      "passed": 1
+    }
+  ],
+  "sharedPolicyWeakeningEvidence": {
+    "source": "tests/s33-risk-policy-invalidation-playwright.js",
+    "result": "PASS_LIMITED",
+    "affectedLiveAccountsDisarmed": 2,
+    "priorProposalsAndApprovalsInvalidated": true,
+    "details": "Fresh isolated run is included in docs/implementation/evidence/s33/qa04-eligibility-expiry-result.json."
+  },
+  "externalHttpRequests": 0,
+  "providerEndpointRequests": 0,
+  "limitations": [
+    "Physical sleep/wake acceptance is intentionally skipped per user instruction; K1 remains open.",
+    "The startup test proves a persisted local stale/disarmed projection, not native recovery scheduling or fresh provider reconciliation.",
+    "Real-provider behavior and the complete S27/S33 interruption and recovery gates remain open."
+  ],
+  "capturedAt": "2026-10-14T12:17:11.125745Z"
+}

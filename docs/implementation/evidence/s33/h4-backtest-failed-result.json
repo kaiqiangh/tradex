@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "screenId": "H4",
+  "title": "Backtest Failed",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/BacktestRunPanel.tsx": "f130799f979b13c63c89c31ed016c5243e512cbd8f3e1281653d1aea0a64ae2c",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/backtest.rs": "33565402a1da282aabc159ba5d58a791937ed953a341c5e61deab34588bc0840",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-backtest-failed-screen-playwright.js": "b26f4942233e4e859d77e8ddffac4178f7baf52d8a55d662029a8381ea660b59",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-backtest-failed-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "da6f14e5-93b7-4939-818e-8a989627a351",
+  "failedRunId": "c1f8f0dd-29d7-4a8b-8798-c1cecd6269f5",
+  "retryRunId": "e59dfd5f-f262-4ddb-92cf-700638771e67",
+  "fixtureBoundary": "TRADEX_BACKTEST_FIXTURE=1; synthetic BACKTEST_DATA_GAP only",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "requestHashPreserved": true,
+  "observations": [
+    {
+      "width": 1280,
+      "typedFailureAndRemediationVisible": true,
+      "runIdVisible": true,
+      "frozenInputsVisible": true,
+      "inputsUnchanged": true,
+      "retryVisibleAndEnabled": true,
+      "noOverflow": true
+    },
+    {
+      "width": 768,
+      "typedFailureAndRemediationVisible": true,
+      "runIdVisible": true,
+      "frozenInputsVisible": true,
+      "inputsUnchanged": true,
+      "retryVisibleAndEnabled": true,
+      "noOverflow": true
+    },
+    {
+      "width": 390,
+      "typedFailureAndRemediationVisible": true,
+      "runIdVisible": true,
+      "frozenInputsVisible": true,
+      "inputsUnchanged": true,
+      "retryVisibleAndEnabled": true,
+      "noOverflow": true
+    }
+  ],
+  "commandCounts": {
+    "strategy.save_version": 1,
+    "backtest.run": 2,
+    "backtest.cancel": 0,
+    "providerFinancialCommands": 0,
+    "externalHttpRequests": 0
+  },
+  "screenshots": [
+    "backtest-failed-390.png"
+  ],
+  "scopeLimits": [
+    "The failure and retry use only the local synthetic BACKTEST_DATA_GAP fixture.",
+    "This is not real historical-data or production runtime acceptance.",
+    "H4 is one local S33 screen slice and does not complete S15, the remaining screen inventory, S33, or issue #141."
+  ]
+}

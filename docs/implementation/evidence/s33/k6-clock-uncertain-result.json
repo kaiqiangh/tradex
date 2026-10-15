@@ -1,0 +1,98 @@
+{
+  "result": "PASS_LIMITED",
+  "screenId": "K6",
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:38:02.348Z",
+  "workspace": "bc71f42e-189a-4b30-9969-ea7ce77ff4d4",
+  "boundary": "disposable Rust-backed workspace with local synthetic account and proposal; no credentials or provider requests",
+  "test": "tests/s33-untrusted-time-approval-playwright.js",
+  "testSha256": "1bf810825ee8c5a6a2d6e5cceb091d25986a5d865d9eed8eefce17c19ff22e8a",
+  "timeConfidence": "CLOCK_UNCERTAIN",
+  "armingReasonCode": "CLOCK_SKEW",
+  "synchronizeTimeAction": "enabled and left unactivated",
+  "armEnabled": false,
+  "persistedApprovals": 0,
+  "prepareActions": 0,
+  "timeViewports": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "recoveryVisible": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "recoveryVisible": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "recoveryVisible": true
+    }
+  ],
+  "reviewViewports": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "blockerAndSafeActionVisible": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "blockerAndSafeActionVisible": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "blockerAndSafeActionVisible": true
+    }
+  ],
+  "commandCount": 67,
+  "observedCommandTypes": [
+    "workspace.open",
+    "domain.snapshot",
+    "runtime.status",
+    "workspace.ready.fixture",
+    "domain.subscribe",
+    "thread.list",
+    "account.list",
+    "risk.get_policy",
+    "risk.save_policy",
+    "account.arming.fixture.seed",
+    "time.status",
+    "account.activity",
+    "trade.draft.list",
+    "trade.proposal.list",
+    "market.catalog",
+    "trade.save_draft",
+    "trade.draft.get",
+    "trade.generate_proposal",
+    "trade.proposal.get",
+    "risk.decision.list",
+    "data.source.connection",
+    "data.fx.requirements",
+    "data.fx.connection",
+    "trade.approval.list",
+    "provider.list_definitions",
+    "trade.request_approval"
+  ],
+  "forbiddenCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/clock-uncertain-health-390.png",
+      "sha256": "47bb41262d2c4f24d8d7a4d0063a3fcaadedc1e1e5f43109d8cd83feae83693f"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/clock-uncertain-arming-390.png",
+      "sha256": "d204c15b7841a5a8f25876dbc071ca3eb88d82ce83aaf1ae1c602a6616db196f"
+    }
+  ],
+  "limits": [
+    "Fresh-workspace untrusted-time gate only; no physical clock jump, sleep/resume, provider offset, fresh-quote failure, or provider integration was tested."
+  ],
+  "overallSurfaceStatus": "IMPLEMENTED_UNVERIFIED"
+}

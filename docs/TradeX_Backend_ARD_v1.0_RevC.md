@@ -1058,7 +1058,7 @@ If a stop wins before SUBMITTING: RESERVED → INVALIDATED (STOPPED_BEFORE_DISPA
 
 `UNKNOWN_RECONCILING` freezes reservation capacity. It cannot be auto-released after timeout.
 
-The guarded expiry/release table in PRD §45 is normative. Approval expiry after possible transmission changes only the approval record. Provider terminal evidence adjusts for cumulative fills/fees before releasing the unused remainder; cancellation acknowledgement alone cannot release it. Persist the evidence reference, previous state, release amount, and resulting account state in the same transaction as the reservation disposition.
+The guarded expiry/release table in PRD §45 is normative. Approval expiry after possible transmission changes only the approval record. Preserve `CONSUMED` and `consumedAt`; the first trusted TTL observation appends one `trade.approval.expired` event with the approval-scoped expiry evidence defined in §41.1.2. Attempt state/version and retained reservation state/version remain unchanged. Provider terminal evidence adjusts for cumulative fills/fees before releasing the unused remainder; cancellation acknowledgement alone cannot release it. Persist the evidence reference, previous state, release amount, and resulting account state in the same transaction as the reservation disposition.
 
 ---
 
@@ -1785,6 +1785,7 @@ trade.request_approval
 trade.approve
 trade.execution.prepare
 trade.execution.preparation.get
+trade.execution.order_links
 trade.reject
 trade.cancel_request
 trade.cancel_approve
@@ -1823,7 +1824,11 @@ trading212.demo.order.attempt.get
 
 ```text
 strategy.list
+strategy.get
 strategy.save_version
+strategy.run
+strategy.cancel
+strategy.get_run
 backtest.run
 backtest.cancel
 backtest.get
@@ -1886,6 +1891,7 @@ Unsupported schema versions fail as category INTERNAL_ERROR, code IPC_SCHEMA_UNS
 | Prepare and send approved Live PLACE | trade.execution.prepare | workspace_id, approval_id, expected_approval_state_version, idempotency_key, confirmed=true; backend rereads and revalidates exact proposal/account/policy/quote/FX/capacity/time evidence, then atomically consumes proposal and approval and creates one `RESERVED` attempt plus exact reservation. After commit the Control Plane starts the Gateway internally; the Gateway obtains a current one-use grant and revalidates immediately before durable `SUBMITTING`, which precedes the single provider POST. The result is persisted as `ACCEPTED` (not a fill), `REJECTED`, or `UNKNOWN_RECONCILING`. Same-key replay returns saved state and never sends another POST. A capacity refusal leaves proposal/approval available and performs no provider mutation. |
 | Prepare and send approved Live CANCEL | trade.execution.prepare | The same workspace/approval/version/idempotency/confirmed payload; backend revalidates the tagged CANCEL approval and exact current intent/order/account/policy/snapshot evidence, then atomically consumes the approval and writes one `RESERVED` attempt with `reservation=null`. The Control Plane starts the Gateway only after commit; durable `SUBMITTING` precedes the single exact provider DELETE. Provider acknowledgement becomes `CANCEL_PENDING`, never `CANCELLED`; definitive rejection and unknown result retain separate states. No proposal is consumed and no new PLACE reservation is created. Same-key replay reads saved state and never sends another DELETE. |
 | Recover Live execution preparation | trade.execution.preparation.get | workspace_id, approval_id; returns the durable `ExecutionPreparation | null` (a PLACE reservation and linked fill/fee settlement when available) and capacity rejection history after a lost response or restart. Read-only; no provider request. |
+| Read exact Live PLACE order links | trade.execution.order_links | workspace_id, account_id, and at most 2,000 unique complete broker_order_ids; returns only persisted PLACE attempts in that exact workspace/account whose complete broker order ID matches. Includes the recorded Proposal ID and reservation when present. Read-only; no provider request; similar or partial IDs never match. |
 | Reject approval review | trade.reject | workspace_id, proposal_id, proposal_hash, reviewed_risk_decision_id, expected_state_version; records `USER_REJECTED`; no approval or broker action |
 | Read approval history | trade.approval.list | workspace_id, proposal_id; returns issued, rejected, invalidated, expired, and later consumed states with sanitized audit reasons |
 | Prepare cancellation review | trade.cancel_request | workspace_id, account_id, broker_order_id, expected_state_version, optional previous_intent_id; Control Plane runs an authenticated Live read, persists the observation, and returns a CancellationReview with immutable intent ID/hash, exact remaining quantity, snapshot_version/evidence, account, risk decision, blockers, and review digest. Revalidation after Arm reuses the same intent only when its semantic order identity/state/quantities are unchanged. |
@@ -1947,6 +1953,14 @@ interface LiveOrderSettlement {
   stateVersion: string;
 }
 interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
+interface ExecutionOrderLinksQuery { workspaceId: string; accountId: string; brokerOrderIds: string[]; } // at most 2,000 unique complete IDs
+interface ExecutionOrderLink {
+  brokerOrderId: string;
+  executionAttemptId: string;
+  proposalId?: string;
+  reservation?: ExecutionReservation;
+}
+interface ExecutionOrderLinks { workspaceId: string; accountId: string; links: ExecutionOrderLink[]; }
 interface ExecutionPreparationRejection {
   auditId: string;
   workspaceId: string;
@@ -2138,6 +2152,61 @@ Runtime status, account queries, event subscription/replay, and reconciliation m
 
 ---
 
+#### 41.1.2 FinancialApproval authority expiry audit
+
+Version 1 adds optional backend-owned `FinancialApproval.expiry`. `FinancialApprovalExpiry` contains `scope="approval"`, `authority="TRUSTED_TIME_SERVICE"`, `authorityReference` (the exact approval ID), immutable `expiresAt`, trusted `observedAt`, and `reservationDisposition` (`NONE`, `RETAINED`, `RELEASED`, or `ALREADY_RELEASED`). When a reservation exists, include its exact `executionAttemptId`, `reservationId`, and `reservationStateVersion`; `NONE` has no fabricated reservation reference. IDs are bounded opaque strings, timestamps are UTC RFC 3339, and the observation must be at or after the bound deadline. The renderer and Agent cannot provide this evidence.
+
+The first trusted TTL observation persists the evidence and one `trade.approval.expired` outbox event in an immediate transaction. An unused approval becomes `EXPIRED`; a consumed approval preserves `CONSUMED` and `consumedAt`. A stopped `RESERVED` PLACE records `RELEASED` in the same transaction as its actual release. Possible/submitted work records `RETAINED` for active capacity, leaving the order/attempt and reservation unchanged; previously released capacity records `ALREADY_RELEASED` without another release. Unused approvals and CANCEL attempts with no new reservation record `NONE`. Repeated scans, history reads, and same-key replay do not add another expiry or release event. Existing projections without the optional field remain readable; absence is not evidence of a completed expiry audit. No schema version, public command, or execution permission is added.
+
+#### 41.1.3 Strategy lifecycle payloads (S14)
+
+`strategy.list`, `strategy.get`, `strategy.save_version`, `strategy.run`, `strategy.cancel`, and `strategy.get_run` use schema version 1 and are workspace-scoped. Saved `StrategyVersion` records are immutable; saving an edit creates a new revision. A strategy run is a bounded signal-only simulation and cannot submit a trade, approval, reservation, Gateway request, or provider request.
+
+```ts
+interface StrategyParameter { name: string; value: string; }
+interface ThreadContextRef { kind: "instrument" | "account" | "strategy" | "backtest" | "artifact"; id: string; hash: string; }
+interface StrategyRunRequest {
+  workspaceId: string;
+  strategyVersionId: string;
+  expectedStrategyHash?: string;
+  retryOfRunId?: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string; // UTC RFC 3339, endAt >= startAt
+  endAt: string;
+  contextRefs?: ThreadContextRef[]; // at most 32; provenance inputs, not worker capabilities
+  parameters?: StrategyParameter[]; // omitted or empty uses the saved version parameters
+  fixtureScenario?: "SUCCESS" | "FAILURE" | "CANCELLED"; // integration-test fixture only
+}
+interface StrategyRun {
+  runId: string;
+  workspaceId: string;
+  strategyVersionId: string;
+  strategyHash: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string;
+  endAt: string;
+  observedAt: string;
+  contextRefs: ThreadContextRef[];
+  parameters: StrategyParameter[];
+  state: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  signal?: StrategySignal;
+  failure?: StrategyFailure;
+  requestHash: string;
+  fixtureLabel?: string;
+  createdAt: string;
+  updatedAt: string;
+  stateVersion: string;
+}
+```
+
+The renderer cannot provide a run ID, state, observed time, canonical hash, or `stateVersion`. The Control Plane resolves the immutable version/hash, trusted time, effective parameters and selected instrument. It validates supplied references against their workspace-owned source, rejects an instrument reference that disagrees with `instrumentId`, adds the canonical selected-instrument reference when absent, sorts references before persistence, and includes non-empty references in the run identity. References record provenance only and grant no worker capability. Old persisted runs without `contextRefs` remain readable and retain their pre-reference request identity.
+
+`retryOfRunId` is accepted only for an earlier `FAILED` or `CANCELLED` run in the same workspace. After resolving parameters and canonical references, the new request must match the prior version/hash, instrument, dataset, date range, references and parameters exactly. The Control Plane reuses the prior run's trusted `observedAt`; the request hash therefore remains the same while the new attempt receives a distinct `runId`. A changed or ineligible retry fails with `STRATEGY_RETRY_INVALID`. Retrying a legacy run with no context references preserves its empty-reference identity.
+
+The run identity binds the immutable version/hash, instrument and context references, dataset, time range, normalized parameters, trusted observation assumption and engine version. `strategy.cancel` accepts `{workspaceId, runId}` and affects only that active run; version and other runs remain unchanged. `strategy.get_run` accepts `{workspaceId, runId}` and returns the validated persisted projection. A completed result contains only a bounded `StrategySignal` or typed failure evidence; integration fixtures are explicitly labelled and never establish production Python/runtime or provider acceptance.
+
 ### 41.2 Workspace bootstrap payloads (S01)
 
 The following version-1 payloads define the first desktop vertical slice. All objects reject undeclared fields. IDs are non-empty opaque strings; sequences are integers from 0 through JavaScript's safe integer maximum. Times are UTC RFC 3339 strings. No command below grants financial authority.
@@ -2183,7 +2252,7 @@ AccountConnection includes immutable `connectionId`, `workspaceId`, `providerId`
 
 The Arm dialog binds to the provider, user label, `LIVE` environment, full TradeX `connectionId`, and observed provider account ID. Eligibility is returned by `account.list`; absence of a current eligibility row is blocked in the renderer, and `account.arm` independently rechecks every prerequisite. Arming requires VERIFIED credential-permission scope; acknowledgement of UNVERIFIED scope permits connection review only. A native deadline monitor durably applies inactivity disarm while the app is idle. `account.activity` only refreshes active monotonic deadlines from trusted renderer input; periodic account refreshes do not count as activity. App restart, session loss, OS sleep, policy weakening, account health/credential changes, and timeout disarm durably with a reason.
 
-Account observations add optional `reserved` and `inPies` decimal strings on each balance; optional `instrumentCurrency` and `marketValueCurrency` on positions; and optional `currency` / `filledValue` on open orders. `filledQuantity` is nullable/optional for provider value orders. Missing fields on stored older projections remain unavailable. Every monetary unit displayed comes from its observation currency; the workspace currency is not an implicit conversion. Trading 212 account subtype remains explicitly unavailable because the summary does not expose it. JSON-number provider values are normalized into exact decimal wire strings without binary-float conversion.
+Account observations add optional `reserved` and `inPies` decimal strings on each balance; optional `instrumentCurrency` and `marketValueCurrency` on positions; and optional `currency`, `filledValue`, and `remainingQuantity` on open orders. `filledQuantity` is nullable/optional for provider value orders. `remainingQuantity` is an exact decimal string only when provider quantity/fill evidence permits exact subtraction; otherwise it remains unavailable. Missing fields on stored older projections remain unavailable. Every monetary unit displayed comes from its observation currency; the workspace currency is not an implicit conversion. Trading 212 account subtype remains explicitly unavailable because the summary does not expose it. JSON-number provider values are normalized into exact decimal wire strings without binary-float conversion.
 
 The control plane allocates the immutable connection and its private reference before native entry. Keychain values are captured/stored/resolved only in the trusted provider layer; ordinary connection storage contains metadata/reference only. Cancellation invalidates the pending connection and deletes only its own credential. A failed initial test remains visibly failed and removes its own credential; failed cleanup is DELETE_PENDING, blocks probes and supports retrying disconnect. Native dialogs and network I/O never hold the domain-state lock. Each result is committed only if workspace session, connection identity and expected state still match; disconnect/workspace switch invalidate in-flight completion. The privileged layer checks validity before further I/O and removes abandoned newly captured credentials. On restart, interrupted CONNECTING records become DISCONNECTED / DELETE_PENDING for cleanup and reconnection; previous observations are stale until reference checks and a successful fresh probe; restart cannot confirm a review or restore arming.
 
@@ -2382,11 +2451,11 @@ The sanitized remediation codes are `RISK_POLICY_INVALID`, `RISK_POLICY_NOT_CONF
 
 ### 41.7 Context catalog payloads (S05)
 
-The context catalog is a read-only workspace query. It exposes canonical non-secret account refs for the Composer and explicit empty states for future context kinds; it never returns credentials, provider bodies or permission secrets.
+The context catalog is a read-only workspace query. It exposes canonical non-secret account, instrument and saved-strategy references for the Composer. The combined `entries` array is bounded to 256, and `emptyStates` to one disclosure per supported kind (at most five). Existing account and saved-strategy entries retain priority; later available kinds use the remaining capacity. If a kind cannot be fully listed, its availability disclosure states the shown and total counts; the response must remain schema-valid and must not silently imply a complete catalog. Unavailable future kinds retain their explicit reasons. Reference availability means that the canonical ID/hash may be attached; it does not establish market data, provider entitlement or execution authority. The catalog never returns credentials, provider bodies or permission secrets.
 
 | Command | Payload | Success data |
 |---|---|---|
-| context.catalog | `{workspaceId: string}` | `ContextCatalog` with bounded account entries and explicit empty states |
+| context.catalog | `{workspaceId: string}` | `ContextCatalog` with a bounded combined reference list and explicit unavailable/capacity disclosures |
 
 ~~~ts
 interface ContextCatalog {
@@ -2394,7 +2463,7 @@ interface ContextCatalog {
   emptyStates: ContextCatalogEmptyState[];
 }
 interface ContextCatalogEntry {
-  contextRef: { kind: "account"; id: string; hash: string };
+  contextRef: { kind: "account" | "instrument" | "strategy" | "backtest" | "artifact"; id: string; hash: string };
   label: string;
   providerId?: string;
   environment?: string;
@@ -2408,7 +2477,7 @@ interface ContextCatalogEmptyState {
 }
 ~~~
 
-Account hashes are `sha256:<64 lowercase hex characters>` over the canonical non-secret tuple `workspaceId\0connectionId\0providerId\0environment\0createdAt`. Labels and credential material are not hash inputs. Disconnected, missing-credential and cleanup-pending connections remain visible with `available: false`; future instrument, strategy, backtest and artifact kinds return an explicit empty state rather than fixtures. `thread.create` and `turn.start` accept only bounded supported refs; account refs must match the active workspace catalog and derived hash. Duplicate, malformed, unknown or cross-workspace refs fail before persistence or runtime work. For `turn.start`, omitted `attachedContexts` preserves the saved Thread refs for compatibility, while an explicit empty array clears them; explicit `null` is invalid.
+Account hashes are `sha256:<64 lowercase hex characters>` over the canonical non-secret tuple `workspaceId\0connectionId\0providerId\0environment\0createdAt`. Labels and credential material are not hash inputs. Disconnected, missing-credential and cleanup-pending connections remain visible with `available: false`; unavailable context kinds return an explicit empty state rather than fixtures. `thread.create` and `turn.start` accept only bounded supported refs; account refs must match the active workspace catalog and derived hash. Duplicate, malformed, unknown or cross-workspace refs fail before persistence or runtime work. For `turn.start`, omitted `attachedContexts` preserves the saved Thread refs for compatibility, while an explicit empty array clears them; explicit `null` is invalid.
 
 An available attached account context adds read-only `account_read` capability for Ask, Research and Backtest. It never satisfies the separate execution-account requirement for Trade.
 

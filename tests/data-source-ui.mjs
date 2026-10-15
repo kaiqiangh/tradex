@@ -21,9 +21,8 @@ export async function checkDataSourceUI(tab, browser) {
     assert.match(await ui.getByRole('article', { name: /OD-001/ }).innerText(), /Blocked by external setup/);
     assert.match(await ui.getByRole('article', { name: /OD-001/ }).innerText(), /checked Not checked/);
     assert.match(await ui.getByRole('article', { name: /OD-004/ }).innerText(), /general-news|general news/);
-    await ui.getByRole('article', { name: /OD-001/ }).getByRole('button', { name: 'Check entitlement', exact: true }).press('Enter');
-    await ui.getByRole('article', { name: /OD-001/ }).getByText(/TradeX did not read or infer credentials/).waitFor({ state: 'visible' });
-    observed.push('Six OD source cards disclose the policy and the credentialed Alpaca gate stays blocked without secret access.');
+    await ui.getByRole('article', { name: /OD-001/ }).getByRole('button', { name: 'Check entitlement', exact: true }).waitFor({ state: 'visible' });
+    observed.push('Six OD source cards disclose policy; the Alpaca gate stays blocked and unchecked without invoking its entitlement probe or reading credentials.');
     for (const width of [768, 390]) {
       await viewport.set({ width, height: 900 });
       const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));

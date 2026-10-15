@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "screenId": "J3",
+  "title": "Data & Storage",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/SettingsSurfaces.tsx": "a72739442654140d7bebd9409246d8ac9d40d23e25306054c7a6c79844abd4cd",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-data-storage-screen-playwright.js": "84bdc12df695d2de4b65445cffb8be3c7dd3a7dfaf1167715c603283c0bb7f16",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-data-storage-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with one isolated fixture-ready workspace",
+  "workspaceId": "fed0f48a-f886-4c57-9b9c-ec194e45037e",
+  "fixtureBoundary": "One disposable workspace; screen path and all observed commands are read-only",
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "assertions": {
+    "storageResponsibilitiesVisible": [
+      "SQLite",
+      "DuckDB",
+      "Filesystem",
+      "optional Phase 2+ Parquet"
+    ],
+    "privacyAndRestoreDisclosureVisible": true,
+    "retentionInputsBlankAndNoLimit": 3,
+    "saveVersusApplyNonDestructiveDisclosureVisible": true,
+    "financialRecordsRetentionDisclosureVisible": true,
+    "nativeFileActionsDisabledInBrowserHarness": [
+      "Backup Now",
+      "Export Workspace",
+      "Import / Restore"
+    ],
+    "noHorizontalOverflow": true,
+    "screenshotDimensions": {
+      "width": 390,
+      "height": 12799
+    }
+  },
+  "commandCounts": {
+    "total": 23,
+    "account.activity": 1,
+    "provider.list_definitions": 1,
+    "domain.snapshot": 3,
+    "account.list": 1,
+    "paper.get": 1,
+    "runtime.status": 2,
+    "domain.subscribe": 5,
+    "workspace.retention.get": 1,
+    "data.source.catalog": 1,
+    "data.source.connection": 1,
+    "data.calendar.connection": 1,
+    "data.actions.connection": 1,
+    "data.instrument.connection": 1,
+    "data.fx.connection": 1,
+    "data.binance_rules.connection": 1,
+    "data.binance_market.connection": 1,
+    "unexpectedCommands": 0,
+    "retentionSave": 0,
+    "retentionApply": 0,
+    "archiveCommands": 0,
+    "providerMutationsOrProbes": 0,
+    "externalHttpRequests": 0,
+    "consoleErrors": 0,
+    "pageErrors": 0
+  },
+  "screenshots": [
+    "data-storage-390.png"
+  ],
+  "scopeLimits": [
+    "This is a read-only browser screen check; no retention was saved/applied and no archive/file action was run.",
+    "S31 native archive evidence is separate and is not re-proven by this screen check.",
+    "J3 remains IMPLEMENTED_UNVERIFIED; the full screen inventory, S33, and issue #141 remain open."
+  ]
+}

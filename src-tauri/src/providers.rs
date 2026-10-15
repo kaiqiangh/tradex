@@ -241,6 +241,8 @@ pub struct OpenOrder {
     pub quantity: Option<String>,
     pub notional: Option<String>,
     pub filled_quantity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remaining_quantity: Option<String>,
     pub filled_value: Option<String>,
     pub currency: Option<String>,
     pub status: String,

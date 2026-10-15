@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "screenId": "H1",
+  "title": "Strategy List",
+  "result": "PASS",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/Strategies.tsx": "1b89e7f7a7849457423e4ef6ec979fbd938753e34d31b7abfc41a00bada2a73e",
+    "src/styles.css": "2518a5a20c929e7e68aaf3ddcd9083710843c817179cdf34a5b516494fc4c96f",
+    "tests/s33-strategy-screen-inventory-playwright.js": "ee451b3c2edf0eafd86eff849ba409e647d302f94552327ebc8f012a9e95fb46",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-strategy-screen-inventory-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with a disposable workspace",
+  "workspaceId": "a889032a-69d6-44d2-a804-0d76ff822aa1",
+  "viewports": [1280, 768, 390],
+  "scenarios": {
+    "emptyLibraryObservedAt": 1280,
+    "immutableRevisionsSaved": ["v1", "v2", "v3"],
+    "distinctSha256HashesVisible": true,
+    "createdAtMatchesPersistedLibrary": true,
+    "parametersVisible": {
+      "v1": "None",
+      "v2": "None",
+      "v3": "window=20"
+    },
+    "historicalReselection": {
+      "revision": "v1",
+      "input": "keyboard Enter",
+      "selectedAfterAction": true,
+      "savedSourceRestored": true,
+      "v2Retained": true
+    },
+    "savedListVisibleAtEveryViewport": true,
+    "bothRevisionRowsFullyInViewportAfterScrollAtEveryViewport": true,
+    "noHorizontalOverflowAtEveryViewport": true
+  },
+  "commandCounts": {
+    "strategy.save_version": 2,
+    "strategy.save_versionFixture": 1,
+    "strategy.run": 0,
+    "backtest.run": 0,
+    "backtest.cancel": 0,
+    "providerOrFinancial": 0,
+    "externalHttpRequests": 0,
+    "consoleErrors": 0,
+    "pageErrors": 0
+  },
+  "screenshots": [
+    "strategy-list-390.png",
+    "strategy-inventory-390.png",
+    "strategy-boundary-390.png"
+  ],
+  "scopeLimits": [
+    "Saved strategy metadata and code were local test fixtures; no strategy runtime was started.",
+    "The combined regression script observes the H2 editor, but only this H1 list scenario is covered by this result.",
+    "This result does not complete S14 runtime acceptance, the 70-screen audit, S33, or issue #141."
+  ]
+}

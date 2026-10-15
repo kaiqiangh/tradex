@@ -13,7 +13,7 @@ export function useWorkspace() {
   const queryClient = useQueryClient();
   const [workspaceId, setWorkspaceId] = useState<string>();
   const projection = useDomainProjection('workspace', workspaceId, fromSnapshot);
-  const runtime = useQuery({ queryKey: ['runtime'], queryFn: () => request('runtime.status', {}), enabled: transportAvailable, refetchInterval: 10_000 });
+  const runtime = useQuery({ queryKey: ['runtime', workspaceId], queryFn: () => request('runtime.status', {}), enabled: transportAvailable, refetchInterval: 10_000 });
   const opening = useMutation({
     mutationFn: (options: OpenWorkspace) => request('workspace.open', options),
     onSuccess: workspace => {

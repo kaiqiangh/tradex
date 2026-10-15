@@ -60,6 +60,8 @@ struct CanonicalRun<'a> {
     start_at: &'a str,
     end_at: &'a str,
     observed_at: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    context_refs: Option<&'a [crate::protocol::ThreadContextRef]>,
     parameters: &'a [StrategyParameter],
     engine_version: &'static str,
 }
@@ -122,6 +124,7 @@ pub fn run_identity_hash(
         start_at: &request.start_at,
         end_at: &request.end_at,
         observed_at,
+        context_refs: (!request.context_refs.is_empty()).then_some(request.context_refs.as_slice()),
         parameters,
         engine_version: "tradex-strategy-engine-v1",
     };

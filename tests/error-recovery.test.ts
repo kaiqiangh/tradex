@@ -39,6 +39,60 @@ test('every RevC canonical error has recovery guidance and an explicit next acti
   }
 });
 
+test('authentication recovery directs credential reconnection and keeps Live disabled', () => {
+  const variant = getRecoveryVariant('AUTH_ERROR');
+  assert.equal(variant.action, 'Reconnect credentials');
+  assert.match(variant.message, /Live execution remains disabled/);
+});
+
+test('private-stream recovery requires restored account health before Live execution', () => {
+  const variant = getRecoveryVariant('STREAM_DISCONNECTED');
+  assert.equal(variant.action, 'Reload state');
+  assert.match(variant.message, /Live execution remains disabled until account health is restored/);
+});
+
+test('risk rejection and unavailable evidence give distinct no-side-effect recovery guidance', () => {
+  const rejected = getRecoveryVariant('RISK_REJECTED');
+  const unavailable = getRecoveryVariant('RISK_EVIDENCE_UNAVAILABLE');
+  assert.notEqual(rejected.title, unavailable.title);
+  for (const variant of [rejected, unavailable]) {
+    assert.match(variant.message, /No order attempt or provider\/simulator order side effect was created/);
+  }
+  assert.match(rejected.message, /recorded rejection and its blocking risk or capacity checks/);
+  assert.match(unavailable.message, /persisted RiskDecision and execution evidence/);
+  assert.match(unavailable.message, /missing or untrusted inputs/);
+});
+
+test('provider rate-limit recovery backs off low-priority traffic and preserves reconciliation priority', async () => {
+  const variant = getRecoveryVariant('RATE_LIMITED');
+  assert.equal(variant.action, 'Retry after cooldown');
+  assert.match(variant.message, /Back off low-priority provider traffic until the provider cooldown ends/);
+  assert.match(variant.message, /execution reconciliation at highest priority/);
+
+  const { CommandError, explainError } = await vite.ssrLoadModule('/src/client.ts') as typeof import('../src/client.ts');
+  const error = new CommandError({
+    category: 'RATE_LIMITED', code: 'PROVIDER_RATE_LIMITED',
+    message: 'The provider fixture returned a synthetic cooldown.',
+    retryable: true, blocking: true, remediationActions: [],
+  } as never);
+  assert.match(explainError(error), /Back off low-priority provider traffic/);
+  assert.match(explainError(error), /execution reconciliation at highest priority/);
+  assert.match(renderToStaticMarkup(createElement(ErrorRecoveryPanel, { error })), /execution reconciliation at highest priority/);
+});
+
+test('context errors keep their specific remediation under the canonical unsupported category', async () => {
+  const { CommandError, explainError } = await vite.ssrLoadModule('/src/client.ts') as typeof import('../src/client.ts');
+  const error = new CommandError({
+    category: 'INTERNAL_ERROR', code: 'TURN_CONTEXT_INVALID',
+    message: 'This mode and execution context cannot be used together.',
+  } as never);
+  assert.equal(resolveCanonicalRecoveryCode(error), 'UNSUPPORTED_CAPABILITY');
+  assert.equal(explainError(error), 'UNSUPPORTED_CAPABILITY · Capability unavailable. This operation is outside the current provider or workspace capability. Next step: Choose a supported context');
+  const html = renderToStaticMarkup(createElement(ErrorRecoveryPanel, { error }));
+  assert.match(html, /Next step: Choose a supported context/);
+  assert.equal(getRecoveryVariant('UNSUPPORTED_CAPABILITY').action, 'Review capability');
+});
+
 test('every RevC canonical recovery renders as an accessible UI alert', () => {
   for (const code of revCCodes) {
     const html = renderToStaticMarkup(createElement(ErrorRecoveryPanel, { code }));
@@ -55,6 +109,7 @@ test('provider and model wire errors resolve to their canonical recovery categor
     [{ category: 'RATE_LIMITED', code: 'PROVIDER_RATE_LIMITED' }, 'RATE_LIMITED'],
     [{ category: 'NETWORK_ERROR', code: 'PROVIDER_UNAVAILABLE' }, 'NETWORK_ERROR'],
     [{ category: 'UNSUPPORTED_CAPABILITY', code: 'PROVIDER_UNSUPPORTED' }, 'UNSUPPORTED_CAPABILITY'],
+    [{ category: 'INTERNAL_ERROR', code: 'TURN_CONTEXT_INVALID' }, 'UNSUPPORTED_CAPABILITY'],
     [{ category: 'POLICY_ERROR', code: 'RISK_EVIDENCE_UNAVAILABLE' }, 'RISK_EVIDENCE_UNAVAILABLE'],
     [{ category: 'PROVIDER_ORDER_REJECTED', code: 'PROVIDER_ORDER_REJECTED' }, 'SUBMISSION_REJECTED'],
     [{ category: 'MODEL_UNAVAILABLE', code: 'MODEL_UNAVAILABLE' }, 'MODEL_UNAVAILABLE'],
@@ -93,6 +148,6 @@ test('generic command errors use canonical remediation without echoing raw backe
   const message = explainError(new CommandError({
     category: 'AUTH_ERROR', code: 'PROVIDER_AUTH_FAILED', message: 'Bearer synthetic-secret',
   } as never));
-  assert.equal(message, 'AUTH_ERROR · Authentication needs attention. Next step: Review authentication');
+  assert.equal(message, 'AUTH_ERROR · Authentication needs attention. Reconnect and verify credentials before retrying. Live execution remains disabled until account health is restored. Next step: Reconnect credentials');
   assert.doesNotMatch(message, /Bearer|synthetic-secret/);
 });

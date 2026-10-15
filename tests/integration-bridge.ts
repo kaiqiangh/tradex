@@ -36,6 +36,8 @@ export function integrationBridge(): Plugin {
       let screenerBlocked = false;
       let backtestMode: 'normal' | 'delay' | 'list-error' | 'compare-error' = 'normal';
       let paperMode: 'normal' | 'delay' | 'error' = 'normal';
+      let commandSequence = 0;
+      const commandLog: Array<{ sequence: number; command: string }> = [];
       const blockedBootstrapRequestId = randomUUID();
       let resolveBlockedBootstrap!: () => void;
       const blockedBootstrapReady = new Promise<void>(resolve => { resolveBlockedBootstrap = resolve; });
@@ -179,6 +181,14 @@ export function integrationBridge(): Plugin {
           } catch { response.writeHead(400); response.end(); }
           return;
         }
+        if (request.url?.startsWith('/command-log') && request.method === 'GET') {
+          const after = Number(new URL(request.url, 'http://127.0.0.1').searchParams.get('after') ?? '0');
+          if (!Number.isSafeInteger(after) || after < 0) { response.writeHead(400); response.end(); return; }
+          response.setHeader('Content-Type', 'application/json');
+          response.setHeader('Cache-Control', 'no-store');
+          response.end(JSON.stringify({ cursor: commandSequence, commands: commandLog.filter(entry => entry.sequence > after) }));
+          return;
+        }
         if (request.url !== '/command' || request.method !== 'POST') { response.writeHead(404); response.end(); return; }
         try {
           const parts: Buffer[] = []; let size = 0;
@@ -189,6 +199,10 @@ export function integrationBridge(): Plugin {
           }
           const envelope = JSON.parse(Buffer.concat(parts).toString());
           if (typeof envelope.requestId !== 'string' || pending.has(envelope.requestId) || blockedPending.has(envelope.requestId)) { response.writeHead(400); response.end(); return; }
+          if (typeof envelope.command === 'string') {
+            commandLog.push({ sequence: ++commandSequence, command: envelope.command.length <= 128 ? envelope.command : '<oversized>' });
+            if (commandLog.length > 20_000) commandLog.splice(0, commandLog.length - 20_000);
+          }
           // The QA bridge owns only its fresh temporary tree, never a real user workspace.
           if (envelope.command === 'workspace.open' && envelope.payload?.path) {
             const path = resolve(envelope.payload.path);

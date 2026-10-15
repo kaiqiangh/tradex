@@ -1,0 +1,62 @@
+{
+  "result": "PASS",
+  "userRequestVisible": true,
+  "planVisible": true,
+  "typedToolVisible": true,
+  "interimTypedResultVisible": true,
+  "itemLifecycle": [
+    "STARTED",
+    "STREAMING",
+    "COMPLETED"
+  ],
+  "researchRunCommands": 1,
+  "turnStartCommands": 1,
+  "forbiddenCommands": 0,
+  "commandNames": [
+    "account.activity",
+    "account.list",
+    "agent.capabilities",
+    "context.catalog",
+    "domain.snapshot",
+    "domain.subscribe",
+    "research.run",
+    "runtime.status",
+    "thread.create",
+    "thread.list",
+    "turn.start",
+    "workspace.open",
+    "workspace.ready.fixture"
+  ],
+  "externalRequests": 0,
+  "pageErrors": 0,
+  "consoleErrors": 0,
+  "responsive": [
+    {
+      "width": 1280,
+      "documentScrollWidth": 1280,
+      "turnWidth": 442
+    },
+    {
+      "width": 768,
+      "documentScrollWidth": 768,
+      "turnWidth": 474
+    },
+    {
+      "width": 390,
+      "documentScrollWidth": 390,
+      "turnWidth": 320
+    }
+  ],
+  "fixtureOnly": true,
+  "capturedAt": "2026-10-14T15:31:26Z",
+  "test": {
+    "path": "tests/s33-b5-research-running-playwright.js",
+    "sha256": "2a2e145d3dbe9ee2857cf003e4c8ac1112abcf5cee9069719c2aebbb5669caec"
+  },
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/b5-research-running-390.png",
+      "sha256": "4d9ddcd3538776f9b16b0ad4b0ed3ddc1a4dc6c2530db28253f63e87fcaa3ddb"
+    }
+  ]
+}

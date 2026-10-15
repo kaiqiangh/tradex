@@ -25,7 +25,7 @@ export async function checkOrderDraftUI(tab, browser) {
     assert.equal(await ui.getByText('NEEDS_APPROVAL', { exact: true }).count() > 0, true);
     assert.equal(await ui.getByText('GENERATED', { exact: true }).count() > 0, true);
     assert.equal(await ui.getByText('221.5 USD', { exact: true }).count() > 0, true);
-    assert.equal(await ui.getByText(/Policy: UNCONFIGURED.*v1.*state/, { exact: false }).count() > 0, true);
+    assert.equal(await ui.getByText(/Policy: AVAILABLE.*v2.*state/, { exact: false }).count() > 0, true);
     assert.equal(await ui.getByText(/Market: BLOCKED_EXTERNAL.*snapshot —/, { exact: false }).count() > 0, true);
     observed.push('A saved draft generates an immutable NEEDS_APPROVAL proposal with a visible history entry and estimated notional.');
 
@@ -45,7 +45,7 @@ export async function checkOrderDraftUI(tab, browser) {
     await quantity.fill('2');
     await ui.getByRole('button', { name: 'Save draft', exact: true }).press('Enter');
     await ui.getByRole('status').filter({ hasText: 'Draft saved at version 2.' }).waitFor({ state: 'visible' });
-    await ui.getByText('INVALIDATED', { exact: true }).waitFor({ state: 'visible' });
+    await ui.getByText('INVALIDATED', { exact: true }).first().waitFor({ state: 'visible' });
     assert.equal(await ui.getByText('DRAFT_CHANGED', { exact: true }).count() > 0, true);
     observed.push('A material draft edit preserves the old proposal snapshot and records DRAFT_CHANGED as INVALIDATED.');
 

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "screenId": "J4",
+  "title": "Import / Restore Workspace",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/SettingsSurfaces.tsx": "a72739442654140d7bebd9409246d8ac9d40d23e25306054c7a6c79844abd4cd",
+    "src/App.tsx": "ced57dea569ea339a9cd685903153a2d02e07ea514d13087a91790e6113dedeb",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-workspace-import-dialog-playwright.js": "01d5d533b968ce3f94c9ad2bd4ed175664f1ec70a45d765c032822f4385c0ce3",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-workspace-import-dialog-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1423; temporary workspace and Rust archive preview",
+  "workspaceId": "7f4ad7b5-d167-46ab-ba9b-6835bbe495d1",
+  "backupArchivePath": "/private/var/folders/pz/jpgkm5cd7bn8vj_klvtmvf700000gn/T/tradex-browser-5ke0ll/s33-import-dialog-1791973162764-8r7xohz6obo/backups/TradeX-backup-c35798e9-4441-4a7e-b89d-234db906f8db.tradex",
+  "archiveFixture": {
+    "schemaVersion": 38,
+    "members": 1,
+    "sizeBytes": 701140,
+    "syntheticLocalWorkspace": true
+  },
+  "fixtureBoundary": "The archive backup is generated from the isolated local fixture; dialog API is shimmed; real Rust workspace.archive.preview is exercised",
+  "keyboardAndModal": {
+    "safeInitialFocus": true,
+    "backgroundInert": true,
+    "tabAndShiftTabStayInside": true,
+    "escapeRestoresPriorFocus": true,
+    "cancelRestoresAppShell": true
+  },
+  "preview": {
+    "workspaceIdentityAndSchemaMemberMetadataVisible": true,
+    "fiveRecordCategoriesVisible": true,
+    "secretDataRightsAndDisarmedWarningsVisible": true,
+    "preRestoreBackupAndReconciliationDisclosureVisible": true,
+    "chooseArchiveDialogRequestsTradexFilter": true,
+    "chooseFolderDialogRequestsDirectory": true,
+    "confirmDisabledBeforeDestinationAndEnabledAfterSelection": true,
+    "restoreNotConfirmed": true
+  },
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "observations": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "actionsScrollableIntoView": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "actionsScrollableIntoView": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "actionsScrollableIntoView": true
+    }
+  ],
+  "commandCountsAfterBaseline": {
+    "total": 8,
+    "data.source.connection": 1,
+    "data.calendar.connection": 1,
+    "data.actions.connection": 1,
+    "data.instrument.connection": 1,
+    "data.fx.connection": 1,
+    "data.binance_rules.connection": 1,
+    "data.binance_market.connection": 1,
+    "workspace.archive.preview": 1,
+    "workspace.archive.restore": 0,
+    "unexpectedCommands": 0,
+    "externalHttpRequests": 0,
+    "pageErrors": 0
+  },
+  "screenshots": [
+    "workspace-import-preview-390.png",
+    "workspace-import-safeguards-390.png"
+  ],
+  "scopeLimits": [
+    "The browser harness disables the desktop-only trigger and native file panel; the test invokes the React handler and shims only the Tauri dialog API.",
+    "This run does not re-verify the real OS picker, native trigger focus, VoiceOver, or restore publication; existing S31 native restore evidence remains separate.",
+    "J4 remains IMPLEMENTED_UNVERIFIED; overall S33 and issue #141 remain open."
+  ]
+}

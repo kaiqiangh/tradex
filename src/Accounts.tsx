@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AccountConnection, Accounts as AccountList, CancellationApprovalHistory, CancellationReview, ExecutionPreparation, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
+import type { AccountConnection, Accounts as AccountList, CancellationApprovalHistory, CancellationReview, ExecutionOrderLink, ExecutionPreparation, FinancialApproval, LiveArmingEligibility, LocalPaperState } from '../shared/ipc-types.ts';
 import { CommandError, desktop, browserIntegration, explainError, request } from './client.ts';
+import { ErrorRecoveryPanel } from './ErrorRecoveryPanel.tsx';
 import { fromAccountSnapshot, fromRiskSnapshot } from './projection.ts';
 import { liveExecutionStatus } from './liveExecution.ts';
 import { useDomainProjection } from './useDomainProjection.ts';
@@ -10,12 +11,41 @@ import { Portfolio } from './Portfolio.tsx';
 function mutation(a: AccountConnection) { return { workspaceId: a.workspaceId, connectionId: a.connectionId, expectedStateVersion: a.stateVersion }; }
 function money(value: string | null | undefined, currency?: string | null) { return value == null ? 'Unavailable' : `${value}${currency ? ` ${currency}` : ' (currency unavailable)'}`; }
 function time(value: string | null | undefined) { return value ? new Date(value).toLocaleString() : 'Not yet'; }
+function TradeXOrderLinkSummary({ link, pending, unavailable }: { link?: ExecutionOrderLink; pending: boolean; unavailable: boolean }) {
+  if (pending) return <>Loading TradeX order context…</>;
+  if (unavailable) return <>TradeX order context unavailable</>;
+  if (!link) return <>No exact TradeX PLACE match · Reservation: Not linked</>;
+  const reservation = link.reservation
+    ? `${link.reservation.amount} ${link.reservation.unit} · ${link.reservation.status}`
+    : 'Not recorded';
+  return <>Proposal: {link.proposalId ?? 'Unavailable'} · Attempt: {link.executionAttemptId} · Reservation: {reservation}</>;
+}
 const providerNames: Record<string, string> = { trading212: 'Trading 212', binance: 'Binance', bitget: 'Bitget' };
 function providerName(providerId: string) { return providerNames[providerId] ?? providerId; }
 function restoreCancellationFocus(trigger: HTMLButtonElement | null) {
   if (!trigger) return;
   if (trigger.isConnected) trigger.focus();
   else document.getElementById('connections-title')?.focus();
+}
+function trapDialogTab(event: { key: string; shiftKey: boolean; preventDefault(): void; currentTarget: HTMLDialogElement }) {
+  if (event.key !== 'Tab') return;
+  const dialog = event.currentTarget;
+  const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+    'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])',
+  )).filter(element => element.tabIndex >= 0 && element.getClientRects().length > 0);
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  const active = dialog.ownerDocument.activeElement;
+  if (!first || !last) {
+    event.preventDefault();
+    dialog.focus();
+  } else if (event.shiftKey && (active === first || active === dialog || !dialog.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (active === last || active === dialog || !dialog.contains(active))) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function isExactCancellationPreparation(preparation: ExecutionPreparation, approval: FinancialApproval, account: AccountConnection, brokerOrderId: string) {
@@ -50,7 +80,6 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
   const queryClient = useQueryClient();
   const [review, setReview] = useState<CancellationReview>();
   const [approvalToPrepare, setApprovalToPrepare] = useState<FinancialApproval>();
-  const [preparation, setPreparation] = useState<ExecutionPreparation>();
   const [prepareIdentity, setPrepareIdentity] = useState<{ approvalId: string; idempotencyKey: string }>();
   const [busy, setBusy] = useState(false);
   const [armConfirmed, setArmConfirmed] = useState(false);
@@ -130,20 +159,17 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
             await refreshReview(saved.preparation.attempt.intentId, account.stateVersion);
             return;
           }
-          setPreparation(saved.preparation);
           setApprovalToPrepare(undefined);
           setNotice(liveExecutionStatus(saved.preparation.attempt));
           return;
         }
         if (savedApproval.status === 'CONSUMED') throw new Error('WORKSPACE_INTEGRITY_FAILED');
-        setPreparation(undefined);
         setPrepareIdentity(undefined);
         setApprovalToPrepare(savedApproval);
         setNotice('The exact CANCEL approval is ready for a separate TradeX preparation step. The broker order is unchanged.');
         return;
       }
       setApprovalToPrepare(undefined);
-      setPreparation(undefined);
       setPrepareIdentity(undefined);
       await refreshReview();
     } catch (failure) { setError(explainError(failure)); }
@@ -182,13 +208,11 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
       if (approve) {
         const approval: FinancialApproval = await request('trade.cancel_approve', input);
         setApprovalToPrepare(approval);
-        setPreparation(undefined);
         setPrepareIdentity(undefined);
         setNotice(`CANCEL approval issued until ${new Date(approval.expiresAt).toLocaleTimeString()}. Prepare it separately in TradeX; the broker order was not cancelled.`);
       } else {
         await request('trade.cancel_reject', input);
         setApprovalToPrepare(undefined);
-        setPreparation(undefined);
         setNotice('Cancellation review rejected and recorded. The broker order was not changed.');
       }
       setReview(undefined);
@@ -218,7 +242,6 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
         approvalId: approvalToPrepare.approvalId,
       });
       if (!saved.preparation || !isExactCancellationPreparation(saved.preparation, approvalToPrepare, account, brokerOrderId)) throw new Error('WORKSPACE_INTEGRITY_FAILED');
-      setPreparation(saved.preparation);
       setApprovalToPrepare(undefined);
       setPrepareIdentity(undefined);
       setNotice(liveExecutionStatus(saved.preparation.attempt));
@@ -229,35 +252,12 @@ function LiveCancellationAuthorization({ account, brokerOrderId, disabled = fals
   return <>
     <button type="button" disabled={!canStart || busy} onClick={event => { triggerRef.current = event.currentTarget; void startReview(); }}>{busy && !review ? 'Refreshing order…' : 'Review cancellation'}</button>
     {error && !review && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
-    {approvalToPrepare?.operation === 'CANCEL' && <article className="live-approval-record" aria-label="Approved Live cancellation preparation">
-      <strong>Approved CANCEL · preparation not yet saved</strong>
-      <span>{account.providerId} · LIVE · {account.label} · account {account.connectionId}</span>
-      <span>Provider order {approvalToPrepare.brokerOrderId} · intent {approvalToPrepare.cancellationIntentId}</span>
-      <span>Intent hash {approvalToPrepare.intentHash} · remaining quantity {approvalToPrepare.remainingQuantity}</span>
-      <span>Approval expires {time(approvalToPrepare.expiresAt)}</span>
-      <p>This approval permits only a separate local preparation. It does not cancel the provider order.</p>
-      <button type="button" className="primary" onClick={() => void prepareCancellation()} disabled={busy}>{busy ? 'Sending through secure Order Gateway…' : 'Prepare and send approved cancellation'}</button>
-    </article>}
-    {preparation && <article className="live-approval-record" aria-label="TradeX cancellation preparation">
-      <strong>{preparation.attempt.state} · TradeX CANCEL preparation</strong>
-      <span>Attempt {preparation.attempt.attemptId} · approval {preparation.attempt.approvalId}</span>
-      <span>{account.providerId} · LIVE · account {preparation.attempt.accountId}</span>
-      <span>Provider order {preparation.attempt.brokerOrderId} · intent {preparation.attempt.intentId} · {preparation.attempt.intentHash}</span>
-      <span>No new PLACE capacity reservation was created.</span>
-      {preparation.attempt.providerStatus && <span>Provider status {preparation.attempt.providerStatus}</span>}
-      {preparation.attempt.errorCode && <span>Outcome code {preparation.attempt.errorCode}</span>}
-      {preparation.attempt.dispatchDisposition && <span>Dispatch disposition {preparation.attempt.dispatchDisposition}</span>}
-      <p role="status" aria-live="polite">{liveExecutionStatus(preparation.attempt)} Use the latest provider observation for the order's current state.</p>
-    </article>}
+    {approvalToPrepare?.operation === 'CANCEL' && <button type="button" className="primary" onClick={() => void prepareCancellation()} disabled={busy}>
+      {busy ? 'Sending through secure Order Gateway…' : 'Prepare and send approved cancellation'}
+    </button>}
     <dialog ref={dialogRef} className="picker-dialog live-cancel-dialog" aria-modal="true" aria-labelledby="live-cancel-title" onCancel={event => { event.preventDefault(); if (!busy) setReview(undefined); }} onKeyDown={event => {
       if (event.key === 'Escape' && !busy) { event.preventDefault(); setReview(undefined); }
-      const dialog = dialogRef.current;
-      if (event.key === 'Tab' && dialog && typeof dialog.showModal !== 'function') {
-        const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
-        const first = focusable[0]; const last = focusable[focusable.length - 1];
-        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
-      }
+      trapDialogTab(event);
     }}>
       {review && <>
         <div className="picker-dialog-heading"><div><h2 id="live-cancel-title">Review Live cancellation</h2><p className="muted">This approval records your intent in TradeX. It does not send a cancellation request to the broker.</p></div></div>
@@ -344,12 +344,15 @@ function LiveCancellationAttemptHistory({ account, approval }: { account: Accoun
       && account.health.authentication === 'VALID');
   return <article className="live-approval-record" aria-label={`Saved ${displayProviderName} Live cancellation attempt`}>
     <strong>{approval.status} · {displayProviderName} Live cancellation</strong>
+    <span>{account.label} · account {account.connectionId}</span>
     <span>Order {approval.brokerOrderId} · intent {approval.cancellationIntentId} · approval {approval.approvalId}</span>
+    <span>Intent hash {approval.intentHash} · remaining quantity {approval.remainingQuantity}</span>
     <span>Approved {time(approval.issuedAt)} · expires {time(approval.expiresAt)}{approval.consumedAt ? ` · consumed ${time(approval.consumedAt)}` : ''}</span>
     {saved.isPending && <p role="status">Loading the saved cancellation attempt…</p>}
     {saved.error && <p role="alert">Unable to restore the saved attempt: {explainError(saved.error)}</p>}
     {preparation && <>
       <span>Attempt {preparation.attempt.attemptId} · {preparation.attempt.state}</span>
+      {preparation.attempt.operation === 'CANCEL' && <span>No new PLACE capacity reservation was created.</span>}
       <span>Provider status {preparation.attempt.providerStatus ?? 'Unavailable'} · outcome {preparation.attempt.errorCode ?? preparation.attempt.dispatchDisposition ?? 'No error recorded'}</span>
       {orderObservation && <>
         <span>Latest exact order: {orderObservation.providerStatus} · {orderObservation.disposition}</span>
@@ -416,7 +419,7 @@ function LiveCancellationHistory({ account }: { account: AccountConnection }) {
   </section>;
 }
 
-function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
+function BitgetLiveOrderBook({ account, orderLinks, orderLinksPending, orderLinksUnavailable }: { account: AccountConnection; orderLinks: ReadonlyMap<string, ExecutionOrderLink>; orderLinksPending: boolean; orderLinksUnavailable: boolean }) {
   const book = account.data?.bitgetOrderBook;
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -437,7 +440,7 @@ function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
     {book ? <>
       <p role="status"><strong>{freshness}</strong> · observed {time(book.observedAt)} · {account.health.connection} / {account.health.executionEligibility}</p>
       <div className="table-scroll" tabIndex={0} aria-label="Bitget Live orders">
-        <table><thead><tr><th>Provider order</th><th>Origin</th><th>Symbol / kind</th><th>Side</th><th>Quantity / notional</th><th>Cumulative filled base / quote</th><th>Remaining base</th><th>Provider / normalized state</th><th>Provider times</th><th>TradeX authorization</th></tr></thead>
+        <table><thead><tr><th>Provider order</th><th>Origin</th><th>Symbol / kind</th><th>Side</th><th>Quantity / notional</th><th>Cumulative filled base / quote</th><th>Remaining base</th><th>Provider / normalized state</th><th>Provider times</th><th>TradeX Proposal / reservation</th><th>TradeX authorization</th></tr></thead>
           <tbody>{book.orders.map(order => <tr key={`${order.kind}:${order.providerOrderId}`}>
             <td className="identity">{order.providerOrderId}</td><td>{order.origin}</td><td>{order.symbol} · {order.kind}</td><td>{order.side}</td>
             <td>{order.quantity ?? money(order.notional, order.currency)}</td>
@@ -445,6 +448,7 @@ function BitgetLiveOrderBook({ account }: { account: AccountConnection }) {
             <td>{order.remainingQuantity ?? 'Unavailable'}</td>
             <td>{order.providerStatus} / {order.normalizedStatus}</td>
             <td>Created {time(order.createdAt)}<br />Updated {time(order.updatedAt)}</td>
+            <td><TradeXOrderLinkSummary link={order.kind === 'NORMAL' ? orderLinks.get(`normal:${order.providerOrderId}`) : undefined} pending={orderLinksPending} unavailable={orderLinksUnavailable} /></td>
             <td>{account.data?.openOrders.some(item => item.brokerOrderId === `normal:${order.providerOrderId}` && item.instrumentId && item.quantity != null && item.filledQuantity != null) && order.kind === 'NORMAL' && ['OPEN', 'PARTIALLY_FILLED'].includes(order.normalizedStatus) && order.remainingQuantity && order.remainingQuantity !== '0'
               ? <LiveCancellationAuthorization account={account} brokerOrderId={`normal:${order.providerOrderId}`} />
               : 'Unavailable for cancellation review'}</td>
@@ -552,9 +556,40 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
   const p = account.permissions;
   const blocked = p.forbidden.length > 0 || p.unsupported.length > 0;
   const supportsLiveCancelReview = account.environment === 'LIVE' && ['trading212', 'binance', 'bitget'].includes(account.providerId);
+  const brokerOrderIds = Array.from(new Set([
+    ...(account.data?.openOrders ?? []).map(order => order.brokerOrderId),
+    ...(account.providerId === 'bitget' ? (account.data?.bitgetOrderBook?.orders ?? [])
+      .filter(order => order.kind === 'NORMAL').map(order => `normal:${order.providerOrderId}`) : []),
+  ])).sort();
+  const orderLinkLookupTooLarge = brokerOrderIds.length > 2_000;
+  const orderLinksQuery = useQuery({
+    queryKey: ['execution-order-links', account.workspaceId, account.connectionId, brokerOrderIds],
+    queryFn: async () => {
+      const result = await request('trade.execution.order_links', {
+        workspaceId: account.workspaceId,
+        accountId: account.connectionId,
+        brokerOrderIds,
+      });
+      if (result.workspaceId !== account.workspaceId || result.accountId !== account.connectionId
+        || result.links.some(link => !brokerOrderIds.includes(link.brokerOrderId))) {
+        throw new Error('Execution order link identity mismatch. Reload this account before relying on the displayed context.');
+      }
+      return result;
+    },
+    enabled: supportsLiveCancelReview && brokerOrderIds.length > 0 && !orderLinkLookupTooLarge,
+    refetchOnMount: 'always',
+  });
+  const orderLinks = new Map<string, ExecutionOrderLink>(
+    (orderLinksQuery.data?.links ?? []).map((link): [string, ExecutionOrderLink] => [link.brokerOrderId, link]),
+  );
+  const orderLinksPending = supportsLiveCancelReview && brokerOrderIds.length > 0 && !orderLinkLookupTooLarge && orderLinksQuery.isPending;
+  const orderLinksUnavailable = orderLinkLookupTooLarge || Boolean(orderLinksQuery.error);
   const disconnected = account.connectionState === 'DISCONNECTED';
   const cleanupOnly = disconnected && account.health.credential === 'MISSING';
   const localPaper = account.providerId === 'local-paper' && account.environment === 'LOCAL';
+  const armingEligibilityReason = account.health.authentication === 'INVALID'
+    ? 'Reconnect credentials and restore account health before arming.'
+    : eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.';
   const disconnectDisabled = busy || (disconnected && !cleanupOnly && account.health.credential !== 'DELETE_PENDING');
   const deletable = account.providerId === 'trading212' && account.environment === 'DEMO' && ['FAILED', 'DISCONNECTED'].includes(account.connectionState) && account.health.credential === 'MISSING';
   const deleteDialog = useRef<HTMLDialogElement>(null);
@@ -591,20 +626,22 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
         <button disabled={disconnectDisabled} onClick={() => { void run(() => request('provider.disconnect', mutation(account))); }}>{account.health.credential === 'DELETE_PENDING' ? 'Retry Keychain cleanup' : cleanupOnly ? 'Remove local connection' : 'Disconnect'}</button>{deletable && <button type="button" onClick={() => { deleteTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null; setDeleteError(''); setConfirmDelete(true); }} disabled={busy}>Delete local account</button>}</>}</div>
     </div>
     <p className="notice">{account.health.reason}</p>
+    {account.health.authentication === 'INVALID' && <ErrorRecoveryPanel code="AUTH_ERROR" />}
+    {account.health.privateStream === 'DEGRADED' && <ErrorRecoveryPanel code="STREAM_DISCONNECTED" />}
     <dl className="health-grid">{Object.entries(account.health).filter(([key]) => key !== 'reason').map(([key, value]) => <div key={key}><dt>{({ connection: 'Connection', authentication: 'Authentication', credential: 'Credential', privateStream: 'Private stream', reconciliation: 'Reconciliation', executionEligibility: 'Execution eligibility', arming: 'Arming', armingReason: 'Arming reason' } as Record<string, string>)[key]}</dt><dd>{value}</dd></div>)}
       <div><dt>Last successful sync</dt><dd>{time(account.lastSuccessfulSync)}</dd></div><div><dt>Last private stream event</dt><dd>{time(account.lastPrivateStreamEventAt)}</dd></div><div><dt>Risk policy</dt><dd>{riskConfigured == null ? 'Unavailable' : riskConfigured ? 'Configured' : 'Not configured'}</dd></div>
     </dl>
     {account.environment === 'LIVE' && <section className="permission-review live-arming-controls" aria-labelledby="live-arming-title">
       <h3 id="live-arming-title">Live execution authorization</h3>
       <p><strong>LIVE · {account.label} · {account.providerId} · {account.health.arming}</strong></p>
-      <p id="live-arming-eligibility" role="status">{eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.'}</p>
+      <p id="live-arming-eligibility" role="status">{armingEligibilityReason}</p>
       {account.health.arming === 'ARMED'
         ? <button type="button" disabled={busy} onClick={() => { void run(() => request('account.disarm', mutation(account))); }}>Disable Live</button>
         : <button type="button" id={`arm-live-trigger-${account.connectionId}`} ref={armTrigger} disabled={busy || !eligibility?.canArm || !(desktop || browserIntegration)} aria-describedby="live-arming-eligibility" onClick={() => { armTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null; setConfirmArm(true); }}>Arm Live Trading</button>}
-      <dialog ref={armDialog} className="picker-dialog live-arm-dialog" aria-labelledby="live-arm-title" onCancel={event => { event.preventDefault(); if (!busy) setConfirmArm(false); }}>
+      <dialog ref={armDialog} className="picker-dialog live-arm-dialog" tabIndex={-1} aria-labelledby="live-arm-title" onKeyDown={trapDialogTab} onCancel={event => { event.preventDefault(); if (!busy) setConfirmArm(false); }}>
         <div className="picker-dialog-heading"><div><h2 id="live-arm-title">Confirm Live arming</h2><p className="muted">Arming changes only this TradeX account. It does not approve or submit an order.</p></div></div>
         <dl className="health-grid"><div><dt>Provider</dt><dd>{account.providerId}</dd></div><div><dt>Account label</dt><dd>{account.label}</dd></div><div><dt>Environment</dt><dd>LIVE</dd></div><div><dt>TradeX connection ID</dt><dd className="identity">{account.connectionId}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data?.remoteAccountId ?? 'Unavailable'}</dd></div></dl>
-        <p role="status">{eligibility?.reason ?? 'Arming eligibility is unavailable. Reload account state before arming.'}</p>
+        <p role="status">{armingEligibilityReason}</p>
         <div className="picker-dialog-actions"><button ref={armCancel} type="button" onClick={() => setConfirmArm(false)} disabled={busy}>Keep reviewing</button><button type="button" className="primary" onClick={() => { void run(() => request('account.arm', { ...mutation(account), confirmed: true }), 'connections-title').then(() => setConfirmArm(false)); }} disabled={busy || !eligibility?.canArm}>{busy ? 'Arming…' : 'Arm this Live account'}</button></div>
       </dialog>
     </section>}
@@ -630,15 +667,15 @@ function AccountDetail({ account, eligibility, riskConfigured, busy, run, onDele
     </section>}
     {account.data && <><dl className="health-grid"><div><dt>Account type</dt><dd>{account.data.accountType}</dd></div><div><dt>Provider account ID</dt><dd className="identity">{account.data.remoteAccountId}</dd></div><div><dt>Currency</dt><dd>{account.data.currency ?? 'Per asset'}</dd></div>{account.providerId === 'alpaca' && <div><dt>Buying power</dt><dd>{money(account.data.buyingPower, account.data.currency)}</dd></div>}</dl>
       <h3>Balances</h3><div className="table-scroll" tabIndex={0} aria-label="Account balances"><table><thead><tr><th>Asset</th><th>Available / Free</th><th>Equity / Asset total</th><th>{account.providerId === 'bitget' ? 'Reserved / Frozen' : 'Reserved / Locked'}</th>{account.providerId === 'bitget' && <><th>Locked</th><th>Restricted available</th></>}<th>In Pies</th><th>Effective available</th></tr></thead><tbody>{account.data.balances.map(row => <tr key={row.asset}><td>{row.asset}</td><td>{row.available}</td><td>{row.total ?? 'Unavailable'}</td><td>{row.reserved ?? 'Unavailable'}</td>{account.providerId === 'bitget' && <><td>{row.locked ?? 'Unavailable'}</td><td>{row.restrictedAvailable ?? 'Unavailable'}</td></>}<td>{row.inPies ?? 'Unavailable'}</td><td>Not computed</td></tr>)}</tbody></table></div>
-      <h3>Positions</h3>{account.data.positions.length ? <div className="table-scroll" tabIndex={0} aria-label="Account positions"><table><thead><tr><th>Symbol</th><th>Quantity</th><th>Market value</th><th>Average entry</th></tr></thead><tbody>{account.data.positions.map(row => <tr key={row.symbol}><td>{row.symbol}</td><td>{row.quantity}</td><td>{money(row.marketValue, row.marketValueCurrency)}</td><td>{money(row.averageEntryPrice, row.instrumentCurrency)}</td></tr>)}</tbody></table></div> : <p>No positions returned by the provider.</p>}
-      {account.providerId === 'bitget' && account.environment === 'LIVE' && <BitgetLiveOrderBook account={account} />}
-      {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th>{supportsLiveCancelReview && <th>TradeX authorization</th>}</tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td>{supportsLiveCancelReview && <td>{row.instrumentId && row.quantity != null && row.filledQuantity != null ? <LiveCancellationAuthorization account={account} brokerOrderId={row.brokerOrderId} /> : 'Unavailable for cancellation review'}</td>}</tr>)}</tbody></table></div> : <p>No open orders returned by the provider.</p>}</>}
+      <h3>Positions</h3>{account.data.positions.length ? <div className="table-scroll" tabIndex={0} aria-label="Account positions"><table><thead><tr><th>Symbol</th><th>Quantity</th><th>Market value</th><th>Average entry</th></tr></thead><tbody>{account.data.positions.map(row => <tr key={row.symbol}><td>{row.symbol}</td><td>{row.quantity}</td><td>{money(row.marketValue, row.marketValueCurrency)}</td><td>{money(row.averageEntryPrice, row.instrumentCurrency)}</td></tr>)}</tbody></table></div> : <p>{localPaper ? 'No positions in the Local Paper simulation.' : 'No positions returned by the provider.'}</p>}
+      {account.providerId === 'bitget' && account.environment === 'LIVE' && <BitgetLiveOrderBook account={account} orderLinks={orderLinks} orderLinksPending={orderLinksPending} orderLinksUnavailable={orderLinksUnavailable} />}
+      {(account.providerId !== 'bitget' || account.environment !== 'LIVE') && <><h3>Open orders</h3>{account.data.openOrders.length ? <div className="table-scroll" tabIndex={0} aria-label="Open orders"><table><thead><tr><th>Symbol</th><th>Side</th>{account.providerId === 'bitget' && <><th>Kind</th><th>Trigger price</th></>}<th>Quantity / Notional</th><th>Filled</th><th>Remaining</th>{account.providerId === 'bitget' && <><th>Filled quote value</th><th>Limit price</th></>}<th>Status</th>{supportsLiveCancelReview && <th>TradeX Proposal / reservation</th>}{supportsLiveCancelReview && <th>TradeX authorization</th>}</tr></thead><tbody>{account.data.openOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}<small className="identity order-identity">{row.brokerOrderId}</small></td><td>{row.side}</td>{account.providerId === 'bitget' && <><td>{row.kind ?? 'Unavailable'}</td><td>{row.triggerPrice ?? '—'}</td></>}<td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td><td>{row.remainingQuantity ?? 'Unavailable'}</td>{account.providerId === 'bitget' && <><td>{money(row.filledValue, row.currency)}</td><td>{row.limitPrice ?? '—'}</td></>}<td>{row.status}</td>{supportsLiveCancelReview && <td><TradeXOrderLinkSummary link={orderLinks.get(row.brokerOrderId)} pending={orderLinksPending} unavailable={orderLinksUnavailable} /></td>}{supportsLiveCancelReview && <td>{row.instrumentId && row.quantity != null && row.filledQuantity != null ? <LiveCancellationAuthorization account={account} brokerOrderId={row.brokerOrderId} /> : 'Unavailable for cancellation review'}</td>}</tr>)}</tbody></table></div> : <p>{localPaper ? 'No open orders in the Local Paper simulation.' : 'No open orders returned by the provider.'}</p>}</>}
       {account.environment === 'LIVE' && ['trading212', 'binance'].includes(account.providerId) && <section aria-label="Recent provider orders"><h3>Recent orders</h3>{account.data.recentOrders?.length ? <div className="table-scroll" tabIndex={0} aria-label="Recent orders"><table><thead><tr><th>Symbol</th><th>Provider order ID</th><th>Side</th><th>Quantity / Notional</th><th>Filled</th><th>Status</th></tr></thead><tbody>{account.data.recentOrders.map(row => <tr key={row.brokerOrderId}><td>{row.symbol}</td><td className="identity">{row.brokerOrderId}</td><td>{row.side}</td><td>{row.quantity ?? money(row.notional, row.currency)}</td><td>{row.filledQuantity ?? money(row.filledValue, row.currency)}</td><td>{row.status}</td></tr>)}</tbody></table></div> : <p>No recent provider orders are available for this refresh.</p>}</section>}
       <h3>Capabilities and limitations</h3><p>{account.data.capabilities.join(', ')}</p><ul>{account.data.limitations.map(text => <li key={text}>{text}</li>)}</ul>
     </>}
     {['trading212', 'binance', 'bitget'].includes(account.providerId) && account.environment === 'LIVE' && <LiveCancellationHistory account={account} />}
     <p className="muted">{localPaper ? 'Built-in TradeX simulation. No credential, provider connection or Live order exists for this account.' : 'Disconnect stops local access and removes the stored credential. It does not revoke the provider key or cancel external orders.'}</p>
-    <dialog ref={deleteDialog} className="picker-dialog account-delete-dialog" aria-labelledby="account-delete-title" onCancel={event => { event.preventDefault(); if (!busy) setConfirmDelete(false); }}>
+    <dialog ref={deleteDialog} className="picker-dialog account-delete-dialog" tabIndex={-1} aria-labelledby="account-delete-title" onKeyDown={trapDialogTab} onCancel={event => { event.preventDefault(); if (!busy) setConfirmDelete(false); }}>
       <div className="picker-dialog-heading"><div><h2 id="account-delete-title">Delete local account?</h2><p className="muted">This permanently removes TradeX-local account details and account/order-book observations.</p></div></div>
       <p>Delete <strong>{account.label}</strong> ({account.providerId} · {account.environment})? Connection ID: <code className="identity">{account.connectionId}</code>. This does not contact Trading 212, revoke its API key, cancel provider orders, or change any other account.</p>
       {deleteError && <p role="alert">{deleteError}</p>}

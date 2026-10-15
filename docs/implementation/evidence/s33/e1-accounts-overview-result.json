@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "screenId": "E1",
+  "title": "Accounts Overview",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IN_PROGRESS",
+  "capturedAt": "2026-10-14T17:53:45Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 113,
+    "sha256": "04432221c418da15f37aebb491135420d823d6f2bb97440817c527db17c3e8de"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "No new E1 helper; UI assertions and responsive measurements were performed directly in CUA",
+    "route": "At 390 px, expanded the mobile More menu and opened Accounts; then checked the overview at 1280/768/390."
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "pageHeading": "Accounts",
+    "connections": [
+      {
+        "label": "Local Paper · LOCAL PAPER · TradeX simulation",
+        "providerId": "local-paper",
+        "environment": "LOCAL",
+        "accountType": "LOCAL_PAPER",
+        "simulationDisclosure": "TRADEX_SIMULATION; not provider truth; not Live execution.",
+        "connectionState": "CONNECTED",
+        "healthConnection": "ONLINE",
+        "equityOrBalance": "USD 100000",
+        "arming": "NOT_APPLICABLE",
+        "lastSyncDisplayed": "14/10/2026, 18:03:39",
+        "selected": true
+      }
+    ],
+    "connectionCount": 1,
+    "selectedDetailHeading": "Local Paper · LOCAL PAPER · TradeX simulation",
+    "localPaperRefreshActionCount": 0,
+    "localPaperDeleteActionCount": 0,
+    "providerConnectProbeOrRefreshActivated": false,
+    "responsive": [
+      {
+        "width": 1280,
+        "documentClientWidth": 1265,
+        "documentScrollWidth": 1265,
+        "horizontalOverflow": false,
+        "accountRowVisible": true,
+        "accountRowWithinDocumentWidth": true
+      },
+      {
+        "width": 768,
+        "documentClientWidth": 753,
+        "documentScrollWidth": 753,
+        "horizontalOverflow": false,
+        "accountRowVisible": true,
+        "accountRowWithinDocumentWidth": true
+      },
+      {
+        "width": 390,
+        "documentClientWidth": 375,
+        "documentScrollWidth": 375,
+        "horizontalOverflow": false,
+        "accountRowVisible": true,
+        "accountRowWithinDocumentWidth": true
+      }
+    ]
+  },
+  "commandLog": {
+    "cursorStart": 3934,
+    "cursorEnd": 3966,
+    "commandCount": 32,
+    "counts": {
+      "account.activity": 1,
+      "account.list": 10,
+      "domain.snapshot": 1,
+      "domain.subscribe": 2,
+      "paper.get": 1,
+      "provider.list_definitions": 1,
+      "runtime.status": 16
+    },
+    "forbiddenSideEffectCount": 0,
+    "note": "Commands were local account/simulation projections and the static provider catalog; no connection, probe, account refresh, delete, or financial action ran."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "Only the built-in Local Paper simulation was present. The displayed USD 100000 is simulation state, not provider account truth; no real or synthetic external-provider account was read.",
+    "Live arming is not applicable to this Local Paper row. Provider-specific E1 states and account deletion eligibility remain outside this slice.",
+    "The direct CUA replay did not instrument external HTTP or page errors; no provider connection, probe, refresh, or credential entry was activated.",
+    "Native VoiceOver, real provider lifecycle, broader S02, and full S33 remain open; E1 remains IN_PROGRESS."
+  ]
+}

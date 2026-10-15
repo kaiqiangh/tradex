@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "screenId": "J5",
+  "title": "Account Health",
+  "result": "PASS",
+  "surfaceStatus": "IN_PROGRESS",
+  "s33SliceStatus": "PASS",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/AccountHealth.tsx": "d784fac7bd71b55d9c02be2787670377309e7f82a35d4d0a0f56ee4114de6bfa",
+    "src/SettingsSurfaces.tsx": "a72739442654140d7bebd9409246d8ac9d40d23e25306054c7a6c79844abd4cd",
+    "src/App.tsx": "ced57dea569ea339a9cd685903153a2d02e07ea514d13087a91790e6113dedeb",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "tests/s33-account-health-screen-playwright.js": "fa89adc77eae1358253ab158d92b0b0c6aa7cfb736af45c1d68cbd46f24d15d5",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-account-health-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1423 with disposable fixture-ready workspace",
+  "workspaceId": "787d184a-8f8d-42c2-9b53-7831c34138dc",
+  "fixtureBoundary": "One synthetic local Trading 212 LIVE record through integration-test fixture seam; no credentials or provider request",
+  "healthDimensions": {
+    "Connection": "CONNECTED \u00b7 ONLINE",
+    "Authentication": "VALID",
+    "Private stream": "CURRENT",
+    "Reconciliation": "CURRENT",
+    "Execution eligibility": "BLOCKED",
+    "Arming": "DISARMED"
+  },
+  "timestamps": {
+    "lastSuccessfulSync": "10/14/2026, 11:20:36 AM",
+    "lastPrivateStreamEvent": "No observation recorded"
+  },
+  "actions": {
+    "reloadUsesLocalAccountList": true,
+    "disableAllVisible": true,
+    "disableAllActivated": false
+  },
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "noHorizontalOverflow": true,
+  "commands": [
+    "account.arming.fixture.seed",
+    "account.list"
+  ],
+  "unexpectedCommands": 0,
+  "forbiddenProviderOrFinancialCommands": 0,
+  "externalHttpRequests": 0,
+  "consoleErrors": 0,
+  "pageErrors": 0,
+  "screenshots": [
+    "account-health-390.png"
+  ],
+  "scopeLimits": [
+    "The seeded health projection is synthetic and makes no provider request.",
+    "This does not verify real authentication, private-stream recovery, reconciliation, or provider integration.",
+    "J5 remains IN_PROGRESS and no overall requirement status is promoted."
+  ]
+}

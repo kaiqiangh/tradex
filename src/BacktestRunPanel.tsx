@@ -50,24 +50,59 @@ function BacktestResultView({ result, titleId }: { result: BacktestResult; title
     <div className="table-scroll"><table><caption className="sr-only">Backtest equity curve</caption><thead><tr><th scope="col">Observed</th><th scope="col">Equity</th><th scope="col">Drawdown</th></tr></thead><tbody>{result.equityCurve.map(point => <tr key={`${point.observedAt}-${point.equity}`}><td>{point.observedAt}</td><td>{point.equity}</td><td>{point.drawdown}</td></tr>)}</tbody></table></div>
     <h4>Trade list</h4>
     <div className="table-scroll"><table><caption className="sr-only">Backtest trades</caption><thead><tr><th scope="col">Time</th><th scope="col">Side</th><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">P&amp;L</th></tr></thead><tbody>{result.trades.map(trade => <tr key={trade.tradeId}><td>{trade.observedAt}</td><td>{trade.side}</td><td>{trade.quantity}</td><td>{trade.price}</td><td>{trade.realizedPnl}</td></tr>)}</tbody></table></div>
-    <details><summary>Reproducibility manifest</summary><dl>{Object.entries(result.manifest).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{Array.isArray(value) ? value.map(item => `${item.name}:${item.state}`).join(' · ') : String(value)}</dd></div>)}</dl></details>
+    <details><summary>Reproducibility manifest</summary><dl>{Object.entries(result.manifest).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{key === 'guardChecks' ? <ul>{result.manifest.guardChecks.map(check => <li key={check.name}><strong>{check.name}: {check.state}</strong> — {check.detail}</li>)}</ul> : key === 'parameters' ? result.manifest.parameters.length ? result.manifest.parameters.map(parameter => `${parameter.name}=${parameter.value}`).join(' · ') : 'Saved defaults' : String(value)}</dd></div>)}</dl></details>
     <ul>{result.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul>
   </section>;
 }
 
+function BacktestVersionReference({ run, side, titleId }: { run: BacktestRun; side: 'Left' | 'Right'; titleId: string }) {
+  const sectionId = `${titleId}-${side.toLowerCase()}-version`;
+  const headingId = `${sectionId}-title`;
+  const manifest = run.result?.manifest;
+  return <section id={sectionId} aria-labelledby={headingId}>
+    <h4 id={headingId}>{side} strategy version</h4>
+    <dl>
+      <div><dt>Version ID</dt><dd>{run.strategyVersionId}</dd></div>
+      <div><dt>Source hash</dt><dd>{run.strategyHash}</dd></div>
+      <div><dt>Manifest version reference</dt><dd>{manifest?.strategyVersion ?? 'Unavailable'}</dd></div>
+      <div><dt>Parameters</dt><dd>{manifest?.parameters.length ? manifest.parameters.map(parameter => `${parameter.name}=${parameter.value}`).join(' · ') : 'Saved defaults'}</dd></div>
+    </dl>
+  </section>;
+}
+
+function BacktestManifestReference({ run, side, titleId }: { run: BacktestRun; side: 'Left' | 'Right'; titleId: string }) {
+  const sectionId = `${titleId}-${side.toLowerCase()}-manifest`;
+  const headingId = `${sectionId}-title`;
+  const manifest = run.result?.manifest;
+  return <details id={sectionId} aria-labelledby={headingId}>
+    <summary id={headingId}>{side} reproducibility manifest</summary>
+    {manifest ? <dl>{Object.entries(manifest).map(([key, value]) => <div key={key}>
+      <dt>{key}</dt>
+      <dd>{Array.isArray(value) ? value.map(item => typeof item === 'object' ? JSON.stringify(item) : String(item)).join(' · ') : String(value)}</dd>
+    </div>)}</dl> : <p className="form-hint">Manifest unavailable.</p>}
+  </details>;
+}
+
 function BacktestComparisonView({ comparison, onBack, titleId }: { comparison: BacktestComparison; onBack: () => void; titleId: string }) {
   const metricRows = Object.entries(comparison.metrics) as Array<[string, { left: string; right: string; difference: string }]>;
-  const renderDifferences = (title: string, differences: BacktestComparison['inputDifferences']) => <section aria-labelledby={titleId + '-' + title}>
-    <h4 id={titleId + '-' + title}>{title}</h4>
-    {differences.length ? <div className="table-scroll"><table><caption className="sr-only">{title}</caption><thead><tr><th scope="col">Field</th><th scope="col">Left</th><th scope="col">Right</th></tr></thead><tbody>{differences.map(item => <tr key={item.field}><th scope="row">{item.field}</th><td>{item.left}</td><td>{item.right}</td></tr>)}</tbody></table></div> : <p className="form-hint">No differences.</p>}
-  </section>;
+  const renderDifferences = (title: string, differences: BacktestComparison['inputDifferences']) => {
+    const sectionId = `${titleId}-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+    return <section aria-labelledby={sectionId}>
+      <h4 id={sectionId}>{title}</h4>
+      {differences.length ? <div className="table-scroll"><table><caption className="sr-only">{title}</caption><thead><tr><th scope="col">Field</th><th scope="col">Left</th><th scope="col">Right</th></tr></thead><tbody>{differences.map(item => <tr key={item.field}><th scope="row">{item.field}</th><td>{item.left}</td><td>{item.right}</td></tr>)}</tbody></table></div> : <p className="form-hint">No differences.</p>}
+    </section>;
+  };
   return <section className="strategy-result" aria-labelledby={titleId} aria-live="polite">
     <div className="form-actions"><button type="button" onClick={onBack}>Back to backtest</button></div>
     <h3 id={titleId}>Backtest comparison</h3>
     <p className="form-hint">Historical simulation only. Comparison is read-only and cannot place trades or call a provider.</p>
     <div className="table-scroll"><table><caption className="sr-only">Backtest metric comparison</caption><thead><tr><th scope="col">Metric</th><th scope="col">Left</th><th scope="col">Right</th><th scope="col">Difference</th></tr></thead><tbody>{metricRows.map(([name, value]) => <tr key={name}><th scope="row">{name}</th><td>{value.left}</td><td>{value.right}</td><td>{value.difference}</td></tr>)}</tbody></table></div>
-    <section aria-labelledby={titleId + '-identity'}><h4 id={titleId + '-identity'}>Run identity</h4><dl><div><dt>Left run</dt><dd>{comparison.left.runId}</dd></div><div><dt>Right run</dt><dd>{comparison.right.runId}</dd></div><div><dt>Left request</dt><dd>{comparison.left.requestHash}</dd></div><div><dt>Right request</dt><dd>{comparison.right.requestHash}</dd></div><div><dt>Strategy</dt><dd>{comparison.left.strategyVersionId} · {comparison.left.strategyHash} → {comparison.right.strategyVersionId} · {comparison.right.strategyHash}</dd></div><div><dt>Dataset</dt><dd>{comparison.left.instrumentId} · {comparison.left.datasetId} → {comparison.right.instrumentId} · {comparison.right.datasetId}</dd></div><div><dt>Data manifest</dt><dd>{comparison.left.result?.manifest.datasetHash ?? 'Unavailable'} · {comparison.left.result?.manifest.dataProvider ?? 'Unavailable'} · {comparison.left.result?.manifest.retrievedAt ?? 'Unavailable'} → {comparison.right.result?.manifest.datasetHash ?? 'Unavailable'} · {comparison.right.result?.manifest.dataProvider ?? 'Unavailable'} · {comparison.right.result?.manifest.retrievedAt ?? 'Unavailable'}</dd></div><div><dt>Calendar</dt><dd>{comparison.left.result?.manifest.marketCalendarVersion ?? 'Unavailable'} · {comparison.left.result?.manifest.timezone ?? 'Unavailable'} · {comparison.left.result?.manifest.adjustmentMethod ?? 'Unavailable'} → {comparison.right.result?.manifest.marketCalendarVersion ?? 'Unavailable'} · {comparison.right.result?.manifest.timezone ?? 'Unavailable'} · {comparison.right.result?.manifest.adjustmentMethod ?? 'Unavailable'}</dd></div><div><dt>Engine</dt><dd>{comparison.left.result?.manifest.engineVersion ?? 'Unavailable'} · {comparison.left.result?.manifest.runtimeVersion ?? 'Unavailable'} → {comparison.right.result?.manifest.engineVersion ?? 'Unavailable'} · {comparison.right.result?.manifest.runtimeVersion ?? 'Unavailable'}</dd></div><div><dt>Result hash</dt><dd>{comparison.left.result?.resultHash ?? 'Unavailable'} → {comparison.right.result?.resultHash ?? 'Unavailable'}</dd></div></dl></section>
+    <section aria-labelledby={titleId + '-identity'}><h4 id={titleId + '-identity'}>Run identity</h4><dl><div><dt>Left run</dt><dd>{comparison.left.runId}</dd></div><div><dt>Right run</dt><dd>{comparison.right.runId}</dd></div><div><dt>Left request</dt><dd>{comparison.left.requestHash}</dd></div><div><dt>Right request</dt><dd>{comparison.right.requestHash}</dd></div><div><dt>Strategy</dt><dd>{comparison.left.strategyVersionId} · {comparison.left.strategyHash} → {comparison.right.strategyVersionId} · {comparison.right.strategyHash}<br /><a href={`#${titleId}-left-version`}>Open left strategy version</a> · <a href={`#${titleId}-right-version`}>Open right strategy version</a></dd></div><div><dt>Dataset</dt><dd>{comparison.left.instrumentId} · {comparison.left.datasetId} → {comparison.right.instrumentId} · {comparison.right.datasetId}</dd></div><div><dt>Data manifest</dt><dd>{comparison.left.result?.manifest.datasetHash ?? 'Unavailable'} · {comparison.left.result?.manifest.dataProvider ?? 'Unavailable'} · {comparison.left.result?.manifest.retrievedAt ?? 'Unavailable'} → {comparison.right.result?.manifest.datasetHash ?? 'Unavailable'} · {comparison.right.result?.manifest.dataProvider ?? 'Unavailable'} · {comparison.right.result?.manifest.retrievedAt ?? 'Unavailable'}<br /><a href={`#${titleId}-left-manifest`}>Open left manifest</a> · <a href={`#${titleId}-right-manifest`}>Open right manifest</a></dd></div><div><dt>Calendar</dt><dd>{comparison.left.result?.manifest.marketCalendarVersion ?? 'Unavailable'} · {comparison.left.result?.manifest.timezone ?? 'Unavailable'} · {comparison.left.result?.manifest.adjustmentMethod ?? 'Unavailable'} → {comparison.right.result?.manifest.marketCalendarVersion ?? 'Unavailable'} · {comparison.right.result?.manifest.timezone ?? 'Unavailable'} · {comparison.right.result?.manifest.adjustmentMethod ?? 'Unavailable'}</dd></div><div><dt>Engine</dt><dd>{comparison.left.result?.manifest.engineVersion ?? 'Unavailable'} · {comparison.left.result?.manifest.runtimeVersion ?? 'Unavailable'} → {comparison.right.result?.manifest.engineVersion ?? 'Unavailable'} · {comparison.right.result?.manifest.runtimeVersion ?? 'Unavailable'}</dd></div><div><dt>Result hash</dt><dd>{comparison.left.result?.resultHash ?? 'Unavailable'} → {comparison.right.result?.resultHash ?? 'Unavailable'}</dd></div></dl></section>
     <section aria-labelledby={titleId + '-curve'}><h4 id={titleId + '-curve'}>Equity curve summary</h4><dl><div><dt>Left points</dt><dd>{comparison.leftCurve.pointCount} · {comparison.leftCurve.startEquity} → {comparison.leftCurve.endEquity}</dd></div><div><dt>Right points</dt><dd>{comparison.rightCurve.pointCount} · {comparison.rightCurve.startEquity} → {comparison.rightCurve.endEquity}</dd></div><div><dt>Max drawdown</dt><dd>{comparison.leftCurve.maxDrawdown} → {comparison.rightCurve.maxDrawdown}</dd></div></dl></section>
+    <BacktestVersionReference run={comparison.left} side="Left" titleId={titleId} />
+    <BacktestVersionReference run={comparison.right} side="Right" titleId={titleId} />
+    <BacktestManifestReference run={comparison.left} side="Left" titleId={titleId} />
+    <BacktestManifestReference run={comparison.right} side="Right" titleId={titleId} />
     {renderDifferences('Input differences', comparison.inputDifferences)}
     {renderDifferences('Manifest differences', comparison.manifestDifferences)}
     <ul>{comparison.limitations.map(limitation => <li key={limitation}>{limitation}</li>)}</ul>
@@ -300,7 +335,7 @@ export function BacktestRunPanel({
       {comparisonQuery.isError && <p className="error-text" role="alert">{explainError(comparisonQuery.error)} <button type="button" onClick={() => void comparisonQuery.refetch()}>Retry compare</button></p>}
       {comparisonQuery.data && <BacktestComparisonView comparison={comparisonQuery.data} onBack={() => { restoreCompareFocus.current = true; setCompareRequest(undefined); }} titleId={'backtest-comparison-title-' + panelId} />}
     </section>
-    {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span><FrozenConfiguration run={queriedRun} titleId={`backtest-frozen-title-${panelId}`} />{queriedRun.result && <BacktestResultView result={queriedRun.result} titleId={`backtest-result-title-${panelId}`} />}{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
+    {queriedRun && <div className="strategy-result" aria-live="polite"><strong>{queriedRun.state}</strong><span>Run {queriedRun.runId}</span><span>Config {queriedRun.requestHash}</span>{activeStates.includes(queriedRun.state) && <div className="backtest-progress-indicator"><div className="backtest-progress-track" role="progressbar" aria-label="Backtest progress" aria-valuetext="Running; completion progress is not estimated."><span aria-hidden="true" /></div><p className="form-hint">The historical simulation is running; completion progress is not estimated.</p></div>}<FrozenConfiguration run={queriedRun} titleId={`backtest-frozen-title-${panelId}`} />{queriedRun.result && <BacktestResultView result={queriedRun.result} titleId={`backtest-result-title-${panelId}`} />}{queriedRun.failure && <><p role="alert">{queriedRun.failure.code}: {queriedRun.failure.reason}</p>{queriedRun.failure.remediation?.length ? <ul><li>{queriedRun.failure.remediation.join(' · ')}</li></ul> : null}</>}{queriedRun.fixtureLabel && <p className="form-hint">Integration fixture: {queriedRun.fixtureLabel}</p>}</div>}
     {!selected && <p className="form-hint">Select a saved version before running a backtest.</p>}
   </section>;
 }

@@ -1058,7 +1058,7 @@ CANCEL：APPROVED → RESERVED（不新增 reservation）→ SUBMITTING
 
 `UNKNOWN_RECONCILING` 冻结 capacity，超时后也不能自动 release。
 
-以 PRD §45 的过期/释放条件表为准。可能已经传输后的审批过期仅修改审批记录。提供方终态证据应先计入累计成交/费用，再释放未使用部分；仅收到撤单请求确认不能释放。证据引用、原状态、释放金额及最终账户状态须与预留处置在同一事务中持久化。
+以 PRD §45 的过期/释放条件表为准。可能已经传输后的审批过期仅修改审批记录。保留 `CONSUMED` 与 `consumedAt`；首次可信 TTL 观察追加一次 `trade.approval.expired` 事件，并携带 §41.1.2 定义的审批 scope 过期证据。attempt 状态/版本和保留的 reservation 状态/版本均不变。提供方终态证据应先计入累计成交/费用，再释放未使用部分；仅收到撤单请求确认不能释放。证据引用、原状态、释放金额及最终账户状态须与预留处置在同一事务中持久化。
 
 ---
 
@@ -1785,6 +1785,7 @@ trade.request_approval
 trade.approve
 trade.execution.prepare
 trade.execution.preparation.get
+trade.execution.order_links
 trade.reject
 trade.cancel_request
 trade.cancel_approve
@@ -1823,7 +1824,11 @@ trading212.demo.order.attempt.get
 
 ```text
 strategy.list
+strategy.get
 strategy.save_version
+strategy.run
+strategy.cancel
+strategy.get_run
 backtest.run
 backtest.cancel
 backtest.get
@@ -1886,6 +1891,7 @@ interface TradeXError {
 | 准备并发送已批准的 Live PLACE | trade.execution.prepare | workspace_id、approval_id、expected_approval_state_version、idempotency_key、confirmed=true；后端重新读取并校验精确 proposal/账户/策略/报价/FX/容量/时钟证据，然后原子消费 proposal 与 approval，并创建一个 `RESERVED` attempt 和精确 reservation。提交后 Control Plane 在内部启动 Gateway；Gateway 获取当前一次性许可并在持久化 `SUBMITTING` 后发送唯一一次 provider POST。结果持久化为 `ACCEPTED`（不是成交）、`REJECTED` 或 `UNKNOWN_RECONCILING`。相同幂等键重放只返回已保存状态，不会再次 POST。容量拒绝不执行 provider mutation，且保留 proposal/approval。 |
 | 准备并发送已批准的 Live CANCEL | trade.execution.prepare | 使用相同 workspace/approval/version/idempotency/confirmed payload；后端校验带 CANCEL 标签的 approval、精确当前意图/订单/账户/策略/快照证据，然后原子消费 approval 并写入一个 `RESERVED` attempt，且 `reservation=null`。提交后 Control Plane 在内部启动 Gateway；持久化 `SUBMITTING` 先于唯一一次精确 provider DELETE。提供方确认只成为 `CANCEL_PENDING`，不表示 `CANCELLED`；明确拒绝与结果未知保持不同状态。不消费 proposal、不创建 PLACE reservation。同幂等键重放只读取已保存状态，不会再次 DELETE。 |
 | 恢复 Live execution preparation | trade.execution.preparation.get | workspace_id、approval_id；响应丢失或重启后返回耐久的 `ExecutionPreparation | null`（适用时含 PLACE reservation 和已关联的成交/费用结算）与容量拒绝历史。只读，不发送 provider request。 |
+| 查询精确 Live PLACE 订单关联 | trade.execution.order_links | workspace_id、account_id 与最多 2,000 个唯一且完整的 broker_order_id；只返回精确 workspace/account 中、完整 provider order ID 完全匹配的耐久 PLACE attempt，并在存在时包含已记录 Proposal ID 与 reservation。只读，不发送 provider request；相似或部分 ID 不匹配。 |
 | 拒绝审批审阅 | trade.reject | workspace_id、proposal_id、proposal_hash、reviewed_risk_decision_id、expected_state_version；记录 `USER_REJECTED`；不创建 approval 或执行券商操作 |
 | 读取审批历史 | trade.approval.list | workspace_id、proposal_id；返回已签发、已拒绝、已失效、已过期及后续已消费状态和脱敏审计原因 |
 | 准备撤单审阅 | trade.cancel_request | workspace_id、account_id、broker_order_id、expected_state_version、可选 previous_intent_id；Control Plane 执行认证后的 Live 只读请求并持久化观测，返回含不可变意图 ID/hash、精确剩余数量、snapshot_version/evidence、账户、RiskDecision、阻断原因和 review digest 的 CancellationReview。Arm 后只有当订单语义身份/状态/数量未变化时才复用同一意图。 |
@@ -1947,6 +1953,14 @@ interface LiveOrderSettlement {
   stateVersion: string;
 }
 interface ExecutionPreparationQuery { workspaceId: string; approvalId: string; }
+interface ExecutionOrderLinksQuery { workspaceId: string; accountId: string; brokerOrderIds: string[]; } // 最多 2,000 个唯一完整 ID
+interface ExecutionOrderLink {
+  brokerOrderId: string;
+  executionAttemptId: string;
+  proposalId?: string;
+  reservation?: ExecutionReservation;
+}
+interface ExecutionOrderLinks { workspaceId: string; accountId: string; links: ExecutionOrderLink[]; }
 interface ExecutionPreparationRejection {
   auditId: string;
   workspaceId: string;
@@ -2138,6 +2152,61 @@ interface BacktestRun {
 
 ---
 
+#### 41.1.2 FinancialApproval 授权过期审计
+
+Version 1 增加仅由后端提供的可选 `FinancialApproval.expiry`。`FinancialApprovalExpiry` 包含 `scope="approval"`、`authority="TRUSTED_TIME_SERVICE"`、`authorityReference`（准确 approval ID）、不可变 `expiresAt`、可信 `observedAt` 和 `reservationDisposition`（`NONE`、`RETAINED`、`RELEASED` 或 `ALREADY_RELEASED`）。存在 reservation 时包含准确的 `executionAttemptId`、`reservationId` 和 `reservationStateVersion`；`NONE` 不伪造 reservation 引用。ID 为有界 opaque 字符串，时间为 UTC RFC 3339，观察时间不得早于绑定的期限。renderer 和 Agent 不能提供这些证据。
+
+首次可信 TTL 观察在 immediate transaction 中持久化证据和一次 `trade.approval.expired` outbox 事件。未使用审批变为 `EXPIRED`；已消费审批保留 `CONSUMED` 和 `consumedAt`。被停止的 `RESERVED` PLACE 在实际释放的同一事务内记录 `RELEASED`。可能/已经提交的工作对 active 容量记录 `RETAINED`，订单/attempt 与 reservation 均不变；此前已释放的容量记录 `ALREADY_RELEASED`，不再次释放。未使用审批及未新增 reservation 的 CANCEL attempt 记录 `NONE`。重复扫描、历史读取和同键重放不会新增过期或释放事件。没有该可选字段的旧 projection 仍可读取；缺少字段不构成过期审计完成的证据。不增加 schema version、公开命令或执行权限。
+
+#### 41.1.3 策略生命周期 payload（S14）
+
+`strategy.list`、`strategy.get`、`strategy.save_version`、`strategy.run`、`strategy.cancel` 和 `strategy.get_run` 使用版本 1 且限定在当前 workspace。已保存的 `StrategyVersion` 不可变；编辑并保存会创建新 revision。策略运行仅产生有界的 signal-only 模拟结果，不能提交 trade、approval、reservation、Gateway request 或 provider request。
+
+```ts
+interface StrategyParameter { name: string; value: string; }
+interface ThreadContextRef { kind: "instrument" | "account" | "strategy" | "backtest" | "artifact"; id: string; hash: string; }
+interface StrategyRunRequest {
+  workspaceId: string;
+  strategyVersionId: string;
+  expectedStrategyHash?: string;
+  retryOfRunId?: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string; // UTC RFC 3339，endAt >= startAt
+  endAt: string;
+  contextRefs?: ThreadContextRef[]; // 最多 32 个；仅记录来源，不是 worker 能力
+  parameters?: StrategyParameter[]; // 省略或为空时使用已保存版本参数
+  fixtureScenario?: "SUCCESS" | "FAILURE" | "CANCELLED"; // 仅 integration-test fixture
+}
+interface StrategyRun {
+  runId: string;
+  workspaceId: string;
+  strategyVersionId: string;
+  strategyHash: string;
+  instrumentId: string;
+  datasetId: string;
+  startAt: string;
+  endAt: string;
+  observedAt: string;
+  contextRefs: ThreadContextRef[];
+  parameters: StrategyParameter[];
+  state: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  signal?: StrategySignal;
+  failure?: StrategyFailure;
+  requestHash: string;
+  fixtureLabel?: string;
+  createdAt: string;
+  updatedAt: string;
+  stateVersion: string;
+}
+```
+
+renderer 不能提供 run ID、state、观测时间、canonical hash 或 `stateVersion`。Control Plane 解析不可变版本/hash、可信时间、有效参数和选定标的。它会按 workspace 所有权校验传入引用；若 instrument 引用与 `instrumentId` 不一致则拒绝；缺少时补入规范的选定标的引用；持久化前对引用排序，并将非空引用纳入 run identity。引用只记录来源，不授予 worker 能力。缺少 `contextRefs` 的旧运行记录仍可读取，并保留添加引用前的 request identity。
+
+仅当 `retryOfRunId` 指向当前 workspace 内较早的 `FAILED` 或 `CANCELLED` run 时才接受重试。解析参数和规范引用后，新请求必须与原版本/hash、标的、dataset、日期范围、引用和参数完全一致。Control Plane 复用原 run 的可信 `observedAt`；因此 request hash 保持不变，而新 attempt 获得不同 `runId`。若输入改变或原 run 不允许重试，则以 `STRATEGY_RETRY_INVALID` 拒绝。重试没有 context refs 的旧 run 时，会保留其空引用 identity。
+
+Run identity 绑定不可变版本/hash、标的和上下文引用、dataset、时间范围、规范化参数、可信观察时间假设及 engine version。`strategy.cancel` 接受 `{workspaceId, runId}`，只影响该活动 run；策略版本与其他运行均不变。`strategy.get_run` 接受 `{workspaceId, runId}` 并返回经验证的持久化 projection。完成结果仅包含有界 `StrategySignal` 或类型化失败证据；integration fixture 必须明确标注，不能证明生产 Python/runtime 或 provider 验收。
+
 ### 41.2 工作区启动 payload（S01）
 
 以下版本 1 payload 定义首个桌面垂直切片。所有对象拒绝未声明字段。ID 是非空不透明字符串；sequence 是 0 到 JavaScript 安全整数上限之间的整数。时间为 UTC RFC 3339 字符串。下述命令均不授予金融权限。
@@ -2183,7 +2252,7 @@ AccountConnection 包含不可变的 `connectionId`、`workspaceId`、`providerI
 
 Arm 对话框绑定 provider、用户标签、`LIVE` 环境、完整 TradeX `connectionId` 及已观察的 provider account ID。资格由 `account.list` 返回；当前资格行缺失时 renderer 必须阻断，`account.arm` 还会独立重新校验全部前置条件。Arm 要求凭据权限范围为 VERIFIED；对 UNVERIFIED 范围的确认只允许完成连接审核。原生 deadline monitor 会在应用空闲时持久化执行 inactivity 撤防。`account.activity` 仅根据受信 renderer 输入刷新正在计时的单调 deadline；账户定时刷新不算用户活动。应用重启、session 失活、OS sleep、策略削弱、账户健康/凭据变化及超时都会持久化撤防及原因。
 
-账户观察在 balance 上增加可选 decimal 字符串 `reserved`、`inPies`；在 position 上增加可选 `instrumentCurrency`、`marketValueCurrency`；在 open order 上增加可选 `currency`、`filledValue`。提供方金额型订单的 `filledQuantity` 可缺失/null。旧持久化投影缺少字段时保持不可用。显示的金额单位来自对应观察币种，不将工作区币种视为隐式换算。Trading 212 summary 不提供账户子类型，应明确显示不可观测。提供方 JSON number 必须无二进制浮点转换地规范为精确 decimal wire 字符串。
+账户观察在 balance 上增加可选 decimal 字符串 `reserved`、`inPies`；在 position 上增加可选 `instrumentCurrency`、`marketValueCurrency`；在 open order 上增加可选 `currency`、`filledValue` 与 `remainingQuantity`。提供方金额型订单的 `filledQuantity` 可缺失/null。仅当 provider quantity/fill 证据允许精确相减时，`remainingQuantity` 才是精确十进制字符串，否则保持不可用。旧持久化投影缺少字段时保持不可用。显示的金额单位来自对应观察币种，不将工作区币种视为隐式换算。Trading 212 summary 不提供账户子类型，应明确显示不可观测。提供方 JSON number 必须无二进制浮点转换地规范为精确 decimal wire 字符串。
 
 控制面在原生输入前分配不可变连接及私有引用；仅受信提供方层采集/保存/解析 Keychain 值，普通存储只有 metadata/reference。取消使待处理连接失效并只清理自身凭据；初次测试失败保持明确失败并清理自身凭据；清理失败显示 DELETE_PENDING，可重试断开，期间禁止探测。原生弹窗和网络 I/O 不持有领域状态锁。提交结果前再次校验工作区会话、连接身份及期望状态；断开或切换工作区使进行中的结果失效。受信层在继续 I/O 前检查有效性，并清理放弃的新凭据。重启时中断的 CONNECTING 连接转为 DISCONNECTED / DELETE_PENDING，须清理后重新连接；旧观察保持 stale，直至引用检查及新探测成功；不得自动确认审阅或恢复 arming。
 
@@ -2382,11 +2451,11 @@ interface RiskDecisionHistory {
 
 ### 41.7 上下文目录载荷（S05）
 
-上下文目录是只读的工作区查询，为 Composer 暴露非秘密 canonical account refs，并为未来上下文类别返回明确的空状态；绝不返回凭据、提供方响应或权限秘密。
+上下文目录是只读的工作区查询，为 Composer 暴露非秘密的 canonical 账户、标的和已保存策略引用。合并后的 `entries` 上限为 256；`emptyStates` 对每种支持的类别最多提供一项说明，总计不超过五项。既有账户和已保存策略条目优先，后续可用类别使用剩余容量。若某类无法完整列出，可用性说明必须给出已显示数量与总量；响应保持 schema-valid，不能静默暗示目录完整。尚未支持的未来类别保留明确原因。引用可用只表示 canonical ID/hash 可以附加，不代表行情数据、provider entitlement 或执行权限。目录绝不返回凭据、提供方响应或权限秘密。
 
 | Command | Payload | Success data |
 |---|---|---|
-| context.catalog | `{workspaceId: string}` | `ContextCatalog`，包含有界账户条目和明确空状态 |
+| context.catalog | `{workspaceId: string}` | `ContextCatalog`，包含有界的合并引用列表，以及明确的不可用/容量说明 |
 
 ~~~ts
 interface ContextCatalog {
@@ -2394,7 +2463,7 @@ interface ContextCatalog {
   emptyStates: ContextCatalogEmptyState[];
 }
 interface ContextCatalogEntry {
-  contextRef: { kind: "account"; id: string; hash: string };
+  contextRef: { kind: "account" | "instrument" | "strategy" | "backtest" | "artifact"; id: string; hash: string };
   label: string;
   providerId?: string;
   environment?: string;
@@ -2408,7 +2477,7 @@ interface ContextCatalogEmptyState {
 }
 ~~~
 
-账户 hash 使用 `sha256:<64 个小写十六进制字符>`，输入为 canonical 非秘密元组 `workspaceId\0connectionId\0providerId\0environment\0createdAt`。label 与凭据不参与 hash。DISCONNECTED、缺少凭据和清理待处理连接仍可见但 `available: false`；未来 instrument、strategy、backtest、artifact 类别返回明确空状态而非 fixture。`thread.create` 和 `turn.start` 只接受有界的受支持 refs；account ref 必须匹配活动工作区目录及派生 hash。重复、格式错误、未知或跨工作区 ref 在持久化或 runtime 前失败。`turn.start` 省略 `attachedContexts` 时为兼容性沿用已保存 Thread refs，显式空数组会清除本轮上下文，显式 `null` 无效。
+账户 hash 使用 `sha256:<64 个小写十六进制字符>`，输入为 canonical 非秘密元组 `workspaceId\0connectionId\0providerId\0environment\0createdAt`。label 与凭据不参与 hash。DISCONNECTED、缺少凭据和清理待处理连接仍可见但 `available: false`；尚不可用的上下文类别返回明确空状态而非 fixture。`thread.create` 和 `turn.start` 只接受有界的受支持 refs；account ref 必须匹配活动工作区目录及派生 hash。重复、格式错误、未知或跨工作区 ref 在持久化或 runtime 前失败。`turn.start` 省略 `attachedContexts` 时为兼容性沿用已保存 Thread refs，显式空数组会清除本轮上下文，显式 `null` 无效。
 
 可用的附加 account 上下文会为 Ask、Research 和 Backtest 增加只读 `account_read` 能力，但不会满足 Trade 所需的独立执行账户条件。
 

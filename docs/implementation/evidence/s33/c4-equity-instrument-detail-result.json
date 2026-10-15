@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "screenId": "C4",
+  "title": "Equity Instrument Detail",
+  "result": "PASS_LIMITED",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "capturedAt": "2026-10-14T17:25:37Z",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "sourceTestDigest": {
+    "files": 110,
+    "sha256": "e1bfdfcad6f5d102cfe33644e0ec5a1699873837f84e0bd681eb2e2fb77806d5"
+  },
+  "test": {
+    "method": "Direct CUA replay in the Rust-backed local integration browser",
+    "helper": "tests/s33-equity-instrument-detail-playwright.js",
+    "helperSha256": "683119e67ea16f55c2b5dcb6d25358bd1868b9a32961aa19c0c4f9ac97108ca6",
+    "helperSyntaxCheck": "PASS",
+    "updatedHelperRun": "NOT_RUN; equivalent UI assertions were performed directly in CUA",
+    "build": "npm run build PASS; TypeScript PASS; Vite reports the existing >500 kB main chunk warning"
+  },
+  "harness": "Rust-backed local integration Vite at 127.0.0.1:1426",
+  "workspace": {
+    "id": "7bff37a3-d0ce-43b6-b37b-a91a6fa5c775",
+    "name": "S33 C3 isolated 1791997419675-6669fezxjdj",
+    "disposable": true,
+    "fixtureOnly": true
+  },
+  "assertions": {
+    "canonicalInstrument": "equity:US:MSFT",
+    "detailTabs": ["Overview", "Financials", "News", "Filings", "Analysis"],
+    "defaultTab": "Overview",
+    "keyboardArrowRightSelectsFinancials": true,
+    "closedSession": {
+      "value": "CLOSED",
+      "syntheticFixtureDisclosed": true,
+      "timeConfidence": "CLOCK_UNCERTAIN",
+      "marketClosedRecoveryVisible": true
+    },
+    "corporateActions": {
+      "count": 4,
+      "syntheticFixtureDisclosed": true,
+      "adjustmentStatus": "UNKNOWN"
+    },
+    "sourceAndFreshness": {
+      "source": "OD-001",
+      "status": "BLOCKED_EXTERNAL",
+      "entitlement": "Not verified",
+      "freshness": "Unavailable; no validated quote"
+    },
+    "quoteAndChart": {
+      "quote": "Unavailable; source is not entitled or selected",
+      "history": "Unavailable; no validated history series contract",
+      "fabricatedValues": false
+    },
+    "emptyStates": {
+      "financials": true,
+      "news": true,
+      "filings": true,
+      "analysis": true
+    },
+    "watchlist": {
+      "createdInDisposableWorkspace": true,
+      "canonicalInstrumentAdded": "equity:US:MSFT",
+      "duplicateAddDisabled": true,
+      "providerOrFinancialMutation": false
+    },
+    "responsive": [
+      {"width": 1280, "documentOverflow": false, "tabOverflow": false, "detailControlsReachable": true},
+      {"width": 768, "documentOverflow": false, "tabOverflow": false, "detailControlsReachable": true},
+      {"width": 390, "documentOverflow": false, "tabOverflow": false, "detailControlsReachable": true}
+    ],
+    "rustMarketEligibilityTest": {
+      "command": "cargo test --lib market::tests::blocked_calendar_keeps_market_state_unknown_and_gate_fail_closed",
+      "result": "PASS",
+      "covers": ["MARKET_CLOSED", "INSTRUMENT_HALTED"]
+    }
+  },
+  "commandLog": {
+    "cursorStart": 781,
+    "cursorEnd": 2123,
+    "commandCount": 1342,
+    "counts": {
+      "market.get": 574,
+      "data.source.connection": 574,
+      "market.catalog": 6,
+      "watchlist.list": 9,
+      "watchlist.create": 1,
+      "watchlist.add": 1,
+      "forbiddenProviderModelDataTradeOrderGateway": 0
+    },
+    "note": "Count delta includes read-only polling while the isolated browser stayed open."
+  },
+  "browser": {
+    "consoleWarningsAndErrors": 0,
+    "externalHttpRequests": "NOT_INSTRUMENTED",
+    "pageErrors": "NOT_INSTRUMENTED"
+  },
+  "limitations": [
+    "No real market-data source, provider entitlement, credentials, or financial action was activated.",
+    "The direct CUA replay did not instrument external HTTP or page errors; the observed source remained BLOCKED_EXTERNAL.",
+    "The expanded Playwright helper was syntax-checked but not run after the edit.",
+    "The browser observed the MARKET_CLOSED example; INSTRUMENT_HALTED was verified by the Rust market-eligibility test, not a browser fixture.",
+    "DOM and keyboard checks do not replace native spoken VoiceOver verification. Full S07 and S33 remain open."
+  ]
+}

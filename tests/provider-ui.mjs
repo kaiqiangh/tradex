@@ -35,6 +35,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
   let alpacaClientOrderId;
   let alpacaConnectionStateVersion;
   let binanceConnectionStateVersion;
+  let binanceTestnetSubmissionBlocked = false;
   const injectPrivateStream = (connectionId, expectedConnectionStateVersion, frame) => sendIntegrationCommand(
     'alpaca.paper.stream.fixture',
     { connectionId, expectedConnectionStateVersion, remoteAccountId: '81161e77-bafd-44bb-b2a0-60b9055e3cd4', frame },
@@ -102,9 +103,9 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.match(text, /127\.0\.0\.1/);
       assert.match(text, /TPSL/);
       assert.match(text, /PLAN/);
-      assert.match(text, /200\texternal\tBTCUSDT · PLAN\tBUY\t20/);
       assert.match(text, /0\.1234567890123456789/);
       if (selection.endsWith('/LIVE')) {
+        assert.match(text, /200\texternal\tBTCUSDT · PLAN\tBUY\t20/);
         assert.match(text, /Bitget Spot Live orders and fills · READ ONLY · DISARMED/);
         assert.match(text, /Private stream unavailable · REST reconciliation/);
         assert.match(text, /Private stream\s+NOT_CONFIGURED/);
@@ -129,6 +130,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         }
         await viewport.set({ width: 1280, height: 900 });
       } else {
+        assert.match(text, /bitget · DEMO · REVIEW_REQUIRED/);
         assert.match(text, /Filled quote value/);
       }
     } else if (selection.startsWith('binance/')) {
@@ -159,7 +161,9 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
     assert.match(await detail.innerText(), /CONNECTED/);
     assert.match(await detail.innerText(), /BLOCKED/);
     assert.equal(await ui.getByRole('alert').count(), 0);
-    observed.push('Schema-driven setup has no renderer secret inputs; scope review (including required UNVERIFIED acknowledgement) precedes confirmation; exact decimal account/order values are displayed.');
+    observed.push(verified
+      ? 'Schema-driven setup has no renderer secret inputs; verified permission scope is reviewed before confirmation; exact decimal account/order values are displayed.'
+      : 'Schema-driven setup has no renderer secret inputs; explicit acknowledgement of unverified permission scope precedes confirmation; exact decimal account/order values are displayed.');
 
     await tab.reload();
     await tab.getAXState({ emit: false });
@@ -424,9 +428,52 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.equal(await ui.getByRole('button', { name: 'Submit Trading 212 Demo order', exact: true }).count(), 0);
       observed.push('Reload reads the SQLite-backed Trading 212 Demo attempt and prevents a second UI submission.');
 
+      await (await waitForButton('Accounts')).press('Enter');
+      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+      const postReloadSource = ui.getByRole('combobox', { name: 'Connection source', exact: true });
+      await postReloadSource.selectOption(existingValue);
+      const postReloadDetail = ui.getByRole('region', { name: label, exact: true });
+      const beforePostReloadReuseVersion = await postReloadDetail.getAttribute('data-state-version');
+      assert.ok(beforePostReloadReuseVersion, 'The saved Trading 212 Demo account should expose a state version after reload');
+      await ui.getByRole('button', { name: 'Use existing account', exact: true }).press('Enter');
+      const afterPostReloadReuseVersion = await waitForVersionChange(
+        ui,
+        postReloadDetail,
+        beforePostReloadReuseVersion,
+        'Trading 212 Demo account reuse did not commit after reload',
+      );
+      const postReloadRefresh = ui.getByRole('button', { name: 'Refresh account', exact: true });
+      for (let attempt = 0; attempt < 600 && !(await postReloadRefresh.isEnabled()); attempt += 1) await ui.waitForTimeout(50);
+      assert.equal(await postReloadRefresh.isEnabled(), true);
+      await postReloadRefresh.press('Enter');
+      await waitForVersionChange(
+        ui,
+        postReloadDetail,
+        afterPostReloadReuseVersion,
+        'Trading 212 Demo credentials were not re-tested after reload',
+      );
+      const workspaceId = await ui.locator('.context .identity').innerText();
+      const revalidatedAccount = await sendIntegrationCommand('account.get', { workspaceId, connectionId: existingValue });
+      assert.equal(revalidatedAccount.data.health.credential, 'CONFIGURED');
+      assert.equal(revalidatedAccount.data.connectionState, 'CONNECTED');
+      observed.push('After reload, TradeX re-tests the Trading 212 Demo connection before refreshing provider orders.');
+      const waitForTrading212Retry = async key => {
+        const currentBook = await sendIntegrationCommand('trading212.demo.orders.get', { workspaceId, connectionId: existingValue });
+        const retryAt = Date.parse(currentBook.data.book.rateLimits[key] ?? '');
+        if (Number.isFinite(retryAt)) await ui.waitForTimeout(Math.max(0, retryAt - Date.now() + 1500));
+      };
+
+      await ui.getByText('More', { exact: true }).press('Enter');
+      await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Order Drafts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Order Drafts', exact: true }).waitFor({ state: 'visible' });
       await ui.locator('.order-book-panel').getByLabel('Trading 212 Demo account', { exact: true }).selectOption(existingValue);
       const savedOrderBook = ui.locator('.order-book-panel');
-      await ui.waitForTimeout(5100);
+      const latestBook = await sendIntegrationCommand('trading212.demo.orders.get', {
+        workspaceId,
+        connectionId: existingValue,
+      });
+      const pendingRetryAt = Date.parse(latestBook.data.book.rateLimits.pendingOrdersRetryAt ?? '');
+      if (Number.isFinite(pendingRetryAt)) await ui.waitForTimeout(Math.max(0, pendingRetryAt - Date.now() + 1500));
       await savedOrderBook.getByRole('button', { name: 'Refresh pending orders', exact: true }).press('Enter');
       const partialOrder = savedOrderBook.locator('.order-book-order').filter({ hasText: '9007199254740995' });
       await partialOrder.waitFor({ state: 'visible' });
@@ -439,6 +486,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByRole('status').filter({ hasText: /Trading 212 Demo order detail refreshed at/ }).waitFor({ state: 'visible' });
       assert.match(await partialOrder.innerText(), /PARTIALLY_FILLED \/ PARTIALLY_FILLED/);
       assert.match(await partialOrder.innerText(), /33\.125/);
+      await waitForTrading212Retry('orderDetailRetryAt');
       await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       const cancelDialog = ui.getByRole('dialog', { name: 'Confirm Trading 212 Demo cancellation', exact: true });
       await cancelDialog.waitFor({ state: 'visible' });
@@ -452,6 +500,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       assert.equal(await cancelDialog.isVisible(), false, 'Escape dismisses the unconfirmed provider action');
       assert.equal(await ui.locator('.app-shell').evaluate(element => element.inert), false, 'Dismissal restores the background');
       assert.equal(await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 1);
+      await waitForTrading212Retry('orderDetailRetryAt');
       await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       await cancelDialog.waitFor({ state: 'visible' });
       const cancelReview = await cancelDialog.innerText();
@@ -470,6 +519,7 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
       assert.equal(await cancelDialog.isVisible(), false, 'Dismissing the cancel review must leave the provider order unchanged');
       assert.equal(await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).count(), 1);
+      await waitForTrading212Retry('orderDetailRetryAt');
       await partialOrder.getByRole('button', { name: 'Review cancellation', exact: true }).press('Enter');
       await cancelDialog.waitFor({ state: 'visible' });
       await ui.getByRole('button', { name: 'Confirm cancellation request', exact: true }).press('Enter');
@@ -514,18 +564,24 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const review = await dialog.innerText();
       assert.match(review, /This sends one order to the connected Bitget Demo account only/);
       assert.ok(review.includes(label));
+      assert.match(review, /Connection ID/);
+      assert.ok(review.includes(existingValue), 'Bitget Demo review must show the exact TradeX connection ID');
       assert.match(review, /9007199254740993/);
       assert.match(review, /crypto:BTC\/USDT:spot · BUY/);
-      assert.match(review, /0\.1 base coin \(BTC\) · LIMIT · GTC/);
+      assert.match(review, /0\.1 BASE · LIMIT · GTC · base coin \(BTC\)/);
       assert.match(review, /Estimated notional\s+6500 USDT/);
       assert.match(review, /Maximum spend\s+—/);
-      assert.match(review, /sha256:/);
+      assert.match(review, /Limit\s+65000/);
+      assert.match(review, /Proposal \/ hash[\s\S]*sha256:/);
       assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Keep reviewing');
       await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Escape');
       assert.equal(await dialog.isVisible(), false, 'Escape cancels without submitting the Proposal');
       assert.equal(await ui.locator('section[aria-label="Bitget Spot Demo order attempt"]').count(), 0);
       assert.equal(await submit.isVisible(), true);
 
+      const workspaceId = await ui.locator('.context .identity').innerText();
+      const proposalRow = ui.locator('.order-proposal-row').first();
+      const proposalId = (await proposalRow.innerText()).split('\n')[1].split('·')[1].trim();
       await submit.press('Enter');
       await dialog.waitFor({ state: 'visible' });
       for (const width of [1280, 768, 390]) {
@@ -537,15 +593,21 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Tab');
       assert.equal(await ui.evaluate(() => document.activeElement?.textContent?.trim()), 'Confirm Bitget Demo submit');
       await ui.getByRole('button', { name: 'Confirm Bitget Demo submit', exact: true }).press('Enter');
-      const attempt = ui.locator('section[aria-label="Bitget Spot Demo order attempt"]');
-      await attempt.getByText('Bitget Spot Demo · DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
-      assert.match(await attempt.innerText(), /Account 9007199254740993 · clientOid tx-/);
-      assert.match(await attempt.innerText(), /Provider order 9876543210 · provider status Unavailable/);
-      assert.match(await attempt.innerText(), /acknowledged the request\. This is not evidence of a fill\./);
-      assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
-      assert.equal(await ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true }).count(), 0);
-      assert.equal(await ui.evaluate(() => document.activeElement?.closest('.order-proposal-panel') !== null), true);
-      observed.push('Bitget Demo order confirmation names the immutable Proposal and account, Escape sends no attempt, explicit keyboard confirmation records a signed fixture acknowledgement, and 390/768/1280 layouts fit.');
+      const riskBlocked = ui.getByRole('alert').filter({ hasText: 'RISK_EVIDENCE_UNAVAILABLE' });
+      await riskBlocked.waitFor({ state: 'visible' });
+      assert.match(await riskBlocked.innerText(), /No order attempt or provider\/simulator order side effect was created/);
+      const unavailableDecision = ui.getByRole('article', { name: 'UNAVAILABLE RiskDecision', exact: true });
+      await unavailableDecision.waitFor({ state: 'visible' });
+      const decisionText = await unavailableDecision.innerText();
+      for (const check of ['QUOTE_FRESHNESS', 'MARKET_SESSION', 'INSTRUMENT_RULES']) {
+        assert.match(decisionText, new RegExp(`${check}\\s+·\\s+UNAVAILABLE`));
+      }
+      assert.equal((await sendIntegrationCommand('bitget.demo.order.attempt.get', {
+        workspaceId, proposalId,
+      })).data.attempt, null, 'Unavailable quote/calendar/rule evidence must not persist a Demo attempt');
+      assert.equal(await ui.locator('section[aria-label="Bitget Spot Demo order attempt"]').count(), 0);
+      assert.equal(await submit.isVisible(), true, 'The immutable Proposal remains reviewable after the blocked write');
+      observed.push('Bitget Demo confirmation names the immutable Proposal and exact account; Escape creates no attempt, explicit confirmation fails closed on unavailable risk evidence, and the UI creates no order side effect.');
 
       await viewport.set({ width: 1280, height: 900 });
       await tab.reload();
@@ -553,10 +615,19 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await (await waitForButton('Order Drafts')).press('Enter');
       await ui.locator('.order-proposal-row').first().waitFor({ state: 'visible' });
       await ui.locator('.order-proposal-row').first().press('Enter');
-      await ui.locator('section[aria-label="Bitget Spot Demo order attempt"]')
-        .getByText('Bitget Spot Demo · DEMO · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
-      assert.equal(await ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true }).count(), 0);
-      observed.push('Reload restores the SQLite-backed Bitget Demo attempt and removes the submit action, preventing a second UI submission.');
+      assert.equal((await sendIntegrationCommand('bitget.demo.order.attempt.get', {
+        workspaceId, proposalId,
+      })).data.attempt, null, 'Reload must not invent or replay an attempt blocked before persistence');
+      assert.equal(await ui.locator('section[aria-label="Bitget Spot Demo order attempt"]').count(), 0);
+      await ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true }).waitFor({ state: 'visible' });
+      assert.equal(await ui.getByRole('button', { name: 'Submit Bitget Spot Demo order', exact: true }).count(), 1);
+      for (const width of [1280, 768, 390]) {
+        await viewport.set({ width, height: 900 });
+        const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+        assert.ok(size.scroll <= size.width, `Reloaded Bitget Demo Proposal overflow at ${width}px: ${JSON.stringify(size)}`);
+      }
+      observed.push('Reload retains the exact Bitget Demo Proposal without inventing or replaying an attempt; the submit action remains reviewable at 1280/768/390.');
+      await viewport.set({ width: 1280, height: 900 });
       await ui.getByText('More', { exact: true }).press('Enter');
       await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
@@ -588,10 +659,15 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       const review = await dialog.innerText();
       assert.match(review, /This sends one order to Binance Spot Testnet only/);
       assert.ok(review.includes(label));
+      assert.match(review, /Connection ID/);
+      assert.ok(review.includes(existingValue), 'Testnet review must show the exact TradeX connection ID');
       assert.match(review, /9007199254740993/);
       assert.match(review, /crypto:BTC\/USDT:spot · BUY/);
       assert.match(review, /25 QUOTE · MARKET · DAY/);
+      assert.match(review, /25 QUOTE · MARKET · DAY · quote coin \(USDT\)/);
       assert.match(review, /BINANCE · BINANCE_TESTNET/);
+      assert.match(review, /Maximum spend\s+—/);
+      assert.match(review, /Limit\s+—/);
       assert.match(review, /Proposal \/ hash[\s\S]*sha256:/);
       await ui.getByRole('button', { name: 'Keep reviewing', exact: true }).press('Enter');
       assert.equal(await dialog.isVisible(), false, 'Dismissing review must not submit a provider order');
@@ -609,14 +685,22 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
         assert.ok(size.scroll <= size.width, `Binance Testnet confirmation overflow at ${width}px: ${JSON.stringify(size)}`);
       }
       await ui.getByRole('button', { name: 'Confirm Binance Testnet submit', exact: true }).press('Enter');
-      const attempt = ui.getByRole('region', { name: 'Binance Spot Testnet order attempt', exact: true });
-      await attempt.getByText('Binance Spot Testnet · TESTNET · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
-      assert.match(await attempt.innerText(), /9007199254740993/);
-      assert.match(await attempt.innerText(), /Provider order 9007199254740997 · provider status NEW/);
-      assert.match(await attempt.innerText(), /Binance acknowledged the order\. This is not fill evidence\./);
-      assert.equal(await attempt.locator('p').evaluateAll(elements => elements.some(element => element.textContent?.startsWith('Fill '))), false);
-      assert.equal(await ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true }).count(), 0);
-      observed.push('Explicit confirmation traverses the Rust IPC/provider fixture and persists one ACKNOWLEDGED SQLite attempt; the UI keeps provider acknowledgement separate from fills.');
+      const riskBlocked = ui.getByRole('alert').filter({ hasText: 'RISK_EVIDENCE_UNAVAILABLE' });
+      await riskBlocked.waitFor({ state: 'visible' });
+      assert.match(await riskBlocked.innerText(), /No order attempt or provider\/simulator order side effect was created/);
+      const unavailableDecision = ui.getByRole('article', { name: 'UNAVAILABLE RiskDecision', exact: true });
+      await unavailableDecision.waitFor({ state: 'visible' });
+      const decisionText = await unavailableDecision.innerText();
+      for (const check of ['MARKET_ORDER_SLIPPAGE', 'QUOTE_FRESHNESS', 'MARKET_SESSION', 'INSTRUMENT_RULES']) {
+        assert.match(decisionText, new RegExp(`${check}\\s+·\\s+UNAVAILABLE`));
+      }
+      assert.equal((await sendIntegrationCommand('binance.testnet.order.attempt.get', {
+        workspaceId: isolatedWorkspaceId, proposalId,
+      })).data.attempt, null, 'Unavailable market/rule/calendar evidence must not persist an order attempt');
+      assert.equal(await ui.getByRole('region', { name: 'Binance Spot Testnet order attempt', exact: true }).count(), 0);
+      assert.equal(await submit.isVisible(), true, 'The immutable Proposal remains available for review after the blocked write');
+      binanceTestnetSubmissionBlocked = true;
+      observed.push('Explicit Testnet confirmation preserves the exact Proposal, then current unavailable quote, time/calendar, and instrument-rule evidence fail-closed before an attempt or provider side effect.');
 
       await viewport.set({ width: 1280, height: 900 });
       await tab.reload();
@@ -624,16 +708,24 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await (await waitForButton('Order Drafts')).press('Enter');
       await ui.locator('.order-proposal-row').first().waitFor({ state: 'visible' });
       await ui.locator('.order-proposal-row').first().press('Enter');
-      await ui.getByRole('region', { name: 'Binance Spot Testnet order attempt', exact: true })
-        .getByText('Binance Spot Testnet · TESTNET · ACKNOWLEDGED', { exact: true }).waitFor({ state: 'visible' });
-      assert.equal(await ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true }).count(), 0);
+      await ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true }).waitFor({ state: 'visible' });
+      assert.equal((await sendIntegrationCommand('binance.testnet.order.attempt.get', {
+        workspaceId: isolatedWorkspaceId, proposalId,
+      })).data.attempt, null, 'Reload must not invent or replay an attempt that was blocked before persistence');
+      assert.equal(await ui.getByRole('button', { name: 'Submit Binance Spot Testnet order', exact: true }).count(), 1);
       for (const width of [1280, 768, 390]) {
         await viewport.set({ width, height: 900 });
         const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
         assert.ok(size.scroll <= size.width, `Binance Testnet Proposal overflow at ${width}px: ${JSON.stringify(size)}`);
       }
-      observed.push('Reload recovers the saved Testnet attempt and removes the submit action, preventing a second UI write.');
+      observed.push('Reload retains the exact Testnet Proposal without inventing an order attempt; the blocked action and remediation evidence remain visible.');
 
+      if (binanceTestnetSubmissionBlocked) {
+        observed.push('The local fixture lacks current market, time/calendar, and instrument-rule evidence, so this run makes no claim about Testnet order-book, stream, or cancellation lifecycle; those remain separate S19 evidence.');
+        await ui.getByText('More', { exact: true }).press('Enter');
+        await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+        await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+      } else {
       const binanceOrderBook = ui.locator('.order-book-panel').filter({ has: ui.getByLabel('Binance Testnet account', { exact: true }) });
       await binanceOrderBook.getByLabel('Binance Testnet account', { exact: true }).selectOption(existingValue);
       const privateStreamNow = Date.now();
@@ -904,9 +996,13 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await viewport.set({ width: 1280, height: 900 });
       await ui.getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
       await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
+      }
     }
 
     for (const width of [768, 390]) {
+      await ui.getByText('More', { exact: true }).press('Enter');
+      await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+      await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
       await viewport.set({ width, height: 900 });
       await tab.getAXState({ emit: false });
       const size = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
@@ -917,6 +1013,8 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       }));
       assert.ok(rowsFit, `Exact account amounts must wrap within their card at ${width}px`);
       assert.ok(size.scroll <= size.width, `Account page overflow at ${width}: ${JSON.stringify(size)}`);
+      await ui.getByRole('button', { name: 'Refresh account', exact: true }).waitFor({ state: 'visible' });
+      await ui.getByRole('button', { name: 'Disconnect', exact: true }).waitFor({ state: 'visible' });
       assert.equal(await ui.getByRole('button', { name: 'Refresh account', exact: true }).isVisible(), true);
       assert.equal(await ui.getByRole('button', { name: 'Disconnect', exact: true }).isVisible(), true);
       await ui.getByText('More', { exact: true }).press('Enter');
@@ -925,17 +1023,22 @@ export async function checkProviderUI(tab, browser, selection = 'alpaca/PAPER') 
       await tab.getAXState({ emit: false });
       await ui.getByRole('button', { name: 'Account Health', exact: true }).press('Enter');
       await tab.getAXState({ emit: false });
-      await ui.locator('.account-row').filter({ hasText: label }).press('Enter');
-      await ui.getByRole('heading', { name: label, exact: true }).waitFor({ state: 'visible' });
+      const healthCard = ui.locator('.account-health-card').filter({ hasText: label });
+      await healthCard.waitFor({ state: 'visible' });
+      const healthSize = await ui.evaluate(() => ({ width: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
+      assert.ok(healthSize.scroll <= healthSize.width, `Account Health overflow at ${width}: ${JSON.stringify(healthSize)}`);
       if (selection === 'alpaca/PAPER') {
-        assert.match(await detail.innerText(), /Reconciliation\s+DEGRADED/);
-        assert.match(await detail.innerText(), /Private stream\s+DEGRADED/);
-        assert.match(await detail.innerText(), /Last private stream event\s+\d/);
+        assert.match(await healthCard.innerText(), /Reconciliation\s+DEGRADED/);
+        assert.match(await healthCard.innerText(), /Private stream\s+DEGRADED/);
+        assert.match(await healthCard.innerText(), /Last private stream event\s+\d/);
       } else {
-        assert.match(await detail.innerText(), /CONNECTED/);
+        assert.match(await healthCard.innerText(), /CONNECTED/);
       }
       observed.push(`Account controls, permission limitations and separate health dimensions remain reachable at ${width}px.`);
     }
+    await ui.getByText('More', { exact: true }).press('Enter');
+    await ui.getByRole('navigation', { name: 'Primary navigation' }).getByRole('button', { name: 'Accounts', exact: true }).press('Enter');
+    await ui.getByRole('heading', { name: 'Account connections', exact: true }).waitFor({ state: 'visible' });
     await ui.getByRole('button', { name: 'Disconnect', exact: true }).press('Enter');
     await ui.getByText('MISSING', { exact: true }).waitFor({ state: 'visible' });
     await tab.getAXState({ emit: false });
@@ -971,7 +1074,7 @@ export async function checkTrading212DemoLocalDeleteUI(tab, browser) {
     await viewport.set({ width: 1280, height: 900 });
     const previousDialog = ui.getByRole('dialog', { name: 'Delete local account?', exact: true });
     if (await previousDialog.isVisible()) await previousDialog.getByRole('button', { name: 'Cancel', exact: true }).press('Escape');
-    const previousPath = await ui.locator('.path').innerText();
+    const previousPath = await ui.locator('.path').first().innerText();
     await ui.getByRole('button', { name: 'Workspace', exact: true }).press('Enter');
     await ui.getByLabel('Workspace name', { exact: true }).fill(`S18 isolated delete ${Date.now()}`);
     await ui.getByLabel('Local storage', { exact: true }).fill(join(dirname(previousPath), `account-delete-${Date.now()}`));

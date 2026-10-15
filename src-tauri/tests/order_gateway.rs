@@ -617,6 +617,7 @@ mod local_provider_tests {
                     quantity: Some("1".into()),
                     notional: None,
                     filled_quantity: Some("0".into()),
+                    remaining_quantity: Some("1".into()),
                     filled_value: Some("0".into()),
                     currency: Some("USDT".into()),
                     status: "LIVE".into(),

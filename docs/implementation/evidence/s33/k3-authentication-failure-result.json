@@ -1,0 +1,64 @@
+{
+  "result": "PASS_LIMITED",
+  "screenIds": [
+    "J5",
+    "K3"
+  ],
+  "branch": "dev",
+  "head": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "capturedAt": "2026-10-14T13:35:08.785Z",
+  "workspace": "05abb22c-0009-488f-ba31-a8ae6bc97fe8",
+  "fixture": "synthetic local authentication failure; no credentials or provider request",
+  "test": "tests/s33-authentication-failure-playwright.js",
+  "testSha256": "130172b63a8a3e71e92676584da8af9418e2847ce6ccef754e758740d03c3318",
+  "authentication": "INVALID",
+  "arming": "DISARMED",
+  "recoveryAction": "Reconnect credentials",
+  "responsive": [
+    {
+      "width": 1280,
+      "noHorizontalOverflow": true,
+      "liveArmDisabled": true
+    },
+    {
+      "width": 768,
+      "noHorizontalOverflow": true,
+      "liveArmDisabled": true
+    },
+    {
+      "width": 390,
+      "noHorizontalOverflow": true,
+      "liveArmDisabled": true
+    }
+  ],
+  "commands": [
+    "account.authentication_failure.fixture.seed",
+    "account.activity",
+    "provider.list_definitions",
+    "domain.snapshot",
+    "account.list",
+    "paper.get",
+    "domain.subscribe",
+    "domain.snapshot",
+    "domain.subscribe",
+    "trade.cancel_approval.list",
+    "provider.list_definitions",
+    "domain.snapshot",
+    "account.list",
+    "paper.get",
+    "runtime.status",
+    "time.status",
+    "domain.subscribe"
+  ],
+  "unexpectedCommands": [],
+  "forbiddenCommands": [],
+  "externalHttpRequests": 0,
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshot": "docs/implementation/evidence/s33/authentication-failure-390.png",
+  "screenshotSha256": "fabe34aa297585248c78245a1c2546872904c2207aa24d67ae7cbb4581fb5627",
+  "limits": [
+    "Synthetic local failure projection only; no provider authentication response or real credential reconnection was tested."
+  ],
+  "overallSurfaceStatus": "IN_PROGRESS"
+}

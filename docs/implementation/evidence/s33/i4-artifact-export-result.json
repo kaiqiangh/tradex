@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "screenId": "I4",
+  "title": "Artifact Export",
+  "result": "PASS",
+  "implementationStatus": "IMPLEMENTED_UNVERIFIED",
+  "testedAt": "2026-10-14",
+  "branch": "dev",
+  "sourceHead": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "worktreeFileSha256": {
+    "src/Artifacts.tsx": "6faa3511db6ecc11f7b20feab888ed3426072ea97db09b8eab90dd4f624bdc06",
+    "src/styles.css": "ced78ed457e00369e98939f86d871d08b519ee67707b4aebf5b37761670d324b",
+    "src-tauri/src/lib.rs": "3c33818c47e199ad6acaaf626e88d64bda9f1746bfb29c88058af6e96ad9b6b9",
+    "src-tauri/src/storage.rs": "df182b38e0a198a0ee92692bc04ddaa4c2df24e94750a7847a3729a06cc339d6",
+    "tests/s33-artifact-export-screen-playwright.js": "d883cb920fc55c11f5150ce4e759242f423a1542f40d1254d7779ddf361631e7",
+    "tests/integration-bridge.ts": "7e15c711af63931195789f45b0345f6b7babe6950e2cf1b106748b9152114fc3"
+  },
+  "runner": "tests/s33-artifact-export-screen-playwright.js",
+  "harness": "Rust-backed Vite integration server on 127.0.0.1:1422 with an isolated disposable workspace",
+  "workspaceId": "9c91f7f6-426b-4109-8eab-3266a30d71ab",
+  "artifactId": "271950db-1e0d-42d8-82fe-14481bcd83f3",
+  "fixtureBoundary": "One synthetic local completed Research artifact; export path remained under the disposable workspace temporary directory",
+  "export": {
+    "relativePath": "exports/271950db-1e0d-42d8-82fe-14481bcd83f3.json",
+    "bytes": 6356,
+    "fileMode": "0600",
+    "fileSha256": "sha256:fb44c7bfa670dc15c07c9d617274e42ebf9b55a47c2fe2214e76faad9ec8b806",
+    "artifactContentHash": "sha256:9850b6df856321c7b5b4fa4005591795f48da46dc2a19d42ea80fff95ab26316",
+    "manifestHash": "sha256:b18e5ab908a336dbed9ef09d89fec577eeb3063bc012ea444c79f38dd316a488",
+    "rootKeys": [
+      "artifact",
+      "manifest"
+    ],
+    "manifestFields": [
+      "artifactId",
+      "artifactVersion",
+      "contentHash",
+      "exportedAt",
+      "provenance",
+      "schemaVersion"
+    ],
+    "artifactIdMatchesManifest": true,
+    "contentHashMatchesManifest": true,
+    "manifestHashRecomputedFromCanonicalJson": true
+  },
+  "noReplace": {
+    "secondExplicitExportRejected": true,
+    "errorCode": "ARTIFACT_EXPORT_EXISTS",
+    "canonicalMessageVisible": true,
+    "errorVisibleAtWidths": [
+      1280,
+      768,
+      390
+    ]
+  },
+  "viewports": [
+    1280,
+    768,
+    390
+  ],
+  "successStatusVisibleAtAllWidths": true,
+  "noHorizontalOverflow": true,
+  "commandCounts": {
+    "totalAllowlistedLocalCommands": 28,
+    "artifact.save": 1,
+    "artifact.export": 2,
+    "unexpectedCommands": 0,
+    "externalHttpRequests": 0
+  },
+  "scopeLimits": [
+    "The artifact and research source are synthetic local fixtures, not real provider data.",
+    "The file is emitted under an isolated temporary workspace; no cloud upload or share was attempted.",
+    "I4 is local S33 evidence and does not complete all S12 production provider provenance, the remaining screen inventory, S33, or issue #141."
+  ]
+}

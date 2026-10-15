@@ -2291,7 +2291,7 @@ UNKNOWN_RECONCILING
 
 `REJECTED` is the canonical order state for broker/exchange rejection. `SUBMISSION_REJECTED` is an error category explaining why the state became `REJECTED`; `BROKER_REJECTED` must not be introduced as a third machine state.
 
-Approval expiry and broker order expiry are distinct events. An expired approval is never reusable, but expiry does not by itself prove that an order was not submitted. Every expiry event records its scope (`approval` or `broker_order`), authority/evidence reference, and reservation disposition; emit a reservation-release event only for capacity actually released.
+Approval expiry and broker order expiry are distinct events. An expired approval is never reusable, but expiry does not by itself prove that an order was not submitted. Every expiry event records its scope (`approval` or `broker_order`), authority/evidence reference, and reservation disposition; emit a reservation-release event only for capacity actually released. For an already consumed approval, record authority expiry while preserving its `CONSUMED` status and consumption history.
 
 | Trigger and known execution state | Authoritative transition | Reservation disposition |
 |---|---|---|

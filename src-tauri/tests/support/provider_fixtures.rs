@@ -240,11 +240,11 @@ impl Default for Http {
 impl Http {
     #[cfg(feature = "integration-test")]
     #[allow(dead_code)]
-    pub fn seed_trading212_live_cancel_order(&self) {
-        let order_id = "9007199254740996";
+    pub fn seed_trading212_live_cancel_order(&self, order_id: u64) {
+        let order_id_text = order_id.to_string();
         let order = |status: &str, filled_quantity: f64, filled_value: f64| {
             json!({
-                "id":9007199254740996u64,
+                "id":order_id,
                 "ticker":"MSFT_US_EQ",
                 "strategy":"QUANTITY",
                 "side":"BUY",
@@ -263,7 +263,7 @@ impl Http {
         *self.trading212_order_list.borrow_mut() = Some(vec![partial.clone()]);
         self.trading212_order_details
             .borrow_mut()
-            .insert(order_id.into(), partial);
+            .insert(order_id_text, partial);
     }
 
     #[cfg(feature = "integration-test")]
@@ -550,7 +550,10 @@ impl ProviderHttp for Http {
         ) {
             return self.bitget.request(endpoint, method, path, headers, body);
         }
-        if endpoint == ProviderEndpoint::Trading212Demo {
+        if matches!(
+            endpoint,
+            ProviderEndpoint::Trading212Demo | ProviderEndpoint::Trading212Live
+        ) {
             assert_eq!(
                 headers["Authorization"],
                 "Basic UzAyLUZBS0UtS0VZLTU5NDc5MTQ1MzpTMDItRkFLRS1TRUNSRVQtNzA0NTU2OTIx"
@@ -571,10 +574,11 @@ impl ProviderHttp for Http {
                         .map(|body| ProviderHttpResponse { status, body })
                 }
                 (ProviderHttpMethod::Post, path, Some(request))
-                    if matches!(
-                        path,
-                        "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
-                    ) =>
+                    if endpoint == ProviderEndpoint::Trading212Demo
+                        && matches!(
+                            path,
+                            "/api/v0/equity/orders/market" | "/api/v0/equity/orders/limit"
+                        ) =>
                 {
                     self.calls
                         .borrow_mut()
@@ -637,13 +641,14 @@ impl ProviderHttp for Http {
                     })
                 }
                 (ProviderHttpMethod::Delete, path, None)
-                    if path
-                        .strip_prefix("/api/v0/equity/orders/")
-                        .is_some_and(|id| {
-                            !id.is_empty()
-                                && id.bytes().all(|byte| byte.is_ascii_digit())
-                                && id.parse::<i64>().is_ok_and(|id| id > 0)
-                        }) =>
+                    if endpoint == ProviderEndpoint::Trading212Demo
+                        && path
+                            .strip_prefix("/api/v0/equity/orders/")
+                            .is_some_and(|id| {
+                                !id.is_empty()
+                                    && id.bytes().all(|byte| byte.is_ascii_digit())
+                                    && id.parse::<i64>().is_ok_and(|id| id > 0)
+                            }) =>
                 {
                     self.calls
                         .borrow_mut()

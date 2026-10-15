@@ -268,6 +268,12 @@
     "executionAttempt": {
       "$ref": "#/$defs/ExecutionAttempt"
     },
+    "executionOrderLinks": {
+      "$ref": "#/$defs/ExecutionOrderLinks"
+    },
+    "executionOrderLinksQuery": {
+      "$ref": "#/$defs/ExecutionOrderLinksQuery"
+    },
     "executionPreparation": {
       "$ref": "#/$defs/ExecutionPreparation"
     },
@@ -721,6 +727,8 @@
     "executionPreparation",
     "executionPreparationQuery",
     "executionPreparationQueryResult",
+    "executionOrderLinksQuery",
+    "executionOrderLinks",
     "resolutionEvidenceQuery",
     "resolutionEvidenceRefresh",
     "manualResolutionRequest",
@@ -2009,6 +2017,27 @@
         "reviewedRiskDecisionId",
         "reviewDigest",
         "expectedStateVersion"
+      ]
+    },
+    "ApprovalExpiryAuthority": {
+      "type": "string",
+      "enum": [
+        "TRUSTED_TIME_SERVICE"
+      ]
+    },
+    "ApprovalExpiryReservationDisposition": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "RETAINED",
+        "RELEASED",
+        "ALREADY_RELEASED"
+      ]
+    },
+    "ApprovalExpiryScope": {
+      "type": "string",
+      "enum": [
+        "approval"
       ]
     },
     "ApprovalRejection": {
@@ -7661,6 +7690,100 @@
         "MAY_HAVE_SUBMITTED"
       ]
     },
+    "ExecutionOrderLink": {
+      "type": "object",
+      "properties": {
+        "brokerOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "proposalId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionReservation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "brokerOrderId",
+        "executionAttemptId"
+      ]
+    },
+    "ExecutionOrderLinks": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionOrderLink"
+          },
+          "maxItems": 2000
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "links"
+      ]
+    },
+    "ExecutionOrderLinksQuery": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "brokerOrderIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2000
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "accountId",
+        "brokerOrderIds"
+      ]
+    },
     "ExecutionPreparation": {
       "type": "object",
       "properties": {
@@ -8625,6 +8748,16 @@
           "maxLength": 64,
           "minLength": 1
         },
+        "expiry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FinancialApprovalExpiry"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "invalidationReason": {
           "type": [
             "string",
@@ -8757,6 +8890,59 @@
         "stateVersion"
       ],
       "unevaluatedProperties": false
+    },
+    "FinancialApprovalExpiry": {
+      "type": "object",
+      "properties": {
+        "authority": {
+          "$ref": "#/$defs/ApprovalExpiryAuthority"
+        },
+        "authorityReference": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "executionAttemptId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "expiresAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "reservationDisposition": {
+          "$ref": "#/$defs/ApprovalExpiryReservationDisposition"
+        },
+        "reservationId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "reservationStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/ApprovalExpiryScope"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "authority",
+        "authorityReference",
+        "expiresAt",
+        "observedAt",
+        "reservationDisposition"
+      ]
     },
     "FinancialApprovalHistory": {
       "type": "object",
@@ -12538,6 +12724,12 @@
             "null"
           ]
         },
+        "remainingQuantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "side": {
           "type": "string"
         },
@@ -14566,6 +14758,9 @@
           "$ref": "#/$defs/ExecutionPreparationQueryResult"
         },
         {
+          "$ref": "#/$defs/ExecutionOrderLinks"
+        },
+        {
           "$ref": "#/$defs/ResolutionEvidenceLedger"
         },
         {
@@ -15524,6 +15719,7 @@
         "DAILY_REALIZED_LOSS",
         "OPEN_ORDER_COUNT",
         "RESERVED_CAPITAL",
+        "RESERVED_CAPACITY",
         "MARKET_ORDER",
         "MARKET_ORDER_SLIPPAGE",
         "PRICE_DEVIATION",
@@ -15868,6 +16064,7 @@
         "HISTORICAL_ADJUSTMENT_UNAVAILABLE",
         "COUNTER_UNAVAILABLE",
         "RESERVATION_UNAVAILABLE",
+        "RESERVED_CAPACITY",
         "CALENDAR_UNAVAILABLE",
         "CLOCK_UNCERTAIN",
         "NOT_APPLICABLE",
@@ -20356,6 +20553,14 @@
     "StrategyRun": {
       "type": "object",
       "properties": {
+        "contextRefs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
         "createdAt": {
           "type": "string",
           "maxLength": 64,
@@ -20502,6 +20707,14 @@
     "StrategyRunRequest": {
       "type": "object",
       "properties": {
+        "contextRefs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ThreadContextRef"
+          },
+          "maxItems": 32
+        },
         "datasetId": {
           "type": "string",
           "maxLength": 128,
@@ -20542,6 +20755,14 @@
             "$ref": "#/$defs/StrategyParameter"
           },
           "maxItems": 32
+        },
+        "retryOfRunId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128,
+          "minLength": 1
         },
         "startAt": {
           "type": "string",

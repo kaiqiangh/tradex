@@ -1,0 +1,63 @@
+{
+  "captured_at": "2026-10-14T08:08:03Z",
+  "branch": "dev",
+  "head_sha": "8e35fca2b96c4fc4b47b1ed994da393f58aa1581",
+  "screen_id": "F12",
+  "result": "PASS_LIMITED",
+  "browser": {
+    "script": "tests/s33-risk-policy-invalidation-playwright.js",
+    "fixture_gate": "TRADEX_LIVE_APPROVAL_FIXTURE=1",
+    "policy_scope": "WORKSPACE",
+    "policy_versions": [3, 4],
+    "weakened": true,
+    "affected_accounts": 3,
+    "affected_live_accounts_disarmed": 2,
+    "invalidated_proposals": 2,
+    "prior_approvals_invalidated": true,
+    "persisted_stale_policy_decisions": 2,
+    "accessible_summary": true,
+    "review_disabled": true,
+    "prepare_action_count": 0,
+    "responsive_widths": [1280, 768, 390],
+    "forbidden_commands": 0,
+    "external_http_requests": 0,
+    "console_errors": 0,
+    "page_errors": 0,
+    "screenshot": "docs/implementation/evidence/s33/risk-policy-invalidation-390.png"
+  },
+  "rust_regressions": {
+    "policy_filter": "RUST_TEST_THREADS=1 cargo test --manifest-path src-tauri/Cargo.toml policy",
+    "policy_filter_result": "PASS",
+    "additional_tests": [
+      {
+        "name": "live_arming_tests::tightening_policy_change_preserves_live_arming",
+        "result": "PASS"
+      },
+      {
+        "name": "live_arming_tests::weakened_policy_credentials_and_health_changes_revoke_live_arming",
+        "result": "PASS"
+      }
+    ],
+    "covered_behaviors": [
+      "mixed relaxation and tightening is classified as weakening and disarms Live accounts",
+      "tightening-only changes invalidate old proposals without marking the change weakened",
+      "tightening-only changes preserve an already ARMED Live account",
+      "policy save and Prepare serialize safely in both orders"
+    ]
+  },
+  "transaction_review": {
+    "implementation": "Policy projection, account changes, proposal invalidations, RiskDecisions and outbox writes are enclosed by one SQLite IMMEDIATE transaction and commit last.",
+    "concurrent_save_prepare_regression": "PASS",
+    "forced_mid_transaction_failure_injected": false
+  },
+  "review": {
+    "standards": "PASS, no actionable findings",
+    "spec": "PASS for bounded local F12 behavior",
+    "reviewer": "primary agent; not an independent external review"
+  },
+  "limitations": [
+    "No forced mid-transaction storage failure was injected, so rollback after a partial write was not directly exercised.",
+    "This uses local synthetic fixtures and establishes no real-provider readiness.",
+    "Full deterministic S21 evaluation, S21/S23/S27 behavior, native accessibility, and complete S33 acceptance remain open; FR-020 is not promoted."
+  ]
+}

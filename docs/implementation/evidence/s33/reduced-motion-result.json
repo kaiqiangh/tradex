@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "normalMotion": {
+    "reducedMotion": false,
+    "transitionProperty": "opacity",
+    "transitionDuration": "2s",
+    "animationName": "s33-progress-pulse",
+    "animationDuration": "2s"
+  },
+  "reducedMotion": {
+    "transitionProperty": "none",
+    "transitionDuration": "0s",
+    "animationName": "none",
+    "animationDuration": "0s",
+    "scrollBehavior": "auto",
+    "text": "Local fixture progress 50%",
+    "value": "50",
+    "visible": true
+  },
+  "forbiddenCommands": 0,
+  "externalRequests": 0,
+  "capturedAt": "2026-10-14T13:05:51.606Z"
+}

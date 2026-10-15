@@ -5,7 +5,7 @@
 ## 已实现边界
 
 - `strategy.save_version` 在 workspace-scoped SQLite 中写入不可变 `StrategyVersion`；Rust 从规范化 definition 计算 `sha256:` hash，后续保存创建新 revision。
-- `strategy.list`、`strategy.get`、`strategy.run`、`strategy.cancel` 使用 Backend ARD §41–42 的版本化 IPC；run 输入冻结 version/hash/instrument/dataset/time/parameters，结果只能是 `StrategySignal` 或 typed failure。
+- `strategy.list`、`strategy.get`、`strategy.run`、`strategy.cancel`、`strategy.get_run` 使用 Backend ARD §41–42 的版本化 IPC；run 输入冻结 version/hash/instrument/dataset/context refs/time/parameters，结果只能是 `StrategySignal` 或 typed failure。
 - 运行状态按 `QUEUED → RUNNING → COMPLETED|FAILED|CANCELLED` 持久化，取消只作用于 run；策略版本和已完成 run 不会被原地改写。
 - 持久化读取会重新验证关联版本/hash、冻结请求、运行 identity、时间和 signal/failure 状态；工作区切换或重启会把遗留的 `QUEUED/RUNNING` run 收敛为带 remediation 的 `CANCELLED`，避免孤儿运行。
 - production run 经过 `TimeService` trusted gate，并启动无继承环境的 `strategy-worker` duplex 子进程；握手校验协议版本和一次性 session token，stdout/超时有界，stderr 丢弃。当前 worker 没有真实 Python runtime 时返回 `STRATEGY_RUNTIME_UNAVAILABLE`，不会伪造 signal。
@@ -30,3 +30,9 @@
 - 当前 worker seam 证明固定进程/协议/能力边界，macOS 正式启动链路使用 `/usr/bin/sandbox-exec` 拒绝用户/临时文件路径、网络和后续子进程；真实 Python 引擎、数值库和任意策略语义仍未接入，非 macOS 没有受支持的 OS sandbox 时生产路径 fail-closed 并返回 `STRATEGY_SANDBOX_UNAVAILABLE`。
 - Strategies 已可从 Research/Backtest Thread context 进入并保留 canonical refs；浏览器脚本覆盖保存、成功 signal-only、失败、重试、取消、终态焦点、aria-live、390/768/1280 no-overflow 和空 console；当前 SHA 的 macOS release bundle 已完成原生保存、选择、trusted-time gate 和 fail-closed run 回归。
 - integration fixture、worker 名称和本地脚本不构成真实外部数据、交易或 Live authority 证据。
+
+## 2026-10-14 S33 H2 IPC and UI follow-up
+
+The S33 H2 slice added optional `contextRefs` and `retryOfRunId` to the strategy run request. The Control Plane canonicalizes and validates supplied workspace references, persists them with each run, and binds non-empty references into `requestHash`. A retry must point to a same-workspace failed/cancelled run with unchanged version, hash, instrument, dataset, time range, context references and effective parameters; it reuses the stored `observedAt`. Legacy projections without context references remain readable and preserve their pre-change identity.
+
+Focused Rust strategy tests pass 4/4. The isolated Rust-backed H2 browser scenario passes at 1280/768/390 using only the explicit strategy integration fixture; it covers parameter validation, immutable parameterized versions, a signal-only result, typed failure, same-hash retry, cancellation and focus recovery. This is local H2 evidence only. It does not verify a production Python/runtime, real data, end-to-end Research/Backtest context entry, native VoiceOver, or S14/S33 parent acceptance. See `docs/implementation/evidence/s33/h2-strategy-sandbox-result.json`.

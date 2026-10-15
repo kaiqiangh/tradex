@@ -130,6 +130,7 @@ fn local_paper_data(account: &AccountConnection, state: &LocalPaperState) -> Acc
                 quantity: Some(order.remaining_quantity.clone()),
                 notional: None,
                 filled_quantity: Some(order.filled_quantity.clone()),
+                remaining_quantity: Some(order.remaining_quantity.clone()),
                 filled_value: None,
                 currency: Some(state.cash.currency.clone()),
                 status: match order.state {
@@ -1507,6 +1508,7 @@ mod tests {
                 quantity: Some("1".into()),
                 notional: Some("10".into()),
                 filled_quantity: None,
+                remaining_quantity: None,
                 filled_value: None,
                 currency: Some("USD".into()),
                 status: "NEW".into(),
