@@ -1111,3 +1111,15 @@ A bilingual, non-normative MARKET-only local Prepare eligibility proposal is sta
 现有精确来源 owning 回归无法按现行契约满足 `INSTRUMENT_RULES`。不可变 Proposal 是 LIMIT，且配置了受约束的 `PRICE_RANGE`；Backend ARD §41.47 规定该规则即使取得快照 reference 仍保持 `UNAVAILABLE`。fixture 账户规则还包含动态 `MAX_POSITION` 和交易所订单/列表计数，§41.44 规定这些保持不可用。`spot_owning::qualify` 会检查观察身份、覆盖及订单速率槽，但不会评估这些具体 filter 限额。账户 fixture 未提供 `requireSelfTradePrevention`，因此当前规则 collector 正确地标记该事实未观测。若要把这些状态改为 PASS，必须先修改规范契约，不能通过测试专用绕行实现。
 
 现已准备双语、非规范性的仅 MARKET 本地 Prepare eligibility 提案：[英文](s29-instrument-rules-prepare-reachability-proposal.md)和[中文](s29-instrument-rules-prepare-reachability-proposal_zh.md)。提案保留受约束 LIMIT `PRICE_RANGE` 拒绝及所有执行/provider 边界，同时提出用现有 producer 的精确新鲜数据按规则组合评估。另一选项是保留拒绝，并修订 #135 的 AC6/AC10 正向目标。未修改规范契约、运行时代码或 #135 验收状态；未新增测试。上一已完成切片仍提交在 `dev`：`6a8bd19`。未请求真实 provider/账户、未创建 approval、未执行 Prepare/订单、未创建 `main` PR。
+
+### S29.11 GitHub 顺序票状态核对 — 2026-10-19
+
+核对 #150 的八项验收及双语证据后，已在 GitHub 将其全部勾选并关闭；关闭记录引用实现提交 `0315483`、后续 owning 集成回归 `cb91172`/`6a8bd19` 和完整验证证据。#149、#131、#133 已先前关闭。#135 当前为 4/15 项验收完成，#134 父规范票为 4/14，#121 外层 S29 票仍 OPEN；均不能关闭。其他 Wayfinder 票属于独立的串行工作项，当前 #135 尚未完成或解除规范阻断，因此本轮不跳到它们。
+
+依据初始要求按当前文档构建，继续保留 Backend ARD §41.44/§41.47 的 fail-closed 契约；未把尚待审议的非规范提案当作批准。#135 的正向 AC6/AC10 目标与这些规范条件目前不可同时满足，故维持 OPEN，不更改其验收勾选，也不伪造完成。未修改运行时；本状态核对没有运行测试、真实 provider/账户操作、Prepare、订单或金融操作。
+
+### S29.11 GitHub 序列票状态核查 — 2026-10-19
+
+核实 #150 的八项验收及双语证据后，已在 GitHub 将八项全部勾选并关闭。关闭记录引用实现提交 `0315483`、后续 owning 集成回归 `cb91172`/`6a8bd19` 和完整验证证据。#149、#131、#133 先前已关闭。#135 现为 15 项中完成 4 项，#134 父规范票为 14 项中完成 4 项，外层 #121 S29 票仍 OPEN，均不能关闭。其他 Wayfinder 票属于独立的串行工作项；当前 #135 尚未完成或解除规范阻断，本轮不跳去处理它们。
+
+遵循初始的“按现有文档构建”要求，继续保留 Backend ARD §41.44/§41.47 的 fail-closed 契约；不把待审议的非规范提案当作已批准。#135 的 AC6/AC10 正向目标与现行规范目前无法同时满足，因此保持 OPEN，不改变验收勾选，也不虚报完成。未改运行时代码；本状态核查没有运行测试、真实 provider/账户操作、Prepare、订单或金融操作。
