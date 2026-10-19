@@ -3712,3 +3712,7 @@ LLM 链不可用时,用户仍可查看既有 artifacts、处理已创建且仍�
 不完整、矛盾、未知或成交/费用累计值减少的broker事实保留上次可信reservation；provider时间戳较早时不得替换已保存观察。未预留的支出费用或超过claim的扣款会产生类型化核对冻结。只有完整的broker终态事实才能释放未用原生容量。Provider accepted、取消请求、超时或缺少费用行均不是结算事实。旧标量记录仍可读取，并明确其不含完整向量。增量wire/UI契约见Backend§41.58、Frontend§13.44和UI§14.42。本契约不表示S29.11验收完成；真实权利、producer到Prepare正向路径、Gateway preflight、公开结算/重放/并发、响应式current/captured/pre-arm证据和独立剩余门禁仍开放。
 
 已消费Live PLACE可能到达提供方后，只要其reservation仍活动，用户可以显式刷新该准确attempt的订单证据。Control Plane将读取绑定到已消费approval、保存的account、不可变Proposal、已保存provider订单ID及当前账户版本，推导提供方所需的symbol namespace，并按相同累计结算规则持久化成交/费用。该恢复读取仅发送GET，不授权或重复任何金融操作；证据不完整时继续冻结capacity。撤单竞态读取是相同命令下独立的approval绑定用途。
+
+# 75. S29.11 本地 MARKET 规则资格
+
+对受支持的普通 Binance Live 独立 BASE MARKET 意图，当前准确规则/容量/区间证据可依 Backend §41.62 满足本地规则资格。用户可检查精确规则比较、单位、输入版本及保留的非原子/区间限制。BUY MAX_POSITION 仅支持完整全账户空库存，部分成交或资产归属歧义继续不可用。MARKET 仍受交易所执行时价格范围、部分成交及过期影响；受约束 LIMIT PRICE_RANGE 继续不可用。旧捕获保持可读且不可变。本地资格不单独批准、预留、派发、建立 provider 权利或承诺成交；完整 owning 金融计划与真实来源验收继续独立。

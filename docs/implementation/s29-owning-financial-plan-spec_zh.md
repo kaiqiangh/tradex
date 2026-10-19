@@ -164,3 +164,7 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 真实已完成前置：[精确标的佣金声明](https://github.com/kaiqiangh/tradex/issues/133)、[拥有方费用/必需FX拒绝与捕获](https://github.com/kaiqiangh/tradex/issues/131)以及真正消费的现有本金/容量/行情/规则。不得为调度添加S28或物理阻塞边。按已明确的条件来源/路由契约只发布当前一个完整实现票，保留真实native依赖及已确认单票粒度。92544f5的旧规划回读是初稿三个问题的不可变当时记录，不是后续已明确模型决策的当前陈述。
 
 主来源、日期及所有20项交接映射与[英文权威](s29-owning-financial-plan-spec.md)一致。本稿是规划证据，不是法律使用权结论或真实金融验收。
+
+## 已批准的 MARKET 规则组合——2026-10-19
+
+用户批准配对的 InstrumentRules/Prepare 可达性提案范围。Backend §41.62 现规定有限的本地 BASE MARKET 消费者、精确计数/仓位比较、空库存 MAX_POSITION 支持、受支持 STP 语义、保留来源限制及不变的 LIMIT 拒绝。可选组合/比较字段保留在既有 spotRules 内，来源 qualification 及原十五项 owning AC 不变。继续在同一完整 owning ticket 内逐个公开行为做 RED→GREEN；本决议不构成完整 owning、provider 或金融验收。

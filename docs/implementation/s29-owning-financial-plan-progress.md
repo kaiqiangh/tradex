@@ -1135,3 +1135,11 @@ The pending rule-composition proposal is now linked to [first-party research](s2
 用户重新明确要求使用上游 skills 工作流。[工作流快照](wayfinder-resume-2026-10-19.md)记录固定版本的 Matt Pocock skills、完整 203 行需求、35 条实施路径及基线文档目录。GitHub CLI 读取仍被拒绝，但已连接的 GitHub 只读工具确认 Binance 本地用途决议及能力票均已关闭，同一 owning 金融计划仍开放且十五项 AC 中四项已勾选。本次接续未修改任何验收勾选或 issue 状态。
 
 待决规则组合提案已链接[第一方研究](s29-instrument-rules-composition-research.md)，Binance Spot 文档固定到 `f0ee79c8ce24dbeda6645211b9504e237fddef19`。澄清明确区分 MARKET 本地明示价格 placement 用途与交易所执行时 PRICE_RANGE；部分成交/资产归属歧义保持不可用；提出按类别精确计算新增计数、沿用既有非原子/区间来源处理，并要求观察到 STP 事实且模式语义可理解。以上仍属本地策略提案，未修改规范 gate 或运行时。已请求单独的用户范围决策，此前 MARKET_DATA_USE 批准不能解决本次 InstrumentRules 问题。串行工作仍停留在本项 to-spec；决议后继续同一完整 owning 实现票。
+
+### MARKET composition scope approved — 2026-10-19
+
+The user explicitly approved the reviewed proposal and instructed continuation. PRD §75, Backend §41.62, Frontend §13.49, UI §14.46 and the paired owning plan now define the narrow BASE MARKET local consumer, exact bounded comparison metadata, empty-inventory MAX_POSITION support, conservative category limits and supported STP defaults. Standalone source qualification and enforced LIMIT refusal remain. Work proceeds in the same owning ticket with all fifteen AC states unchanged. No provider rights, financial acceptance or live transaction authority follows from this scope decision.
+
+### MARKET 组合范围已批准——2026-10-19
+
+用户明确答复“批准，继续”。配对 PRD §75、Backend §41.62、Frontend §13.49、UI §14.46 及 owning plan 已定义有限 BASE MARKET 本地消费者、精确有界比较元数据、空库存 MAX_POSITION 支持、保守类别限额及受支持 STP 默认模式。独立来源 qualification 及受约束 LIMIT 拒绝保持。继续在同一 owning ticket 内实施，原十五项 AC 状态未改；范围决议不建立 provider 权利、金融验收或真实交易权限。

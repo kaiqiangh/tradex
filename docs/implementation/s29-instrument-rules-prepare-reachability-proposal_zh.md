@@ -1,6 +1,6 @@
 # S29.11 Binance InstrumentRules 与 Prepare 可达性——规范提案
 
-> **决议：待定。** 本文件为非规范性提案。决议记录前，不修改配对契约或运行时门禁。
+> **决议：用户于 2026-10-19 批准范围。** 本文保留决议依据；规范已同步到 PRD §75、Backend §41.62、Frontend §13.49、UI §14.46 及 owning-plan 双语契约。批准允许在同一 owning ticket 内实现，不构成金融或 provider 验收。
 
 ## 问题
 
@@ -15,7 +15,7 @@ S29.11 #135 要求受支持来源通过公开生产者进入 owning RiskDecision
 
 因此，当前 LIMIT 场景按 §41.47 无法达到完整 `INSTRUMENT_RULES PASS`。实际采集的账户规则还含 §41.44 要求继续不可用的动态仓位/订单计数。没有先澄清契约，就不能把静态规则与 owning 观察合并为正向 Prepare review。
 
-## 提议决议
+## 已批准决议
 
 允许一个严格限界的**本地 Prepare eligibility**评估，在受支持的普通 Binance Spot **BASE MARKET** 订单中，组合已有的当前 Spot 规则、容量和区间观察，并绑定到不可变 Proposal。新 MARKET 订单没有明示执行价格，因此本地“明示价格 placement 检查”按 §41.47 保持用途专属的“不适用”。MARKET 仍受交易所执行时 `PRICE_RANGE` 约束；提案不保证成交价格落在已保存区间内，也不保证成交。组合结果只能满足该 Proposal 实际适用的规则义务；不得把 `SpotCapacityInputs.qualification` 或 `SpotOrderIntervalInputs.qualification` 改成 execution-qualified。
 
@@ -29,9 +29,9 @@ S29.11 #135 要求受支持来源通过公开生产者进入 owning RiskDecision
 
 正向路径有意仅限没有明示执行价格的 MARKET 形式。受约束的 LIMIT `PRICE_RANGE` 仍保持不可用，其快照边界仍不具权威性。本决议不授权提交订单，也不豁免行情/数据用途权利、费用/FX、钱包 claims、权限/健康、Arm、consent、reservations、Gateway 即时认证 preflight、生命周期或独立 provider/source-use 事实。当前合成 Alpaca Support 上下文不计入验收，也不是用户真实来源用途事实的证据。
 
-## 提议的逐规则语义——基于来源的范围澄清，2026-10-19
+## 已批准的逐规则语义——基于来源的范围澄清，2026-10-19
 
-[双语第一方研究](s29-instrument-rules-composition-research.md)将 Binance Spot 文档固定到 `f0ee79c8ce24dbeda6645211b9504e237fddef19`。下列内容仍是本地资格策略提议，尚未成为批准的规范修订；提供方事实与本地限制保持区分。
+[双语第一方研究](s29-instrument-rules-composition-research.md)将 Binance Spot 文档固定到 `f0ee79c8ce24dbeda6645211b9504e237fddef19`。下列本地资格策略范围已获批准；提供方事实与本地限制保持区分，具体线缆及兼容性由 Backend §41.62 定义。
 
 | 义务 | 提议的有限本地处理 |
 | --- | --- |
@@ -51,7 +51,7 @@ S29.11 #135 要求受支持来源通过公开生产者进入 owning RiskDecision
 
 每次完成一个公开行为：完整空库存 MARKET BUY 与 SELL；准确总量/类别/区间限额；缺失/未知 STP；非空歧义/部分成交/其他 symbol 库存；过期或不匹配绑定与 CAS 退役；保持受约束 LIMIT 拒绝；1280/768/390 当前/captured/pre-arm 披露。每次本地规则通过仍须保留独立 blocker；只有完整 owning 事实才能按既有合成测试方案进入正向 approval/Prepare。Fixture 来源用途事实不建立真实提供方验收。同一票据继续持有原有全部十五项 owning AC。
 
-## 获批后的实现边界
+## 实现边界
 
 - Provider/vault I/O 保持在现有显式 refresh producer；RiskDecision 评估和 `get` 保持本地只读。
 - 在现有 owning RiskDecision 接缝增加一个有界、按规则评估的组合逻辑；复用已捕获观察和单一 approval blocker。不新增 renderer authority 字段、第二份投影、provider mutation、test-order endpoint，也不放宽新鲜度。
@@ -63,9 +63,9 @@ S29.11 #135 要求受支持来源通过公开生产者进入 owning RiskDecision
 
 保留现行 §41.44/§41.47 行为，并将 #135 的 AC6/AC10 正向目标改成这些普通 Binance 订单形式明确不可用/仅拒绝。不得放宽运行时门禁，也不得声称现有正向 producer-to-Prepare 要求已完成。
 
-## 待决议
+## 决议记录
 
-请批准或拒绝上述仅限 MARKET 的本地 Prepare eligibility 组合方案。批准后可同步配对规范并实现；这不代表接受 #135 或任何金融/provider 门禁。拒绝则保留 fail-closed 代码，并需由 owning ticket 决定无法到达的正向验收项。
+用户已明确答复“批准，继续”。按上述 MARKET 范围同步配对规范并继续实现；#135 的全部 AC 和金融/provider 门禁继续独立，未因本决议变更验收勾选。
 
 ## 参考
 
