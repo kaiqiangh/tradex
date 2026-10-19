@@ -1,6 +1,6 @@
 # S29.11 Binance 来源绑定的本地用途确认——规范提案
 
-> **状态：待人工决定的提案。** 本文尚非规范性契约，不改变运行时行为、S29.11 验收勾选或 #135 状态。只有该策略决定获批并准备好独立实现票后才能实施。
+> **决议：2026-10-19 已批准；本文保留为决策依据/提案记录。** 当前规范契约见 [Backend ARD §41.43](../zh/TradeX_Backend_ARD_v1.0_RevC_zh.md)、[Frontend ARD §13.48](../zh/TradeX_Frontend_ARD_v1.0_RevC_zh.md)、[UI §14.45](../zh/TradeX_UI_Prototype_Spec_v1.0_RevC_zh.md)、配对 PRD 的 source-use 章节及 [S29.11 owning plan 契约](s29-owning-financial-plan-spec_zh.md)。批准不改变运行时行为、#135 状态或任何 S29.11 验收勾选；实现须通过独立且顺序执行的 ticket 推进。
 
 ## 问题陈述
 
@@ -31,7 +31,7 @@ Backend ARD §41.43 与 `risk.rs` 当前对普通 Binance Spot Live 行情无条
 - 保持三个事实独立：技术采集、provider-observed entitlement、用户确认的本地用途策略决定。本提案只改变第三项。
 - 新增 Binance 专属本地用途，例如 `LOCAL_TRADING_DECISION_SUPPORT`；不扩展 Alpaca 现有 `POLICY_VALUATION` 确认，也不复用其 `FX_DATA_USE_RIGHTS=VERIFIED` 投影。
 - 确认绑定 workspace 和本地用户、`BINANCE_SPOT_PUBLIC`、provider `binance`、ordinary 环境、已审核的公开 Spot 数据集/profile、S29.11 当前使用的准确标的集合（BTC/USDT、ETH/USDT；仅在 owning 费用/估值模型实际消耗时包含 BNB/USDT）、声明法域、策略版本、适用的一手条款引用/修订、用途、`LOCAL_ONLY` 目的地及允许的本地保留/consumer 边界。Binance 公共行情没有远端账户绑定，不得虚构该字段。
-- 由 Control Plane 根据已保存的来源配置和策略状态推导绑定。Renderer 输入只能表达显式肯定确认及预期 state version；不能提供 rights status、provenance、digest、source identity 或 binding。
+- 由 Control Plane 根据已保存的来源配置和策略状态推导绑定。Renderer 输入可携带用户报告的声明法域、显式肯定确认及预期 state version；法域仍只是声明上下文，不代表受支持性或 entitlement 结果。Renderer 不能提供 rights status、provenance、digest、source identity 或 binding。
 - 确认仅记录用户声明。它不能覆盖已知禁令、超出范围的来源/数据集、不支持的法域或已审核 source policy 判定为阻断的未解决策略状态。确认前必须展示当前条款及其复核来源。
 
 ### 风险与 Prepare 行为
@@ -52,7 +52,7 @@ Backend ARD §41.43 与 `risk.rs` 当前对普通 Binance Spot Live 行情无条
 
 ## 后续实现票的验收标准
 
-- [ ] 配对 PRD、Backend ARD、Frontend ARD、UI 规范及 S29.11 实现规范定义同一 Binance 用户确认的本地用途，并明确区分 provider entitlement 与仅限 Alpaca 的 `POLICY_VALUATION` 确认。
+- [x] 配对 PRD、Backend ARD、Frontend ARD、UI 规范及 S29.11 实现规范定义同一 Binance 用户确认的本地用途，并明确区分 provider entitlement 与仅限 Alpaca 的 `POLICY_VALUATION` 确认。
 - [ ] 默认关闭的独立 Settings 确认由 Control Plane 绑定已保存来源、数据集、标的范围、本地用户/workspace、法域、当前策略/条款修订、用途、目的地及保留边界；renderer 无法设置 rights 或 binding 字段。
 - [ ] 缺少确认、binding 过期/不符、profile 不支持或存在已知限制时，真实所选来源的 `MARKET_DATA_USE` 按准确原因拒绝。有效确认仅以用户确认 provenance 通过；provider evidence 仍未验证。
 - [ ] 真实外部 producer evidence 经公开 React → typed Rust Control Plane → owning statement → RiskDecision → approval/Prepare consumer；不引入正向 finance snapshot、植入 approval、测试专用 source label 或 rights setter。

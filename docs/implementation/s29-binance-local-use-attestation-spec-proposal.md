@@ -1,6 +1,6 @@
 # S29.11 Binance source-bound local-use attestation — specification proposal
 
-> **Status: proposal for human specification decision.** This document is not yet a normative contract. It does not change runtime behavior, S29.11 acceptance checkboxes, or the status of #135. Implement only after this policy decision is accepted and a separate implementation ticket is ready.
+> **Decision: approved on 2026-10-19; this remains the rationale/proposal record.** The current normative contract is in [Backend ARD §41.43](../TradeX_Backend_ARD_v1.0_RevC.md), [Frontend ARD §13.48](../TradeX_Frontend_ARD_v1.0_RevC.md), [UI §14.45](../TradeX_UI_Prototype_Spec_v1.0_RevC.md), the paired PRD source-use section, and the [S29.11 owning-plan contract](s29-owning-financial-plan-spec.md). Approval does not change runtime behavior, #135 status, or any S29.11 acceptance checkbox; implementation proceeds under a separate sequential ticket.
 
 ## Problem statement
 
@@ -31,7 +31,7 @@ This is a product policy decision to rely on the user's scoped declaration for l
 - Keep three facts separate: technical collection, provider-observed entitlement, and a user-attested local-use policy decision. This proposal changes only the third.
 - Introduce a Binance-specific local scope such as `LOCAL_TRADING_DECISION_SUPPORT`; do not broaden Alpaca's existing `POLICY_VALUATION` attestation or reuse its `FX_DATA_USE_RIGHTS=VERIFIED` projection.
 - Bind the attestation to the workspace and local user, `BINANCE_SPOT_PUBLIC`, provider `binance`, ordinary environment, the reviewed public Spot dataset/profile, the exact currently supported instrument set used by S29.11 (BTC/USDT, ETH/USDT, and BNB/USDT only where the owning fee/valuation model consumes it), declared jurisdiction, policy version, applicable first-party terms reference/revision, purpose, `LOCAL_ONLY` destination, and the allowed local retention/consumer boundary. Binance public market data has no remote account binding; do not invent one.
-- Require the Control Plane to derive the binding from saved source configuration and policy state. Renderer input may express only an explicit affirmative confirmation and the expected state version; it cannot provide a rights status, provenance, digest, source identity, or binding.
+- Require the Control Plane to derive the binding from saved source configuration and policy state. Renderer input may carry the user-reported declared jurisdiction, explicit affirmative confirmation, and expected state version; the jurisdiction remains declared context, not a support or entitlement result. Renderer cannot provide a rights status, provenance, digest, source identity, or binding.
 - The attestation records the user's declaration. It cannot override a known prohibition, an out-of-profile source/dataset, unsupported jurisdiction, or unresolved policy state that the reviewed source policy treats as blocking. Current terms and their review provenance must be visible before confirmation.
 
 ### Risk and Prepare behavior
@@ -52,7 +52,7 @@ This is a product policy decision to rely on the user's scoped declaration for l
 
 ## Acceptance criteria for a follow-up implementation ticket
 
-- [ ] Paired PRD, Backend ARD, Frontend ARD, UI specification, and S29.11 implementation specification define the same Binance-specific user-attested local purpose and explicitly distinguish it from provider entitlement and the Alpaca-only `POLICY_VALUATION` attestation.
+- [x] Paired PRD, Backend ARD, Frontend ARD, UI specification, and S29.11 implementation specification define the same Binance-specific user-attested local purpose and explicitly distinguish it from provider entitlement and the Alpaca-only `POLICY_VALUATION` attestation.
 - [ ] A default-off, separate Settings confirmation is bound by the Control Plane to the saved source, dataset, instrument scope, local user/workspace, jurisdiction, current policy/terms revision, purpose, destination, and retention boundary; renderer cannot set rights or binding fields.
 - [ ] With no confirmation, stale/mismatched binding, unsupported profile, or known restriction, the real selected-source `MARKET_DATA_USE` check refuses with an exact reason. With a valid confirmation it passes only with user-attestation provenance; provider evidence remains unverified.
 - [ ] Real external-producer evidence traverses the public React → typed Rust Control Plane → owning statement → RiskDecision → approval/Prepare consumer. No positive finance snapshot, seeded approval, test-only source label, or rights setter is introduced.

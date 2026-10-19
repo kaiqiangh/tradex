@@ -1040,10 +1040,18 @@ The separately approved Alpaca `USER_ATTESTED_LOCAL_ONLY` status is limited to l
 
 Following the user's direction, the specification evaluation is complete. The paired non-normative proposal is committed on `dev` as [`s29-binance-local-use-attestation-spec-proposal.md`](s29-binance-local-use-attestation-spec-proposal.md) and [Chinese](s29-binance-local-use-attestation-spec-proposal_zh.md), commit `470f428`. It recommends a confirmation limited to the user's own local, non-commercial trading decision support. A current matching confirmation may let this source's `MARKET_DATA_USE` pass with `USER_ATTESTED_LOCAL_ONLY` provenance, while quote `dataUseRights` remains `UNVERIFIED`; known prohibitions and every other S29.11 gate remain independent. It removes one reachability blocker, does not by itself satisfy AC6, and grants no Arm, PLACE, or order submission.
 
-The pending Wayfinder specification decision is [#149](https://github.com/kaiqiangh/tradex/issues/149), labelled only `wayfinder:task`, not ready for implementation. Wait for the human decision before synchronizing normative contracts or creating an implementation ticket. No runtime code, normative PRD/ARD clauses, #135 status, or acceptance checkbox changed; no implementation, later slice, or main PR has started.
+At this historical entry, the pending Wayfinder specification decision was [#149](https://github.com/kaiqiangh/tradex/issues/149), labelled only `wayfinder:task`, not ready for implementation. The decision was subsequently approved, as recorded below. At that point no runtime code, normative PRD/ARD clauses, #135 status, or acceptance checkbox had changed; no implementation, later slice, or main PR had started.
 
 ### S29.11 本地用途确认 to-spec 评估 — 2026-10-19
 
 按用户指示完成规范评估，并在`dev`提交双语非规范性提案：[`s29-binance-local-use-attestation-spec-proposal.md`](s29-binance-local-use-attestation-spec-proposal.md)及[中文](s29-binance-local-use-attestation-spec-proposal_zh.md)，提交`470f428`。建议只对绑定的本人本地非商业交易决策支持用途增加确认；有效确认可使该来源的`MARKET_DATA_USE`以`USER_ATTESTED_LOCAL_ONLY` provenance通过，但行情`dataUseRights`继续为`UNVERIFIED`，已知禁令和其他S29.11门禁保持独立。它只移除一个可达性阻断，不能单独满足AC6，也不授予Arm、PLACE或订单提交。
 
-待决Wayfinder规范项为[#149](https://github.com/kaiqiangh/tradex/issues/149)，仅带`wayfinder:task`，未标为可直接执行。等待人工决定后再同步双语规范或创建实现票。没有运行时代码、PRD/ARD规范条款、#135状态或AC勾选变更；没有开始实现、后续切片或main PR。
+在这条历史记录当时，待决Wayfinder规范项为[#149](https://github.com/kaiqiangh/tradex/issues/149)，仅带`wayfinder:task`，未标为可直接执行。此后该决议已获批准，见下文记录。当时尚未更改运行时代码、PRD/ARD规范条款、#135状态或AC勾选；尚未开始实现、后续切片或main PR。
+
+### S29.11 #149 decision and normative synchronization — 2026-10-19
+
+The user approved the proposal scope. This resolves the preceding to-spec decision gate. The paired PRD, Backend/Frontend ARD, UI, and S29.11 owning-plan contracts now state the exact local-only scope: a current source-bound Binance attestation may pass only `MARKET_DATA_USE` with `USER_ATTESTED_LOCAL_ONLY`; provider entitlement and quote `dataUseRights` stay `UNVERIFIED`; known prohibitions or stale/unresolved policy still refuse; all independent gates and #135's complete AC6/AC10 owning-plan Prepare objective remain. The attestation grants no Arm, PLACE, order submission, provider mutation, or external use. The proposal is now marked approved and links to the normative contracts. This documentation synchronization does not change runtime code, #135 status, or acceptance checkboxes. The normative diff is being checked and will be committed to `dev` before #149 is updated and its sequential implementation ticket is created.
+
+### S29.11 #149 决议与规范同步 — 2026-10-19
+
+用户已批准提案范围，前述to-spec规范决议门禁因此解除。配对PRD、Backend/Frontend ARD、UI及S29.11 owning-plan契约现明确相同的本地范围：当前且来源绑定的Binance确认仅可使`MARKET_DATA_USE`以`USER_ATTESTED_LOCAL_ONLY`通过；provider entitlement及行情`dataUseRights`继续为`UNVERIFIED`；已知禁令或过期/未解决策略仍拒绝；其他独立门禁及#135完整AC6/AC10 owning-plan Prepare目标继续保留。确认不授予Arm、PLACE、订单提交、provider mutation或外部用途。提案文件已更新为“已批准”，并链接至规范契约。此次文档同步不改变运行时代码、#135状态或验收勾选。规范diff正在核对；先提交到`dev`，之后再更新#149并创建顺序执行的实现票。

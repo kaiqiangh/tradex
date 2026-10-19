@@ -2,7 +2,7 @@
 
 父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。已发布规范：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / ready-for-agent / 已认领，父项native子项、已完成依赖133/131。规划基线：`dev@70ce33ec5aa0286eff82e924f281c4588e03b3be`。[英文权威](s29-owning-financial-plan-spec.md)。
 
-**状态：完整单一拥有方实现规范已具体化；实现验收全部待完成。** 这是下一张单一拥有方工作项，保留[金融输入研究交接](s29-financial-inputs-research.md)的全部20项需求，不以另一个始终未资格化的来源投影代替目标。金额模型/授权与BNB估算决策已在下文具体化；条件来源选择/用途/质量及有限用途准确路由profile已在下文具体化，真实账户/来源激活证据仍未证明。本文件不记录实现、来源选择、使用权授予、金融操作或需求状态升级。**原型代码未改**。
+**状态：完整单一拥有方实现规范已具体化；实现验收全部待完成。** 这是下一张单一拥有方工作项，保留[金融输入研究交接](s29-financial-inputs-research.md)的全部20项需求，不以另一个始终未资格化的来源投影代替目标。金额模型/授权与BNB估算决策已在下文具体化；条件来源选择/用途/质量及有限用途准确路由profile已在下文具体化。单独跟踪的#149实现是前置能力切片，不是拆分或替代完整的#135拥有方金融计划；全部15项验收条件及完整producer到Prepare正向路径仍由#135承接。真实账户/来源激活证据仍未证明。本文件不记录实现、来源选择、provider使用权授予、金融操作或需求状态升级。**原型代码未改**。
 
 ## 问题
 
@@ -68,7 +68,7 @@ Prepare 在一个事务内消费审批并预留完整原币资产向量；Gatewa
 - 仅派生真正消费的本金政策估值、原生资金 identity、fallback 费用估值、条件扣费换算/估值；只有启用政策真实消费时才带入组合路由。保留配置的 fiat 本位币，必需缺失阻塞，无关资产不新增门禁。
 - Rust/schema/TypeScript 协同放宽资产/币对。选定直接路由或另行明确批准的逐腿路径保留原始单位、方向、bid/ask/size、provider/first receipt、代次、质量/脱锚、成本方法及每腿。不得平价、隐含倒数/桥接、拒绝后回退或未知成本填零。
 - 政策估值与真实资金换算不同。仅作原币估值的路由不是兑换交易或保证报价；identity 无需外部行情。仅实际会发生的兑换操作需要其真实成本，而本票不新增此类操作。
-- 来源 profile 必须明确已有 provider/dataset、获准用途与实际 entitlement/quality；草案不选择来源。Coinbase 的200不代替缺失书面许可；Alpaca 候选不等于已获使用权或新鲜度。用户选择或用途陈述仅是上下文，不是 provider entitlement。用户通过单独、明确且来源绑定的 `USER_ATTESTED_LOCAL_ONLY` 确认后，可仅为本人本地 `POLICY_VALUATION` 暴露 `FX_DATA_USE_RIGHTS=VERIFIED`；这不是 provider 验证的许可，也不授予交易或其他金融权限。
+- 来源 profile 必须明确已有 provider/dataset，并分别保留许可用途、provider entitlement 与技术访问事实；草案不选择来源。Coinbase 的200不代替缺失书面许可；Alpaca 候选不等于已获使用权或新鲜度。用户选择或用途陈述不是 provider entitlement。既有Alpaca `USER_ATTESTED_LOCAL_ONLY`确认仍仅限本地`POLICY_VALUATION`及其范围受限的`FX_DATA_USE_RIGHTS=VERIFIED`能力。按已批准的#149决议，独立的Binance `USER_ATTESTED_LOCAL_ONLY`确认仅能支持用户本人本地、非商业的`LOCAL_TRADING_DECISION_SUPPORT`用途，包括本地owning-plan/risk review与Prepare；它只能通过所选Binance来源的`MARKET_DATA_USE`检查。该确认不改变provider entitlement或`BinanceSpotQuoteEvidence.dataUseRights=UNVERIFIED`，也不会单独创建approval、Arm、PLACE或执行权限。已知限制及过期/未解决的策略事实仍会阻塞。
 - 支持且合法来源的真实外部响应必须使拥有方金融资格真实正向可达，并喂给同一货币风控/Prepare。账户、行情、使用权、政策、Arm、审批/preflight 门禁独立，来源成功不授予这些权限。
 - 分开金融材料与采集来源。账户/意图/政策/来源及费率/金额/条件实质变化使不兼容审批失效；新复验有独立不可变回执，不改旧捕获。金融材料匹配仍须遵守原审批到期，缓存/history 不延寿。
 - Prepare 与立即 Gateway preflight 检查准确身份、代次/时间/质量、真正授权边界、资金及 claims；变化/缺失在 provider mutation 前原子拒绝。后续私有生命周期及真实金融验收仍必需。
@@ -94,7 +94,7 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 
 ## 来源与路由契约 — 开发决策，真实激活仍待验证
 
-[第一方来源研究](s29-fx-source-contract-research.md)补齐适配器与路由设计。2026-10-10用户确认：**仅本人本地非商业使用，Alpaca原始行情不分发、不发送给云端模型**。记录为人类提供的用途上下文。用户在Settings中单独明确确认后，可持久化来源绑定的`USER_ATTESTED_LOCAL_ONLY`记录，并仅为本地`POLICY_VALUATION`暴露范围受限的`FX_DATA_USE_RIGHTS=VERIFIED`；它不是provider entitlement或provider核实的许可，不满足独立provider权利证据，也不会关闭#135。本地用途上下文问题已解决；适用账户协议、具体选定dataset访问及当前观察仍属真实激活/验收事实，不阻塞条件实现设计。
+[第一方来源研究](s29-fx-source-contract-research.md)补齐适配器与路由设计。2026-10-10用户确认：**仅本人本地非商业使用，Alpaca原始行情不分发、不发送给云端模型**。记录为人类提供的Alpaca用途上下文。Alpaca独立Settings动作仍来源绑定且仅限`POLICY_VALUATION`，具范围受限的`FX_DATA_USE_RIGHTS=VERIFIED`；这不是provider entitlement或provider核实的许可，也不会关闭#135。2026-10-19用户批准[#149](https://github.com/kaiqiangh/tradex/issues/149)：独立Binance Settings动作可记录用户本人本地、非商业的`LOCAL_TRADING_DECISION_SUPPORT`用途，包括本地review与Prepare。该动作要求声明法域，并显式确认当前所引用的一手条款。其provenance为`USER_ATTESTED_LOCAL_ONLY`；它只能通过所选来源的`MARKET_DATA_USE` risk check，而provider entitlement及行情`dataUseRights`仍为`UNVERIFIED`。它不满足其他source/fee/FX/account/funding/approval/Arm/dispatch门禁。适用限制、准确所选数据集访问及当前观察仍属真实激活/验收事实；已知禁止用途或过期/未解决的source-policy状态仍会拒绝。
 
 1. **显式选择及有限用途。** 普通保存来源配置扩展已有Alpaca凭据引用、显式crypto location（仅`us/us-1/eu-1`）、普通data host及准确用途专属API路由；初始未选择，本规范不替用户选定、不暗换地区/feed。个人本地profile的Alpaca观察仅供Rust `POLICY_VALUATION`；既有普通Binance Hot供标的价格，独立allowlist的内部`BNBUSDT`连续簿供`FEE_ESTIMATE`及BNB政策估值。发现来源不增加BNB可交易目录、不授权交易、不发金融mutation。不支持location/来源/路由形态类型化拒绝。
 2. **使用依据、访问及质量独立。** 版本化source-policy catalog保留第一方条款/文档URL、原始hash、使用约束及判断适用所需account/product/dataset事实。Control Plane依据这些文档与实际用途派生评估；配置只收证据/上下文，不能收`verified/allowed`金融权威flag。人类/提供方UI协议证据保留声明来源，不伪装API事实。未识别/矛盾协议或缺少必需适用事实为`SOURCE_USE_UNRESOLVED`，已知限制为`SOURCE_USE_DENIED`。适用普通个人条款不要求虚构专用金融估值许可；HTTP200、ACTIVE或Basic/IEX不证明全部数据权利。准确认证dataset成功单独建立技术访问；拒绝/凭据失效/profile、协议、policy或来源代次改变均退休观察。必须实现真实证据收取及policy求值，不用构造器正向或永久不可用适配器代替。适用证据未解决前真实激活仍不可用；条件测试不授予本用户使用权。
@@ -102,9 +102,9 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 4. **估值路由及成本。** 对拥有方Spot `INTENT_POLICY`路由，直接使用选定API结果的原币对及计价币种。`USDT/USD`结果仍是USD：不得换算成EUR或其他工作区本位币，不加隐藏FX腿，不推断倒数、不回退历史、不将USDT按平价当作USD。原结果及provider精度/时间仍可见。只有结果币种与配置的工作区本位币完全相同时，货币RiskDecision/Prepare消费者才可使用该值，并且仍须通过所有独立门禁。不匹配时返回类型化`VALUATION_CURRENCY_MISMATCH` / `SPOT_VALUATION_CURRENCY_MISMATCH`阻塞，不产生owning金额、审批authority或reservation。此issue专属规则不改写独立的portfolio/account用途路由。另行规定的BNB费用模型仍按用途处理：逐条费用估值负债用ask、资产/收入用bid；BNB→USDT负债用内部Binance ask；收到BASE→BNB明确按标的USDT ask除以BNBUSDT bid，收到USDT→BNB除以BNBUSDT bid。这些表达式不证明交易所内部平均价，也不启用通用路由。外部负债按指定向外有理数舍入，流入净值按floor规则。价格quote仅为**政策估值**，执行深度及换汇交易成本为`NOT_APPLICABLE_TO_POLICY_VALUATION`，不伪造流动性/零交易成本，也不能授权资金转换或实际转账。必要的交易quote滑点/深度和费用簿覆盖仍是独立门禁。
 5. **质量及金额范围。** 必需可信clock、真实provider time≤now、first receipt≥request、非负elapsed、正且不交叉bid/ask、同来源代次。每消费腿在review/Prepare/即时preflight的最大年龄为来源30秒与当前stale-quote policy最小值（默认3秒）；不把延迟/reference改实时。固定质量规则`USDT_USD_ONE_PERCENT_V1`：bid及ask均须含边界落在`[0.99,1.01] USD/USDT`；超界披露脱锚并阻塞依赖Live估值。这是明确保守来源质量决策，不是假定平价或替用户设金额偏好，版本/阈值进入金融材料及review。陈旧/12秒研究样本不通过。保留Alpaca size及文档解释，但价格估值不由单位解释宣称可执行规模。Binance费用模型要求真实best-level BASE数量：实际消费的标的ask覆盖完整收到资产换算额，BNB bid覆盖完整模型BNB费用，BNB ask覆盖实际估值BNB负债；不足阻塞，不造VWAP/无限深度/安全系数。完整费用总额消费size一次，不逐族重复声明足额。
 6. **费用专用连续簿。** 复用普通Binance depth生命周期，仅`BNBUSDT`；准确当前metadata证明BASE=BNB/QUOTE=USDT及有效状态。REST前buffer diff、以`lastUpdateId`及`U/u`接续、绝对量更新/零量删除。REST无market time不能单独资格化；必需连续事件`E`、first receipt、簿/session代次及连续sequence。gap/reset/reconnect、陈旧/未来/非法/交叉、metadata/profile改变或断开均退休，真实重建后恢复。仅普通host、文档weight/ping/pong/reconnect及有界buffer；新增symbol仅内部费用，不可建订单。
-7. **本地消费及单一拥有方。** 选定Alpaca profile的原始观察（含共享缓存）在model/tool序列化、research/export artifact或外部consumer前强制本地范围；本地UI可查原值，原始quote/rate/body不进入prompt/export。测试检查真正外发边界，不只查标签。来源材料供同一fee/funds/risk/review/Prepare，原值另存不可变审计。profile/source/policy/terms/intent、价格/深度、分支/金额仍绑定，仅沿用数值相同格式/receipt-only明确例外。新鲜相同证据不延长审批、不更新历史，也不豁免独立data-use、交易permission、Arm、审批/对账或真实/原生门禁。
+7. **本地消费及单一拥有方。** 选定Alpaca policy-valuation与Binance local-decision-support profile的原始观察（含共享缓存）在model/tool序列化、research/export artifact或外部consumer前强制本地范围；本地UI可查原值，原始quote/rate/body不进入prompt/export。测试检查真正外发边界，不只查标签。来源材料供同一fee/funds/risk/review/Prepare，原值另存不可变审计。profile/source/policy/terms/intent、价格/深度、分支/金额仍绑定，仅沿用数值相同格式/receipt-only明确例外。新鲜相同证据不延长审批、不更新历史，也不豁免独立source-use、交易permission、Arm、审批/对账或真实/原生门禁。只有获批的Binance `MARKET_DATA_USE`检查提供本地确认路径；其他source-use要求保持独立。
 
-**就绪区分：** 上述为完整拥有方实现决策，不是实际来源选择或资格化。单一实现票必须保留14AC/20交接，包含在真实适用使用依据下的生产者→拥有方→risk/Prepare正向以及本用户尚未证明真实激活的拒绝路径；不得source-only结案或放松其他要求。
+**就绪区分：** 上述为完整拥有方实现决策，不是实际来源选择或资格化。#135单一拥有方实现票必须保留全部15项AC及20项交接，包含在受支持来源用途依据下producer→owning→risk/Prepare正向以及本用户仍未证明真实激活的拒绝路径。顺序执行的#149能力票只能实现获批的Binance确认前置能力，不能关闭或替代任何#135条件。不得以source-only结案或放松其他要求。
 
 对于owning Spot Prepare，`ExecutionReservation.workspaceNotional`必须使用刚复验的Proposal范围`INTENT_POLICY`路线，与其`spotFeeFx`陈述使用同一份估值证据。保留本次选择的完整reservation notional（包括适用的独立本地授权上限），不得直接复制较小的expected-spend值。按准确BUY ask／SELL bid计算，校验workspace与结果币种、意图身份、requirements和route-material版本；缺失或变化时拒绝。该路径不得使用历史portfolio FX、平价、倒数或额外换汇腿。原生本金／费用claims及所有独立权限门禁分别继续校验。
 
@@ -137,27 +137,27 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 
 这些仅建立模型决策/oracle准备，不取得产品资格、不验证真实FX/脱锚/使用权、不证明流动性，也不替代公开RED/GREEN。独立核对回读记为规划证据，单独保留旧初稿回读。
 
-- [ ] AC1. 固定获准来源/profile/使用权-entitlement证据及真实支持的用途路由，无权限setter或自动回退。
+- [ ] AC1. 固定所选来源profile、provider-entitlement与技术访问证据、受支持的purpose-specific route contract及真实证据收取/policy求值，不含rights setter或自动回退。用户确认的本地用途策略必须保持独立；获批的Binance确认仅能通过所选来源的`MARKET_DATA_USE`检查，不能标记成provider entitlement。
 - [ ] AC2. 精确symbol/account/Proposal驱动全部角色/方向/三族计算，无账户比较替代。
 - [ ] AC3. 固定当前估算舍入、授权及原生边界，保留不确定性与不支持绝对保证。
 - [ ] AC4. 条件BNB及收到资产分支保留实际消费的诚实当前估算、原币、净收入及三族足额；已证明零BNB的fallback不需无用换算，不伪造不活跃BNB金额。
 - [ ] AC5. BASE/QUOTE/BNB持仓覆盖、first receipt、free/locked/local claims只消费一次并完整绑定/退休。
-- [ ] AC6. 按已批准的条件费用契约，完整的当前owning plan可在所有独立门禁通过时使review/Prepare具备资格；预先持有的原生本金及当前分支实际消费的费用claim在同一事务产生账户范围逐资产预留向量。Prepare还须持久化审批绑定的费用分支和回退额度供后续结算；收到资产扣费不作为流出容量claim。无隐藏资金操作。
+- [ ] AC6. 按已批准的条件费用契约，完整当前owning plan可在全部独立门禁通过时使review/Prepare具备资格；适用时，当前匹配的Binance本地用途确认仅可通过`MARKET_DATA_USE`。预先持有的原生本金及当前分支实际消费的费用claim在同一事务产生账户范围逐资产预留向量。Prepare还须持久化审批绑定的费用分支和回退额度供后续结算；收到资产扣费不作为流出容量claim。无隐藏资金操作。
 - [ ] AC7. 逐资产成交/费用对照已保存分支与原币额度恰好结算一次；分支/币种不符、费用真值缺失或扣款超额时冻结并进入对账，保留pending/unknown，只按券商真值释放未用容量。
 - [ ] AC8. Rust/schema/TypeScript支持真实资产/币对/路径/用途/时间/质量/成本，兼容历史捕获/预留。
 - [ ] AC9. 必需估值/费用路由正向资格化并保留配置本位币/方向/逐腿，identity/不可用处理无平价。
-- [ ] AC10. 支持的真实外部响应达到拥有方金融正向及同一风控/Prepare，无注入权限捷径。
+- [ ] AC10. 支持的真实外部生产者响应在其受支持的来源用途依据下到达拥有方金融正向及同一风控/Prepare；适用时包括获批的Binance本地确认路径，且无植入权限捷径。
 - [ ] AC11. 实质变化使不兼容审批失效；匹配复验保留原到期与独立来源，不制造回执审批循环。
 - [ ] AC12. Prepare/preflight强制真正授权/资金边界，变化/缺失拒绝，无部分状态/provider mutation。
 - [ ] AC13. 公开TDD、正向/错误/生命周期/并发/结算及实际当前/捕获/pre-arm响应式UI通过。
 - [ ] AC14. 配对规范、完整检查、普通构建/pin、独立串行复审与冻结交付通过；本项不自动升级父项/全图/真实/原生/物理/发布验收。
-- [ ] AC15. owning Spot `INTENT_POLICY`估值在当前、捕获和pre-Arm视图中保留精确提供方币对、原始数值文本、币种、提供方时间/本地回执时间及可用的size/status。本路由不增加欧元/其他币种换算，不使用历史FX，不推导倒数或平价。RiskDecision/Prepare仅消费结果币种与workspace本位币完全一致的估值；否则返回typed估值币种阻断，且不产生owning金额、审批权限或reservation。其他按purpose限定的FX路由及所有独立source-use门禁不变。
+- [ ] AC15. owning Spot `INTENT_POLICY`估值在当前、捕获和pre-Arm视图中保留精确提供方币对、原始数值文本、币种、提供方时间/本地回执时间及可用的size/status。本路由不增加欧元/其他币种换算，不使用历史FX，不推导倒数或平价。RiskDecision/Prepare仅消费结果币种与workspace本位币完全一致的估值；否则返回typed估值币种阻断，且不产生owning金额、审批权限或reservation。其他按purpose限定的FX路由及所有独立source-use门禁均保留；仅获批的Binance `MARKET_DATA_USE`检查可使用独立的本地确认。
 
 ## 不在本项范围
 
 20项研究交接全部纳入，均仍待实现：1→AC2；2→AC2/4；3→AC3/4；4→AC3/12；5→AC3/4；6→AC5；7→AC5/6；8→AC6/7；9→AC9/15；10→AC6；11→AC8/9/15；12→AC1；13→AC3/9/15；14→AC10/15；15→AC11；16→AC12/15；17→AC13/15；18→AC13；19→AC14；20→AC14。完整性映射不是PASS证据。
 
-新券商、Convert/转账/提款、托管/杠杆/衍生品、任意交易标的、自动金融操作/真实订单、购买许可、地区绕过、使用权授予、私有流完整生命周期、无关S28/S17/物理S27验收、原型修复和main合并。完整S29生命周期/真实提供方及全应用仍为后续串行必需工作。
+新券商、Convert/转账/提款、托管/杠杆/衍生品、任意交易标的、自动金融操作/真实订单、购买许可、地区绕过或声称用户确认授予provider权利、私有流完整生命周期、无关S28/S17/物理S27验收、原型修复和main合并。完整S29生命周期/真实提供方及全应用仍为后续串行必需工作。
 
 ## 补充
 

@@ -1282,3 +1282,9 @@ Accounts surface 展示每个 Live open order 的 provider state、完整 provid
 ### 13.47 Saved Thread 生命周期（B2 #148）
 
 typed client 将 thread.archive/thread.restore 映射为 ThreadLifecycle→Thread。Thread 详情持有绑定当前展示版本的忙碌/错误生命周期操作。成功后通过现有 thread.updated 订阅更新权威详情，并使工作区 Thread 列表失效刷新；避免重复快照重载卸载已聚焦的生命周期控件。Archive Thread 与 Restore to active 相互改变时保留焦点。Turn 运行时禁用归档并说明原因；失败提供 Reload thread，不重放写入。所选快照正在获取或订阅尚未建立当前 projection 时，禁用生命周期操作；就绪性仅是 UI 传输状态，绝非执行权限。ARCHIVED 详情保留准确元数据/上下文/时间线，用只读说明替代 composer，隐藏 Turn retry/save-as-artifact 控件。独立恢复仅改变生命周期；另行显式 Send 仍需通过当前 runtime/capability/金融门禁。1280/768/390 保持过期/错误恢复和状态可见，不由 renderer 创建状态、事件或权限。共享契约归 Backend §41.61/UI §14.44。
+
+### 13.48 Binance 本地交易决策用途确认（S29.11 #149）
+
+Settings → Data & Storage → 普通 Binance 公共 Spot 来源提供声明法域字段、Backend §41.43 下发的当前一手条款链接/复核日期、默认未选中的本地用途确认框，以及独立“记录我的本地用途确认”操作。说明用户仅确认本人在本地、非商业地使用屏幕所示准确 Binance 公共数据集/标的范围做决策支持，包括本地 owning plan/风险复核和 Prepare；这不是 Binance 核验、法律批准、provider entitlement 或外部/商业用途许可。用户报告两个大写字母的法域，并确认已查看屏幕显示的当前条款。Renderer 向 `data.binance_market.attest_local_use` 仅发送 `workspaceId`、当前 `expectedStateVersion`、`declaredJurisdiction` 和 `confirmLocalTradingDecisionSupport: true`；撤销使用独立 CAS 命令。不得发送 rights 状态、source/provider/environment、dataset/标的、purpose、destination、策略/条款版本、确认时间或 digest。不发 provider 请求或建立租约。
+
+将 Control Plane 返回的类型化确认 binding 和确认时间显示为“由你确认：仅限本地决策支持”。provider entitlement 与 `BinanceSpotQuoteEvidence.dataUseRights=UNVERIFIED` 必须清楚分开显示；此 Binance 状态绝不标记为 `FX_DATA_USE_RIGHTS=VERIFIED`。缺失、过期、错配、不支持及已知禁令均显示后端准确原因。有效匹配确认仅将所选来源 `MARKET_DATA_USE` RiskDecision 检查变为 `PASS`，原因 `DATA_USE_USER_ATTESTED_LOCAL_ONLY`；当前/捕获 risk/review 展示该原因和有界 provenance。所有其他门禁结果继续可见。source generation 变化会使已有 Hot 材料失效，需由正常可见生产者重新采集；Settings 操作本身不读取 provider。来源/profile/标的、法域、策略/条款、用途/目的地/保留变化、断开和显式撤销均使当前确认失效；捕获评审不可变保留旧 binding，不能续期。Renderer 不推导估值算术，不向 model/tool prompt、research、export 或外部 consumer 转发原始或派生行情。保持键盘可用并适配390/768/1280px。此契约见 Backend §41.43 和 UI §14.45；本地确认本身不满足 S29.11 AC6，也不授予 approval、Arm、PLACE 或订单提交权限。

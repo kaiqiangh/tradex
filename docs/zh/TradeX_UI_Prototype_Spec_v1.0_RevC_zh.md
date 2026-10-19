@@ -1116,3 +1116,9 @@ Trade 仅为所选已保存普通 Binance Live Proposal 展示当前规则。显
 Thread 详情对 ACTIVE 提供 Archive Thread，对 ARCHIVED 提供 Restore to active。Turn 为 RUNNING 时禁用归档，说明等待或显式取消；正常 Turn 取消仍独立保留。归档成功将准确 ID 从 Today/Earlier 移到 Saved；恢复回到按本地日期划分的活动分组。生命周期控件标签改变时保留键盘焦点。展示忙碌、失败/过期说明及显式 Reload thread 恢复入口，不暗中重试写入。
 
 选择 Saved 展示准确身份、已存模式/执行上下文/账户/模型、规范上下文 ID 及原时间线/来源。显示“Archived Thread · read only”；此视图不显示 composer、Turn retry 或 save-as-artifact 写操作。已有衍生 Artifact 仍可在其他位置查看。除 status/updatedAt/stateVersion 外，归档/恢复保留全部 Thread 字段，包括 codexThreadId；不调用上游会话归档/删除。恢复不发送 Turn，也不复活审批/Arm/新鲜度/预留权限。验证显式键盘操作、无隐式金融审批、状态/竞争拒绝及 1280/768/390 可达性和无溢出。浏览器证据不证明原生 VoiceOver 或完整 S33。原型代码保持不变。
+
+## 14.45 Binance 本地交易决策用途确认（S29.11 #149）
+
+在 Settings → Data & Storage → 普通 Binance 公共 Spot 来源中，展示用户声明法域、Control Plane 下发的当前一手条款链接/复核日期、默认未选中的本地用途确认框及独立“记录我的本地用途确认”操作。确认文案仅覆盖用户本人针对屏幕显示的准确数据集/标的范围，在本地、非商业地进行交易决策支持，包括本地 owning-plan/risk review 和 Prepare/预留。明确说明这是用户声明，不是 Binance 核验、法律批准、provider entitlement 或外部/商业用途许可。要求两个大写字母的法域及用户确认已阅读当前显示条款。生成 IPC 仅发送 workspace/当前 state version、声明法域和肯定确认；撤销是独立 CAS 操作。不发 provider 请求或创建租约。
+
+记录后以“由你确认：仅限本地决策支持”显示 `USER_ATTESTED_LOCAL_ONLY` 及准确 source/profile/标的范围、声明法域、用途、`LOCAL_ONLY` destination、保留边界、条款引用/复核日期、policy 版本、确认时间和 binding digest。将 source entitlement 与 `BinanceSpotQuoteEvidence.dataUseRights=UNVERIFIED` 分开且持续可见；不得将此 Binance 状态称为 `FX_DATA_USE_RIGHTS=VERIFIED`。缺失、过期、错配、不支持及已知禁令显示后端原因。当前确认仅可使所选来源的 `MARKET_DATA_USE` 检查以 `DATA_USE_USER_ATTESTED_LOCAL_ONLY` 通过；当前和捕获 RiskDecision/review 都显示该原因及有界确认投影。其他门禁均独立且可见。配置 generation 变化使当前 Hot 证据失效；Settings 不刷新，只有普通可见生产者可重新采集当前材料。来源/profile/标的、法域、策略/条款修订、用途/目的地/保留变化、断开和显式撤销均使当前资格失效。Captured view 保留历史 binding，不续期，也不包含原始 quote/book。原始或派生行情不得进入 model/tool prompt、research、export 或其他外部 consumer。验证键盘操作及390/768/1280px响应式可读、无溢出。行为见Backend §41.43与Frontend §13.48。本确认本身不满足 S29.11 AC6，也不授予approval、Arm、PLACE或订单提交权限；原型源码不变，完整S29.11验收仍待完成。
