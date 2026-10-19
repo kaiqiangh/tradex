@@ -1,0 +1,17 @@
+S29.11 AC6 dispatch reservation revalidation follow-up — 2026-10-19
+
+Code commit: 0502b897fb4ff494b2a4b5d154cf9c133c221082 on local dev.
+
+The dispatch-grant and preflight paths now retain a PLACE reservation only when the exact durable ownership/binding validation fails. This includes the second active-ledger read, where reservation ID, attempt ID, or current state version must still match. The failed assessment returns the public RISK_EVIDENCE_UNAVAILABLE and makes no reservation transition. Other failed PLACE revalidation, including a changed approval review digest, still invalidates the undispatched attempt and releases its reservation.
+
+Focused regressions passed 4/4:
+- failed_place_dispatch_revalidation_keeps_the_original_reservation_active
+- failed_place_preflight_revalidation_keeps_the_original_reservation_active
+- failed_place_review_detects_a_changed_durable_reservation_version
+- failed_place_review_revalidation_invalidates_and_releases_its_reservation
+
+Final default-feature `cargo test --workspace` passed 576 tests, with 33 existing ignored and 0 failed. This included 284 library tests, 123 Binance rules tests, 42 financial-source tests, and 5 Gateway pin/handshake tests. In this Linux workspace the Rust checks linked against the official DuckDB 1.5.5 release library already present in `/tmp`; the repository's bundled Cargo configuration and Cargo.lock were restored before final status.
+
+Also passed: `npm run build`, `npm run test:unit` (35/35), `npm run schema:check`, `npm run check:logs`, `python3 scripts/check_requirements.py` (203 requirements, 70 screens, 13 QA scenarios, 23 baseline files), `cargo fmt --all -- --check`, and `git diff --check`. Vite retains its 5,901.99 kB minified-chunk warning and Rust emits existing dead-code warnings.
+
+The ordinary Tauri desktop build was not run: the Linux container lacks GTK/WebKit development packages and had 1.4 GB free after the full test build. Gateway pin integration tests passed. This supporting implementation does not satisfy positive owning Spot producer-to-Prepare acceptance, source-use rights, full ticket acceptance, or the parent/map. No real provider/account was read or written and no financial action was performed.
