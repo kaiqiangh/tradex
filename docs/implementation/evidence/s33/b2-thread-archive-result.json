@@ -1,0 +1,109 @@
+{
+  "result": "PASS_LIMITED",
+  "scope": "B2 #148 Saved Thread archive and explicit restore",
+  "codeCommit": "f7b0efc3ef4c721ed483f992f193c750a54420b7",
+  "branch": "dev",
+  "browserHarness": "Rust-backed local integration harness with isolated SQLite workspaces",
+  "browserRuns": [
+    {
+      "verifiedAt": "2026-10-19T17:29:57.627Z",
+      "workspaceId": "5d5edbe4-1ec8-40fb-ae35-864436e09fdc",
+      "threadId": "448ca236-cc4a-4820-a1be-414167c08393",
+      "syntheticTimeline": false,
+      "originalTurnCount": 0,
+      "widths": [1280, 768, 390],
+      "savedAfterReload": true,
+      "restoredToToday": true,
+      "focusPreserved": true,
+      "completeIdentityReachable": true,
+      "documentOverflow": false,
+      "archivedAndRestored": 4,
+      "staleUiRecovery": true,
+      "crossWorkspaceRefusal": true,
+      "runningTurnRefusal": false,
+      "preservedThreadFieldsExceptLifecycle": true,
+      "unchangedAccounts": true,
+      "turnStartsAfterLifecycle": 0,
+      "commandCounts": {
+        "thread.archive": 6,
+        "thread.restore": 4
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "verifiedAt": "2026-10-19T17:30:06.124Z",
+      "workspaceId": "77aeb744-2dec-4d5d-ab80-7ca2a258d6ce",
+      "threadId": "bab67ed7-4616-45fa-8132-29894e3c73be",
+      "syntheticTimeline": true,
+      "originalTurnCount": 1,
+      "widths": [1280, 768, 390],
+      "savedAfterReload": true,
+      "restoredToToday": true,
+      "focusPreserved": true,
+      "completeIdentityReachable": true,
+      "documentOverflow": false,
+      "archivedAndRestored": 4,
+      "staleUiRecovery": true,
+      "crossWorkspaceRefusal": true,
+      "runningTurnRefusal": true,
+      "preservedThreadFieldsExceptLifecycle": true,
+      "unchangedAccounts": true,
+      "turnStartsAfterLifecycle": 0,
+      "commandCounts": {
+        "thread.archive": 6,
+        "thread.restore": 4
+      },
+      "externalRequests": [],
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  ],
+  "verifiedBehavior": [
+    "Saved detail is read-only: no Turn composer, retry, Save as artifact, or Send invitation for an empty archived Thread.",
+    "Archive and restore preserve Thread identity, upstream reference, defaults, linked contexts, and timeline; restore does not send.",
+    "A running Turn and a Thread ID from another workspace are refused by Rust without changing the original Thread.",
+    "Stale lifecycle UI state recovers through explicit reload without replaying the failed write.",
+    "Account state is unchanged, and lifecycle produces zero turn.start commands."
+  ],
+  "sourceSha256": {
+    "src/App.tsx": "cb188f8e8266658506aa5dd2a815f5cfce61ae290f2e3d9cfe06f2b2e9d08b20",
+    "tests/s33-thread-archive-ui.mjs": "58b1872b13dbf377fe235f3460f40bee7d7a8444e33627e6de5bee81193c5fae"
+  },
+  "screenshots": [
+    {
+      "path": "docs/implementation/evidence/s33/b2-saved-archive-390.png",
+      "width": 390,
+      "sha256": "9179f7dce44d58db07336067c7d2f10033ee2c90820ffe113185466aec0c7a49"
+    },
+    {
+      "path": "docs/implementation/evidence/s33/b2-saved-timeline-390.png",
+      "width": 390,
+      "sha256": "5b67bebef2bc1ede68030411fc542741bfd676987d5a109f21cb675fe6882337"
+    }
+  ],
+  "validation": {
+    "schemaCheck": "passed",
+    "frontendProductionBuild": "passed; existing Vite warning that the JavaScript bundle exceeds 500 kB",
+    "unitTests": "35 passed",
+    "rustWorkspaceTests": "passed with Rust 1.98.1, CARGO_PROFILE_TEST_DEBUG=0, RUST_TEST_THREADS=1, RUST_MIN_STACK=16777216; 286 library tests, 123 Binance rule-limit tests, and remaining workspace suites passed",
+    "secretScan": "passed; real isolated dispatcher diagnostics had zero findings and synthetic canaries were detected",
+    "requirementsTrace": "passed; 203 requirements, 70 screens, 13 QA scenarios, 23 baseline files",
+    "workspaceClippy": "cargo clippy --workspace --all-targets exited 0 with existing repository warnings; all-features and -D warnings were not verified",
+    "desktopBuild": "blocked after frontend and Gateway release builds because this environment lacks GLib 2.70+ and WebKitGTK development packages required by Tauri"
+  },
+  "review": {
+    "sequence": ["Standards", "Spec"],
+    "reviewer": "primary agent",
+    "independentReview": false,
+    "standards": "PASS for the changed slice; no actionable finding",
+    "spec": "PASS for the bounded behavior in UI Spec §14.44, PRD §11.4, and Backend ARD §41.61",
+    "issueTracking": "No issue state update was made; GitHub CLI issue reads returned Forbidden. B2 remains IMPLEMENTED_UNVERIFIED."
+  },
+  "limits": [
+    "Synthetic local runtime and isolated workspace only; no real provider, account credential, market-data request, or financial operation.",
+    "This does not establish upstream Codex resume behavior, native VoiceOver/accessibility, native desktop build, or full S33 acceptance.",
+    "Browser evidence covers this local archive/restore slice and does not close parent acceptance gates."
+  ]
+}

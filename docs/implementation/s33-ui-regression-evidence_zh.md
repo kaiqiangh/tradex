@@ -364,3 +364,13 @@ G2 对 `c14ef06...1ccb38f`（含证据补充 `6cae59d`）完成独立串行审�
 B2 保持 IMPLEMENTED_UNVERIFIED。已填充 ARCHIVED/Saved 仍开放：wire 类型和展示分支存在，但当前公开命令目录没有归档操作。本次未注入可信 Thread 行或伪造已保存历史。完整 S33/native 与上游运行时恢复继续作为独立门禁开放。
 
 对 `f25c6fc...cc16bd1` 的独立串行审查：本次传输恢复切片 **Standards 零 finding；Spec 零可执行 finding**。审查核对明确的 UI 结果、公开 Thread 不变、只读命令边界、十八项观察、六条预期传输诊断、源码/截图哈希、双语声明及保留的 B2/完整 S33 限制。审查只读，未重跑测试。
+
+## B2 Saved 归档与显式恢复 — 2026-10-19
+
+在上方 2026-10-15 历史记录之后，issue #148 增加了公开 Rust-backed `thread.archive` / `thread.restore` 生命周期命令。上文“公开命令目录没有归档操作”保留为当时的历史状态。源码提交：`f7b0efc3ef4c721ed483f992f193c750a54420b7`。新鲜机器收据包含两次隔离运行及源码/截图哈希：[B2 归档/恢复结果](evidence/s33/b2-thread-archive-result.json)。
+
+两个独立临时 SQLite 工作区均在 1280/768/390 下通过。空 Thread 路径验证重新加载后仍在 Saved、显式恢复到 Today、焦点保留、完整身份可达、无溢出、除 lifecycle status/更新时间/stateVersion 以外的 Thread 字段保留且账户记录不变、四次归档/恢复 UI 循环、过期写入恢复、跨工作区拒绝及零 `turn.start`。第二次使用合成已完成 Turn，并额外验证 Rust 会在 Turn 仍为 RUNNING 时拒绝归档且 Thread 仍为 ACTIVE。Saved 隐藏 Turn composer、retry 和 Save as artifact 控件；空时间线不再邀请发送。恢复后会显示独立的显式 Send 控件，但不会自动发送。截图：[390 px 空 Saved](evidence/s33/b2-saved-archive-390.png)、[390 px Saved 时间线](evidence/s33/b2-saved-timeline-390.png)。
+
+本有限切片通过 PRD/UI Spec/Backend ARD 对照。Standards 后接 Spec 的顺序审阅由主代理完成，并非独立复审。Schema、前端构建、35 项单元测试、完整 Rust workspace 测试、secret scan、需求追踪及默认 workspace Clippy 均通过；Clippy/Vite 既有警告仍在。Linux Tauri 桌面构建因环境缺少 GLib 2.70+ 与 WebKitGTK 开发包而未完成。由于 `gh issue view` 返回 `Forbidden`，没有更新 GitHub issue 状态；B2 仍为 `IMPLEMENTED_UNVERIFIED`。
+
+这些本地合成证据不证明上游 Codex 会话恢复、真实 provider 行为、原生 VoiceOver、原生桌面构建或完整 S33 验收。
