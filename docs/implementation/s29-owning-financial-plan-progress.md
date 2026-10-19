@@ -1035,3 +1035,15 @@ The separately approved Alpaca `USER_ATTESTED_LOCAL_ONLY` status is limited to l
 按当前双语规范契约，下一段公开 producer 到 owning Spot Prepare 无法完成。Backend ARD §41.43 明确规定：普通 Binance Live 使用 `BINANCE_SPOT_PUBLIC` 时，无论行情读取成功、来源切换或其他检查结果如何，`RiskCheckId::MARKET_DATA_USE` 均为 `UNAVAILABLE`；当前 `risk.rs` 也在选定行情来源标识为该来源时执行此门禁。因此 owning 费用／估值 statement 即使为 `PASS`，完整 Live RiskDecision 仍无法签发审批，Prepare 也无法获得有效授权。植入审批、将来源伪装成测试标记或弱化共享 rights 检查，都会违反公开测试规则与现行产品契约。
 
 另行批准的 Alpaca `USER_ATTESTED_LOCAL_ONLY` 仅适用于本地 `POLICY_VALUATION`，不改变 Binance `MARKET_DATA_USE`，不证明 provider entitlement，也不能补足仍待验证的真实来源激活事实。S29.11 条件费用模型与派发预留修复都没有解决该独立门禁。没有更改运行时行为、AC勾选、GitHub issue状态或后续 Wayfinder 项。串行工作仍停留在 #135 / AC6。若要继续正向公开 producer→RiskDecision→Prepare 验收，必须先由 Wayfinder 规范明确：Binance 公共行情门禁是否保持绝对拒绝，或是否增加显式、绑定来源且保留“非 provider 权限证明”限制的本地用途策略；只有该规范／ticket 决议完成后才能实现。
+
+### S29.11 local-use attestation to-spec evaluation — 2026-10-19
+
+Following the user's direction, the specification evaluation is complete. The paired non-normative proposal is committed on `dev` as [`s29-binance-local-use-attestation-spec-proposal.md`](s29-binance-local-use-attestation-spec-proposal.md) and [Chinese](s29-binance-local-use-attestation-spec-proposal_zh.md), commit `470f428`. It recommends a confirmation limited to the user's own local, non-commercial trading decision support. A current matching confirmation may let this source's `MARKET_DATA_USE` pass with `USER_ATTESTED_LOCAL_ONLY` provenance, while quote `dataUseRights` remains `UNVERIFIED`; known prohibitions and every other S29.11 gate remain independent. It removes one reachability blocker, does not by itself satisfy AC6, and grants no Arm, PLACE, or order submission.
+
+The pending Wayfinder specification decision is [#149](https://github.com/kaiqiangh/tradex/issues/149), labelled only `wayfinder:task`, not ready for implementation. Wait for the human decision before synchronizing normative contracts or creating an implementation ticket. No runtime code, normative PRD/ARD clauses, #135 status, or acceptance checkbox changed; no implementation, later slice, or main PR has started.
+
+### S29.11 本地用途确认 to-spec 评估 — 2026-10-19
+
+按用户指示完成规范评估，并在`dev`提交双语非规范性提案：[`s29-binance-local-use-attestation-spec-proposal.md`](s29-binance-local-use-attestation-spec-proposal.md)及[中文](s29-binance-local-use-attestation-spec-proposal_zh.md)，提交`470f428`。建议只对绑定的本人本地非商业交易决策支持用途增加确认；有效确认可使该来源的`MARKET_DATA_USE`以`USER_ATTESTED_LOCAL_ONLY` provenance通过，但行情`dataUseRights`继续为`UNVERIFIED`，已知禁令和其他S29.11门禁保持独立。它只移除一个可达性阻断，不能单独满足AC6，也不授予Arm、PLACE或订单提交。
+
+待决Wayfinder规范项为[#149](https://github.com/kaiqiangh/tradex/issues/149)，仅带`wayfinder:task`，未标为可直接执行。等待人工决定后再同步双语规范或创建实现票。没有运行时代码、PRD/ARD规范条款、#135状态或AC勾选变更；没有开始实现、后续切片或main PR。
