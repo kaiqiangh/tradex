@@ -1,0 +1,16 @@
+AssertionError [ERR_ASSERTION]: Expected visible UI text Source-only assessment; received Current Proposal Spot rules
+
+Complete rules · UNAVAILABLE
+
+Current assessment of the saved, unchanged Proposal. Missing inputs remain unavailable. Rights, quotes, permissions, fees, FX and immediate preflight need their own checks.
+
+Proposal
+proposal:8c74a117-8be1-4447-8881-66d424d02c6d · sha256:d8d34ff097171d416c48477f2f1960c2a8aadd39f67f8c438379a50eca09febc
+Exact account
+a3fb1ea4-de5c-4180-a472-fe21d517021f
+Instrument / units
+crypto:BTC/USDT:spot · BASE BTC / QUOTE USDT. USDT is not USD.
+Rule
+    at waitForUIText (file:///workspace/tradex/tests/spot-owning-admission-ui.mjs:20:10)
+    at async checkSpotMarketRuleCompositionUI (file:///workspace/tradex/tests/spot-market-rule-composition-ui.mjs:91:3)
+    at async file:///tmp/tradex-browser-qa/run-market-rules.mjs:9:15

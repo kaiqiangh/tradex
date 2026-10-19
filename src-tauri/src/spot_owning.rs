@@ -16,7 +16,7 @@
 use crate::protocol::{OrderSide, Result};
 use crate::provider_io;
 use crate::risk::RiskCheckOutcome;
-use crate::spot_capacity::SpotCapacityInputs;
+use crate::spot_capacity::{SpotCapacityInputs, SpotCapacityObservation};
 use crate::spot_order_intervals::SpotOrderIntervalInputs;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -34,6 +34,18 @@ const CARRIED_INTERVAL_LIMITATIONS: [&str; 3] = [
     "DERIVED_WINDOW_ASSOCIATION_UNCERTAIN",
     "INTERVAL_INPUTS_NOT_EXECUTION_QUALIFIED",
 ];
+
+/// Coverage is shared by owning admission and concrete MARKET comparisons. Standing
+/// provenance labels describe acquisition quality; every other unresolved fact is a gap.
+pub(crate) fn capacity_coverage_complete(observation: &SpotCapacityObservation) -> bool {
+    observation.counts.classifications_complete
+        && observation.counts.order_coverage_complete
+        && observation.counts.list_coverage_complete != Some(false)
+        && observation
+            .unresolved_obligations
+            .iter()
+            .all(|label| CARRIED_CAPACITY_LIMITATIONS.contains(&label.as_str()))
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -273,17 +285,7 @@ pub(crate) fn qualify(
     // The declared inventory is only usable as capacity if the venue's own coverage flags say
     // every open order was seen and classified. The standing "non-atomic" and "not execution
     // qualified" labels are not coverage gaps and stay in carried_limitations.
-    let counts = &capacity_observation.counts;
-    let capacity_gaps = capacity_observation
-        .unresolved_obligations
-        .iter()
-        .filter(|obligation| !CARRIED_CAPACITY_LIMITATIONS.contains(&obligation.as_str()))
-        .count();
-    if !counts.classifications_complete
-        || !counts.order_coverage_complete
-        || counts.list_coverage_complete == Some(false)
-        || capacity_gaps > 0
-    {
+    if !capacity_coverage_complete(capacity_observation) {
         return Ok(blocked(
             qualification,
             RiskCheckOutcome::Unavailable,

@@ -376,6 +376,9 @@ fn main() -> io::Result<()> {
                     Some("COMPLETE_COVERAGE") => {
                         Some(fixtures::BinanceCapacityFixture::CompleteCoverage)
                     }
+                    Some("MARKET_EMPTY_INVENTORY") => {
+                        Some(fixtures::BinanceCapacityFixture::MarketEmptyInventory)
+                    }
                     Some("ORDER_RATE_EXHAUSTED") => {
                         Some(fixtures::BinanceCapacityFixture::OrderRateExhausted)
                     }

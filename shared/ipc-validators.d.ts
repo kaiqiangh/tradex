@@ -475,6 +475,8 @@ declare const validators: {
   SpotFeeRateBasis: (value: unknown) => boolean;
   SpotFundingPlanPreview: (value: unknown) => boolean;
   SpotMarketEnvironment: (value: unknown) => boolean;
+  SpotMarketRuleComparison: (value: unknown) => boolean;
+  SpotMarketRuleComposition: (value: unknown) => boolean;
   SpotOrderIntervalClock: (value: unknown) => boolean;
   SpotOrderIntervalCounter: (value: unknown) => boolean;
   SpotOrderIntervalDefinition: (value: unknown) => boolean;

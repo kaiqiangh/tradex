@@ -1,0 +1,51 @@
+{
+  "workspaceId": "b9ed140c-5b71-4939-b9fc-f60a8e63fcc0",
+  "proposalId": "proposal:44ab72f2-8fcc-4504-bf88-1068ad3d82a2",
+  "composedOutcome": "PASS",
+  "standaloneOutcome": "UNAVAILABLE",
+  "currentCaptureAndPrearm": true,
+  "widths": [
+    {
+      "width": 1280,
+      "body": 1280,
+      "panel": 390,
+      "client": 390
+    },
+    {
+      "width": 768,
+      "body": 768,
+      "panel": 422,
+      "client": 422
+    },
+    {
+      "width": 390,
+      "body": 390,
+      "panel": 268,
+      "client": 268
+    },
+    {
+      "width": 1280,
+      "body": 1280,
+      "panel": 568,
+      "client": 568
+    },
+    {
+      "width": 768,
+      "body": 768,
+      "panel": 568,
+      "client": 568
+    },
+    {
+      "width": 390,
+      "body": 390,
+      "panel": 286,
+      "client": 286
+    }
+  ],
+  "noAuthorityIssued": true,
+  "observedBackendCommands": 103,
+  "forbiddenCommands": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "externalRequests": []
+}

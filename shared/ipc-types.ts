@@ -5004,6 +5004,7 @@ export interface SpotProposalRules {
   baseAsset: string;
   bindingVersion: string;
   instrumentId: string;
+  marketComposition?: SpotMarketRuleComposition | null;
   materialVersion?: string | null;
   observedAt?: string | null;
   outcome: RiskCheckOutcome;
@@ -5031,6 +5032,26 @@ export interface SpotProposalRules {
    */
   unresolvedObligations: string[];
   workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotMarketRuleComposition".
+ */
+export interface SpotMarketRuleComposition {
+  admissionOutcome: RiskCheckOutcome;
+  admissionReason: string;
+  capacityVersion: string;
+  /**
+   * @maxItems 5
+   */
+  carriedLimitations:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string];
+  intervalVersion: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
@@ -5083,12 +5104,23 @@ export interface SpotRuleReference {
  */
 export interface SpotRuleEvaluation {
   applicable: boolean;
+  localComparison?: SpotMarketRuleComparison | null;
   origin: SpotRuleOrigin;
   outcome: RiskCheckOutcome;
   reasonCode: string;
   ruleType: string;
   scope: SpotRuleScope;
   unit?: string | null;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "SpotMarketRuleComparison".
+ */
+export interface SpotMarketRuleComparison {
+  increment: string;
+  limit: string;
+  observed: string;
+  total: string;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

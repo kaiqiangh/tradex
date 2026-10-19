@@ -1,0 +1,185 @@
+   Compiling tradex v0.1.0 (/workspace/tradex/src-tauri)
+warning: associated function `for_gateway` is never used
+  --> src-tauri/src/codex_runtime.rs:38:19
+   |
+37 | impl RuntimeAccess {
+   | ------------------ associated function in this implementation
+38 |     pub(crate) fn for_gateway(api_key: &str) -> Option<Self> {
+   |                   ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `action` is never read
+  --> src-tauri/src/gateway.rs:26:16
+   |
+23 | pub struct GatewayJob {
+   |            ---------- field in this struct
+...
+26 |     pub(crate) action: GatewayAction,
+   |                ^^^^^^
+
+warning: constant `SERVICE` is never used
+  --> src-tauri/src/provider_io.rs:42:7
+   |
+42 | const SERVICE: &str = "com.tradex.broker.credentials";
+   |       ^^^^^^^
+
+warning: function `binance_testnet_private_stream_subscription` is never used
+  --> src-tauri/src/provider_io.rs:55:15
+   |
+55 | pub(crate) fn binance_testnet_private_stream_subscription(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_binance_testnet_private_stream_account` is never used
+  --> src-tauri/src/provider_io.rs:63:15
+   |
+63 | pub(crate) fn verify_binance_testnet_private_stream_account(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_binance_testnet_private_stream` is never used
+  --> src-tauri/src/provider_io.rs:91:15
+   |
+91 | pub(crate) fn reconcile_binance_testnet_private_stream(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_testnet_order_book` is never used
+    --> src-tauri/src/binance.rs:1863:15
+     |
+1863 | pub(super) fn reconcile_testnet_order_book(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `private_stream_subscription` is never used
+    --> src-tauri/src/binance.rs:1935:15
+     |
+1935 | pub(super) fn private_stream_subscription(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_private_stream_account` is never used
+    --> src-tauri/src/binance.rs:1965:15
+     |
+1965 | pub(super) fn verify_private_stream_account(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_action` is never used
+    --> src-tauri/src/binance.rs:1974:4
+     |
+1974 | fn reconcile_action(
+     |    ^^^^^^^^^^^^^^^^
+
+warning: `tradex` (lib) generated 10 warnings
+warning: unused imports: `Credentials`, `GatewayDispatchIntent`, and `PrivilegedLiveOperation`
+  --> src-tauri/src/bin/tradex-order-gateway.rs:8:21
+   |
+ 8 |     order_gateway::{GatewayDispatchIntent, GatewayDispatchPackage},
+   |                     ^^^^^^^^^^^^^^^^^^^^^
+ 9 |     provider_io::{
+10 |         BrokerHttp, CredentialVault, Credentials, PrivilegedLiveOperation, ProviderEndpoint,
+   |                                      ^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `CredentialVault`
+  --> src-tauri/src/bin/tradex-order-gateway.rs:10:21
+   |
+10 |         BrokerHttp, CredentialVault, Credentials, PrivilegedLiveOperation, ProviderEndpoint,
+   |                     ^^^^^^^^^^^^^^^
+
+warning: struct `GatewaySummaryHttp` is never constructed
+  --> src-tauri/src/bin/tradex-order-gateway.rs:85:8
+   |
+85 | struct GatewaySummaryHttp<'a, H> {
+   |        ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tradex` (bin "tradex-order-gateway") generated 3 warnings (run `cargo fix --bin "tradex-order-gateway" -p tradex` to apply 1 suggestion)
+    Finished `test` profile [unoptimized] target(s) in 22.12s
+     Running tests/binance_rules.rs (target/debug/deps/binance_rules-25a2e6196832c6e5)
+
+running 12 tests
+test local_market_rules_compare_each_count_family_and_conservative_zero_increment ...
+running 1 test
+test local_market_rules_compare_each_count_family_and_conservative_zero_increment ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.28s
+
+ok
+test local_market_rules_compose_exact_empty_inventory_buy_without_upgrading_source_or_other_gates ...
+running 1 test
+test local_market_rules_compose_exact_empty_inventory_buy_without_upgrading_source_or_other_gates ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.25s
+
+ok
+test local_market_rules_do_not_bypass_unknown_active_rules_or_enforced_limit_price_range ...
+running 1 test
+test local_market_rules_do_not_bypass_unknown_active_rules_or_enforced_limit_price_range ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.39s
+
+ok
+test local_market_rules_keep_symbol_and_exchange_inventory_scopes_distinct ...
+running 1 test
+test local_market_rules_keep_symbol_and_exchange_inventory_scopes_distinct ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.25s
+
+ok
+test local_market_rules_purpose_inapplicability_does_not_fabricate_missing_admission ...
+running 1 test
+test local_market_rules_purpose_inapplicability_does_not_fabricate_missing_admission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.15s
+
+ok
+test local_market_rules_refresh_retires_current_composition_and_preserves_capture_and_cas ...
+running 1 test
+test local_market_rules_refresh_retires_current_composition_and_preserves_capture_and_cas ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.47s
+
+ok
+test local_market_rules_refuse_nonempty_partial_foreign_and_unknown_inventory ...
+running 1 test
+test local_market_rules_refuse_nonempty_partial_foreign_and_unknown_inventory ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 1.14s
+
+ok
+test local_market_rules_reject_exact_position_excess_without_float_rounding ...
+running 1 test
+test local_market_rules_reject_exact_position_excess_without_float_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.28s
+
+ok
+test local_market_rules_reopen_keeps_comparison_capture_without_restoring_current_inputs ...
+running 1 test
+test local_market_rules_reopen_keeps_comparison_capture_without_restoring_current_inputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.31s
+
+ok
+test local_market_rules_require_observed_and_supported_effective_stp ...
+running 1 test
+test local_market_rules_require_observed_and_supported_effective_stp ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 1.45s
+
+ok
+test local_market_rules_retain_interval_exhaustion_and_contradictory_count_outcomes ...
+running 1 test
+test local_market_rules_retain_interval_exhaustion_and_contradictory_count_outcomes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.46s
+
+ok
+test local_market_rules_sell_does_not_add_buy_position_and_binds_exact_inputs ...
+running 1 test
+test local_market_rules_sell_does_not_add_buy_position_and_binds_exact_inputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 134 filtered out; finished in 0.21s
+
+ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 123 filtered out; finished in 5.75s

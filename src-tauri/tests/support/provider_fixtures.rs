@@ -59,6 +59,8 @@ pub enum BinanceCapacityFixture {
     /// A completely covered account inventory: exactly one fully classified open order and no
     /// order lists, so the venue's own coverage flags leave no unknown coverage to refuse.
     CompleteCoverage,
+    /// Observed STP=false and a complete empty all-account inventory for BASE MARKET tests.
+    MarketEmptyInventory,
     /// The same completely covered inventory with the declared ORDERS/HOUR counter already at
     /// its declared limit, so the venue's own window would admit no further order.
     OrderRateExhausted,
@@ -1176,6 +1178,9 @@ impl ProviderHttp for Http {
             return Ok(serde_json::to_vec(&match route {
                 "/api/v3/account"=>{
                     let mut value=json!({"uid":self.binance_uid.get(),"accountType":"SPOT","canTrade":true,"canWithdraw":true,"canDeposit":true,"permissions":["SPOT"],"balances":[{"asset":"USDT","free":"99999999999999999999.9999999999999999999","locked":"0.0000000000000000002"},{"asset":"ODDCOIN","free":"0.1","locked":"0.2"}]});
+                    if self.binance_rules_ui && self.binance_capacity_ui.get()==BinanceCapacityFixture::MarketEmptyInventory {
+                        value["requireSelfTradePrevention"] = json!(false);
+                    }
                     if self.binance_rules_ui && matches!(self.binance_capacity_ui.get(), BinanceCapacityFixture::FeeDeclared | BinanceCapacityFixture::FeeChanged) {
                         let maker = if self.binance_capacity_ui.get() == BinanceCapacityFixture::FeeChanged { "0.0020" } else { "0.0010" };
                         value["commissionRates"] = json!({"maker":maker,"taker":"0.0015","buyer":"0.0000","seller":"0.0000"});
@@ -1236,6 +1241,9 @@ impl ProviderHttp for Http {
                     // no partially filled foreign order leaves an unresolved quantity obligation.
                     if self.binance_capacity_ui.get().covered_inventory() {
                         rows.retain(|row| row["symbol"]=="BTCUSDT" && row["status"]=="NEW");
+                    }
+                    if self.binance_capacity_ui.get()==BinanceCapacityFixture::MarketEmptyInventory {
+                        rows.clear();
                     }
                     if self.binance_capacity_ui.get().partial_inventory() {
                         if let Some(row)=rows.iter_mut().find(|row| row["symbol"]=="BTCUSDT") {

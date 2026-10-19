@@ -1,0 +1,11 @@
+✔ old source rows remain valid without a local comparison (1.963217ms)
+✔ local comparisons retain exact strings and bounded output without renderer authority (0.8237ms)
+✔ MARKET composition bounds input versions, admission reason and carried limitations (0.57761ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 207.885998

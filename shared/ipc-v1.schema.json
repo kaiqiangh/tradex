@@ -19339,6 +19339,78 @@
         "ORDINARY"
       ]
     },
+    "SpotMarketRuleComparison": {
+      "type": "object",
+      "properties": {
+        "increment": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "limit": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "observed": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "total": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "observed",
+        "increment",
+        "total",
+        "limit"
+      ]
+    },
+    "SpotMarketRuleComposition": {
+      "type": "object",
+      "properties": {
+        "admissionOutcome": {
+          "$ref": "#/$defs/RiskCheckOutcome"
+        },
+        "admissionReason": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "capacityVersion": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        },
+        "carriedLimitations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "maxItems": 5
+        },
+        "intervalVersion": {
+          "type": "string",
+          "maxLength": 71,
+          "minLength": 71
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "capacityVersion",
+        "intervalVersion",
+        "admissionOutcome",
+        "admissionReason",
+        "carriedLimitations"
+      ]
+    },
     "SpotOrderIntervalClock": {
       "type": "object",
       "properties": {
@@ -20097,6 +20169,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "marketComposition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotMarketRuleComposition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "materialVersion": {
           "type": [
             "string",
@@ -20358,6 +20440,16 @@
       "properties": {
         "applicable": {
           "type": "boolean"
+        },
+        "localComparison": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SpotMarketRuleComparison"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "origin": {
           "$ref": "#/$defs/SpotRuleOrigin"

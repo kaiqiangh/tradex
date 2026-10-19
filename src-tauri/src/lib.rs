@@ -38,6 +38,7 @@ pub mod spot_commission;
 pub mod spot_fee_fx;
 pub mod spot_fee_market;
 mod spot_fee_model;
+pub mod spot_market_rules;
 pub mod spot_order_intervals;
 pub mod spot_owning;
 pub mod spot_proposal_rules;
@@ -8808,6 +8809,18 @@ impl ControlPlane {
             }
             _ => None,
         };
+        let spot_rules = spot_rules
+            .map(|rules| {
+                spot_market_rules::compose(
+                    self,
+                    proposal,
+                    rules,
+                    spot_capacity.as_ref(),
+                    spot_order_intervals.as_ref(),
+                    spot_owning.as_ref(),
+                )
+            })
+            .transpose()?;
         // Build the current branch from the same bound exact-symbol terms, selected account and
         // trusted market inputs before deriving the owning statement. The statement may use a
         // complete current model to qualify its estimate, while retaining UNKNOWN for the actual
@@ -9477,10 +9490,24 @@ impl ControlPlane {
                     snapshot.provenance.freshness == protocol::MarketFreshness::Healthy
                         && snapshot.instrument_id == proposal.fields.instrument_id
                 })
-                && market.instrument_state.as_ref().is_some_and(|state| {
+                && (market.instrument_state.as_ref().is_some_and(|state| {
                     state.status == protocol::InstrumentTradingStatus::Tradable
                         && state.venue == proposal.fields.venue
-                })
+                }) || (owning_required
+                    && risk::execution_quote_matches(proposal, market)
+                    && current_decision.spot_rules.as_ref().is_some_and(|rules| {
+                        // Ordinary Spot tradability is supplied by the exact-account rule
+                        // producer, not by an equity InstrumentTradingObservation. Reuse only
+                        // this decision's complete, bound MARKET composition; standalone
+                        // source availability cannot satisfy the approval consumer.
+                        rules.outcome == risk::RiskCheckOutcome::Pass
+                            && rules
+                                .market_composition
+                                .as_ref()
+                                .is_some_and(|composition| {
+                                    composition.admission_outcome == risk::RiskCheckOutcome::Pass
+                                })
+                    })))
         });
         if !market_current {
             blockers.push("LIVE_MARKET_EVIDENCE_UNAVAILABLE: Current provider quote and tradability are required.".into());

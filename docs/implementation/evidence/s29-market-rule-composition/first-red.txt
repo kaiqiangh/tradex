@@ -1,0 +1,9 @@
+Public producer-to-risk seam; synthetic external HTTP/vault only.
+Expected semantic failure before runtime implementation.
+test local_market_rules_compose_exact_empty_inventory_buy_without_upgrading_source_or_other_gates ...
+test local_market_rules_compose_exact_empty_inventory_buy_without_upgrading_source_or_other_gates ... FAILED
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 123 filtered out; finished in 0.23s
+assertion `left == right` failed
+  left: String("UNAVAILABLE")
+ right: "PASS"
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 123 filtered out; finished in 0.24s

@@ -8971,3 +8971,727 @@ fn owning_fee_model_missing_or_duplicate_bnb_rows_retire_zero_funding_proof() {
     );
     assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
 }
+
+// Approved §41.62: only external producer responses are changed; all state is
+// collected and consumed through normal public commands.
+fn complete_market_rule_inputs(route: &str, body: &mut Value) {
+    match route {
+        "/api/v3/exchangeInfo" => {
+            *body = fixtures::binance_spot_exchange_info("BTCUSDT");
+            body["symbols"][0]["filters"]
+                .as_array_mut()
+                .unwrap()
+                .extend([
+                    json!({"filterType":"MAX_POSITION","maxPosition":"5.001"}),
+                    json!({"filterType":"MAX_NUM_ORDERS","maxNumOrders":1}),
+                    json!({"filterType":"MAX_NUM_ALGO_ORDERS","maxNumAlgoOrders":0}),
+                    json!({"filterType":"MAX_NUM_ICEBERG_ORDERS","maxNumIcebergOrders":0}),
+                    json!({"filterType":"MAX_NUM_ORDER_LISTS","maxNumOrderLists":0}),
+                    json!({"filterType":"MAX_NUM_ORDER_AMENDS","maxNumOrderAmends":0}),
+                ]);
+        }
+        "/api/v3/myFilters" => {
+            body["exchangeFilters"].as_array_mut().unwrap().extend([
+                json!({"filterType":"EXCHANGE_MAX_NUM_ALGO_ORDERS","maxNumAlgoOrders":0}),
+                json!({"filterType":"EXCHANGE_MAX_NUM_ICEBERG_ORDERS","maxNumIcebergOrders":0}),
+                json!({"filterType":"EXCHANGE_MAX_NUM_ORDER_LISTS","maxNumOrderLists":0}),
+            ]);
+        }
+        "/api/v3/account" => {
+            body["requireSelfTradePrevention"] = json!(false);
+            body["balances"] = json!([
+                {"asset":"BTC","free":"2","locked":"3"},
+                {"asset":"USDT","free":"1000","locked":"0"},
+                {"asset":"BNB","free":"0","locked":"0"}
+            ]);
+        }
+        "/api/v3/openOrders" | "/api/v3/openOrderList" => *body = json!([]),
+        _ => {}
+    }
+}
+fn market_rule_proposal(rig: &RuleRig, side: &str, quantity: &str) -> Value {
+    rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":side,"orderType":"MARKET","quantity":{"type":"BASE","value":quantity},"limitPrice":null,"maximumSpend":if side=="BUY" {json!("1000")} else {Value::Null},"timeInForce":"DAY"}))
+}
+fn collect_market_rule_inputs(rig: &RuleRig, proposal: &Value, http: &RuleHttp) {
+    assert_eq!(rules_refresh(rig, proposal, http)["ok"], true);
+    let capacity = capacity_refresh(rig, proposal, http);
+    assert_eq!(capacity["data"]["status"], "OBSERVED", "{capacity}");
+    let intervals = interval_refresh(rig, proposal, http);
+    assert_eq!(intervals["data"]["status"], "OBSERVED", "{intervals}");
+}
+#[test]
+fn local_market_rules_compose_exact_empty_inventory_buy_without_upgrading_source_or_other_gates() {
+    if isolated_rule_scenario(
+        "local_market_rules_compose_exact_empty_inventory_buy_without_upgrading_source_or_other_gates",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(complete_market_rule_inputs));
+    let source = rig.refresh(&http);
+    assert_eq!(source["data"]["status"], "AVAILABLE", "{source}");
+    let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let before = http.calls.borrow().len();
+    let decision = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&decision)["outcome"], "PASS", "{decision}");
+    assert_eq!(
+        http.calls.borrow().len(),
+        before,
+        "Evaluation is local-only"
+    );
+    assert_eq!(
+        rules_get(&rig, &proposal)["data"]["outcome"],
+        "UNAVAILABLE",
+        "Standalone source retains dynamic limitations"
+    );
+    let rules = &decision["spotRules"];
+    let position = rules["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "MAX_POSITION")
+        .unwrap();
+    assert_eq!(
+        position["localComparison"],
+        json!({"observed":"5","increment":"0.001","total":"5.001","limit":"5.001"})
+    );
+    for kind in [
+        "MAX_NUM_ORDERS",
+        "EXCHANGE_MAX_NUM_ORDERS",
+        "MAX_NUM_ALGO_ORDERS",
+        "EXCHANGE_MAX_NUM_ALGO_ORDERS",
+        "MAX_NUM_ICEBERG_ORDERS",
+        "EXCHANGE_MAX_NUM_ICEBERG_ORDERS",
+        "MAX_NUM_ORDER_LISTS",
+        "EXCHANGE_MAX_NUM_ORDER_LISTS",
+        "MAX_NUM_ORDER_AMENDS",
+    ] {
+        let row = rules["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["ruleType"] == kind)
+            .unwrap();
+        assert_eq!(row["outcome"], "PASS", "{row}");
+    }
+    assert_eq!(rules["marketComposition"]["admissionOutcome"], "PASS");
+    assert!(
+        rules["marketComposition"]["carriedLimitations"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("NON_ATOMIC_PROVIDER_SNAPSHOT"))
+    );
+    assert_ne!(
+        decision["status"], "ALLOWED",
+        "Rules alone cannot grant financial eligibility"
+    );
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+}
+
+#[test]
+fn local_market_rules_sell_does_not_add_buy_position_and_binds_exact_inputs() {
+    if isolated_rule_scenario(
+        "local_market_rules_sell_does_not_add_buy_position_and_binds_exact_inputs",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(complete_market_rule_inputs));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "SELL", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let decision = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&decision)["outcome"], "PASS", "{decision}");
+    let rules = &decision["spotRules"];
+    let rows = rules["rules"].as_array().unwrap();
+    for kind in ["MAX_POSITION", "MAX_NUM_ORDER_AMENDS", "PRICE_RANGE"] {
+        let row = rows.iter().find(|r| r["ruleType"] == kind).unwrap();
+        assert_eq!(row["outcome"], "PASS");
+        assert_eq!(row["applicable"], false, "{row}");
+        assert!(row.get("localComparison").is_none());
+    }
+    assert_eq!(
+        rules["marketComposition"]["capacityVersion"],
+        decision["spotCapacity"]["stateVersion"]
+    );
+    assert_eq!(
+        rules["marketComposition"]["intervalVersion"],
+        decision["spotOrderIntervals"]["stateVersion"]
+    );
+    assert_ne!(
+        rules["bindingVersion"],
+        rules_get(&rig, &proposal)["data"]["bindingVersion"]
+    );
+    let total = rows
+        .iter()
+        .find(|r| r["ruleType"] == "MAX_NUM_ORDERS")
+        .unwrap();
+    assert_eq!(
+        total["localComparison"],
+        json!({"observed":"0","increment":"1","total":"1","limit":"1"})
+    );
+    let category = rows
+        .iter()
+        .find(|r| r["ruleType"] == "EXCHANGE_MAX_NUM_ALGO_ORDERS")
+        .unwrap();
+    assert_eq!(
+        category["localComparison"],
+        json!({"observed":"0","increment":"0","total":"0","limit":"0"})
+    );
+}
+
+fn market_inventory_order(symbol: &str, id: u64) -> Value {
+    json!({"symbol":symbol,"orderId":id,"orderListId":-1,"clientOrderId":format!("synthetic-market-{id}"),"time":1700000000000u64,"updateTime":1700000000000u64,"workingTime":1700000000000u64,"price":"60000","origQty":"0.1","executedQty":"0","cummulativeQuoteQty":"0","status":"NEW","timeInForce":"GTC","type":"LIMIT","side":"BUY","stopPrice":"0","icebergQty":"0","isWorking":true,"origQuoteOrderQty":"0"})
+}
+#[test]
+fn local_market_rules_reject_exact_position_excess_without_float_rounding() {
+    if isolated_rule_scenario(
+        "local_market_rules_reject_exact_position_excess_without_float_rounding",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(|route, body| {
+        complete_market_rule_inputs(route, body);
+        if route == "/api/v3/account" {
+            body["balances"][0]["free"] = json!("2.000000000000000001");
+        }
+    }));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let decision = risk_evaluate(&rig, &proposal);
+    let position = decision["spotRules"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "MAX_POSITION")
+        .unwrap();
+    assert_eq!(position["outcome"], "REJECT", "{position}");
+    assert_eq!(position["localComparison"]["total"], "5.001000000000000001");
+    assert_eq!(rule_check(&decision)["outcome"], "REJECT");
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+}
+
+#[test]
+fn local_market_rules_compare_each_count_family_and_conservative_zero_increment() {
+    if isolated_rule_scenario(
+        "local_market_rules_compare_each_count_family_and_conservative_zero_increment",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(|route, body| {
+        complete_market_rule_inputs(route, body);
+        if route == "/api/v3/openOrders" {
+            *body = json!([market_inventory_order("BTCUSDT", 11), market_inventory_order("BTCUSDT", 12)]);
+            for row in body.as_array_mut().unwrap() {
+                row["orderListId"] = json!(15);
+                row["type"] = json!("STOP_LOSS_LIMIT");
+                row["icebergQty"] = json!("0.01");
+            }
+        }
+        if route == "/api/v3/openOrderList" {
+            *body = json!([{"orderListId":15,"contingencyType":"OCO","listStatusType":"EXEC_STARTED","listOrderStatus":"EXECUTING","listClientOrderId":"synthetic-list","transactionTime":1700000000000u64,"symbol":"BTCUSDT","orders":[{"symbol":"BTCUSDT","orderId":11,"clientOrderId":"synthetic-market-11"},{"symbol":"BTCUSDT","orderId":12,"clientOrderId":"synthetic-market-12"}]}]);
+        }
+        if route == "/api/v3/myFilters" {
+            for rule in body["exchangeFilters"].as_array_mut().unwrap() {
+                if rule["filterType"] == "EXCHANGE_MAX_NUM_ORDERS" { rule["maxNumOrders"] = json!(2); }
+            }
+        }
+    }));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "SELL", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let decision = risk_evaluate(&rig, &proposal);
+    assert_eq!(decision["spotOwning"]["outcome"], "PASS", "{decision}");
+    for kind in [
+        "MAX_NUM_ORDERS",
+        "EXCHANGE_MAX_NUM_ORDERS",
+        "MAX_NUM_ALGO_ORDERS",
+        "EXCHANGE_MAX_NUM_ALGO_ORDERS",
+        "MAX_NUM_ICEBERG_ORDERS",
+        "EXCHANGE_MAX_NUM_ICEBERG_ORDERS",
+        "MAX_NUM_ORDER_LISTS",
+        "EXCHANGE_MAX_NUM_ORDER_LISTS",
+    ] {
+        let row = decision["spotRules"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["ruleType"] == kind)
+            .unwrap();
+        assert_eq!(row["outcome"], "REJECT", "{row}");
+        let increment = if kind == "MAX_NUM_ORDERS" || kind == "EXCHANGE_MAX_NUM_ORDERS" {
+            "1"
+        } else {
+            "0"
+        };
+        assert_eq!(row["localComparison"]["increment"], increment);
+    }
+    assert_eq!(rule_check(&decision)["outcome"], "REJECT");
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+}
+
+#[test]
+fn local_market_rules_keep_symbol_and_exchange_inventory_scopes_distinct() {
+    if isolated_rule_scenario(
+        "local_market_rules_keep_symbol_and_exchange_inventory_scopes_distinct",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(|route, body| {
+        complete_market_rule_inputs(route, body);
+        if route == "/api/v3/openOrders" {
+            let mut row = market_inventory_order("ETHUSDT", 21);
+            row["type"] = json!("STOP_LOSS_LIMIT");
+            row["icebergQty"] = json!("0.01");
+            *body = json!([row]);
+        }
+        if route == "/api/v3/myFilters" {
+            for rule in body["exchangeFilters"].as_array_mut().unwrap() {
+                if rule["filterType"] == "EXCHANGE_MAX_NUM_ORDERS" {
+                    rule["maxNumOrders"] = json!(1);
+                }
+            }
+        }
+    }));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "SELL", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let decision = risk_evaluate(&rig, &proposal);
+    assert_eq!(decision["spotOwning"]["outcome"], "PASS", "{decision}");
+    let rows = decision["spotRules"]["rules"].as_array().unwrap();
+    for (symbol, exchange) in [
+        ("MAX_NUM_ORDERS", "EXCHANGE_MAX_NUM_ORDERS"),
+        ("MAX_NUM_ALGO_ORDERS", "EXCHANGE_MAX_NUM_ALGO_ORDERS"),
+        ("MAX_NUM_ICEBERG_ORDERS", "EXCHANGE_MAX_NUM_ICEBERG_ORDERS"),
+    ] {
+        let local = rows.iter().find(|r| r["ruleType"] == symbol).unwrap();
+        let global = rows.iter().find(|r| r["ruleType"] == exchange).unwrap();
+        assert_eq!(local["outcome"], "PASS", "{local}");
+        assert_eq!(local["localComparison"]["observed"], "0");
+        assert_eq!(global["outcome"], "REJECT", "{global}");
+        assert_eq!(global["localComparison"]["observed"], "1");
+    }
+}
+
+#[test]
+fn local_market_rules_retain_interval_exhaustion_and_contradictory_count_outcomes() {
+    if isolated_rule_scenario(
+        "local_market_rules_retain_interval_exhaustion_and_contradictory_count_outcomes",
+    ) {
+        return;
+    }
+    for (edit, expected) in [
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/rateLimit/order" {
+                    body[0]["count"] = json!(50);
+                }
+            }) as fn(&str, &mut Value),
+            "REJECT",
+        ),
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/rateLimit/order" {
+                    body[0]["count"] = json!(51);
+                }
+            }) as fn(&str, &mut Value),
+            "UNAVAILABLE",
+        ),
+    ] {
+        let rig = RuleRig::new();
+        let http = RuleHttp::default();
+        http.edit.set(Some(edit));
+        assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+        let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+        collect_market_rule_inputs(&rig, &proposal, &http);
+        let decision = risk_evaluate(&rig, &proposal);
+        assert_eq!(decision["spotOwning"]["outcome"], expected, "{decision}");
+        assert_eq!(
+            decision["spotRules"]["marketComposition"]["admissionOutcome"],
+            expected
+        );
+        assert_eq!(rule_check(&decision)["outcome"], expected);
+        assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+    }
+}
+
+#[test]
+fn local_market_rules_require_observed_and_supported_effective_stp() {
+    if isolated_rule_scenario("local_market_rules_require_observed_and_supported_effective_stp") {
+        return;
+    }
+    for (edit, expected) in [
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/account" {
+                    body.as_object_mut()
+                        .unwrap()
+                        .remove("requireSelfTradePrevention");
+                }
+            }) as fn(&str, &mut Value),
+            "UNAVAILABLE",
+        ),
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/account" {
+                    body["requireSelfTradePrevention"] = json!(true);
+                }
+            }) as fn(&str, &mut Value),
+            "REJECT",
+        ),
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/exchangeInfo" {
+                    body["symbols"][0]["defaultSelfTradePreventionMode"] = json!("DECREMENT");
+                    body["symbols"][0]["allowedSelfTradePreventionModes"] = json!(["DECREMENT"]);
+                }
+            }) as fn(&str, &mut Value),
+            "UNAVAILABLE",
+        ),
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/exchangeInfo" {
+                    body["symbols"][0]["defaultSelfTradePreventionMode"] = json!("TRANSFER");
+                    body["symbols"][0]["allowedSelfTradePreventionModes"] = json!(["TRANSFER"]);
+                }
+            }) as fn(&str, &mut Value),
+            "UNAVAILABLE",
+        ),
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/exchangeInfo" {
+                    body["symbols"][0]["defaultSelfTradePreventionMode"] = json!("FUTURE_MODE");
+                    body["symbols"][0]["allowedSelfTradePreventionModes"] = json!(["FUTURE_MODE"]);
+                }
+            }) as fn(&str, &mut Value),
+            "UNAVAILABLE",
+        ),
+        (
+            (|route: &str, body: &mut Value| {
+                complete_market_rule_inputs(route, body);
+                if route == "/api/v3/account" {
+                    body["requireSelfTradePrevention"] = json!(true);
+                }
+                if route == "/api/v3/exchangeInfo" {
+                    body["symbols"][0]["defaultSelfTradePreventionMode"] = json!("EXPIRE_BOTH");
+                    body["symbols"][0]["allowedSelfTradePreventionModes"] =
+                        json!(["NONE", "EXPIRE_BOTH"]);
+                }
+            }) as fn(&str, &mut Value),
+            "PASS",
+        ),
+    ] {
+        let rig = RuleRig::new();
+        let http = RuleHttp::default();
+        http.edit.set(Some(edit));
+        assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+        let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+        collect_market_rule_inputs(&rig, &proposal, &http);
+        let decision = risk_evaluate(&rig, &proposal);
+        let row = decision["spotRules"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["ruleType"] == "ORDER_FORM")
+            .unwrap();
+        assert_eq!(row["outcome"], expected, "{row}");
+        assert_eq!(rule_check(&decision)["outcome"], expected, "{decision}");
+        assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+    }
+}
+
+#[test]
+fn local_market_rules_refuse_nonempty_partial_foreign_and_unknown_inventory() {
+    if isolated_rule_scenario(
+        "local_market_rules_refuse_nonempty_partial_foreign_and_unknown_inventory",
+    ) {
+        return;
+    }
+    for edit in [
+        (|route: &str, body: &mut Value| {
+            complete_market_rule_inputs(route, body);
+            if route == "/api/v3/openOrders" {
+                *body = json!([market_inventory_order("BTCUSDT", 31)]);
+            }
+        }) as fn(&str, &mut Value),
+        (|route: &str, body: &mut Value| {
+            complete_market_rule_inputs(route, body);
+            if route == "/api/v3/openOrders" {
+                let mut row = market_inventory_order("BTCUSDT", 32);
+                row["status"] = json!("PARTIALLY_FILLED");
+                row["executedQty"] = json!("0.02");
+                *body = json!([row]);
+            }
+        }) as fn(&str, &mut Value),
+        (|route: &str, body: &mut Value| {
+            complete_market_rule_inputs(route, body);
+            if route == "/api/v3/openOrders" {
+                *body = json!([market_inventory_order("ETHUSDT", 33)]);
+            }
+        }) as fn(&str, &mut Value),
+        (|route: &str, body: &mut Value| {
+            complete_market_rule_inputs(route, body);
+            if route == "/api/v3/openOrders" {
+                let mut row = market_inventory_order("BTCUSDT", 34);
+                row["futureReservation"] = json!("synthetic-unknown");
+                *body = json!([row]);
+            }
+        }) as fn(&str, &mut Value),
+    ] {
+        let rig = RuleRig::new();
+        let http = RuleHttp::default();
+        http.edit.set(Some(edit));
+        assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+        let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+        collect_market_rule_inputs(&rig, &proposal, &http);
+        let decision = risk_evaluate(&rig, &proposal);
+        let position = decision["spotRules"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["ruleType"] == "MAX_POSITION")
+            .unwrap();
+        assert_eq!(position["outcome"], "UNAVAILABLE", "{position}");
+        assert!(
+            position.get("localComparison").is_none(),
+            "Ambiguous quantity cannot be netted"
+        );
+        // A simultaneously known count violation may reject; ambiguity can never grant PASS.
+        assert_ne!(rule_check(&decision)["outcome"], "PASS");
+        assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+        assert!(!decision.to_string().contains("synthetic-market-"));
+        assert!(!decision.to_string().contains("synthetic-unknown"));
+    }
+}
+
+#[test]
+fn local_market_rules_refresh_retires_current_composition_and_preserves_capture_and_cas() {
+    if isolated_rule_scenario(
+        "local_market_rules_refresh_retires_current_composition_and_preserves_capture_and_cas",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(complete_market_rule_inputs));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+    let missing = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&missing)["outcome"], "UNAVAILABLE");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let captured = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&captured)["outcome"], "PASS");
+    let old_capacity = capacity_get(&rig, &proposal);
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let before = http.calls.borrow().len();
+    let stale = tradex::financial_sources::execute_refresh(
+        &rig.control,
+        &json!({"requestId":"market-stale-capacity","schemaVersion":1,"command":"trade.spot_capacity.refresh","payload":{"workspaceId":rig.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":old_capacity["data"]["stateVersion"]}}),
+        "main",
+        &rig.vault,
+        &http,
+    );
+    assert_eq!(stale["error"]["code"], "STATE_VERSION_CONFLICT", "{stale}");
+    assert_eq!(
+        http.calls.borrow().len(),
+        before,
+        "Stale CAS cannot read provider"
+    );
+    let current = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&current)["outcome"], "UNAVAILABLE");
+    assert_ne!(
+        current["spotRules"]["bindingVersion"],
+        captured["spotRules"]["bindingVersion"]
+    );
+    assert_ne!(
+        current["spotRules"]["stateVersion"],
+        captured["spotRules"]["stateVersion"]
+    );
+    let history = command(
+        &mut rig.control.lock().unwrap(),
+        "risk.decision.list",
+        json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["decisionId"] == captured["decisionId"])
+        .unwrap();
+    assert_eq!(
+        saved["spotRules"], captured["spotRules"],
+        "Refresh cannot rewrite saved comparison receipts"
+    );
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    assert_eq!(
+        rule_check(&risk_evaluate(&rig, &proposal))["outcome"],
+        "PASS"
+    );
+    http.edit.set(Some(|route, body| {
+        complete_market_rule_inputs(route, body);
+        if route == "/api/v3/openOrders" {
+            *body = Value::Null;
+        }
+    }));
+    assert_eq!(
+        capacity_refresh(&rig, &proposal, &http)["data"]["status"],
+        "UNAVAILABLE"
+    );
+    assert_eq!(
+        rule_check(&risk_evaluate(&rig, &proposal))["outcome"],
+        "UNAVAILABLE",
+        "A failed refresh cannot retain a current PASS"
+    );
+}
+
+#[test]
+fn local_market_rules_do_not_bypass_unknown_active_rules_or_enforced_limit_price_range() {
+    if isolated_rule_scenario(
+        "local_market_rules_do_not_bypass_unknown_active_rules_or_enforced_limit_price_range",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(|route, body| {
+        complete_market_rule_inputs(route, body);
+        if route == "/api/v3/exchangeInfo" {
+            for rule in body["symbols"][0]["filters"].as_array_mut().unwrap() {
+                if rule["filterType"] == "MAX_NUM_ORDER_AMENDS" {
+                    rule["futureConstraint"] = json!("1");
+                }
+            }
+            body["symbols"][0]["filters"]
+                .as_array_mut()
+                .unwrap()
+                .push(json!({"filterType":"FUTURE_RULE","limit":"1"}));
+        }
+    }));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let decision = risk_evaluate(&rig, &proposal);
+    for kind in ["MAX_NUM_ORDER_AMENDS", "FUTURE_RULE"] {
+        let row = decision["spotRules"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["ruleType"] == kind)
+            .unwrap();
+        assert_eq!(row["outcome"], "UNAVAILABLE", "{row}");
+        assert_eq!(row["applicable"], true);
+    }
+    assert_eq!(rule_check(&decision)["outcome"], "UNAVAILABLE");
+    http.edit.set(Some(complete_market_rule_inputs));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let limit = rig.decision_with(json!({"accountId":rig.account["connectionId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}));
+    collect_market_rule_inputs(&rig, &limit, &http);
+    let decision = risk_evaluate(&rig, &limit);
+    let price_range = decision["spotRules"]["rules"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["ruleType"] == "PRICE_RANGE")
+        .unwrap();
+    assert_eq!(price_range["outcome"], "UNAVAILABLE", "{price_range}");
+    assert_eq!(rule_check(&decision)["outcome"], "UNAVAILABLE");
+    assert!(decision["spotRules"].get("marketComposition").is_none());
+    assert_eq!(request_approval(&rig, &limit)["data"]["eligible"], false);
+}
+
+#[test]
+fn local_market_rules_purpose_inapplicability_does_not_fabricate_missing_admission() {
+    if isolated_rule_scenario(
+        "local_market_rules_purpose_inapplicability_does_not_fabricate_missing_admission",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(complete_market_rule_inputs));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "SELL", "0.001");
+    let decision = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&decision)["outcome"], "UNAVAILABLE");
+    for kind in ["MAX_POSITION", "MAX_NUM_ORDER_AMENDS"] {
+        let row = decision["spotRules"]["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|r| r["ruleType"] == kind)
+            .unwrap();
+        assert_eq!(row["outcome"], "PASS", "{row}");
+        assert_eq!(row["applicable"], false);
+    }
+    assert_eq!(
+        decision["spotRules"]["marketComposition"]["admissionOutcome"],
+        "UNAVAILABLE"
+    );
+    assert_eq!(request_approval(&rig, &proposal)["data"]["eligible"], false);
+}
+
+#[test]
+fn local_market_rules_reopen_keeps_comparison_capture_without_restoring_current_inputs() {
+    if isolated_rule_scenario(
+        "local_market_rules_reopen_keeps_comparison_capture_without_restoring_current_inputs",
+    ) {
+        return;
+    }
+    let rig = RuleRig::new();
+    let http = RuleHttp::default();
+    http.edit.set(Some(complete_market_rule_inputs));
+    assert_eq!(rig.refresh(&http)["data"]["status"], "AVAILABLE");
+    let proposal = market_rule_proposal(&rig, "BUY", "0.001");
+    collect_market_rule_inputs(&rig, &proposal, &http);
+    let captured = risk_evaluate(&rig, &proposal);
+    assert_eq!(rule_check(&captured)["outcome"], "PASS");
+    let calls = http.calls.borrow().len();
+    let query = json!({"workspaceId":rig.workspace,"proposalId":proposal["proposalId"]});
+    let RuleRig {
+        _folder, control, ..
+    } = rig;
+    drop(control);
+    let mut reopened = ControlPlane::new(_folder.path().into());
+    assert_eq!(
+        command(&mut reopened, "workspace.open", json!({}))["ok"],
+        true
+    );
+    let history = command(&mut reopened, "risk.decision.list", query.clone());
+    let saved = history["data"]["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|decision| decision["decisionId"] == captured["decisionId"])
+        .unwrap();
+    assert_eq!(saved["spotRules"], captured["spotRules"]);
+    let current = command(&mut reopened, "risk.evaluate_proposal", query.clone());
+    assert_eq!(current["ok"], true, "{current}");
+    assert_eq!(rule_check(&current["data"])["outcome"], "UNAVAILABLE");
+    assert_eq!(
+        command(&mut reopened, "trade.request_approval", query)["data"]["eligible"],
+        false
+    );
+    assert_eq!(
+        http.calls.borrow().len(),
+        calls,
+        "History and local evaluation never refresh external observations"
+    );
+}

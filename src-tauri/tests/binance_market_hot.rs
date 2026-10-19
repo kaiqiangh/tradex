@@ -2052,7 +2052,7 @@ fn collect_spot_admission(
     view: &HotView,
     proposal: &Value,
     vault: &account_fixtures::Vault,
-    http: &account_fixtures::Http,
+    http: &impl ProviderHttp,
     instrument: &str,
 ) -> Value {
     let source = command(
@@ -3275,6 +3275,135 @@ fn refresh_spot_capacity(
     )
 }
 
+fn configure_synthetic_policy_fx(
+    view: &HotView,
+    proposal: &Value,
+    vault: &account_fixtures::Vault,
+) -> account_fixtures::Http {
+    // A synthetic, purpose-limited report exercises the conditional policy-valuation path only.
+    // It is not evidence about the user's real Alpaca account or provider entitlement.
+    let fx_http = account_fixtures::Http {
+        fx_ui: true,
+        ..Default::default()
+    };
+    let fx_request = json!({"requestId":"synthetic-policy-fx-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":view.workspace,"providerId":"alpaca","environment":"PAPER","label":"Synthetic policy valuation source"}});
+    let fx_job = view
+        .control
+        .lock()
+        .unwrap()
+        .prepare_provider_for(&fx_request, "main")
+        .unwrap()
+        .unwrap();
+    let fx_observed = fx_job.run(
+        vault,
+        |_| account_fixtures::credentials(),
+        &fx_http,
+        || view.control.lock().unwrap().provider_job_current(&fx_job),
+    );
+    let fx_tested = view
+        .control
+        .lock()
+        .unwrap()
+        .complete_provider(&fx_job, fx_observed);
+    assert_eq!(fx_tested["ok"], true, "{fx_tested}");
+    let fx_account = command(
+        &view.control,
+        "provider.connect",
+        json!({"step":"confirm","workspaceId":view.workspace,"connectionId":fx_tested["data"]["connectionId"],"expectedStateVersion":fx_tested["data"]["stateVersion"],"acknowledgeUnverified":true}),
+    );
+    assert_eq!(fx_account["ok"], true, "{fx_account}");
+    let fx_source = command(
+        &view.control,
+        "data.fx.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    let fx_configured = command(
+        &view.control,
+        "data.fx.configure",
+        json!({
+            "workspaceId":view.workspace,
+            "expectedStateVersion":fx_source["data"]["stateVersion"],
+            "connectionId":fx_account["data"]["connectionId"],
+            "cryptoLocation":"eu-1",
+            "sourceUseContext":{
+                "marketDataPlan":"BASIC",
+                "accountJurisdiction":"IE",
+                "agreementReviewedAt":"2026-10-12",
+                "countrySupportConfirmation":{
+                    "confirmedJurisdiction":"IE",
+                    "confirmedAt":"2026-10-12",
+                    "reference":"SYNTHETIC-ALPACA-SUPPORT-CASE"
+                },
+                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
+                "rawDataDestination":"LOCAL_ONLY"
+            }
+        }),
+    );
+    assert_eq!(fx_configured["ok"], true, "{fx_configured}");
+    assert_eq!(
+        fx_configured["data"]["sourceUseAssessment"]["status"],
+        "SUPPORTED_FOR_DECLARED_SCOPE"
+    );
+    assert_eq!(
+        fx_configured["data"]["sourceUseAssessment"]["provenance"],
+        "USER_REPORTED_PROVIDER_SUPPORT"
+    );
+    assert_eq!(
+        fx_configured["data"]["sourceUseAssessment"]["supportedPurposes"],
+        json!(["POLICY_VALUATION"]),
+        "Synthetic context supports only price-policy valuation"
+    );
+    assert_eq!(
+        fx_configured["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "UNVERIFIED",
+        "A synthetic support report does not verify provider entitlement"
+    );
+    let fx_attested = command(
+        &view.control,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":view.workspace,
+            "expectedStateVersion":fx_configured["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(fx_attested["ok"], true, "{fx_attested}");
+    assert_eq!(
+        fx_attested["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "VERIFIED",
+        "The policy-valuation route needs its separate explicit local-use confirmation"
+    );
+    let fx_source = command(
+        &view.control,
+        "data.fx.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    let fx_refreshed = tradex::financial_sources::execute_refresh(
+        &view.control,
+        &json!({"requestId":"synthetic-policy-fx-refresh","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":view.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":fx_source["data"]["stateVersion"]}}),
+        "main",
+        vault,
+        &fx_http,
+    );
+    assert_eq!(fx_refreshed["ok"], true, "{fx_refreshed}");
+    assert_eq!(
+        fx_refreshed["data"]["status"], "AVAILABLE",
+        "{fx_refreshed}"
+    );
+
+    fx_http
+}
+
 #[test]
 fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch() {
     if isolated_hot_scenario(
@@ -3450,126 +3579,7 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
     }
     assert_eq!(decision["data"]["spotFeeFx"]["outcome"], "UNAVAILABLE");
 
-    // A synthetic, purpose-limited report exercises the conditional policy-valuation path only.
-    // It is not evidence about the user's real Alpaca account or provider entitlement.
-    let fx_http = account_fixtures::Http {
-        fx_ui: true,
-        ..Default::default()
-    };
-    let fx_request = json!({"requestId":"synthetic-policy-fx-account","schemaVersion":1,"command":"provider.connect","payload":{"step":"test","workspaceId":view.workspace,"providerId":"alpaca","environment":"PAPER","label":"Synthetic policy valuation source"}});
-    let fx_job = view
-        .control
-        .lock()
-        .unwrap()
-        .prepare_provider_for(&fx_request, "main")
-        .unwrap()
-        .unwrap();
-    let fx_observed = fx_job.run(
-        &vault,
-        |_| account_fixtures::credentials(),
-        &fx_http,
-        || view.control.lock().unwrap().provider_job_current(&fx_job),
-    );
-    let fx_tested = view
-        .control
-        .lock()
-        .unwrap()
-        .complete_provider(&fx_job, fx_observed);
-    assert_eq!(fx_tested["ok"], true, "{fx_tested}");
-    let fx_account = command(
-        &view.control,
-        "provider.connect",
-        json!({"step":"confirm","workspaceId":view.workspace,"connectionId":fx_tested["data"]["connectionId"],"expectedStateVersion":fx_tested["data"]["stateVersion"],"acknowledgeUnverified":true}),
-    );
-    assert_eq!(fx_account["ok"], true, "{fx_account}");
-    let fx_source = command(
-        &view.control,
-        "data.fx.connection",
-        json!({"workspaceId":view.workspace}),
-    );
-    let fx_configured = command(
-        &view.control,
-        "data.fx.configure",
-        json!({
-            "workspaceId":view.workspace,
-            "expectedStateVersion":fx_source["data"]["stateVersion"],
-            "connectionId":fx_account["data"]["connectionId"],
-            "cryptoLocation":"eu-1",
-            "sourceUseContext":{
-                "marketDataPlan":"BASIC",
-                "accountJurisdiction":"IE",
-                "agreementReviewedAt":"2026-10-12",
-                "countrySupportConfirmation":{
-                    "confirmedJurisdiction":"IE",
-                    "confirmedAt":"2026-10-12",
-                    "reference":"SYNTHETIC-ALPACA-SUPPORT-CASE"
-                },
-                "useScope":"OWN_LOCAL_NONCOMMERCIAL",
-                "rawDataDestination":"LOCAL_ONLY"
-            }
-        }),
-    );
-    assert_eq!(fx_configured["ok"], true, "{fx_configured}");
-    assert_eq!(
-        fx_configured["data"]["sourceUseAssessment"]["status"],
-        "SUPPORTED_FOR_DECLARED_SCOPE"
-    );
-    assert_eq!(
-        fx_configured["data"]["sourceUseAssessment"]["provenance"],
-        "USER_REPORTED_PROVIDER_SUPPORT"
-    );
-    assert_eq!(
-        fx_configured["data"]["sourceUseAssessment"]["supportedPurposes"],
-        json!(["POLICY_VALUATION"]),
-        "Synthetic context supports only price-policy valuation"
-    );
-    assert_eq!(
-        fx_configured["data"]["capabilityStatuses"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
-            .unwrap()["status"],
-        "UNVERIFIED",
-        "A synthetic support report does not verify provider entitlement"
-    );
-    let fx_attested = command(
-        &view.control,
-        "data.fx.attest_local_use",
-        json!({
-            "workspaceId":view.workspace,
-            "expectedStateVersion":fx_configured["data"]["stateVersion"],
-            "confirmLocalPolicyValuationOnly":true
-        }),
-    );
-    assert_eq!(fx_attested["ok"], true, "{fx_attested}");
-    assert_eq!(
-        fx_attested["data"]["capabilityStatuses"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
-            .unwrap()["status"],
-        "VERIFIED",
-        "The policy-valuation route needs its separate explicit local-use confirmation"
-    );
-    let fx_source = command(
-        &view.control,
-        "data.fx.connection",
-        json!({"workspaceId":view.workspace}),
-    );
-    let fx_refreshed = tradex::financial_sources::execute_refresh(
-        &view.control,
-        &json!({"requestId":"synthetic-policy-fx-refresh","schemaVersion":1,"command":"data.fx.refresh","payload":{"workspaceId":view.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":fx_source["data"]["stateVersion"]}}),
-        "main",
-        &vault,
-        &fx_http,
-    );
-    assert_eq!(fx_refreshed["ok"], true, "{fx_refreshed}");
-    assert_eq!(
-        fx_refreshed["data"]["status"], "AVAILABLE",
-        "{fx_refreshed}"
-    );
+    let fx_http = configure_synthetic_policy_fx(&view, &proposal, &vault);
 
     let valued_decision = command(&view.control, "risk.evaluate_proposal", query.clone());
     assert_eq!(valued_decision["ok"], true, "{valued_decision}");
@@ -4555,4 +4565,215 @@ fn fee_only_bnb_gap_rebuilds_its_own_generation_and_source_disconnect_retires_it
         retired["data"]["metadata"]["receivedAt"],
         rebuilt["data"]["metadata"]["receivedAt"]
     );
+}
+
+#[test]
+fn owning_market_rules_reach_approval_and_prepare_from_complete_public_producers() {
+    if isolated_hot_scenario(
+        "owning_market_rules_reach_approval_and_prepare_from_complete_public_producers",
+    ) {
+        return;
+    }
+    run_owning_market_rule_prepare(false);
+}
+
+#[test]
+fn owning_market_rules_retired_capacity_refuses_prepare_without_partial_financial_state() {
+    if isolated_hot_scenario(
+        "owning_market_rules_retired_capacity_refuses_prepare_without_partial_financial_state",
+    ) {
+        return;
+    }
+    run_owning_market_rule_prepare(true);
+}
+
+fn run_owning_market_rule_prepare(retire_capacity: bool) {
+    let view = HotView::open_with_local_use_confirmation();
+    view.wait(|v| v["data"]["status"] == "STREAMING");
+    let (connected, vault) = connected_binance_proposal(&view);
+    let policy = command(
+        &view.control,
+        "risk.get_policy",
+        json!({"workspaceId":view.workspace}),
+    );
+    let mut enabled = policy["data"]["policy"].clone();
+    enabled["marketOrdersEnabled"] = json!(true);
+    enabled["maxMarketOrderSlippagePercent"] = json!("1");
+    let saved = command(
+        &view.control,
+        "risk.save_policy",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":policy["data"]["stateVersion"],"policy":enabled}),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+    assert_eq!(
+        arm_synthetic_binance_account(&view, &connected, &vault)["health"]["arming"],
+        "ARMED"
+    );
+    let draft = command(
+        &view.control,
+        "trade.save_draft",
+        json!({"workspaceId":view.workspace,"fields":{"accountId":connected["fields"]["accountId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"MARKET","quantity":{"type":"BASE","value":"0.001"},"limitPrice":null,"maximumSpend":"61","timeInForce":"DAY"}}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let generated = command(
+        &view.control,
+        "trade.generate_proposal",
+        json!({"workspaceId":view.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(generated["ok"], true, "{generated}");
+    let proposal = generated["data"].clone();
+    let fee_peer = DepthPeer::with_symbol(
+        "BNBUSDT",
+        Some(
+            json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as i64,"s":"BNBUSDT","U":9_007_199_254_740_992u64,"u":9_007_199_254_740_993u64,"b":[["500","0.5"]],"a":[["501","0.75"]]}),
+        ),
+        Vec::new(),
+    );
+    acquire_fee_bnb_book(&view, &fee_peer);
+    let http = DiscountedBnbFeeHttp {
+        inner: account_fixtures::Http {
+            binance_rules_ui: true,
+            binance_capacity_ui: std::cell::Cell::new(
+                account_fixtures::BinanceCapacityFixture::MarketEmptyInventory,
+            ),
+            ..Default::default()
+        },
+        bnb_free: std::cell::Cell::new("1"),
+    };
+    collect_spot_admission(&view, &proposal, &vault, &http, "crypto:BTC/USDT:spot");
+    let fx_http = configure_synthetic_policy_fx(&view, &proposal, &vault);
+    let query = json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]});
+    for producer in [
+        "spot_rules",
+        "spot_capacity",
+        "spot_commission",
+        "spot_order_intervals",
+    ] {
+        let current = command(
+            &view.control,
+            &format!("trade.{producer}.get"),
+            query.clone(),
+        );
+        assert_eq!(current["ok"], true, "{current}");
+        let refreshed = tradex::financial_sources::execute_refresh(
+            &view.control,
+            &json!({"requestId":format!("market-{producer}"),"schemaVersion":1,"command":format!("trade.{producer}.refresh"),"payload":{"workspaceId":view.workspace,"proposalId":proposal["proposalId"],"expectedStateVersion":current["data"]["stateVersion"]}}),
+            "main",
+            &vault,
+            &http,
+        );
+        assert_eq!(refreshed["ok"], true, "{refreshed}");
+    }
+    let decision = command(&view.control, "risk.evaluate_proposal", query.clone());
+    assert_eq!(decision["ok"], true, "{decision}");
+    assert_eq!(
+        decision["data"]["spotRules"]["outcome"], "PASS",
+        "{decision}"
+    );
+    assert_eq!(decision["data"]["status"], "ALLOWED", "{decision}");
+    let review = command(&view.control, "trade.request_approval", query.clone());
+    assert_eq!(review["data"]["eligible"], true, "{review}");
+    let current = command(&view.control, "trade.proposal.get", query.clone());
+    let approved = command(
+        &view.control,
+        "trade.approve",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"],"proposalHash":proposal["proposalHash"],"reviewedRiskDecisionId":review["data"]["riskDecision"]["decisionId"],"reviewDigest":review["data"]["reviewDigest"],"expectedStateVersion":current["data"]["stateVersion"]}),
+    );
+    assert_eq!(approved["ok"], true, "{approved}");
+    let approval = &approved["data"];
+    let payload = json!({"workspaceId":view.workspace,"approvalId":approval["approvalId"],"expectedApprovalStateVersion":approval["stateVersion"],"idempotencyKey":"synthetic-market-prepare","confirmed":true});
+    if retire_capacity {
+        http.inner
+            .binance_capacity_ui
+            .set(account_fixtures::BinanceCapacityFixture::BaseLists);
+        assert_eq!(
+            refresh_spot_capacity(&view, &proposal, &vault, &http)["data"]["status"],
+            "OBSERVED"
+        );
+    }
+    let prepared = command(&view.control, "trade.execution.prepare", payload.clone());
+    let database = rusqlite::Connection::open_with_flags(
+        view._folder.path().join("workspace.sqlite3"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .unwrap();
+    let count = |table: &str| -> i64 {
+        database
+            .query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE workspace_id=?1"),
+                [view.workspace.as_str().unwrap()],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    if retire_capacity {
+        assert_eq!(prepared["ok"], false, "{prepared}");
+        assert_eq!(count("execution_attempts"), 0);
+        assert_eq!(count("execution_reservations"), 0);
+        let consumed:i64=database.query_row("SELECT COUNT(*) FROM financial_approvals WHERE approval_id=?1 AND status='CONSUMED'",[approval["approvalId"].as_str().unwrap()],|row|row.get(0)).unwrap();
+        assert_eq!(consumed, 0);
+        for aggregate in [
+            "execution-attempt",
+            "execution-reservation",
+            "execution-preparation",
+            "order-proposal-consumption",
+        ] {
+            let events: i64 = database
+                .query_row(
+                    "SELECT COUNT(*) FROM outbox WHERE aggregate_type=?1",
+                    [aggregate],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(events, 0, "No partial {aggregate} event");
+        }
+        assert!(http.inner.binance_posts.borrow().is_empty());
+        assert!(fx_http.alpaca_posts.borrow().is_empty());
+        view.supervisor.stop_all();
+        return;
+    }
+    assert_eq!(prepared["ok"], true, "{prepared}");
+    let claims = prepared["data"]["reservation"]["assetClaims"]
+        .as_array()
+        .unwrap();
+    assert_eq!(
+        claims.len(),
+        2,
+        "Principal and current conditional BNB estimate are separate native claims"
+    );
+    let principal = claims
+        .iter()
+        .find(|claim| claim["purpose"] == "PRINCIPAL")
+        .unwrap();
+    assert_eq!(principal["asset"], "USDT");
+    assert_eq!(principal["amount"], "61");
+    let fee = claims
+        .iter()
+        .find(|claim| claim["purpose"] == "FEE")
+        .unwrap();
+    assert_eq!(fee["asset"], "BNB");
+    assert_eq!(
+        fee["amount"],
+        review["data"]["riskDecision"]["spotFeeFx"]["currentFeeModel"]["fundingPlanPreview"]["currentFeeClaim"]
+            ["amount"]
+    );
+    assert_eq!(
+        prepared["data"]["reservation"]["feeSettlementPlan"]["feeDisposition"],
+        "BNB_CURRENT_ESTIMATE"
+    );
+    let replayed = command(&view.control, "trade.execution.prepare", payload);
+    assert_eq!(replayed["ok"], true, "{replayed}");
+    assert_eq!(
+        replayed["data"], prepared["data"],
+        "Idempotent Prepare cannot reserve or consume twice"
+    );
+    assert_eq!(count("execution_attempts"), 1);
+    assert_eq!(count("execution_reservations"), 1);
+    let approvals = command(&view.control, "trade.approval.list", query);
+    assert_eq!(approvals["data"]["approvals"].as_array().unwrap().len(), 1);
+    assert_eq!(approvals["data"]["approvals"][0]["status"], "CONSUMED");
+
+    assert!(http.inner.binance_posts.borrow().is_empty());
+    assert!(fx_http.alpaca_posts.borrow().is_empty());
+    view.supervisor.stop_all();
 }

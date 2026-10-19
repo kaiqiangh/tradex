@@ -1143,3 +1143,11 @@ The user explicitly approved the reviewed proposal and instructed continuation. 
 ### MARKET 组合范围已批准——2026-10-19
 
 用户明确答复“批准，继续”。配对 PRD §75、Backend §41.62、Frontend §13.49、UI §14.46 及 owning plan 已定义有限 BASE MARKET 本地消费者、精确有界比较元数据、空库存 MAX_POSITION 支持、保守类别限额及受支持 STP 默认模式。独立来源 qualification 及受约束 LIMIT 拒绝保持。继续在同一 owning ticket 内实施，原十五项 AC 状态未改；范围决议不建立 provider 权利、金融验收或真实交易权限。
+
+### Bounded MARKET composition implemented — 2026-10-19
+
+The approved §41.62 local consumer is implemented on dev, with [paired evidence](s29-market-rule-composition-evidence.md). Twelve core public scenarios, two public producer→approval/Prepare cases, three wire tests and responsive current/captured/pre-arm UI checks pass. Serial Standards→Spec review completed; the duplicated capacity predicate was consolidated. Full `npm run check` passes (38 frontend tests, reported 591 Rust passes/33 existing ignored, schema/build/log/traceability); all 64 isolated Binance Hot scenarios pass. Native desktop checking is blocked by host `glib-2.0 >= 2.70` absence. This is local synthetic evidence, not actual source activation, provider entitlement or full owning acceptance. All fifteen AC states remain unchanged; work stays on #135 and no main PR is created.
+
+### 有界 MARKET 组合已实现——2026-10-19
+
+已批准的 §41.62 本地消费者已在 dev 实现，详见[配对证据](s29-market-rule-composition-evidence_zh.md)。十二项核心公开场景、两项公开 producer→审批/Prepare、三项 wire 测试及响应式当前/捕获/pre-arm 检查通过。串行 Standards→Spec 审查完成，重复容量判断已合并。完整 `npm run check` 通过（38 前端、Rust 汇总 591 通过/33 既有 ignored、协议/构建/日志/追踪），64 项隔离 Binance Hot 场景全部通过。原生桌面检查受宿主缺少 `glib-2.0 >= 2.70` 阻塞。以上仅为本地合成证据，不证明真实来源激活、provider entitlement 或完整 owning 验收。十五项 AC 状态未改，继续 #135，未创建 main PR。

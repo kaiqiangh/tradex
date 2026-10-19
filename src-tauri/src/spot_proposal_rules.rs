@@ -131,6 +131,8 @@ pub struct SpotRuleEvaluation {
     pub reason_code: String,
     #[schemars(length(min = 1, max = 64))]
     pub unit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_comparison: Option<crate::spot_market_rules::SpotMarketRuleComparison>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -168,6 +170,8 @@ pub struct SpotProposalRules {
     #[schemars(length(max = 256), inner(length(min = 1, max = 128)))]
     pub reference_purposes: Vec<String>,
     pub price_range_preview: Option<SpotPriceRangePreview>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub market_composition: Option<crate::spot_market_rules::SpotMarketRuleComposition>,
     #[schemars(length(min = 1, max = 128))]
     pub binding_version: String,
     #[schemars(length(min = 1, max = 128))]
@@ -177,7 +181,7 @@ pub struct SpotProposalRules {
 fn unavailable() -> TradeXError {
     TradeXError::new("ORDER_FILTERS_UNAVAILABLE")
 }
-fn field<'a>(rule: &'a SpotRuleConstraint, name: &str) -> Result<&'a SpotRuleValue> {
+pub(crate) fn field<'a>(rule: &'a SpotRuleConstraint, name: &str) -> Result<&'a SpotRuleValue> {
     let mut matching = rule.fields.iter().filter(|f| f.name == name);
     let value = &matching.next().ok_or_else(unavailable)?.value;
     if matching.next().is_some() {
@@ -601,6 +605,7 @@ fn price_range_row(
         outcome,
         reason_code: reason.into(),
         unit: Some(preview.unit.clone()),
+        local_comparison: None,
     }
 }
 
@@ -745,6 +750,7 @@ pub(crate) fn get(control: &mut ControlPlane, input: &SpotRulesQuery) -> Result<
             .into(),
             outcome: form_outcome,
             unit: None,
+            local_comparison: None,
         });
         if !e.admission_blockers.is_empty() {
             rules.push(SpotRuleEvaluation {
@@ -755,6 +761,7 @@ pub(crate) fn get(control: &mut ControlPlane, input: &SpotRulesQuery) -> Result<
                 outcome: RiskCheckOutcome::Reject,
                 reason_code: "SPOT_ADMISSION_REJECTED".into(),
                 unit: None,
+                local_comparison: None,
             });
         }
         for rule in &e.constraints {
@@ -816,6 +823,7 @@ pub(crate) fn get(control: &mut ControlPlane, input: &SpotRulesQuery) -> Result<
                     },
                     _ => None,
                 },
+                local_comparison: None,
             });
         }
     } else {
@@ -856,6 +864,7 @@ pub(crate) fn get(control: &mut ControlPlane, input: &SpotRulesQuery) -> Result<
             .map(|r| format!("{:?}:{:?}:{}", r.origin, r.scope, r.rule_type))
             .collect(),
         price_range_preview,
+        market_composition: None,
         binding_version,
         state_version: String::new(),
     };
@@ -874,7 +883,7 @@ pub(crate) fn get(control: &mut ControlPlane, input: &SpotRulesQuery) -> Result<
     Ok(result)
 }
 
-fn digest(value: &Value) -> Result<String> {
+pub(crate) fn digest(value: &Value) -> Result<String> {
     Ok(format!(
         "sha256:{}",
         hex::encode(Sha256::digest(

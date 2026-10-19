@@ -51,6 +51,7 @@ export function SpotRulesExplanation({ rules, captured = false, actions }: { rul
     <h3>{captured ? 'Captured Proposal Spot rules' : 'Current Proposal Spot rules'}</h3>
     <p><strong>Complete rules · {rules.outcome}</strong></p>
     <p>{captured ? 'Saved assessment. These outcomes and original receipts do not renew current evidence or consent.' : 'Current assessment of the saved, unchanged Proposal. Missing inputs remain unavailable.'} Rights, quotes, permissions, fees, FX and immediate preflight need their own checks.</p>
+    {!rules.marketComposition && <p>Source-only assessment. Capacity and interval comparisons are evaluated together in a new risk assessment; refreshing this panel cannot qualify those inputs or renew a saved review.</p>}
     <dl className="data-source-details">
       <div><dt>Proposal</dt><dd>{rules.proposalId} · {rules.proposalHash}</dd></div>
       <div><dt>Exact account</dt><dd>{rules.accountId}</dd></div>
@@ -61,7 +62,21 @@ export function SpotRulesExplanation({ rules, captured = false, actions }: { rul
     <ul className="risk-decision-checks">{rules.rules.map((rule, index) => <li key={index}>
       <strong>{rule.ruleType} · {rule.outcome}</strong>
       <span>{rule.origin} · {rule.scope} · {rule.applicable ? 'Applies to this intent' : 'Not applicable to this intent'} · {human(rule.reasonCode)}{rule.unit && ` · Unit: ${rule.unit}`}</span>
+      {rule.localComparison && <span>Local comparison: {rule.localComparison.observed} + {rule.localComparison.increment} = {rule.localComparison.total}; limit {rule.localComparison.limit}{rule.unit && ` ${rule.unit}`}</span>}
     </li>)}</ul>
+    {rules.marketComposition && <section aria-label="Local MARKET rule composition">
+      <h4>Local MARKET rule composition · {rules.outcome}</h4>
+      <p>Local Prepare eligibility for this unchanged BASE MARKET intent. The venue applies PRICE_RANGE during execution; partial fills and expiry remain possible. Passing these rules grants no approval, reservation, provider entitlement or fill guarantee.</p>
+      <p>Conservative local policy compares complete algo, iceberg and order-list counts with a zero intent increment. Total orders add one. BUY position support requires a complete empty account inventory; nonempty or ambiguous quantities remain unavailable.</p>
+      <dl className="data-source-details">
+        <div><dt>Inventory and interval admission</dt><dd>{rules.marketComposition.admissionOutcome} · {rules.marketComposition.admissionReason}</dd></div>
+        <div><dt>Bound capacity version</dt><dd>{rules.marketComposition.capacityVersion}</dd></div>
+        <div><dt>Bound interval version</dt><dd>{rules.marketComposition.intervalVersion}</dd></div>
+      </dl>
+      <h4>Carried provenance limitations</h4>
+      <ul>{rules.marketComposition.carriedLimitations.map(limitation => <li key={limitation}>{human(limitation)}</li>)}</ul>
+      <p>These labels describe the original observations. They do not provide execution qualification, renew receipts or remove another financial check.</p>
+    </section>}
     {rules.priceRangePreview && <PriceRangeExplanation preview={rules.priceRangePreview} captured={captured} />}
     <h4>Required reference purposes</h4><ul>{rules.referencePurposes.map(purpose => <li key={purpose}>{purpose}</li>)}</ul>
     {!rules.referencePurposes.length && <p>{rules.materialVersion ? 'This intent needs no public rule reference read.' : 'Required reference purposes are unavailable until current exact rules are refreshed.'}</p>}

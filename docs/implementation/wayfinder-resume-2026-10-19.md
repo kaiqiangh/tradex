@@ -1,5 +1,8 @@
 # Wayfinder 需求清单与串行恢复 — 2026-10-19
 
+> Later update, 2026-10-19: the user approved the MARKET scope and its bounded local implementation is now verified. See the [implementation evidence](s29-market-rule-composition-evidence.md). The inventory, tracker readback and tables below preserve the earlier snapshot; #135 and the full map remain open.
+> 后续更新：MARKET 范围已获批准，并完成有界本地实现验证，详见[配对证据](s29-market-rule-composition-evidence_zh.md)。下方清单、tracker 读回及表格保留早先快照；#135 与完整地图仍开放。
+
 本记录恢复已有 [完整构建 TradeX v1.0 RevC](https://github.com/kaiqiangh/tradex/issues/1) 地图。固定本地基线为 `dev@825fa12c6f44192589b4e214f3592c511c547667`；这是计划和状态快照，不是新的应用验收。本轮沿用已有规范、拆票和公开验证边界。
 
 English scope: this is a dated requirements and workflow snapshot. It inventories the existing documentation and preserves its recorded acceptance states. The current owning Spot financial-plan ticket remains open; the proposed MARKET-only rule composition is pending a separate scope decision. No runtime contract or financial authority changes are made by this record.
