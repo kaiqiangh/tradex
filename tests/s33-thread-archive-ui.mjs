@@ -65,6 +65,7 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
     }
   };
   const title = 'B2 recovery Research MSFT';
+  let runningArchiveRefusal = false;
   await page.getByRole('textbox', { name: 'Thread title', exact: true }).fill(title);
   await page.getByRole('combobox', { name: 'Agent mode', exact: true }).selectOption('RESEARCH');
   await page.getByRole('button', { name: /@ Context/ }).click();
@@ -82,6 +83,21 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
       agentMode: 'RESEARCH', executionContext: 'NONE_READ_ONLY', model: current.model, attachedContexts: current.linkedContexts });
     await page.waitForFunction(() => document.querySelector('.thread-lifecycle button')?.disabled === true);
     await page.getByText('A Turn is running. Wait for it to finish or explicitly cancel it before archiving.', { exact: true }).waitFor({ state: 'visible' });
+    const running = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
+    check(running.status === 'ACTIVE' && running.turns.some(turn => turn.status === 'RUNNING'), 'The archive refusal is exercised while a Turn is running.');
+    const refusedArchive = await page.evaluate(async envelope => {
+      const response = await fetch('/__integration/command', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope),
+      });
+      return { status: response.status, body: await response.json() };
+    }, { requestId: `s33-b2-running-archive-${Date.now()}`, schemaVersion: 1, command: 'thread.archive', payload: {
+      workspaceId: workspace.workspaceId, threadId: thread.threadId, expectedStateVersion: running.stateVersion,
+    } });
+    check(refusedArchive.status === 200 && refusedArchive.body.ok === false
+      && refusedArchive.body.error.code === 'TURN_ALREADY_RUNNING', 'Rust refuses archive while a Turn is running.');
+    runningArchiveRefusal = true;
+    const afterRefusal = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
+    check(afterRefusal.status === 'ACTIVE', 'A running-Turn archive refusal leaves the Thread active.');
     await page.waitForFunction(() => document.querySelector('.turn-timeline [aria-label="Turn 1 status"]')?.textContent === 'COMPLETED');
   }
   const original = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
@@ -105,7 +121,10 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
     await saved.getByRole('button', { name: thread.title, exact: true }).waitFor({ state: 'visible' });
     check(await detail.getByText('Archived Thread · read only', { exact: true }).isVisible(), 'Saved explains read-only status.');
     check(await detail.getByRole('button', { name: /Send|Retry Turn/ }).count() === 0, 'Saved exposes no Turn start/retry.');
+    check(await detail.getByRole('button', { name: 'Save as artifact', exact: true }).count() === 0, 'Saved exposes no artifact mutation action.');
+    check(await page.locator('.threads-main > .thread-composer').count() === 0, 'Saved view hides the new-Thread composer.');
     check(await detail.getByText('instrument:equity:US:MSFT', { exact: true }).isVisible(), 'Canonical MSFT context remains inspectable.');
+    if (!withTimeline) check(await detail.getByText('No turns have been started in this Thread.', { exact: true }).isVisible(), 'An empty Saved timeline has no Send invitation.');
     const captured = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
     check(captured.status === 'ARCHIVED' && stable(captured) === stable(original), 'Archive preserves exact original Thread.');
     await page.reload();
@@ -128,6 +147,8 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
     await restore.press('Enter');
     await action.waitFor({ state: 'visible' });
     await page.waitForFunction(() => document.activeElement?.textContent === 'Archive Thread');
+    await page.locator('.threads-main > .thread-composer').waitFor({ state: 'visible' });
+    check(await detail.locator('.turn-composer button[type="submit"]').count() === 1, 'Restore exposes a separate explicit Send control.');
     const active = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
     check(active.status === 'ACTIVE' && stable(active) === stable(original), 'Restore preserves original identity/context/timeline.');
     const today = page.locator('.threads-list-card .thread-history-group').filter({ has: page.getByRole('heading', { name: 'Today', exact: true }) });
@@ -160,13 +181,36 @@ export async function checkThreadArchiveS33(page, withTimeline = false) {
   await page.unroute('**/__integration/command');
   const finalAccounts = await command('account.list', { workspaceId: workspace.workspaceId });
   check(JSON.stringify(finalAccounts) === JSON.stringify(accounts), 'Lifecycle leaves account health/arming unchanged.');
+  const beforeCrossWorkspace = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
+  const otherWorkspace = await command('workspace.open', { name: `${workspaceName} other`, baseCurrency: 'USD', path: `${workspacePath}-other` });
+  const crossWorkspaceArchive = await page.evaluate(async envelope => {
+    const response = await fetch('/__integration/command', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(envelope),
+    });
+    return { status: response.status, body: await response.json() };
+  }, { requestId: `s33-b2-cross-workspace-${Date.now()}`, schemaVersion: 1, command: 'thread.archive', payload: {
+    workspaceId: otherWorkspace.workspaceId, threadId: thread.threadId, expectedStateVersion: beforeCrossWorkspace.stateVersion,
+  } });
+  check(crossWorkspaceArchive.status === 200 && crossWorkspaceArchive.body.ok === false
+    && crossWorkspaceArchive.body.error.code === 'IPC_AGGREGATE_NOT_FOUND', 'A real Thread ID from another workspace is refused.');
+  check(!(await command('thread.list', { workspaceId: otherWorkspace.workspaceId })).threads.some(item => item.threadId === thread.threadId), 'The foreign Thread is not visible in the other workspace.');
+  const reopenedWorkspace = await command('workspace.open', { path: workspacePath });
+  check(reopenedWorkspace.workspaceId === workspace.workspaceId, 'The original local workspace reopens with its identity.');
+  const afterCrossWorkspace = await command('thread.get', { workspaceId: workspace.workspaceId, threadId: thread.threadId });
+  check(JSON.stringify(afterCrossWorkspace) === JSON.stringify(beforeCrossWorkspace), 'Cross-workspace refusal preserves the original Thread.');
   const log = await commandLog(cursor);
   const allowed = new Set(['thread.archive','thread.restore','thread.get','thread.list','workspace.open','domain.snapshot','domain.subscribe','runtime.status','context.catalog','account.list','account.activity','agent.capabilities']);
   check(log.commands.every(entry => allowed.has(entry.command)), `Unexpected action: ${JSON.stringify(log.commands.filter(entry => !allowed.has(entry.command)))}`);
-  check(log.commands.filter(entry => entry.command === 'thread.archive').length === 5 && log.commands.filter(entry => entry.command === 'thread.restore').length === 4, 'Three width cycles plus concurrent winner, refused stale archive and explicit recovery.');
+  const archiveCommands = log.commands.filter(entry => entry.command === 'thread.archive').length;
+  const restoreCommands = log.commands.filter(entry => entry.command === 'thread.restore').length;
+  check(archiveCommands === 6 && restoreCommands === 4,
+    `Expected lifecycle command counts; archive=${archiveCommands}, restore=${restoreCommands}, timeline=${withTimeline}.`);
+  const turnStartsAfterLifecycle = log.commands.filter(entry => entry.command === 'turn.start').length;
+  check(turnStartsAfterLifecycle === 0, 'Archive/restore never starts a Turn.');
   check(externalRequests.length === 0 && consoleErrors.length === 0 && pageErrors.length === 0, 'No external HTTP or browser errors.');
   return { status: 'PASS_LIMITED', verifiedAt: new Date().toISOString(), workspaceId: workspace.workspaceId, threadId: thread.threadId, observations,
     withTimeline, originalTurnCount: original.turns.length, archivedAndRestored: 4, staleUiRecovery: true, unchangedThreadFields: true, unchangedAccounts: true, externalRequests, consoleErrors, pageErrors,
+    crossWorkspaceRefusal: true, runningTurnRefusal: runningArchiveRefusal, turnStartsAfterLifecycle,
     commandCounts: Object.fromEntries([...allowed].map(command => [command, log.commands.filter(entry => entry.command === command).length])),
     limits: 'Local UI/real Rust/isolated SQLite; synthetic runtime only when withTimeline; runtime refusal and reopen/event checks recorded separately. Not native VoiceOver or full S33 acceptance.' };
 }

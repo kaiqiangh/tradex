@@ -3,7 +3,7 @@ import type { ComponentType, FormEvent, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createPortal } from 'react-dom';
-import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchFocus, ResearchToolId, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadSummary, ThreadTurn, TimeStatus, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
+import type { AgentMode, CapabilityDecision, ContextCatalog, ContextCatalogEntry, ExecutionContext, ModelRoute, ModelState, ResearchFocus, ResearchToolId, ResearchToolInvocation, ResearchToolResult, RiskPolicyState, RuntimeStatus, Thread, ThreadContextRef, ThreadCreate, ThreadItem, ThreadModel, ThreadStatus, ThreadSummary, ThreadTurn, TimeStatus, TurnCancel, TurnRetry, TurnStart } from '../shared/ipc-types.ts';
 import { browserIntegration, desktop, explainError, request, transportAvailable } from './client.ts';
 import { Accounts } from './Accounts.tsx';
 import { AccountHealth } from './AccountHealth.tsx';
@@ -140,7 +140,7 @@ function threadHistoryGroups(threads: ThreadSummary[], now = new Date()) {
   ] as const;
 }
 
-function ThreadHistory({ workspaceId, selectedThreadId, onSelect, compact = false }: { workspaceId: string; selectedThreadId?: string; onSelect: (threadId: string) => void; compact?: boolean }) {
+function ThreadHistory({ workspaceId, selectedThreadId, onSelect, compact = false }: { workspaceId: string; selectedThreadId?: string; onSelect: (threadId: string, status: ThreadStatus) => void; compact?: boolean }) {
   const threads = useQuery({ queryKey: ['threads', workspaceId], queryFn: () => request('thread.list', { workspaceId }) });
   if (threads.isPending) return <p className="sidebar-empty" role="status">Loading thread history…</p>;
   if (threads.isError) return <div className="thread-history-error"><p role="alert">Thread history is unavailable.</p><button type="button" onClick={() => void threads.refetch()}>Reload history</button></div>;
@@ -149,7 +149,7 @@ function ThreadHistory({ workspaceId, selectedThreadId, onSelect, compact = fals
     <section className="thread-history-group" key={group.label} aria-label={`${group.label} thread history`}>
       <h3>{group.label}</h3>
       {group.threads.length ? group.threads.map(thread =>
-        <button key={thread.threadId} type="button" className="thread-history-row" aria-label={thread.title} aria-current={thread.threadId === selectedThreadId ? 'true' : undefined} onClick={() => onSelect(thread.threadId)}>
+        <button key={thread.threadId} type="button" className="thread-history-row" aria-label={thread.title} aria-current={thread.threadId === selectedThreadId ? 'true' : undefined} onClick={() => onSelect(thread.threadId, thread.status)}>
           <strong>{thread.title}</strong><small>{thread.defaultAgentMode} · {thread.defaultExecutionContext}</small><time dateTime={thread.updatedAt}>{new Date(thread.updatedAt).toLocaleString()}</time>
         </button>)
         : <p className="thread-history-group-empty">{group.label === 'Saved' ? 'No saved threads' : 'No threads in this period'}</p>}
@@ -665,7 +665,7 @@ function TurnTimeline({ workspaceId, threadId, turn, index, busy, onCancel, onRe
   </article>;
 }
 
-function ThreadDetail({ threadId, model, runtime, initialContexts = [], initialMessage = '', onContextsConsumed, onInitialMessageConsumed, onOpenStrategies }: { threadId: string; model?: ModelState; runtime?: RuntimeStatus; initialContexts?: ThreadContextRef[]; initialMessage?: string; onContextsConsumed?: () => void; onInitialMessageConsumed?: () => void; onOpenStrategies?: OpenStrategies }) {
+function ThreadDetail({ threadId, model, runtime, initialContexts = [], initialMessage = '', onContextsConsumed, onInitialMessageConsumed, onStatusChange, onOpenStrategies }: { threadId: string; model?: ModelState; runtime?: RuntimeStatus; initialContexts?: ThreadContextRef[]; initialMessage?: string; onContextsConsumed?: () => void; onInitialMessageConsumed?: () => void; onStatusChange?: (status: ThreadStatus) => void; onOpenStrategies?: OpenStrategies }) {
   const queryClient = useQueryClient();
   const projection = useDomainProjection('thread', threadId, fromThreadSnapshot);
   const [actionTurnId, setActionTurnId] = useState<string>();
@@ -678,6 +678,9 @@ function ThreadDetail({ threadId, model, runtime, initialContexts = [], initialM
       lifecycleButton.current.focus(); returnLifecycleFocus.current = false;
     }
   }, [lifecycleBusy, projection.data?.status, projection.reloading]);
+  useEffect(() => {
+    if (projection.data?.threadId === threadId) onStatusChange?.(projection.data.status);
+  }, [projection.data?.threadId, projection.data?.status, onStatusChange, threadId]);
   if (projection.error) return <div className="error-banner" role="alert"><div><strong>Thread needs attention</strong><p>{explainError(projection.error)}</p></div><button type="button" onClick={() => void projection.reload()}>Reload thread</button></div>;
   const thread = projection.data;
   if (!thread) return <p role="status">Loading thread…</p>;
@@ -686,9 +689,10 @@ function ThreadDetail({ threadId, model, runtime, initialContexts = [], initialM
   const changeLifecycle = async () => {
     setLifecycleBusy(true); setActionError(undefined);
     try {
-      await request(archived ? 'thread.restore' : 'thread.archive', {
+      const updated = await request(archived ? 'thread.restore' : 'thread.archive', {
         workspaceId: thread.workspaceId, threadId: thread.threadId, expectedStateVersion: thread.stateVersion,
       });
+      onStatusChange?.(updated.status);
       await queryClient.invalidateQueries({ queryKey: ['threads', thread.workspaceId] });
       returnLifecycleFocus.current = true;
     } catch (failure) { setActionError(explainError(failure)); }
@@ -715,12 +719,12 @@ function ThreadDetail({ threadId, model, runtime, initialContexts = [], initialM
     </div>
     {archived ? <div className="notice" role="status"><strong>Archived Thread · read only</strong><p>Restore to active before sending or retrying a Turn. Restoring does not send a request or restore financial approval.</p></div> : <TurnComposer thread={thread} model={model} runtime={runtime} initialContexts={initialContexts} initialMessage={initialMessage} onContextsConsumed={onContextsConsumed} onInitialMessageConsumed={onInitialMessageConsumed} onOpenStrategies={onOpenStrategies} />}
     {actionError && <div><p className="error-text" role="alert">{actionError}</p><button type="button" onClick={() => { void projection.reload(); void queryClient.invalidateQueries({ queryKey: ['threads', thread.workspaceId] }); setActionError(undefined); }}>Reload thread</button></div>}
-    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} workspaceId={thread.workspaceId} threadId={thread.threadId} turn={turn} index={index} readOnly={archived} busy={lifecycleBusy || actionTurnId === turn.turnId} onCancel={() => void act(turn, 'turn.cancel')} onRetry={() => void act(turn, 'turn.retry')} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>No turns have started. Send a request to begin the read-only timeline.</p></div>}
+    {thread.turns?.length ? <section className="thread-timeline" aria-label="Turn timeline">{thread.turns.map((turn, index) => <TurnTimeline key={turn.turnId} workspaceId={thread.workspaceId} threadId={thread.threadId} turn={turn} index={index} readOnly={archived} busy={lifecycleBusy || actionTurnId === turn.turnId} onCancel={() => void act(turn, 'turn.cancel')} onRetry={() => void act(turn, 'turn.retry')} />)}</section> : <div className="empty-activity" role="status"><h3>Thread timeline</h3><p>{archived ? 'No turns have been started in this Thread.' : 'No turns have started. Send a request to begin the timeline.'}</p></div>}
   </section>;
 }
 
-function ThreadsPage({ workspaceId, model, runtime, selectedThreadId, onSelect, onCreated, newThreadContexts = [], selectedThreadContexts = [], initialMessage = '', onContextsConsumed, onInitialMessageConsumed, onOpenStrategies }: { workspaceId: string; model?: ModelState; runtime?: RuntimeStatus; selectedThreadId?: string; onSelect: (threadId: string) => void; onCreated: (thread: Thread) => void; newThreadContexts?: ThreadContextRef[]; selectedThreadContexts?: ThreadContextRef[]; initialMessage?: string; onContextsConsumed?: () => void; onInitialMessageConsumed?: () => void; onOpenStrategies?: OpenStrategies }) {
-  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main"><ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} initialContexts={newThreadContexts} onOpenStrategies={onOpenStrategies} />{selectedThreadId && <ThreadDetail threadId={selectedThreadId} model={model} runtime={runtime} initialContexts={selectedThreadContexts} initialMessage={initialMessage} onContextsConsumed={onContextsConsumed} onInitialMessageConsumed={onInitialMessageConsumed} onOpenStrategies={onOpenStrategies} />}</section></div></>;
+function ThreadsPage({ workspaceId, model, runtime, selectedThreadId, selectedThreadStatus, onSelect, onCreated, onStatusChange, newThreadContexts = [], selectedThreadContexts = [], initialMessage = '', onContextsConsumed, onInitialMessageConsumed, onOpenStrategies }: { workspaceId: string; model?: ModelState; runtime?: RuntimeStatus; selectedThreadId?: string; selectedThreadStatus?: ThreadStatus; onSelect: (threadId: string, status: ThreadStatus) => void; onCreated: (thread: Thread) => void; onStatusChange: (status: ThreadStatus) => void; newThreadContexts?: ThreadContextRef[]; selectedThreadContexts?: ThreadContextRef[]; initialMessage?: string; onContextsConsumed?: () => void; onInitialMessageConsumed?: () => void; onOpenStrategies?: OpenStrategies }) {
+  return <><div className="page-heading"><h1>Threads</h1><p>Local history restores each Thread's own defaults and context.</p></div><div className="threads-layout"><section className="card threads-list-card"><h2>History</h2><ThreadHistory workspaceId={workspaceId} selectedThreadId={selectedThreadId} onSelect={onSelect} /></section><section className="threads-main">{selectedThreadStatus !== 'ARCHIVED' && <ThreadComposer workspaceId={workspaceId} model={model} onCreated={onCreated} initialContexts={newThreadContexts} onOpenStrategies={onOpenStrategies} />}{selectedThreadId && <ThreadDetail threadId={selectedThreadId} model={model} runtime={runtime} initialContexts={selectedThreadContexts} initialMessage={initialMessage} onContextsConsumed={onContextsConsumed} onInitialMessageConsumed={onInitialMessageConsumed} onStatusChange={onStatusChange} onOpenStrategies={onOpenStrategies} />}</section></div></>;
 }
 
 function RiskSettings({ workspace, risk }: { workspace: Workspace; risk?: RiskPolicyState }) {
@@ -837,6 +841,7 @@ function Onboarding({ workspace, risk, model, modelError, reloadModel, runtime, 
 export default function App() {
   const [page, setPage] = useState<Page>('New Thread');
   const [selectedThreadId, setSelectedThreadId] = useState<string>();
+  const [selectedThreadStatus, setSelectedThreadStatus] = useState<ThreadStatus>();
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>();
   const [pendingTurnDraft, setPendingTurnDraft] = useState('');
   const [newThreadScreenerContexts, setNewThreadScreenerContexts] = useState<ThreadContextRef[]>([]);
@@ -877,10 +882,10 @@ export default function App() {
   const modelReady = modelState.ready;
   const projectionError = riskProjection.error ?? modelProjection.error;
   const reloadProjections = () => { void riskProjection.reload(); void modelProjection.reload(); };
-  useEffect(() => { setSelectedThreadId(undefined); setSuggestedPrompt(undefined); setPendingTurnDraft(''); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(undefined); setStrategyEntryContext(undefined); }, [workspace?.workspaceId]);
+  useEffect(() => { setSelectedThreadId(undefined); setSelectedThreadStatus(undefined); setSuggestedPrompt(undefined); setPendingTurnDraft(''); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(undefined); setStrategyEntryContext(undefined); }, [workspace?.workspaceId]);
   const navigate = (destination: Page) => {
     setPage(destination); setSetup(false); setWorkspacePicker(false); setStrategyEntryContext(undefined);
-    if (destination === 'New Thread') { setSelectedThreadId(undefined); setSuggestedPrompt(undefined); setPendingTurnDraft(''); }
+    if (destination === 'New Thread') { setSelectedThreadId(undefined); setSelectedThreadStatus(undefined); setSuggestedPrompt(undefined); setPendingTurnDraft(''); }
     else if (destination !== page) { setSuggestedPrompt(undefined); setPendingTurnDraft(''); }
     document.querySelectorAll('details[open]').forEach(details => details.removeAttribute('open'));
   };
@@ -889,8 +894,8 @@ export default function App() {
     setSuggestedPrompt(undefined); setPendingTurnDraft('');
     setPage('Strategies'); setSetup(false); setWorkspacePicker(false);
   };
-  const selectThread = (threadId: string) => { setSuggestedPrompt(undefined); setPendingTurnDraft(''); setSelectedThreadId(threadId); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(previous => previous?.threadId === threadId ? previous : undefined); setPage('Threads'); setSetup(false); setWorkspacePicker(false); };
-  const createdThread = (thread: Thread, initialRequest?: string) => { setSuggestedPrompt(undefined); setPendingTurnDraft(initialRequest ?? ''); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(undefined); setSelectedThreadId(thread.threadId); setPage('Threads'); };
+  const selectThread = (threadId: string, status: ThreadStatus) => { setSuggestedPrompt(undefined); setPendingTurnDraft(''); setSelectedThreadId(threadId); setSelectedThreadStatus(status); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(previous => previous?.threadId === threadId ? previous : undefined); setPage('Threads'); setSetup(false); setWorkspacePicker(false); };
+  const createdThread = (thread: Thread, initialRequest?: string) => { setSuggestedPrompt(undefined); setPendingTurnDraft(initialRequest ?? ''); setNewThreadScreenerContexts([]); setCurrentThreadScreenerContexts(undefined); setSelectedThreadId(thread.threadId); setSelectedThreadStatus(thread.status); setPage('Threads'); };
   const attachScreenerContexts = (contexts: ThreadContextRef[], target: 'new' | 'current') => {
     setSetup(false); setWorkspacePicker(false);
     if (target === 'current' && selectedThreadId) {
@@ -902,11 +907,12 @@ export default function App() {
       setNewThreadScreenerContexts(contexts);
       setCurrentThreadScreenerContexts(undefined);
       setSelectedThreadId(undefined);
+      setSelectedThreadStatus(undefined);
       setPage('New Thread');
     }
   };
   const submit = async (options: OpenWorkspace) => {
-    try { await state.opening.mutateAsync(options); setSelectedThreadId(undefined); setSuggestedPrompt(undefined); setPendingTurnDraft(''); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
+    try { await state.opening.mutateAsync(options); setSelectedThreadId(undefined); setSelectedThreadStatus(undefined); setSuggestedPrompt(undefined); setPendingTurnDraft(''); setWorkspacePicker(false); setSetup(true); setPage('New Thread'); } catch { /* Render the canonical error below. */ }
   };
   const onboardingVisible = !workspacePicker && (setup || Boolean(workspace && risk && page === 'New Thread' && (!risk.onboardingCompleted || !modelReady)));
   const title = workspacePicker || setup || (!workspace && page === 'New Thread') ? 'Workspace setup' : page;
@@ -944,7 +950,7 @@ export default function App() {
               <div className="notice model-notice"><div><strong>{modelReady ? 'Agent turns unavailable' : defaultModelRoute ? 'Model gateway unavailable' : 'Connect a model provider'}</strong><p>{modelState.reason}</p></div><button onClick={() => navigate('Settings')}>Providers &amp; Models</button></div>
               <div className="empty-activity"><h2>Thread activity</h2><p>No agent turns have started in this workspace.</p></div>
             </>}
-            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} runtime={state.runtime.data} selectedThreadId={selectedThreadId} onSelect={selectThread} onCreated={createdThread} newThreadContexts={newThreadScreenerContexts} selectedThreadContexts={currentThreadScreenerContexts?.threadId === selectedThreadId ? currentThreadScreenerContexts?.contexts ?? EMPTY_THREAD_CONTEXTS : EMPTY_THREAD_CONTEXTS} initialMessage={pendingTurnDraft} onContextsConsumed={() => setCurrentThreadScreenerContexts(undefined)} onInitialMessageConsumed={() => setPendingTurnDraft('')} onOpenStrategies={openStrategies} />}
+            {page === 'Threads' && workspace && <ThreadsPage workspaceId={workspace.workspaceId} model={model} runtime={state.runtime.data} selectedThreadId={selectedThreadId} selectedThreadStatus={selectedThreadStatus} onSelect={selectThread} onCreated={createdThread} onStatusChange={setSelectedThreadStatus} newThreadContexts={newThreadScreenerContexts} selectedThreadContexts={currentThreadScreenerContexts?.threadId === selectedThreadId ? currentThreadScreenerContexts?.contexts ?? EMPTY_THREAD_CONTEXTS : EMPTY_THREAD_CONTEXTS} initialMessage={pendingTurnDraft} onContextsConsumed={() => setCurrentThreadScreenerContexts(undefined)} onInitialMessageConsumed={() => setPendingTurnDraft('')} onOpenStrategies={openStrategies} />}
             {page === 'Settings' && <>
               <div className="page-heading"><h1>Settings</h1><p>Manage your local workspace, account health, privacy, and connected services.</p></div>
               <div className="settings-tabs" role="group" aria-label="Settings sections">{['Providers & Models', 'Risk & Limits', 'Data & Storage', 'Account Health', 'Appearance', 'About'].map(tab =>
