@@ -805,6 +805,10 @@ pub enum RiskDecisionReasonCode {
     EvidenceStale,
     EvidenceUntrusted,
     DataUseRightsUnverified,
+    DataUseUserAttestedLocalOnly,
+    DataUseProfileUnsupported,
+    DataUseJurisdictionUnsupported,
+    DataUseRestricted,
     AccountUnavailable,
     AccountMismatch,
     AccountUnhealthy,
@@ -852,6 +856,7 @@ pub enum RiskDecisionInputKind {
     SpotOrderIntervals,
     SpotFeeFx,
     SpotCommission,
+    MarketDataUse,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -924,6 +929,8 @@ pub struct RiskDecision {
     pub inputs: Vec<RiskDecisionInputReference>,
     pub checks: Vec<RiskCheckResult>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binance_local_use_attestation: Option<crate::protocol::BinanceLocalUseAttestation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_rules: Option<crate::spot_proposal_rules::SpotProposalRules>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spot_capacity: Option<crate::spot_capacity::SpotCapacityInputs>,
@@ -973,6 +980,61 @@ impl RiskDecision {
         sequence: u64,
     ) -> crate::protocol::Result<()> {
         let status = RiskDecisionStatus::from_checks(&self.checks);
+        let has_local_use_attestation = self.binance_local_use_attestation.is_some();
+        let user_attested_market_data_use = self.checks.iter().any(|check| {
+            check.check_id == RiskCheckId::MarketDataUse
+                && check.outcome == RiskCheckOutcome::Pass
+                && check.reason_code == RiskDecisionReasonCode::DataUseUserAttestedLocalOnly
+        });
+        let market_data_use_input = self
+            .inputs
+            .iter()
+            .any(|input| input.kind == RiskDecisionInputKind::MarketDataUse);
+        let attestation_is_bounded_and_captured = self
+            .binance_local_use_attestation
+            .as_ref()
+            .is_none_or(|attestation| {
+                attestation.workspace_id == workspace_id
+                    && self.environment == crate::protocol::ExecutionContext::BinanceLive
+                    && attestation.source_generation > 0
+                    && attestation.provenance
+                        == crate::protocol::BinanceLocalUseProvenance::UserAttestedLocalOnly
+                    && attestation.scope
+                        == crate::protocol::BinanceLocalUseScope::LocalTradingDecisionSupport
+                    && attestation.source_id == crate::binance_market::SOURCE_ID
+                    && attestation.provider_id == "binance"
+                    && attestation.environment
+                        == crate::protocol::BinanceLocalUseEnvironment::Ordinary
+                    && attestation.dataset_profile
+                        == crate::protocol::BinanceLocalUseDatasetProfile::OrdinaryPublicSpotQuotesAndBoundedDepth
+                    && attestation.symbols.len() == 2
+                    && attestation.symbols[0] == "BTCUSDT"
+                    && attestation.symbols[1] == "ETHUSDT"
+                    && attestation.fee_symbol_scope
+                        == crate::protocol::BinanceLocalUseFeeSymbolScope::BnbUsdtOnlyWhenRequiredForFeeValuation
+                    && attestation.declared_jurisdiction.len() == 2
+                    && attestation
+                        .declared_jurisdiction
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase())
+                    && attestation.destination
+                        == crate::protocol::BinanceLocalUseDestination::LocalOnly
+                    && attestation.retention_boundary
+                        == crate::protocol::BinanceLocalRetentionBoundary::EphemeralLocalEvidenceNoQuoteOrBookExport
+                    && !attestation.policy_version.is_empty()
+                    && attestation.policy_version.len() <= 64
+                    && attestation.terms_url.starts_with("https://")
+                    && attestation.terms_url.len() <= 512
+                    && attestation.terms_reviewed_at.len() >= 10
+                    && attestation.terms_reviewed_at.len() <= 32
+                    && !attestation.confirmed_at.is_empty()
+                    && attestation.confirmed_at.len() <= 64
+                    && attestation.binding_digest.len() == 64
+                    && attestation
+                        .binding_digest
+                        .bytes()
+                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+            });
         if self.workspace_id != workspace_id
             || self.proposal_id != proposal_id
             || self.proposal_hash.len() != 71
@@ -1011,6 +1073,9 @@ impl RiskDecision {
             })
             || self.state_version != format!("risk-decision:{proposal_id}:{sequence}")
             || self.status != status
+            || user_attested_market_data_use != has_local_use_attestation
+            || (has_local_use_attestation && !market_data_use_input)
+            || !attestation_is_bounded_and_captured
         {
             return Err(crate::protocol::TradeXError::new(
                 "WORKSPACE_INTEGRITY_FAILED",
@@ -1135,7 +1200,8 @@ fn normalize_input_material(kind: RiskDecisionInputKind, material: &mut Value) {
         | RiskDecisionInputKind::InstrumentRules
         | RiskDecisionInputKind::CurrencyRates
         | RiskDecisionInputKind::SpotCapacity
-        | RiskDecisionInputKind::SpotOrderIntervals => {}
+        | RiskDecisionInputKind::SpotOrderIntervals
+        | RiskDecisionInputKind::MarketDataUse => {}
     }
 }
 
@@ -1177,6 +1243,7 @@ pub(crate) fn evaluate(
     owning_spot_required: bool,
     owning_workspace_base_notional: Option<&str>,
     market: Option<&crate::protocol::MarketDetail>,
+    market_data_use: Option<&crate::binance_market::LocalUseRiskEvidence>,
     time_status: &crate::protocol::TimeStatus,
     inputs: Vec<RiskDecisionInputReference>,
     existing_reserved_capital: Option<&str>,
@@ -2091,24 +2158,74 @@ pub(crate) fn evaluate(
         },
     );
     let requires_public_spot_rights = !local_simulation
+        && proposal.fields.environment == ExecutionContext::BinanceLive
         && market.is_some_and(|m| m.source_id.as_deref() == Some(crate::binance_market::SOURCE_ID));
+    let supported_binance_profile = matches!(
+        proposal.fields.instrument_id.as_str(),
+        "crypto:BTC/USDT:spot" | "crypto:ETH/USDT:spot"
+    );
+    let current_market_data_attestation = market_data_use
+        .and_then(|evidence| evidence.current_attestation.as_ref())
+        .filter(|_| requires_public_spot_rights && supported_binance_profile)
+        .filter(|attestation| {
+            attestation.workspace_id == proposal.workspace_id
+                && attestation.source_id == crate::binance_market::SOURCE_ID
+                && attestation.provider_id == "binance"
+        });
+    let restricted_jurisdiction =
+        market_data_use.and_then(|evidence| evidence.restricted_jurisdiction.as_deref());
+    let unsupported_jurisdiction =
+        market_data_use.and_then(|evidence| evidence.unsupported_jurisdiction.as_deref());
+    let (data_use_outcome, data_use_reason_code, data_use_reason) = if !requires_public_spot_rights
+    {
+        (
+                RiskCheckOutcome::Pass,
+                RiskDecisionReasonCode::NotApplicable,
+                "The ordinary public Spot financial data-use gate is not applicable to this source/context.".to_owned(),
+            )
+    } else if let Some(jurisdiction) = restricted_jurisdiction {
+        (
+            RiskCheckOutcome::Reject,
+            RiskDecisionReasonCode::DataUseRestricted,
+            format!(
+                "Current local policy identifies declared jurisdiction {jurisdiction} as restricted for this ordinary Binance Spot source. No provider entitlement is inferred."
+            ),
+        )
+    } else if let Some(jurisdiction) = unsupported_jurisdiction {
+        (
+            RiskCheckOutcome::Unavailable,
+            RiskDecisionReasonCode::DataUseJurisdictionUnsupported,
+            format!(
+                "Declared jurisdiction code {jurisdiction} is not recognized by the current local Binance source policy. Use an ISO 3166-1 alpha-2 code and review current terms; provider entitlement remains UNVERIFIED."
+            ),
+        )
+    } else if !supported_binance_profile {
+        (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::DataUseProfileUnsupported,
+                "This Binance local-use confirmation covers only BTC/USDT and ETH/USDT Spot quotes and bounded depth; the requested profile is outside that scope.".to_owned(),
+            )
+    } else if let Some(attestation) = current_market_data_attestation {
+        (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::DataUseUserAttestedLocalOnly,
+            format!(
+                "User-attested local-only decision support is bound to declared jurisdiction {} and the current Binance Spot source profile; provider entitlement remains UNVERIFIED.",
+                attestation.declared_jurisdiction
+            ),
+        )
+    } else {
+        (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::DataUseRightsUnverified,
+                "Public Spot technical collection establishes no user-specific financial-use, retention, redistribution, commercial or regional permission. No current matching local-use confirmation is recorded; provider entitlement remains UNVERIFIED.".to_owned(),
+            )
+    };
     push!(
         RiskCheckId::MarketDataUse,
-        if requires_public_spot_rights {
-            RiskCheckOutcome::Unavailable
-        } else {
-            RiskCheckOutcome::Pass
-        },
-        if requires_public_spot_rights {
-            RiskDecisionReasonCode::DataUseRightsUnverified
-        } else {
-            RiskDecisionReasonCode::NotApplicable
-        },
-        if requires_public_spot_rights {
-            "Public Spot technical collection establishes no user-specific financial-use, retention, redistribution, commercial or regional permission. Those data-use rights remain UNVERIFIED."
-        } else {
-            "The ordinary public Spot financial data-use gate is not applicable to this source/context."
-        },
+        data_use_outcome,
+        data_use_reason_code,
+        data_use_reason,
     );
     // Preserve only the existing, explicitly identified contract-test producer. Ordinary builds
     // cannot create it, and selecting a production financial source shields it at the producer.
@@ -2419,6 +2536,7 @@ pub(crate) fn evaluate(
         state_version: String::new(),
         inputs,
         checks,
+        binance_local_use_attestation: current_market_data_attestation.cloned(),
         spot_rules: None,
         spot_capacity: None,
         spot_order_intervals: None,

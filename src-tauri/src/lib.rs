@@ -5069,7 +5069,11 @@ impl ControlPlane {
             }
             "data.binance_market.connection"
             | "data.binance_market.configure"
-            | "data.binance_market.disconnect" => binance_market::metadata(self, request, consumer),
+            | "data.binance_market.disconnect"
+            | "data.binance_market.attest_local_use"
+            | "data.binance_market.withdraw_local_use" => {
+                binance_market::metadata(self, request, consumer)
+            }
             "data.source.connection" => {
                 let input: DataSourceQuery = payload(request.payload)?;
                 self.require_workspace(&input.workspace_id)?;
@@ -8716,6 +8720,25 @@ impl ControlPlane {
                 &active_reservations,
             )?,
         ];
+        let market_data_use = if proposal.fields.environment
+            == protocol::ExecutionContext::BinanceLive
+            && market.as_ref().is_some_and(|market| {
+                market.source_id.as_deref() == Some(binance_market::SOURCE_ID)
+            }) {
+            let evidence = binance_market::local_use_risk_evidence(self, workspace_id)?;
+            inputs.push(risk::input_reference(
+                risk::RiskDecisionInputKind::MarketDataUse,
+                format!("binance-market-data-use:{}", evidence.source_state_version),
+                evidence
+                    .current_attestation
+                    .as_ref()
+                    .map(|attestation| attestation.confirmed_at.clone()),
+                &evidence,
+            )?);
+            Some(evidence)
+        } else {
+            None
+        };
         let currency_evidence = financial_sources::review_context(self, proposal)?;
         if let Some(context) = &currency_evidence {
             inputs.push(risk::input_reference(
@@ -8927,6 +8950,7 @@ impl ControlPlane {
                 .as_ref()
                 .and_then(|statement| statement.workspace_base_expected_spend.as_deref()),
             market.as_ref(),
+            market_data_use.as_ref(),
             &time_status,
             inputs,
             existing_reserved_capital.as_deref(),

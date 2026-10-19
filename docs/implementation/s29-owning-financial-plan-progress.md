@@ -1055,3 +1055,19 @@ The user approved the proposal scope. This resolves the preceding to-spec decisi
 ### S29.11 #149 决议与规范同步 — 2026-10-19
 
 用户已批准提案范围，前述to-spec规范决议门禁因此解除。配对PRD、Backend/Frontend ARD、UI及S29.11 owning-plan契约现明确相同的本地范围：当前且来源绑定的Binance确认仅可使`MARKET_DATA_USE`以`USER_ATTESTED_LOCAL_ONLY`通过；provider entitlement及行情`dataUseRights`继续为`UNVERIFIED`；已知禁令或过期/未解决策略仍拒绝；其他独立门禁及#135完整AC6/AC10 owning-plan Prepare目标继续保留。确认不授予Arm、PLACE、订单提交、provider mutation或外部用途。提案文件已更新为“已批准”，并链接至规范契约。规范已提交到本地`dev`：`0cd4e18`。Wayfinder决议项#149已关闭并标记完成。顺序执行的能力实现票[#150](https://github.com/kaiqiangh/tradex/issues/150)已创建，处于open/ready-for-agent。#135已链接决议及前置票，并补入此前配对规范中的AC15，同时保留原有所有验收勾选状态。运行时代码尚未更改；当前项为#150，之后再回到#135。
+
+### S29.11 Binance local-use attestation implementation — 2026-10-19
+
+The approved #150 scope is implemented in the local `dev` worktree. The optional attestation is saved with the ordinary Binance Spot source and bound to workspace, source generation, supported dataset/fee-symbol profile, declared jurisdiction, local-only purpose/destination/retention, and the current local policy and terms revision. Attest/withdraw use versioned Control Plane mutations without provider I/O; source reconfiguration and disconnect invalidate the binding. Only `MARKET_DATA_USE` can pass from a current matching attestation, with `USER_ATTESTED_LOCAL_ONLY` provenance. Quote `dataUseRights` and provider entitlement remain `UNVERIFIED`; every independent risk gate remains in force. Unknown jurisdiction codes and the current local `US` restriction fail closed; this is not a legal or provider determination. Settings exposes the unchecked-by-default confirmation, jurisdiction, terms pointer, backend assessment, reusable summary, and withdrawal. Details and desktop/mobile captures are in [#150 verification evidence](evidence/s29-binance-local-use-attestation/verification-2026-10-19.md).
+
+Focused Rust, Hot-source, schema, typecheck, production-build, requirement-traceability, and responsive UI checks passed; the 60-scenario Hot suite passed serially. The first full `npm run check` after implementation passed schema/build/Node/Rust/secret-scan stages but stopped at traceability because 203 requirement rows still referenced pre-edit PRD line numbers. All 203 references were corrected and the standalone traceability check now passes; the final aggregate rerun is recorded in the evidence file. Binance terms could not be fetched through the configured proxy, so the local dated terms pointer is not independent legal review. No real provider/account read, provider mutation, approval, Arm, consent, Prepare, dispatch, or financial action occurred.
+
+#150's local implementation slice is complete; this is not owning-ticket acceptance. #135/#134 remain OPEN, every #135 acceptance state remains unchanged, and AC1 source-use plus the complete producer-to-Prepare and settlement evidence remain outstanding. The sequential task returns to #135; no `main` PR has started.
+
+### S29.11 Binance 本地用途确认实现 — 2026-10-19
+
+已在本地`dev`工作区实现批准范围内的#150。本地确认可与普通Binance Spot来源一起保存，并绑定工作区、来源generation、受支持的数据集/费用币种配置、声明辖区、本地用途/目的地/留存、当前本地策略及条款版本。确认/撤回通过版本化Control Plane变更完成，不执行provider I/O；重新配置来源或断开连接会使绑定失效。只有当前匹配的确认可以使`MARKET_DATA_USE`通过，并标记`USER_ATTESTED_LOCAL_ONLY` provenance。行情`dataUseRights`及provider entitlement仍为`UNVERIFIED`；所有独立风险门禁继续生效。未知辖区代码和当前本地策略中的`US`限制均拒绝；这不构成法律或provider判定。Settings提供默认未勾选确认、辖区、条款引用、后端状态评估、可复用摘要及撤回功能。实现细节及桌面/移动截图见[#150验证证据](evidence/s29-binance-local-use-attestation/verification-2026-10-19.md)。
+
+定向Rust、Hot-source、schema、typecheck、生产构建、需求追踪及响应式UI检查通过；60场景Hot套件以串行方式通过。实现后的首次完整`npm run check`通过schema/build/Node/Rust/secret-scan阶段，但因203项需求仍引用编辑前PRD行号而在traceability阶段停止。现已修正全部203项引用，独立traceability检查通过；最终聚合复验结果记入证据文件。配置的代理无法获取Binance条款页面，因此本地有日期的条款引用不代表独立法律审查。本次未读取真实provider/账户、修改provider、执行approval、Arm、consent、Prepare、dispatch或金融操作。
+
+#150的本地实现切片已完成，但不代表owning-ticket验收。#135/#134继续OPEN，#135所有验收状态未变；AC1来源使用和完整producer-to-Prepare/结算证据仍待完成。串行任务现返回#135；尚未创建`main` PR。

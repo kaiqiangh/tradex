@@ -522,6 +522,41 @@ export type ProposalReferenceStatus = "AVAILABLE" | "UNCONFIGURED" | "UNAVAILABL
 export type OrderProposalStatus = "NEEDS_APPROVAL" | "CONSUMED" | "INVALIDATED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseDatasetProfile".
+ */
+export type BinanceLocalUseDatasetProfile = "ORDINARY_PUBLIC_SPOT_QUOTES_AND_BOUNDED_DEPTH";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseDestination".
+ */
+export type BinanceLocalUseDestination = "LOCAL_ONLY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseEnvironment".
+ */
+export type BinanceLocalUseEnvironment = "ORDINARY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseFeeSymbolScope".
+ */
+export type BinanceLocalUseFeeSymbolScope = "BNB_USDT_ONLY_WHEN_REQUIRED_FOR_FEE_VALUATION";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseProvenance".
+ */
+export type BinanceLocalUseProvenance = "USER_ATTESTED_LOCAL_ONLY";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalRetentionBoundary".
+ */
+export type BinanceLocalRetentionBoundary = "EPHEMERAL_LOCAL_EVIDENCE_NO_QUOTE_OR_BOOK_EXPORT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseScope".
+ */
+export type BinanceLocalUseScope = "LOCAL_TRADING_DECISION_SUPPORT";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "RiskCheckId".
  */
 export type RiskCheckId =
@@ -583,6 +618,10 @@ export type RiskDecisionReasonCode =
   | "EVIDENCE_STALE"
   | "EVIDENCE_UNTRUSTED"
   | "DATA_USE_RIGHTS_UNVERIFIED"
+  | "DATA_USE_USER_ATTESTED_LOCAL_ONLY"
+  | "DATA_USE_PROFILE_UNSUPPORTED"
+  | "DATA_USE_JURISDICTION_UNSUPPORTED"
+  | "DATA_USE_RESTRICTED"
   | "ACCOUNT_UNAVAILABLE"
   | "ACCOUNT_MISMATCH"
   | "ACCOUNT_UNHEALTHY"
@@ -629,7 +668,8 @@ export type RiskDecisionInputKind =
   | "SPOT_CAPACITY"
   | "SPOT_ORDER_INTERVALS"
   | "SPOT_FEE_FX"
-  | "SPOT_COMMISSION";
+  | "SPOT_COMMISSION"
+  | "MARKET_DATA_USE";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "SpotCapacityQuality".
@@ -819,6 +859,19 @@ export type BacktestFixtureScenario =
   | "TIMEZONE"
   | "DATA_GAP"
   | "DATASET_HASH_MISMATCH";
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseAssessmentState".
+ */
+export type BinanceLocalUseAssessmentState =
+  | "SOURCE_NOT_SELECTED"
+  | "NOT_RECORDED"
+  | "CURRENT"
+  | "STALE"
+  | "MISMATCHED"
+  | "UNSUPPORTED"
+  | "RESTRICTED"
+  | "POLICY_UNRESOLVED";
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "DataSourceProbeKind".
@@ -1468,6 +1521,8 @@ export interface IpcSchema {
   backtestRunQuery: BacktestRunQuery;
   backtestRunRequest: BacktestRunRequest;
   backtestRunSummary: BacktestRunSummary;
+  binanceLocalUseAttestationCommand: BinanceLocalUseAttestationCommand;
+  binanceLocalUseWithdrawalCommand: BinanceLocalUseWithdrawalCommand;
   binanceMarketSourceConnection: BinanceMarketSourceConnection;
   binanceRuleSourceConfigure: BinanceRuleSourceConfigure;
   binanceTestnetBalance: BinanceTestnetBalance;
@@ -3987,6 +4042,7 @@ export interface OrderProposalHistoryEntry {
  */
 export interface RiskDecision {
   accountId?: string | null;
+  binanceLocalUseAttestation?: BinanceLocalUseAttestation | null;
   checks: RiskCheckResult[];
   decisionId: string;
   environment: ExecutionContext;
@@ -4004,6 +4060,36 @@ export interface RiskDecision {
   spotRules?: SpotProposalRules | null;
   stateVersion: string;
   status: RiskDecisionStatus;
+  workspaceId: string;
+}
+/**
+ * Bounded user-reported context. It is not provider entitlement or regional approval.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseAttestation".
+ */
+export interface BinanceLocalUseAttestation {
+  bindingDigest: string;
+  confirmedAt: string;
+  datasetProfile: BinanceLocalUseDatasetProfile;
+  declaredJurisdiction: string;
+  destination: BinanceLocalUseDestination;
+  environment: BinanceLocalUseEnvironment;
+  feeSymbolScope: BinanceLocalUseFeeSymbolScope;
+  policyVersion: string;
+  provenance: BinanceLocalUseProvenance;
+  providerId: string;
+  retentionBoundary: BinanceLocalRetentionBoundary;
+  scope: BinanceLocalUseScope;
+  sourceGeneration: number;
+  sourceId: string;
+  /**
+   * @minItems 2
+   * @maxItems 2
+   */
+  symbols: [string, string];
+  termsReviewedAt: string;
+  termsUrl: string;
   workspaceId: string;
 }
 /**
@@ -5376,13 +5462,44 @@ export interface BacktestRunRequest {
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseAttestationCommand".
+ */
+export interface BinanceLocalUseAttestationCommand {
+  confirmLocalTradingDecisionSupport: boolean;
+  declaredJurisdiction: string;
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseWithdrawalCommand".
+ */
+export interface BinanceLocalUseWithdrawalCommand {
+  expectedStateVersion: string;
+  workspaceId: string;
+}
+/**
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
  * via the `definition` "BinanceMarketSourceConnection".
  */
 export interface BinanceMarketSourceConnection {
   configured: boolean;
+  localUseAssessment: BinanceLocalUseAssessment;
+  localUseAttestation?: BinanceLocalUseAttestation | null;
   source: DataSourceEntry;
   stateVersion: string;
   workspaceId: string;
+}
+/**
+ * Control Plane explanation of the current local-use binding. This is user-reported context,
+ * never provider entitlement or regional approval.
+ *
+ * This interface was referenced by `IpcSchema`'s JSON-Schema
+ * via the `definition` "BinanceLocalUseAssessment".
+ */
+export interface BinanceLocalUseAssessment {
+  reason: string;
+  state: BinanceLocalUseAssessmentState;
 }
 /**
  * This interface was referenced by `IpcSchema`'s JSON-Schema

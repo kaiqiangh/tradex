@@ -59,6 +59,7 @@ import { SpotFeeMarket } from './SpotFeeMarket.tsx';
 import { SpotQuoteEvidencePanel } from './SpotQuoteEvidencePanel.tsx';
 import { approvalReviewMoneyCopy } from './approval-review-copy.ts';
 import { ErrorRecoveryPanel } from './ErrorRecoveryPanel.tsx';
+import { BinanceLocalUseSummary } from './BinanceLocalUseSummary.tsx';
 
 const environments: { value: ExecutionContext; label: string }[] = [
   { value: 'LOCAL_PAPER', label: 'Local Paper' },
@@ -2090,6 +2091,7 @@ export function OrderDrafts({ workspaceId }: { workspaceId: string }) {
       <section aria-labelledby="approval-risk-title"><h3 id="approval-risk-title">Risk checks</h3>
         <p className={approvalReview.eligible ? 'muted' : 'error-text'} role={approvalReview.eligible ? 'status' : 'alert'}>{approvalReview.eligible ? 'Current checks pass. Approval still requires your explicit action.' : `Approval blocked: ${approvalReview.blockers.join(' · ') || 'current evidence is not eligible'}`}</p>
         <ul className="approval-review-checks">{approvalReview.riskDecision.checks.map((check, index) => <li key={`${check.checkId}-${index}`}><strong>{check.checkId} · {check.outcome}</strong><span>{check.reasonCode}: {check.reason}</span></li>)}</ul>
+        {approvalReview.riskDecision.binanceLocalUseAttestation && <BinanceLocalUseSummary attestation={approvalReview.riskDecision.binanceLocalUseAttestation} captured />}
       </section>
       <div className="picker-dialog-actions approval-review-actions">
         <button type="button" onClick={() => void confirmLiveApproval(false)} disabled={approvalBusy}>Reject this review</button>
@@ -2178,6 +2180,7 @@ function RiskDecisionPanel({ history, loading, error, busy, onEvaluate }: {
         <ul className="risk-decision-checks">{decision.checks.map(check => <li key={check.checkId}>
           <strong>{check.checkId} · {check.outcome}</strong><span>{check.reasonCode}: {check.reason}</span>
         </li>)}</ul>
+        {decision.binanceLocalUseAttestation && <BinanceLocalUseSummary attestation={decision.binanceLocalUseAttestation} captured />}
         {decision.spotRules && <SpotRulesExplanation rules={decision.spotRules} captured />}
         {decision.spotCommission && <SpotCommissionExplanation inputs={decision.spotCommission} captured />}
         {decision.spotCapacity && <SpotCapacityExplanation inputs={decision.spotCapacity} captured />}

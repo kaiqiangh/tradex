@@ -1,4 +1,4 @@
-import type { ThreadLifecycle, SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceRuleSourceConfigure, FxLocalUseAttestationCommand, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
+import type { ThreadLifecycle, SpotCommissionInputs, SpotOrderIntervalInputs, SpotCapacityInputs, SpotRulesRefresh, SpotRulesQuery, SpotProposalRules, BinanceMarketSourceConnection, BinanceLocalUseAttestationCommand, BinanceLocalUseWithdrawalCommand, BinanceRuleSourceConfigure, FxLocalUseAttestationCommand, FxRequirements, FxRequirementsQuery, FxSourceRefresh, FinancialSourceConnection, FinancialSourceConfigure } from '../shared/ipc-types.ts';
 import { Channel, invoke, isTauri } from '@tauri-apps/api/core';
 import { subscribeBrowserEvents } from './browserEvents.ts';
 import { describeCanonicalRecovery } from './errorRecovery.ts';
@@ -109,6 +109,8 @@ interface Inputs {
   'data.binance_market.connection': WorkspaceQuery;
   'data.binance_market.configure': DataSourceMutation;
   'data.binance_market.disconnect': DataSourceMutation;
+  'data.binance_market.attest_local_use': BinanceLocalUseAttestationCommand;
+  'data.binance_market.withdraw_local_use': BinanceLocalUseWithdrawalCommand;
   'data.binance_rules.connection': WorkspaceQuery;
   'data.binance_rules.configure': BinanceRuleSourceConfigure;
   'data.binance_rules.disconnect': DataSourceMutation;
@@ -286,6 +288,8 @@ interface Outputs {
   'data.binance_market.connection': BinanceMarketSourceConnection;
   'data.binance_market.configure': BinanceMarketSourceConnection;
   'data.binance_market.disconnect': BinanceMarketSourceConnection;
+  'data.binance_market.attest_local_use': BinanceMarketSourceConnection;
+  'data.binance_market.withdraw_local_use': BinanceMarketSourceConnection;
   'data.binance_rules.connection': FinancialSourceConnection;
   'data.binance_rules.configure': FinancialSourceConnection;
   'data.binance_rules.disconnect': FinancialSourceConnection;
@@ -463,6 +467,8 @@ const definitions = {
   'data.binance_market.connection': ['WorkspaceQuery', 'BinanceMarketSourceConnection'],
   'data.binance_market.configure': ['DataSourceMutation', 'BinanceMarketSourceConnection'],
   'data.binance_market.disconnect': ['DataSourceMutation', 'BinanceMarketSourceConnection'],
+  'data.binance_market.attest_local_use': ['BinanceLocalUseAttestationCommand', 'BinanceMarketSourceConnection'],
+  'data.binance_market.withdraw_local_use': ['BinanceLocalUseWithdrawalCommand', 'BinanceMarketSourceConnection'],
   'data.binance_rules.connection': ['WorkspaceQuery', 'FinancialSourceConnection'],
   'data.binance_rules.configure': ['BinanceRuleSourceConfigure', 'FinancialSourceConnection'],
   'data.binance_rules.disconnect': ['DataSourceMutation', 'FinancialSourceConnection'],

@@ -514,6 +514,8 @@ pub struct IpcSchema {
     pub data_source_probe: DataSourceProbe,
     pub data_source_connection: DataSourceConnection,
     pub binance_market_source_connection: BinanceMarketSourceConnection,
+    pub binance_local_use_attestation_command: BinanceLocalUseAttestationCommand,
+    pub binance_local_use_withdrawal_command: BinanceLocalUseWithdrawalCommand,
     pub calendar_connection: CalendarConnection,
     pub calendar_configure: CalendarConfigure,
     pub financial_source_connection: FinancialSourceConnection,
@@ -2902,6 +2904,130 @@ pub struct BinanceMarketSourceConnection {
     pub state_version: String,
     pub configured: bool,
     pub source: DataSourceEntry,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_use_attestation: Option<BinanceLocalUseAttestation>,
+    pub local_use_assessment: BinanceLocalUseAssessment,
+}
+
+/// Control Plane explanation of the current local-use binding. This is user-reported context,
+/// never provider entitlement or regional approval.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceLocalUseAssessment {
+    pub state: BinanceLocalUseAssessmentState,
+    #[schemars(length(min = 1, max = 512))]
+    pub reason: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseAssessmentState {
+    SourceNotSelected,
+    NotRecorded,
+    Current,
+    Stale,
+    Mismatched,
+    Unsupported,
+    Restricted,
+    PolicyUnresolved,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseProvenance {
+    UserAttestedLocalOnly,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseScope {
+    LocalTradingDecisionSupport,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseEnvironment {
+    Ordinary,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseDatasetProfile {
+    OrdinaryPublicSpotQuotesAndBoundedDepth,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseFeeSymbolScope {
+    BnbUsdtOnlyWhenRequiredForFeeValuation,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalUseDestination {
+    LocalOnly,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BinanceLocalRetentionBoundary {
+    EphemeralLocalEvidenceNoQuoteOrBookExport,
+}
+
+/// Bounded user-reported context. It is not provider entitlement or regional approval.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceLocalUseAttestation {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(range(min = 1))]
+    pub source_generation: u64,
+    pub provenance: BinanceLocalUseProvenance,
+    pub scope: BinanceLocalUseScope,
+    #[schemars(length(min = 1, max = 32))]
+    pub source_id: String,
+    #[schemars(length(min = 1, max = 32))]
+    pub provider_id: String,
+    pub environment: BinanceLocalUseEnvironment,
+    pub dataset_profile: BinanceLocalUseDatasetProfile,
+    #[schemars(length(min = 2, max = 2))]
+    pub symbols: Vec<String>,
+    pub fee_symbol_scope: BinanceLocalUseFeeSymbolScope,
+    #[schemars(length(min = 2, max = 2))]
+    pub declared_jurisdiction: String,
+    pub destination: BinanceLocalUseDestination,
+    pub retention_boundary: BinanceLocalRetentionBoundary,
+    #[schemars(length(min = 1, max = 64))]
+    pub policy_version: String,
+    #[schemars(length(min = 1, max = 512))]
+    pub terms_url: String,
+    #[schemars(length(min = 10, max = 32))]
+    pub terms_reviewed_at: String,
+    #[schemars(length(min = 1, max = 64))]
+    pub confirmed_at: String,
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$"))]
+    pub binding_digest: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceLocalUseAttestationCommand {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
+    #[schemars(regex(pattern = "^[A-Z]{2}$"))]
+    pub declared_jurisdiction: String,
+    pub confirm_local_trading_decision_support: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BinanceLocalUseWithdrawalCommand {
+    #[schemars(length(min = 1, max = 128))]
+    pub workspace_id: String,
+    #[schemars(length(min = 1, max = 256))]
+    pub expected_state_version: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
@@ -7079,6 +7205,26 @@ impl TradeXError {
                 "configure_data_source",
                 "Review quote source",
             ),
+            "BINANCE_LOCAL_USE_SOURCE_UNAVAILABLE" => (
+                "Save the ordinary Binance Spot source before recording its local-use confirmation.",
+                "configure_data_source",
+                "Review Binance source",
+            ),
+            "BINANCE_LOCAL_USE_RESTRICTED" => (
+                "The declared jurisdiction is restricted by the current local Binance policy. No confirmation was saved.",
+                "review_data_source_terms",
+                "Review current terms",
+            ),
+            "BINANCE_LOCAL_USE_JURISDICTION_UNSUPPORTED" => (
+                "The declared jurisdiction code is not recognized by the current policy. Use an ISO 3166-1 alpha-2 code; no confirmation was saved.",
+                "review_data_source_terms",
+                "Review jurisdiction",
+            ),
+            "BINANCE_LOCAL_USE_POLICY_UNRESOLVED" => (
+                "The reviewed Binance terms or local policy reference is no longer current. Review updated terms before confirming local use.",
+                "review_data_source_terms",
+                "Review current terms",
+            ),
             "MARKET_INSTRUMENT_INVALID" => (
                 "That instrument identifier is not a supported canonical TradeX ID.",
                 "reload_snapshot",
@@ -7957,6 +8103,14 @@ impl TradeXError {
             {
                 "AUTH_ERROR"
             } else if code.starts_with("RISK_") || code.starts_with("ONBOARDING_") {
+                "POLICY_ERROR"
+            } else if code == "BINANCE_LOCAL_USE_RESTRICTED" {
+                "PERMISSION_ERROR"
+            } else if code == "BINANCE_LOCAL_USE_SOURCE_UNAVAILABLE" {
+                "UNSUPPORTED_CAPABILITY"
+            } else if code == "BINANCE_LOCAL_USE_JURISDICTION_UNSUPPORTED" {
+                "UNSUPPORTED_CAPABILITY"
+            } else if code == "BINANCE_LOCAL_USE_POLICY_UNRESOLVED" {
                 "POLICY_ERROR"
             } else if code.starts_with("PAPER_") {
                 "SIMULATION_ERROR"

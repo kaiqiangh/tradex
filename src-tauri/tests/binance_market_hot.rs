@@ -2478,6 +2478,10 @@ fn public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_re
     assert_eq!(rights["reasonCode"], "DATA_USE_RIGHTS_UNVERIFIED");
     assert!(rights["reason"].as_str().unwrap().contains("UNVERIFIED"));
     assert_eq!(
+        current["data"]["detail"]["snapshot"]["provenance"]["binance"]["dataUseRights"],
+        "UNVERIFIED"
+    );
+    assert_eq!(
         checks
             .iter()
             .find(|c| c["checkId"] == "QUOTE_FRESHNESS")
@@ -2485,10 +2489,102 @@ fn public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_re
         "PASS"
     );
     assert_ne!(decision["data"]["status"], "ALLOWED");
+    let original_review = command(
+        &view.control,
+        "trade.request_approval",
+        json!({
+            "workspaceId":view.workspace,
+            "proposalId":proposal["proposalId"]
+        }),
+    );
+    assert_eq!(original_review["ok"], true, "{original_review}");
+    assert_eq!(original_review["data"]["eligible"], false);
+    assert_eq!(
+        original_review["data"]["market"]["snapshot"]["provenance"]["binance"]["dataUseRights"],
+        "UNVERIFIED"
+    );
+
+    let source = command(
+        &view.control,
+        "data.binance_market.connection",
+        json!({"workspaceId":view.workspace}),
+    );
+    let attested = command(
+        &view.control,
+        "data.binance_market.attest_local_use",
+        json!({"workspaceId":view.workspace,"expectedStateVersion":source["data"]["stateVersion"],"declaredJurisdiction":"CA","confirmLocalTradingDecisionSupport":true}),
+    );
+    assert_eq!(attested["ok"], true, "{attested}");
+    assert_eq!(attested["data"]["localUseAssessment"]["state"], "CURRENT");
+    let confirmed_decision = evaluate();
+    assert_eq!(confirmed_decision["ok"], true, "{confirmed_decision}");
+    let confirmed_checks = confirmed_decision["data"]["checks"].as_array().unwrap();
+    let confirmed_rights = confirmed_checks
+        .iter()
+        .find(|check| check["checkId"] == "MARKET_DATA_USE")
+        .unwrap();
+    assert_eq!(confirmed_rights["outcome"], "PASS");
+    assert_eq!(
+        confirmed_rights["reasonCode"],
+        "DATA_USE_USER_ATTESTED_LOCAL_ONLY"
+    );
+    assert!(
+        confirmed_rights["reason"]
+            .as_str()
+            .unwrap()
+            .contains("provider entitlement remains UNVERIFIED")
+    );
+    assert_eq!(
+        confirmed_decision["data"]["binanceLocalUseAttestation"],
+        attested["data"]["localUseAttestation"]
+    );
+    assert_eq!(
+        confirmed_decision["data"]["inputs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|input| input["kind"] == "MARKET_DATA_USE")
+            .unwrap()["digest"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"),
+        true
+    );
+    assert_eq!(
+        confirmed_checks
+            .iter()
+            .find(|check| check["checkId"] == "QUOTE_FRESHNESS")
+            .unwrap()["outcome"],
+        "UNAVAILABLE",
+        "Changing source generation retires Hot evidence even though the local-use check passes"
+    );
+    assert_ne!(confirmed_decision["data"]["status"], "ALLOWED");
+
+    let captured_review = command(
+        &view.control,
+        "trade.request_approval",
+        json!({
+            "workspaceId":view.workspace,
+            "proposalId":proposal["proposalId"]
+        }),
+    );
+    assert_eq!(captured_review["ok"], true, "{captured_review}");
+    assert_eq!(captured_review["data"]["eligible"], false);
+    assert_eq!(
+        captured_review["data"]["riskDecision"]["binanceLocalUseAttestation"],
+        attested["data"]["localUseAttestation"]
+    );
+    assert!(
+        !captured_review["data"]["riskDecision"]
+            .to_string()
+            .contains("\"bids\":"),
+        "Captured local-use review contains no raw book"
+    );
+
     let changed = command(
         &view.control,
         "data.binance_market.configure",
-        json!({"workspaceId":view.workspace,"expectedStateVersion":current["data"]["sourceVersion"]}),
+        json!({"workspaceId":view.workspace,"expectedStateVersion":attested["data"]["stateVersion"]}),
     );
     assert_eq!(changed["ok"], true, "{changed}");
     let retired = evaluate();
@@ -2501,6 +2597,7 @@ fn public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_re
             .unwrap()["outcome"],
         "UNAVAILABLE"
     );
+    assert_eq!(retired["data"]["binanceLocalUseAttestation"], Value::Null);
     assert_eq!(
         checks
             .iter()
@@ -3155,6 +3252,26 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
         "UNVERIFIED",
         "A synthetic support report does not verify provider entitlement"
     );
+    let fx_attested = command(
+        &view.control,
+        "data.fx.attest_local_use",
+        json!({
+            "workspaceId":view.workspace,
+            "expectedStateVersion":fx_configured["data"]["stateVersion"],
+            "confirmLocalPolicyValuationOnly":true
+        }),
+    );
+    assert_eq!(fx_attested["ok"], true, "{fx_attested}");
+    assert_eq!(
+        fx_attested["data"]["capabilityStatuses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|status| status["capability"] == "FX_DATA_USE_RIGHTS")
+            .unwrap()["status"],
+        "VERIFIED",
+        "The policy-valuation route needs its separate explicit local-use confirmation"
+    );
     let fx_source = command(
         &view.control,
         "data.fx.connection",
@@ -3180,14 +3297,14 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
         "Positive monetary checks must not satisfy unrelated Live authorization gates"
     );
     let valued_statement = &valued_decision["data"]["spotFeeFx"];
-    assert_eq!(
-        valued_statement["outcome"], "UNAVAILABLE",
-        "{valued_statement}"
-    );
+    assert_eq!(valued_statement["outcome"], "PASS", "{valued_statement}");
     assert_eq!(
         valued_statement["bindingBlocker"],
-        "SPOT_FEE_CURRENCY_UNKNOWN"
+        Value::Null,
+        "{valued_statement}"
     );
+    assert_eq!(valued_statement["feeCurrency"], "UNKNOWN");
+    assert_eq!(valued_statement["feeCurrencyOrigin"], "UNKNOWN");
     assert_eq!(
         valued_statement["workspaceBaseExpectedSpend"], "60.006",
         "The BUY liability uses the current USDT/USD ask"
@@ -3208,7 +3325,7 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
             .find(|check| check["checkId"] == check_id)
             .unwrap_or_else(|| panic!("Missing {check_id}: {valued_decision}"))
     };
-    assert_eq!(find_check("SPOT_FEE_FX")["outcome"], "UNAVAILABLE");
+    assert_eq!(find_check("SPOT_FEE_FX")["outcome"], "PASS");
     assert_eq!(find_check("ORDER_NOTIONAL")["outcome"], "PASS");
     assert_eq!(find_check("RESERVED_CAPITAL")["outcome"], "PASS");
     assert_eq!(find_check("ACCOUNT_ARMING")["outcome"], "UNAVAILABLE");

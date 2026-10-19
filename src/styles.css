@@ -788,8 +788,10 @@ dialog.picker-dialog:not([open]) { display: none; }
 
 .quote-source-settings { min-width: 0; }
 .quote-source-settings label { display: grid; gap: 6px; margin-block: 12px; min-width: 0; }
+.quote-source-settings input:not([type="checkbox"]) { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
 .quote-source-settings select { width: 100%; max-width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
-.quote-source-settings > button + button { margin-left: 8px; }
+.quote-source-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.quote-source-settings-actions button { min-width: 0; }
 .source-use-fields, .source-use-assessment { min-width: 0; margin-block: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
 .source-use-fields legend { padding-inline: 6px; font-weight: 600; }
 .source-use-fields .form-hint { line-height: 1.45; }
@@ -803,6 +805,14 @@ dialog.picker-dialog:not([open]) { display: none; }
 .local-use-attestation-confirmation label { display: flex; align-items: flex-start; gap: 8px; }
 .local-use-attestation-confirmation input[type="checkbox"] { flex: 0 0 auto; margin-top: 3px; }
 .local-use-attestation-confirmation dd { overflow-wrap: anywhere; }
+.local-use-attestation-summary { min-width: 0; margin-block: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.local-use-attestation-summary h4 { margin-block: 4px 10px; }
+.local-use-attestation-summary p { line-height: 1.45; }
+.local-use-attestation-summary .health-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.local-use-attestation-summary .health-grid dd { overflow-wrap: anywhere; }
+.local-use-attestation-summary code { white-space: normal; overflow-wrap: anywhere; word-break: break-all; }
+.local-use-digest { grid-column: 1 / -1; }
+@media (max-width: 760px) { .quote-source-settings-actions, .quote-source-settings-actions button { width: 100%; } }
 
 .market-detail-container { min-width: 0; display: grid; gap: 1rem; }
 .hot-quote-status { overflow-wrap: anywhere; }

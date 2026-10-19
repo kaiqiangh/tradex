@@ -127,6 +127,12 @@
     "backtestRunSummary": {
       "$ref": "#/$defs/BacktestRunSummary"
     },
+    "binanceLocalUseAttestationCommand": {
+      "$ref": "#/$defs/BinanceLocalUseAttestationCommand"
+    },
+    "binanceLocalUseWithdrawalCommand": {
+      "$ref": "#/$defs/BinanceLocalUseWithdrawalCommand"
+    },
     "binanceMarketSourceConnection": {
       "$ref": "#/$defs/BinanceMarketSourceConnection"
     },
@@ -692,6 +698,8 @@
     "dataSourceProbe",
     "dataSourceConnection",
     "binanceMarketSourceConnection",
+    "binanceLocalUseAttestationCommand",
+    "binanceLocalUseWithdrawalCommand",
     "calendarConnection",
     "calendarConfigure",
     "financialSourceConnection",
@@ -3736,11 +3744,252 @@
         "available"
       ]
     },
+    "BinanceLocalRetentionBoundary": {
+      "type": "string",
+      "enum": [
+        "EPHEMERAL_LOCAL_EVIDENCE_NO_QUOTE_OR_BOOK_EXPORT"
+      ]
+    },
+    "BinanceLocalUseAssessment": {
+      "description": "Control Plane explanation of the current local-use binding. This is user-reported context,\nnever provider entitlement or regional approval.",
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "state": {
+          "$ref": "#/$defs/BinanceLocalUseAssessmentState"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "reason"
+      ]
+    },
+    "BinanceLocalUseAssessmentState": {
+      "type": "string",
+      "enum": [
+        "SOURCE_NOT_SELECTED",
+        "NOT_RECORDED",
+        "CURRENT",
+        "STALE",
+        "MISMATCHED",
+        "UNSUPPORTED",
+        "RESTRICTED",
+        "POLICY_UNRESOLVED"
+      ]
+    },
+    "BinanceLocalUseAttestation": {
+      "description": "Bounded user-reported context. It is not provider entitlement or regional approval.",
+      "type": "object",
+      "properties": {
+        "bindingDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "confirmedAt": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "datasetProfile": {
+          "$ref": "#/$defs/BinanceLocalUseDatasetProfile"
+        },
+        "declaredJurisdiction": {
+          "type": "string",
+          "maxLength": 2,
+          "minLength": 2
+        },
+        "destination": {
+          "$ref": "#/$defs/BinanceLocalUseDestination"
+        },
+        "environment": {
+          "$ref": "#/$defs/BinanceLocalUseEnvironment"
+        },
+        "feeSymbolScope": {
+          "$ref": "#/$defs/BinanceLocalUseFeeSymbolScope"
+        },
+        "policyVersion": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1
+        },
+        "provenance": {
+          "$ref": "#/$defs/BinanceLocalUseProvenance"
+        },
+        "providerId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "retentionBoundary": {
+          "$ref": "#/$defs/BinanceLocalRetentionBoundary"
+        },
+        "scope": {
+          "$ref": "#/$defs/BinanceLocalUseScope"
+        },
+        "sourceGeneration": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 1
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 1
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2
+        },
+        "termsReviewedAt": {
+          "type": "string",
+          "maxLength": 32,
+          "minLength": 10
+        },
+        "termsUrl": {
+          "type": "string",
+          "maxLength": 512,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "sourceGeneration",
+        "provenance",
+        "scope",
+        "sourceId",
+        "providerId",
+        "environment",
+        "datasetProfile",
+        "symbols",
+        "feeSymbolScope",
+        "declaredJurisdiction",
+        "destination",
+        "retentionBoundary",
+        "policyVersion",
+        "termsUrl",
+        "termsReviewedAt",
+        "confirmedAt",
+        "bindingDigest"
+      ]
+    },
+    "BinanceLocalUseAttestationCommand": {
+      "type": "object",
+      "properties": {
+        "confirmLocalTradingDecisionSupport": {
+          "type": "boolean"
+        },
+        "declaredJurisdiction": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        },
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion",
+        "declaredJurisdiction",
+        "confirmLocalTradingDecisionSupport"
+      ]
+    },
+    "BinanceLocalUseDatasetProfile": {
+      "type": "string",
+      "enum": [
+        "ORDINARY_PUBLIC_SPOT_QUOTES_AND_BOUNDED_DEPTH"
+      ]
+    },
+    "BinanceLocalUseDestination": {
+      "type": "string",
+      "enum": [
+        "LOCAL_ONLY"
+      ]
+    },
+    "BinanceLocalUseEnvironment": {
+      "type": "string",
+      "enum": [
+        "ORDINARY"
+      ]
+    },
+    "BinanceLocalUseFeeSymbolScope": {
+      "type": "string",
+      "enum": [
+        "BNB_USDT_ONLY_WHEN_REQUIRED_FOR_FEE_VALUATION"
+      ]
+    },
+    "BinanceLocalUseProvenance": {
+      "type": "string",
+      "enum": [
+        "USER_ATTESTED_LOCAL_ONLY"
+      ]
+    },
+    "BinanceLocalUseScope": {
+      "type": "string",
+      "enum": [
+        "LOCAL_TRADING_DECISION_SUPPORT"
+      ]
+    },
+    "BinanceLocalUseWithdrawalCommand": {
+      "type": "object",
+      "properties": {
+        "expectedStateVersion": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "workspaceId": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "workspaceId",
+        "expectedStateVersion"
+      ]
+    },
     "BinanceMarketSourceConnection": {
       "type": "object",
       "properties": {
         "configured": {
           "type": "boolean"
+        },
+        "localUseAssessment": {
+          "$ref": "#/$defs/BinanceLocalUseAssessment"
+        },
+        "localUseAttestation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceLocalUseAttestation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "source": {
           "$ref": "#/$defs/DataSourceEntry"
@@ -3761,7 +4010,8 @@
         "workspaceId",
         "stateVersion",
         "configured",
-        "source"
+        "source",
+        "localUseAssessment"
       ]
     },
     "BinanceRuleSourceConfigure": {
@@ -15922,6 +16172,16 @@
           "maxLength": 128,
           "minLength": 1
         },
+        "binanceLocalUseAttestation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BinanceLocalUseAttestation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "checks": {
           "type": "array",
           "items": {
@@ -16123,7 +16383,8 @@
         "SPOT_CAPACITY",
         "SPOT_ORDER_INTERVALS",
         "SPOT_FEE_FX",
-        "SPOT_COMMISSION"
+        "SPOT_COMMISSION",
+        "MARKET_DATA_USE"
       ]
     },
     "RiskDecisionInputReference": {
@@ -16187,6 +16448,10 @@
         "EVIDENCE_STALE",
         "EVIDENCE_UNTRUSTED",
         "DATA_USE_RIGHTS_UNVERIFIED",
+        "DATA_USE_USER_ATTESTED_LOCAL_ONLY",
+        "DATA_USE_PROFILE_UNSUPPORTED",
+        "DATA_USE_JURISDICTION_UNSUPPORTED",
+        "DATA_USE_RESTRICTED",
         "ACCOUNT_UNAVAILABLE",
         "ACCOUNT_MISMATCH",
         "ACCOUNT_UNHEALTHY",
