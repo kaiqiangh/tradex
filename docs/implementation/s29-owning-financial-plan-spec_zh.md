@@ -2,7 +2,7 @@
 
 父项：[验证 Binance Spot Live 可信执行](https://github.com/kaiqiangh/tradex/issues/121)。已发布规范：[完成 Spot 逐资产金融计划与真实必需 FX](https://github.com/kaiqiangh/tradex/issues/134)，OPEN / ready-for-agent / 已认领，父项native子项、已完成依赖133/131。规划基线：`dev@70ce33ec5aa0286eff82e924f281c4588e03b3be`。[英文权威](s29-owning-financial-plan-spec.md)。
 
-**状态：完整单一拥有方实现规范已具体化；实现验收全部待完成。** 这是下一张单一拥有方工作项，保留[金融输入研究交接](s29-financial-inputs-research.md)的全部20项需求，不以另一个始终未资格化的来源投影代替目标。金额模型/授权与BNB估算决策已在下文具体化；条件来源选择/用途/质量及有限用途准确路由profile已在下文具体化。单独跟踪的#149实现是前置能力切片，不是拆分或替代完整的#135拥有方金融计划；全部15项验收条件及完整producer到Prepare正向路径仍由#135承接。真实账户/来源激活证据仍未证明。本文件不记录实现、来源选择、provider使用权授予、金融操作或需求状态升级。**原型代码未改**。
+**状态：完整单一拥有方实现规范已具体化；实现验收全部待完成。** 这是下一张单一拥有方工作项，保留[金融输入研究交接](s29-financial-inputs-research.md)的全部20项需求，不以另一个始终未资格化的来源投影代替目标。金额模型/授权与BNB估算决策已在下文具体化；条件来源选择/用途/质量及有限用途准确路由profile已在下文具体化。依据已批准#149决议顺序执行的#150实现是前置能力切片，不是拆分或替代完整的#135拥有方金融计划；全部15项验收条件及完整producer到Prepare正向路径仍由#135承接。真实账户/来源激活证据仍未证明。本文件不记录实现、来源选择、provider使用权授予、金融操作或需求状态升级。**原型代码未改**。
 
 ## 问题
 
@@ -104,7 +104,7 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 6. **费用专用连续簿。** 复用普通Binance depth生命周期，仅`BNBUSDT`；准确当前metadata证明BASE=BNB/QUOTE=USDT及有效状态。REST前buffer diff、以`lastUpdateId`及`U/u`接续、绝对量更新/零量删除。REST无market time不能单独资格化；必需连续事件`E`、first receipt、簿/session代次及连续sequence。gap/reset/reconnect、陈旧/未来/非法/交叉、metadata/profile改变或断开均退休，真实重建后恢复。仅普通host、文档weight/ping/pong/reconnect及有界buffer；新增symbol仅内部费用，不可建订单。
 7. **本地消费及单一拥有方。** 选定Alpaca policy-valuation与Binance local-decision-support profile的原始观察（含共享缓存）在model/tool序列化、research/export artifact或外部consumer前强制本地范围；本地UI可查原值，原始quote/rate/body不进入prompt/export。测试检查真正外发边界，不只查标签。来源材料供同一fee/funds/risk/review/Prepare，原值另存不可变审计。profile/source/policy/terms/intent、价格/深度、分支/金额仍绑定，仅沿用数值相同格式/receipt-only明确例外。新鲜相同证据不延长审批、不更新历史，也不豁免独立source-use、交易permission、Arm、审批/对账或真实/原生门禁。只有获批的Binance `MARKET_DATA_USE`检查提供本地确认路径；其他source-use要求保持独立。
 
-**就绪区分：** 上述为完整拥有方实现决策，不是实际来源选择或资格化。#135单一拥有方实现票必须保留全部15项AC及20项交接，包含在受支持来源用途依据下producer→owning→risk/Prepare正向以及本用户仍未证明真实激活的拒绝路径。顺序执行的#149能力票只能实现获批的Binance确认前置能力，不能关闭或替代任何#135条件。不得以source-only结案或放松其他要求。
+**就绪区分：** 上述为完整拥有方实现决策，不是实际来源选择或资格化。#135单一拥有方实现票必须保留全部15项AC及20项交接，包含在受支持来源用途依据下producer→owning→risk/Prepare正向以及本用户仍未证明真实激活的拒绝路径。顺序执行的#150能力票只能实现获批的Binance确认前置能力，不能关闭或替代任何#135条件。不得以source-only结案或放松其他要求。
 
 对于owning Spot Prepare，`ExecutionReservation.workspaceNotional`必须使用刚复验的Proposal范围`INTENT_POLICY`路线，与其`spotFeeFx`陈述使用同一份估值证据。保留本次选择的完整reservation notional（包括适用的独立本地授权上限），不得直接复制较小的expected-spend值。按准确BUY ask／SELL bid计算，校验workspace与结果币种、意图身份、requirements和route-material版本；缺失或变化时拒绝。该路径不得使用历史portfolio FX、平价、倒数或额外换汇腿。原生本金／费用claims及所有独立权限门禁分别继续校验。
 
