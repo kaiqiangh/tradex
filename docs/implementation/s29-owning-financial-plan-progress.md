@@ -1071,3 +1071,19 @@ Focused Rust, Hot-source, schema, typecheck, production-build, requirement-trace
 定向Rust、Hot-source、schema、typecheck、生产构建、需求追踪及响应式UI检查通过；60场景Hot套件以串行方式通过。实现后的首次完整`npm run check`通过schema/build/Node/Rust/secret-scan阶段，但因203项需求仍引用编辑前PRD行号而在traceability阶段停止。现已修正全部203项引用，独立traceability检查通过；最终聚合复验结果记入证据文件。配置的代理无法获取Binance条款页面，因此本地有日期的条款引用不代表独立法律审查。本次未读取真实provider/账户、修改provider、执行approval、Arm、consent、Prepare、dispatch或金融操作。
 
 #150的本地实现切片已完成，但不代表owning-ticket验收。#135/#134继续OPEN，#135所有验收状态未变；AC1来源使用和完整producer-to-Prepare/结算证据仍待完成。串行任务现返回#135；尚未创建`main` PR。
+
+### AC6/AC10 Binance local-use and fresh owning quote — partial integration, 2026-10-19
+
+After #150's full workspace verification, the capability was committed locally on `dev` as `0315483`. The owning-plan branch now has a public Hot-source regression that records the explicit Binance local-only declaration before acquiring its quote lease. The first quote is therefore bound to the current source generation: `MARKET_DATA_USE` passes as `DATA_USE_USER_ATTESTED_LOCAL_ONLY` and `QUOTE_FRESHNESS` also passes, while quote `dataUseRights` and provider entitlement remain `UNVERIFIED`. The full decision stays unavailable, approval is ineligible, captured review has no raw book, and the account remains `DISARMED`.
+
+The existing owning fee-model scenario now evaluates that same attestation with a complete synthetic current BNB branch: `MARKET_DATA_USE`, `SPOT_FEE_FX`, `ORDER_NOTIONAL`, and `RESERVED_CAPITAL` pass together. `ACCOUNT_ARMING` remains unavailable. Its Alpaca `countrySupportConfirmation` is a synthetic source-use input, excluded from acceptance; this is not real source evidence or positive approval/Prepare. The two focused scenarios and complete serial `npm run test:binance-hot` runner passed; all 61 scenarios pass in isolated processes. No production logic changed in this bounded check, and there was no RED because the regression exercises the already implemented #150 behavior. Evidence: [Binance local-use / fresh-quote Hot check](evidence/s29-owning-financial-plan/work-in-progress/binance-local-use-fresh-quote-hot-20261019.md).
+
+#135/#134 remain OPEN, and no acceptance checkbox changed. AC1's actual account/source evidence remains unresolved; AC5 remains waived for ordering and unaccepted; AC6/AC10 still lack the complete supported-source positive owning Prepare path. There was no real provider/account read, provider mutation, approval, Arm, consent, Prepare, dispatch, order, or financial action. The next work stays within #135.
+
+### AC6/AC10 Binance 本地确认与新鲜拥有方行情 — 部分集成，2026-10-19
+
+#150 完整工作区验证后，能力已在本地`dev`提交为`0315483`。owning-plan 分支新增公开 Hot-source 回归：先记录显式 Binance 仅本地确认，再获取行情 lease。第一条行情绑定当前 source generation，因此`MARKET_DATA_USE`以`DATA_USE_USER_ATTESTED_LOCAL_ONLY`通过，同时`QUOTE_FRESHNESS`也通过；行情`dataUseRights`及provider entitlement仍为`UNVERIFIED`。整体 RiskDecision 仍不可用，approval 不符合条件，捕获记录不含原始盘口，账户保持`DISARMED`。
+
+现有 owning fee-model 场景也改为在同一完整合成 BNB 分支中评估该确认：`MARKET_DATA_USE`、`SPOT_FEE_FX`、`ORDER_NOTIONAL`和`RESERVED_CAPITAL`同时通过；`ACCOUNT_ARMING`仍不可用。该场景的 Alpaca `countrySupportConfirmation` 是合成来源使用输入，排除在验收之外；它不是真实来源证据，也不代表正向 approval/Prepare。两个定向场景及完整串行`npm run test:binance-hot`通过，隔离进程中的61个场景全部通过。本有界检查未修改生产逻辑，也没有RED，因为回归验证的是已实现的#150行为。证据见[Binance本地确认/新鲜行情Hot检查](evidence/s29-owning-financial-plan/work-in-progress/binance-local-use-fresh-quote-hot-20261019.md)。
+
+#135/#134继续OPEN，没有改变任何验收勾选。AC1真实账户/来源证据仍未解决；AC5只豁免执行排序、仍未验收；AC6/AC10仍缺少基于受支持来源的完整正向owning Prepare路径。本次未读取真实provider/账户、修改provider、执行approval、Arm、consent、Prepare、dispatch、order或金融操作。下一步仍在#135内。

@@ -419,7 +419,13 @@ impl HotView {
     fn open() -> Self {
         Self::with_peer(DepthPeer::new())
     }
+    fn open_with_local_use_confirmation() -> Self {
+        Self::with_peer_and_local_use(DepthPeer::new(), true)
+    }
     fn with_peer(peer: DepthPeer) -> Self {
+        Self::with_peer_and_local_use(peer, false)
+    }
+    fn with_peer_and_local_use(peer: DepthPeer, confirm_local_use: bool) -> Self {
         let folder = tempfile::tempdir().unwrap();
         let control = Arc::new(Mutex::new(ControlPlane::new(folder.path().into())));
         let workspace =
@@ -435,6 +441,24 @@ impl HotView {
             json!({"workspaceId":workspace,"expectedStateVersion":source["data"]["stateVersion"]}),
         );
         assert_eq!(selected["ok"], true, "{selected}");
+        let source_version = if confirm_local_use {
+            // This is an explicit test-user declaration, not provider entitlement evidence.
+            let confirmed = command(
+                &control,
+                "data.binance_market.attest_local_use",
+                json!({
+                    "workspaceId":workspace,
+                    "expectedStateVersion":selected["data"]["stateVersion"],
+                    "declaredJurisdiction":"CA",
+                    "confirmLocalTradingDecisionSupport":true
+                }),
+            );
+            assert_eq!(confirmed["ok"], true, "{confirmed}");
+            assert_eq!(confirmed["data"]["localUseAssessment"]["state"], "CURRENT");
+            confirmed["data"]["stateVersion"].clone()
+        } else {
+            selected["data"]["stateVersion"].clone()
+        };
         command(
             &control,
             "time.revalidate",
@@ -446,7 +470,7 @@ impl HotView {
         } else {
             "crypto:ETH/USDT:spot"
         };
-        let acquired = supervisor.dispatch_with(&control,&json!({"requestId":"depth-view","schemaVersion":1,"command":"market.hot.acquire","payload":{"workspaceId":workspace,"instrumentId":instrument,"expectedSourceVersion":selected["data"]["stateVersion"]}}),"main",Arc::new(NoTradingKey),peer.http.clone(),QuoteStreamConnectors{stock:StockStreamConnector::default(),binance:peer.connector.clone()});
+        let acquired = supervisor.dispatch_with(&control,&json!({"requestId":"depth-view","schemaVersion":1,"command":"market.hot.acquire","payload":{"workspaceId":workspace,"instrumentId":instrument,"expectedSourceVersion":source_version}}),"main",Arc::new(NoTradingKey),peer.http.clone(),QuoteStreamConnectors{stock:StockStreamConnector::default(),binance:peer.connector.clone()});
         assert_eq!(acquired["ok"], true, "{acquired}");
         let query = json!({"workspaceId":workspace,"leaseId":acquired["data"]["leaseId"],"generation":acquired["data"]["generation"]});
         Self {
@@ -2608,6 +2632,81 @@ fn public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_re
 }
 
 #[test]
+fn local_use_confirmation_precedes_collection_and_only_qualifies_its_bound_market_gate() {
+    if isolated_hot_scenario(
+        "local_use_confirmation_precedes_collection_and_only_qualifies_its_bound_market_gate",
+    ) {
+        return;
+    }
+    // Configure and attest before acquiring the lease so the first public quote is bound to the
+    // current source generation. All transports are test-only loopback peers.
+    let view = HotView::open_with_local_use_confirmation();
+    let current = view.wait(|state| state["data"]["status"] == "STREAMING");
+    assert_eq!(
+        current["data"]["detail"]["snapshot"]["provenance"]["binance"]["dataUseRights"],
+        "UNVERIFIED"
+    );
+
+    let (proposal, _vault) = connected_binance_proposal(&view);
+    let decision = command(
+        &view.control,
+        "risk.evaluate_proposal",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(decision["ok"], true, "{decision}");
+    let checks = decision["data"]["checks"].as_array().unwrap();
+    let check = |id: &str| {
+        checks
+            .iter()
+            .find(|item| item["checkId"] == id)
+            .unwrap_or_else(|| panic!("Missing {id}: {decision}"))
+    };
+    assert_eq!(check("MARKET_DATA_USE")["outcome"], "PASS");
+    assert_eq!(
+        check("MARKET_DATA_USE")["reasonCode"],
+        "DATA_USE_USER_ATTESTED_LOCAL_ONLY"
+    );
+    assert!(
+        check("MARKET_DATA_USE")["reason"]
+            .as_str()
+            .unwrap()
+            .contains("provider entitlement remains UNVERIFIED")
+    );
+    assert_eq!(check("QUOTE_FRESHNESS")["outcome"], "PASS");
+    assert_eq!(
+        decision["data"]["binanceLocalUseAttestation"]["provenance"],
+        "USER_ATTESTED_LOCAL_ONLY"
+    );
+    assert_ne!(
+        decision["data"]["status"], "ALLOWED",
+        "A source-use confirmation grants no independent account, fee, market, or authorization gate"
+    );
+
+    let review = command(
+        &view.control,
+        "trade.request_approval",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(review["data"]["eligible"], false);
+    assert_eq!(
+        review["data"]["riskDecision"]["binanceLocalUseAttestation"]["provenance"],
+        "USER_ATTESTED_LOCAL_ONLY"
+    );
+    assert!(
+        !review["data"]["riskDecision"]
+            .to_string()
+            .contains("\"bids\":")
+    );
+    let account = command(
+        &view.control,
+        "account.get",
+        json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
+    );
+    assert_eq!(account["data"]["health"]["arming"], "DISARMED");
+}
+
+#[test]
 fn current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs() {
     if isolated_hot_scenario(
         "current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs",
@@ -3016,7 +3115,7 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
     ) {
         return;
     }
-    let view = HotView::open();
+    let view = HotView::open_with_local_use_confirmation();
     view.wait(|v| v["data"]["status"] == "STREAMING");
     let (proposal, vault) = connected_binance_proposal(&view);
     let fee_peer = DepthPeer::with_symbol(
@@ -3326,6 +3425,25 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
             .unwrap_or_else(|| panic!("Missing {check_id}: {valued_decision}"))
     };
     assert_eq!(find_check("SPOT_FEE_FX")["outcome"], "PASS");
+    assert_eq!(
+        find_check("MARKET_DATA_USE")["outcome"],
+        "PASS",
+        "The approved local declaration qualifies this source-use check alongside the owning model"
+    );
+    assert_eq!(
+        find_check("MARKET_DATA_USE")["reasonCode"],
+        "DATA_USE_USER_ATTESTED_LOCAL_ONLY"
+    );
+    assert_eq!(
+        valued_decision["data"]["binanceLocalUseAttestation"]["provenance"],
+        "USER_ATTESTED_LOCAL_ONLY"
+    );
+    assert!(
+        find_check("MARKET_DATA_USE")["reason"]
+            .as_str()
+            .unwrap()
+            .contains("provider entitlement remains UNVERIFIED")
+    );
     assert_eq!(find_check("ORDER_NOTIONAL")["outcome"], "PASS");
     assert_eq!(find_check("RESERVED_CAPITAL")["outcome"], "PASS");
     assert_eq!(find_check("ACCOUNT_ARMING")["outcome"], "UNAVAILABLE");
