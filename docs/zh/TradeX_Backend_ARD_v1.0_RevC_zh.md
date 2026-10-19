@@ -3313,6 +3313,8 @@ storage在同一个immediate SQLite事务中，将完整claim向量与绑定的�
 
 逐资产Prepare只是AC6的一项行为。准确真实来源资格、provider preflight复验、实际费用/扣款上限、逐资产结算/重放/unknown生命周期及全票正向、故障和并发验收仍未完成；不表示S29.11已完成或授予真实金融权限。
 
+对于owning Spot Prepare，`ExecutionReservation.workspaceNotional`必须使用刚复验的Proposal范围`INTENT_POLICY`路线，与其`spotFeeFx`陈述使用同一份估值证据。保留本次选择的完整reservation notional（包括适用的独立本地授权上限），不得直接复制较小的expected-spend值。按准确BUY ask／SELL bid计算，校验workspace与结果币种、意图身份、requirements和route-material版本；缺失或变化时拒绝。该路径不得使用历史portfolio FX、平价、倒数或额外换汇腿。原生本金／费用claims及所有独立权限门禁分别继续校验。
+
 ### 41.58 累计原生资产结算（S29.11 AC7，部分实现）
 
 `LiveOrderSettlement.initialAssetClaims`可选保留PLACE最初的有界向量；缺少该字段的旧结算仍可读取。对完整的提供方累计成交、费用及trade事实，使用精确十进制字符串从原始向量重算每项剩余claim：BUY本金按累计成交quote value消耗，SELL本金按累计成交base数量消耗，每笔费用只减少其实际收费原生资产的预留容量；若存在匹配的`FEE` claim则使用该项，否则同一资产的主claim剩余额度作为兼容上限。收到资产上的费用记录为从收益扣除的实际借记，不消耗无关的支出本金额度。标量`remainingCommitment`继续作为主本金兼容值。

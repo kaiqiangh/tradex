@@ -13,11 +13,11 @@
 //!   complete backend-derived current branch plus account-bound BASE/QUOTE/BNB wallet coverage may
 //!   qualify the current estimate under the approved conditional contract, while actual asset and
 //!   amount remain unguaranteed. Incomplete branches remain unavailable.
-//! - A genuinely-required `USDT -> base` conversion can never match the only supported bounded
-//!   provider pairs, so the required-FX statement fails closed with
-//!   `SPOT_REQUIRED_FX_UNSUPPORTED_ROUTE`. Producers are never relaxed and parity is never assumed.
-//! - When both facts hold, the single binding blocker is the route blocker (a structural
-//!   impossibility that precedes any fee arithmetic); the fee-currency fact is still reported.
+//! - A required policy valuation consumes its exact supported provider pair and denomination.
+//!   USDT/USD requires the selected source-use scope and policy band. Missing, unsupported or
+//!   mismatched routes fail closed; parity, inverse rates and extra bridge legs are never assumed.
+//! - A route blocker takes precedence over incomplete fee facts. A qualified price-only policy
+//!   valuation does not establish executable funding conversion or provider entitlement.
 //!
 //! The approval gate in `lib.rs` also carries a `None` arm that fails closed with
 //! `SPOT_FEE_FX_QUALIFICATION_UNAVAILABLE`. That arm is **defensive only and unreachable on the
@@ -550,6 +550,85 @@ fn workspace_base_expected_spend(
     }
     let amount = proposal.estimated_notional.as_deref()?;
     let currency = proposal.estimated_notional_currency.as_deref()?;
+    policy_value(
+        amount,
+        currency,
+        base,
+        requirements,
+        routes,
+        observation,
+        side,
+    )
+}
+
+/// Value the reservation's authorized notional with the same current intent-bound policy route
+/// used by RiskDecision. Historical portfolio FX is deliberately absent from this boundary.
+pub(crate) fn reservation_workspace_notional(
+    statement: &SpotFeeFxStatement,
+    proposal: &OrderProposal,
+    amount: &str,
+    currency: &str,
+    requirements: &FxRequirements,
+    observation: Option<&FxRateEvidence>,
+) -> Result<String> {
+    let unavailable = || crate::protocol::TradeXError::new("RISK_EVIDENCE_UNAVAILABLE");
+    if proposal.fields.environment != crate::protocol::ExecutionContext::BinanceLive
+        || statement.outcome != RiskCheckOutcome::Pass
+        || statement.binding_blocker.is_some()
+        || statement.workspace_id != proposal.workspace_id
+        || statement.proposal_id != proposal.proposal_id
+        || statement.proposal_hash != proposal.proposal_hash
+        || Some(statement.account_id.as_str()) != proposal.fields.account_id.as_deref()
+        || statement.instrument_id != proposal.fields.instrument_id
+        || statement.side != proposal.fields.side
+        || statement.quote_asset != currency
+        || statement.base_currency != requirements.base_currency
+        || requirements.workspace_id != proposal.workspace_id
+        || requirements.proposal_id.as_deref() != Some(proposal.proposal_id.as_str())
+        || crate::provider_io::decimal_cmp(amount, "0")? != std::cmp::Ordering::Greater
+    {
+        return Err(unavailable());
+    }
+    let route_version = digest(&(
+        requirements.material_version.as_str(),
+        observation.map(|evidence| evidence.material_version.as_str()),
+        &statement.routes,
+    ))?;
+    if route_version != statement.route_evidence_version
+        || workspace_base_expected_spend(
+            proposal,
+            &requirements.base_currency,
+            requirements,
+            true,
+            &statement.routes,
+            observation,
+            proposal.fields.side,
+        ) != statement.workspace_base_expected_spend
+        || statement.workspace_base_expected_spend.is_none()
+    {
+        return Err(unavailable());
+    }
+    policy_value(
+        amount,
+        currency,
+        &requirements.base_currency,
+        requirements,
+        &statement.routes,
+        observation,
+        proposal.fields.side,
+    )
+    .ok_or_else(unavailable)
+}
+
+fn policy_value(
+    amount: &str,
+    currency: &str,
+    base: &str,
+    requirements: &FxRequirements,
+    routes: &[SpotRequiredRoute],
+    observation: Option<&FxRateEvidence>,
+    side: OrderSide,
+) -> Option<String> {
     // A local valuation consumes only one provider-returned pair. Its result denomination must
     // already be the workspace base; never append a bridge leg to manufacture that denomination.
     let mut matches = requirements.requirements.iter().filter(|requirement| {
@@ -631,7 +710,7 @@ enum FeeSituation {
     EvidenceMismatch,
     /// No current exact-symbol commission observation is bound to the intent.
     EvidenceUnavailable,
-    /// The venue declares commission rates but not the fee-charging asset, so the statement is unavailable.
+    /// No complete supported current branch qualifies while the future fee asset remains unknown.
     CurrencyUnknown,
     /// A complete account-bound current branch is eligible, but actual settlement remains unknown.
     ConditionalEstimate,
@@ -1484,6 +1563,297 @@ mod tests {
             )
             .as_deref(),
             Some("100")
+        );
+    }
+
+    // Pure financial derivation coverage. These declared provider/source-use fixtures do not
+    // establish actual data rights, an issued approval, or public owning-Spot Prepare acceptance.
+    fn reservation_valuation_fixture(
+        side: OrderSide,
+        identity: bool,
+    ) -> (
+        OrderProposal,
+        SpotFeeFxStatement,
+        FxRequirements,
+        FxRateEvidence,
+    ) {
+        let quote = if identity { "EUR" } else { "USDT" };
+        let mut proposal = proposal();
+        proposal.fields.instrument_id = format!("crypto:BTC/{quote}:spot");
+        proposal.fields.side = side;
+        proposal.fields.order_type = OrderType::Limit;
+        proposal.fields.quantity.r#type = OrderQuantityType::Base;
+        proposal.fields.quantity.value = "1".into();
+        proposal.fields.limit_price = Some("100".into());
+        proposal.fields.maximum_spend = Some("150".into());
+        proposal.fields.time_in_force = TimeInForce::Gtc;
+        proposal.estimated_notional = Some("100".into());
+        proposal.estimated_notional_currency = Some(quote.into());
+
+        let mut capacity = capacity(None);
+        capacity.instrument_id = proposal.fields.instrument_id.clone();
+        capacity.base_asset = "BTC".into();
+        capacity.quote_asset = quote.into();
+        let mut commission = symbol_commission("0.0010", "0.0015");
+        commission.instrument_id = proposal.fields.instrument_id.clone();
+        commission.base_asset = "BTC".into();
+        commission.quote_asset = quote.into();
+        commission.side = side;
+        let observation = commission.observation.as_mut().unwrap();
+        observation.symbol = format!("BTC{quote}");
+        observation.received_asset = match side {
+            OrderSide::Buy => "BTC",
+            OrderSide::Sell => quote,
+        }
+        .into();
+        observation.discount.enabled_for_account = false;
+        let mut wallet = complete_wallet_funding_evidence();
+        wallet.required_assets = vec!["BTC".into(), quote.into(), "BNB".into()];
+        wallet.balances[0].asset = quote.into();
+        wallet.balances[1].asset = "BTC".into();
+        let mut clock = crate::time::TimeService::new();
+        clock.reset("workspace-1");
+        let clock = clock.status("workspace-1").unwrap();
+        let model = crate::spot_fee_model::current_fallback(
+            &commission,
+            &proposal,
+            &capacity,
+            &[],
+            &wallet,
+            crate::spot_fee_model::MarketInputs {
+                detail: None,
+                fee_market: None,
+                clock: &clock,
+                policy: None,
+            },
+        )
+        .unwrap();
+        let mut requirements = requirements();
+        requirements.requirements[0].from_currency = Some(quote.into());
+        if !identity {
+            requirements.requirements[0].provider_pair = Some("USDTUSD".into());
+            requirements.requirements[0].provider_dataset =
+                Some(crate::protocol::FxProviderDataset::CryptoLatestQuotes);
+        }
+        if identity {
+            requirements.base_currency = "EUR".into();
+            let route = &mut requirements.requirements[0];
+            route.to_currency = Some("EUR".into());
+            route.need = FxRequirementNeed::Identity;
+            route.provider_pair = None;
+            route.provider_dataset = None;
+        }
+        let mut evidence = evidence();
+        evidence.requirements = requirements.clone();
+        if !identity {
+            evidence.crypto_location = Some(crate::protocol::AlpacaCryptoLocation::Eu1);
+            evidence.rates[0].provider_pair = "USDTUSD".into();
+            evidence.rates[0].from_currency = "USDT".into();
+            evidence.rates[0].bid = "0.9999".into();
+            evidence.rates[0].ask = "1.0001".into();
+            evidence.rates[0].mid = None;
+            evidence.crypto_quotes = vec![crate::protocol::FxCryptoQuote {
+                provider_symbol: "USDT/USD".into(),
+                bid_price: "0.9999".into(),
+                bid_size: "10".into(),
+                ask_price: "1.0001".into(),
+                ask_size: "10".into(),
+                provider_timestamp: evidence.rates[0].provider_timestamp.clone(),
+                request_path: "/v1beta3/crypto/eu-1/latest/quotes?symbols=USDT%2FUSD".into(),
+                response_sha256: "a".repeat(64),
+                received_at: evidence.observed_at.clone(),
+            }];
+        }
+        let source_use = source_use_assessment(true);
+        let statement = derive(
+            &capacity,
+            SpotFeeFxSources {
+                commission: Some(&commission),
+                source_use_assessment: Some(&source_use),
+                current_fee_model: Some(&model),
+                wallet_funding_evidence: Some(&wallet),
+            },
+            &requirements,
+            (!identity).then_some(&evidence),
+            &proposal,
+            side,
+            &requirements.base_currency,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(statement.outcome, RiskCheckOutcome::Pass);
+        (proposal, statement, requirements, evidence)
+    }
+
+    #[test]
+    fn reservation_valuation_uses_current_route_for_the_full_authorized_notional() {
+        for (side, expected) in [(OrderSide::Buy, "150.015"), (OrderSide::Sell, "149.985")] {
+            let (proposal, statement, requirements, evidence) =
+                reservation_valuation_fixture(side, false);
+            assert_eq!(
+                reservation_workspace_notional(
+                    &statement,
+                    &proposal,
+                    "150",
+                    "USDT",
+                    &requirements,
+                    Some(&evidence),
+                )
+                .unwrap(),
+                expected,
+                "Reserve the actual authorized notional using BUY ask / SELL bid, rather than copying the smaller expected spend"
+            );
+            assert_ne!(
+                statement.workspace_base_expected_spend.as_deref(),
+                Some(expected)
+            );
+            assert_eq!(evidence.rates[0].ask, "1.0001");
+            assert_eq!(statement.fee_currency, "UNKNOWN");
+        }
+    }
+
+    #[test]
+    fn reservation_valuation_identity_needs_no_external_rate() {
+        let (proposal, statement, requirements, _) =
+            reservation_valuation_fixture(OrderSide::Buy, true);
+        assert_eq!(
+            reservation_workspace_notional(
+                &statement,
+                &proposal,
+                "150",
+                "EUR",
+                &requirements,
+                None,
+            )
+            .unwrap(),
+            "150"
+        );
+    }
+
+    #[test]
+    fn reservation_valuation_refuses_missing_changed_or_mismatched_current_evidence() {
+        let (proposal, statement, requirements, evidence) =
+            reservation_valuation_fixture(OrderSide::Buy, false);
+        let value = |statement: &SpotFeeFxStatement,
+                     proposal: &OrderProposal,
+                     requirements: &FxRequirements,
+                     evidence: Option<&FxRateEvidence>,
+                     amount: &str,
+                     currency: &str| {
+            reservation_workspace_notional(
+                statement,
+                proposal,
+                amount,
+                currency,
+                requirements,
+                evidence,
+            )
+        };
+        assert!(value(&statement, &proposal, &requirements, None, "150", "USDT").is_err());
+        for amount in ["0", "-1", "invalid"] {
+            assert!(
+                value(
+                    &statement,
+                    &proposal,
+                    &requirements,
+                    Some(&evidence),
+                    amount,
+                    "USDT"
+                )
+                .is_err()
+            );
+        }
+        for currency in ["USD", "EUR"] {
+            assert!(
+                value(
+                    &statement,
+                    &proposal,
+                    &requirements,
+                    Some(&evidence),
+                    "150",
+                    currency
+                )
+                .is_err()
+            );
+        }
+        let mut changed_proposal = proposal.clone();
+        changed_proposal.proposal_hash = hash('9');
+        assert!(
+            value(
+                &statement,
+                &changed_proposal,
+                &requirements,
+                Some(&evidence),
+                "150",
+                "USDT"
+            )
+            .is_err()
+        );
+        let mut changed_requirements = requirements.clone();
+        changed_requirements.material_version = "9".repeat(64);
+        assert!(
+            value(
+                &statement,
+                &proposal,
+                &changed_requirements,
+                Some(&evidence),
+                "150",
+                "USDT"
+            )
+            .is_err()
+        );
+        let mut changed_evidence = evidence.clone();
+        changed_evidence.material_version = "9".repeat(64);
+        assert!(
+            value(
+                &statement,
+                &proposal,
+                &requirements,
+                Some(&changed_evidence),
+                "150",
+                "USDT"
+            )
+            .is_err()
+        );
+        // Even a malformed reused version cannot replace the reviewed price.
+        changed_evidence = evidence.clone();
+        changed_evidence.rates[0].ask = "1.09".into();
+        assert!(
+            value(
+                &statement,
+                &proposal,
+                &requirements,
+                Some(&changed_evidence),
+                "150",
+                "USDT"
+            )
+            .is_err()
+        );
+        let mut changed_statement = statement.clone();
+        changed_statement.outcome = RiskCheckOutcome::Unavailable;
+        assert!(
+            value(
+                &changed_statement,
+                &proposal,
+                &requirements,
+                Some(&evidence),
+                "150",
+                "USDT"
+            )
+            .is_err()
+        );
+        changed_statement = statement.clone();
+        changed_statement.base_currency = "GBP".into();
+        assert!(
+            value(
+                &changed_statement,
+                &proposal,
+                &requirements,
+                Some(&evidence),
+                "150",
+                "USDT"
+            )
+            .is_err()
         );
     }
 

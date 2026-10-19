@@ -9831,7 +9831,28 @@ impl ControlPlane {
             .to_owned();
         let notional_currency = review.market.instrument.currency.clone();
         let workspace_currency = self.store.as_ref().unwrap().base_currency()?;
-        let workspace_notional = if notional_currency == workspace_currency {
+        let owning_spot_required = proposal.fields.environment
+            == protocol::ExecutionContext::BinanceLive
+            && financial_sources::spot_rules_selected_once(self)?;
+        let workspace_notional = if owning_spot_required {
+            let statement = review
+                .spot_fee_fx
+                .as_ref()
+                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+            let (requirements, observation) =
+                financial_sources::proposal_fx_evidence(self, &proposal)?;
+            if requirements.base_currency != workspace_currency {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            Some(spot_fee_fx::reservation_workspace_notional(
+                statement,
+                &proposal,
+                &notional,
+                &notional_currency,
+                &requirements,
+                observation.as_ref(),
+            )?)
+        } else if notional_currency == workspace_currency {
             Some(notional.clone())
         } else {
             let portfolio = self.current_portfolio_snapshot(&input.workspace_id, false)?;

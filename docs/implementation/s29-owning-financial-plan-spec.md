@@ -108,6 +108,8 @@ The [first-party source-contract research](s29-fx-source-contract-research.md) r
 
 **Readiness distinction:** these are implementation decisions for the full owning item. No actual source has been selected or qualified by this document. The single implementation ticket must carry all fourteen criteria and twenty handoff duties, including positive producer→owner→risk/Prepare reachability under a genuinely applicable source-use basis, as well as refusal for the user's still-unproven real activation. No source-only closure or weakening of unrelated requirements is permitted.
 
+For an owning Spot Prepare, compute `ExecutionReservation.workspaceNotional` from the freshly revalidated Proposal-scoped `INTENT_POLICY` route used by its `spotFeeFx` statement. Preserve the actual selected reservation notional (including any separate local authorization ceiling); do not copy a smaller expected-spend value. Use exact BUY ask / SELL bid arithmetic, require matching workspace/result currency, intent identity, requirements and route-material version, and refuse missing or changed evidence. This path cannot use historical portfolio FX, parity, an inverse rate or an extra conversion leg. Native principal/fee claims and every independent authority gate remain separately enforced.
+
 ## Testing Decisions
 
 Use the standing approved highest seam: actual React → typed Rust Control Plane → disposable SQLite/outbox, with only external HTTP/vault/WS producers fake. No further seam or granularity interview is needed. Preserve the existing source lifecycle, settlement and atomic Prepare public tests as prior art.

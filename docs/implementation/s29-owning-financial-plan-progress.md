@@ -969,3 +969,20 @@ After the conditional-branch changes, `cargo test --manifest-path src-tauri/Carg
 ## 全量验证补记 — 2026-10-15
 
 条件分支修改后的`cargo test --manifest-path src-tauri/Cargo.toml --workspace`以0退出：541项通过、39项既有ignored、0失败，其中library全部281项、`binance_rules`123项、`financial_sources`41项。`npm run build`通过，仍有既有5,781 kB Vite chunk警告；`npm run test:unit`通过27/27。保留测试fixture dead-code警告。此全量验证不等于正向owning Spot Prepare或AC1 source-use证据已满足。
+
+
+## AC6 current-route reservation valuation — 2026-10-19, supporting implementation
+
+Source review found that the owning Spot RiskDecision used its current Proposal-bound policy valuation, while Prepare still attempted to value the reservation through historical portfolio FX. Prepare now uses the freshly revalidated owning statement, requirements and observation. It checks exact intent/account/currency identity and route material, then values the full selected reservation notional with BUY ask / SELL bid; it does not copy a smaller expected-spend value. Missing, retired, changed or mismatched evidence refuses before approval consumption or reservation creation. Identity needs no external rate. No wire fields, provider reads or rights setters were added.
+
+Three financial derivation regressions cover complete authorization valuation (`150 USDT` at `1.0001` ask → `150.015 USD`; SELL bid `0.9999` → `149.985 USD`), identity, and missing/changed/mismatched evidence. The ordinary `npm run check` exited 0: schema agreement, frontend production build, 35 Node unit tests, 571 Rust tests passed, 33 pre-existing ignored, secret scan and the 203/70/13/23 traceability gate. Rust formatting and diff checks passed. Existing dead-code and 5,901.99 kB Vite chunk warnings remain. [Full receipt](evidence/s29-owning-financial-plan/work-in-progress/reservation-valuation-full-check-20261019.txt).
+
+These are supporting implementation and derivation checks, not public positive owning Spot Prepare acceptance, provider entitlement, actual source activation, native UI, or full S29.11 acceptance. Actual source-use remains unresolved, AC5 stays waived/unaccepted, and AC6 remains unchecked. The documentation indexes now consistently name S29.11 as the current serial item and retain S32/S33 history. No real provider/account read or financial action occurred. The next AC6 audit concerns revalidation of this attempt's own reservation before dispatch; no later slice has started.
+
+## AC6 当前路线预留估值 — 2026-10-19，辅助实现
+
+源码审阅发现：owning Spot RiskDecision已消费当前Proposal绑定估值，Prepare却仍尝试从历史portfolio FX估值reservation。现改为使用刚复验的owning statement、requirements和observation，核对准确意图／账户／币种及route material后，以BUY ask／SELL bid估值本次完整已选reservation notional，不直接复制较小expected-spend。缺失、退役、变化或错绑证据在消费审批或建立预留前拒绝；identity不需要外部汇率。未新增wire字段、provider读取或rights setter。
+
+三项金融推导回归覆盖完整授权金额（`150 USDT`按`1.0001` ask得`150.015 USD`；SELL按`0.9999` bid得`149.985 USD`）、identity及缺失／变化／错绑拒绝。普通`npm run check`退出0：schema一致、前端production build、35项Node单测、571项Rust测试通过、33项既有ignored、secret scan及203/70/13/23追踪门禁通过；Rust格式和diff检查通过。保留既有dead-code和5,901.99 kB Vite chunk警告。[完整收据](evidence/s29-owning-financial-plan/work-in-progress/reservation-valuation-full-check-20261019.txt)。
+
+这些属于辅助实现与推导检查，不证明owning Spot公开正向Prepare、provider entitlement、真实source激活、原生UI或S29.11整体验收。实际source-use仍未解决，AC5继续豁免／未验收，AC6保持未勾选。文档首页已统一当前串行项为S29.11并保留S32/S33历史。未读取真实provider／账户或执行金融操作。下一项AC6审阅关注派发前复验对本次自身reservation的处理；未开始后续切片。

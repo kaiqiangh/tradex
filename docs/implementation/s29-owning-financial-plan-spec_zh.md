@@ -106,6 +106,8 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 
 **就绪区分：** 上述为完整拥有方实现决策，不是实际来源选择或资格化。单一实现票必须保留14AC/20交接，包含在真实适用使用依据下的生产者→拥有方→risk/Prepare正向以及本用户尚未证明真实激活的拒绝路径；不得source-only结案或放松其他要求。
 
+对于owning Spot Prepare，`ExecutionReservation.workspaceNotional`必须使用刚复验的Proposal范围`INTENT_POLICY`路线，与其`spotFeeFx`陈述使用同一份估值证据。保留本次选择的完整reservation notional（包括适用的独立本地授权上限），不得直接复制较小的expected-spend值。按准确BUY ask／SELL bid计算，校验workspace与结果币种、意图身份、requirements和route-material版本；缺失或变化时拒绝。该路径不得使用历史portfolio FX、平价、倒数或额外换汇腿。原生本金／费用claims及所有独立权限门禁分别继续校验。
+
 ## 测试决策
 
 沿用已批准最高接缝：实际 React→类型化 Rust Control Plane→隔离 SQLite/outbox；仅 HTTP/vault/WS 外部生产者 fake。无需重问接缝或粒度；来源生命周期、结算及原子 Prepare 公开测试作为先例。
