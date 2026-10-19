@@ -1,0 +1,214 @@
+{
+  "capturedAtUtc": "2026-10-19 18:28:47 UTC",
+  "localBaseline": "825fa12c6f44192589b4e214f3592c511c547667",
+  "access": {
+    "githubCli": "GraphQL and REST reads returned Forbidden",
+    "fallback": "connected GitHub read tools succeeded",
+    "trackerWrites": 0
+  },
+  "map": {
+    "number": 1,
+    "title": "[Wayfinder] 完整构建 TradeX v1.0 RevC",
+    "state": "open"
+  },
+  "currentIssues": [
+    {
+      "number": 135,
+      "title": "[S29.11] 提供完整 Spot 金融计划、逐资产预留与所需估值",
+      "state": "open",
+      "updatedAt": "2026-10-19T11:30:37Z",
+      "assignees": [
+        "kaiqiangh"
+      ],
+      "criteria": [
+        {
+          "checked": false,
+          "text": "AC1. Resolve and pin the selected source profile, provider-entitlement and technical-access evidence, supported purpose-specific route contract, and actual evidence intake/policy evaluation without a rights setter or automatic fallback. Keep user-attested local-use policy distinct; the approved Binance attestation can satisfy only its selected-source MARKET_DATA_USE check and cannot be labeled provider entitlement."
+        },
+        {
+          "checked": true,
+          "text": "AC2. Exact symbol/account/Proposal terms drive all role/side/family arithmetic; account comparisons never substitute."
+        },
+        {
+          "checked": true,
+          "text": "AC3. Pin current-estimate rounding, authorization and native-bound semantics, preserving explicit uncertainty and unsupported absolute guarantees."
+        },
+        {
+          "checked": true,
+          "text": "AC4. Conditional BNB and received-asset branches retain honest current estimates where consumed, original units, net receipts and total-family sufficiency; proven zero-BNB fallback requires no unused conversion and never fabricates its inactive BNB amount."
+        },
+        {
+          "checked": false,
+          "text": "AC5. Exact BASE/QUOTE/BNB holding coverage, first receipts, free/locked amounts and local claims are consumed once with complete binding/retirement."
+        },
+        {
+          "checked": false,
+          "text": "AC6. Under the approved conditional-fee contract, a complete current owning plan may qualify review/Prepare subject to every independent gate; prefunded native principal and the selected branch's actually consumed outgoing fee claim produce one atomic account-scoped per-asset reservation vector. Prepare persists the reviewed fee branch and received-asset fallback allowance as settlement metadata, not an outgoing capacity claim. No hidden funding operation exists."
+        },
+        {
+          "checked": false,
+          "text": "AC7. Real per-asset fills/fees settle once against the persisted branch and allowance; branch/asset mismatch, missing fee truth or excess debit freezes for reconciliation, while pending/unknown safeguards remain and only unused capacity is released after broker truth."
+        },
+        {
+          "checked": true,
+          "text": "AC8. Rust/schema/TypeScript support actual asset/pair/path/purpose/timestamp/quality/cost and backward-compatible captured/reservation records."
+        },
+        {
+          "checked": false,
+          "text": "AC9. Qualified genuine required valuation/fee routes preserve configurable base, explicit direction and all selected legs; identity and unavailable routes behave honestly without parity."
+        },
+        {
+          "checked": false,
+          "text": "AC10. Real supported external producer responses reach a positive owning financial statement and the same monetary-risk/Prepare consumer under their supported source-use basis, including the approved Binance attestation path where applicable, without a seeded authority shortcut."
+        },
+        {
+          "checked": false,
+          "text": "AC11. Material changes invalidate incompatible consent; fresh matching revalidation retains original approval expiry and independent immutable collection provenance without receipt-only loops."
+        },
+        {
+          "checked": false,
+          "text": "AC12. Prepare/preflight enforce the actual authorization/funding boundary and reject changed or unavailable evidence without partial state or provider mutation."
+        },
+        {
+          "checked": false,
+          "text": "AC13. Genuine public TDD plus positive/error/lifecycle/concurrency/settlement scenarios and actual current/captured/pre-arm responsive UI pass."
+        },
+        {
+          "checked": false,
+          "text": "AC14. Paired normative contracts, complete checks, ordinary build/pin, serial independent reviews and frozen source/evidence/remote/tracker handoff pass; full parent/map/real/native/physical/release acceptance is not upgraded by this item alone."
+        },
+        {
+          "checked": false,
+          "text": "AC15. The owning Spot INTENT_POLICY valuation is displayed in exact provider pair, original numeric tokens and denomination with provider/receipt times and available sizes/status in current, captured and pre-Arm views. Do not add other-currency conversion, historical FX, reciprocal or parity inference. RiskDecision/Prepare consume it only when its currency matches workspace base; otherwise a typed valuation-currency blocker leaves no owning amount, approval authority or reservation. Other purpose-bound FX routes and independent source-use gates remain; only the approved Binance MARKET_DATA_USE check may use the distinct local attestation."
+        }
+      ]
+    },
+    {
+      "number": 149,
+      "title": "[Spec] 为 Binance Spot 的 S29.11 本地 Prepare 引入来源绑定用途确认",
+      "state": "closed",
+      "updatedAt": "2026-10-19T11:30:16Z",
+      "assignees": [],
+      "criteria": []
+    },
+    {
+      "number": 150,
+      "title": "[S29.11] 实现 Binance 来源绑定本地用途确认与 MARKET_DATA_USE 检查",
+      "state": "closed",
+      "updatedAt": "2026-10-19T15:09:57Z",
+      "assignees": [
+        "kaiqiangh"
+      ],
+      "criteria": [
+        {
+          "checked": true,
+          "text": "Public Settings → typed IPC → Control Plane → saved-source projection round-trips the confirmation and remains compatible with an older projection lacking the optional field."
+        },
+        {
+          "checked": true,
+          "text": "Attest/withdraw use current state-version CAS, make no provider request, and invalidate dependent Hot observations through source generation without silently reacquiring them."
+        },
+        {
+          "checked": true,
+          "text": "Binding scope and jurisdiction/policy/terms validation are Control Plane-derived; unsupported, unknown, stale, prohibited, mismatched or withdrawn states refuse with typed diagnostics. Renderer cannot set rights or binding fields."
+        },
+        {
+          "checked": true,
+          "text": "Only the selected ordinary Binance `MARKET_DATA_USE` check passes with `DATA_USE_USER_ATTESTED_LOCAL_ONLY` for a current matching attestation; missing/stale/mismatched returns UNAVAILABLE and a known prohibition rejects. Provider rights fields and quote `dataUseRights` remain UNVERIFIED; Alpaca and simulation behavior is unchanged."
+        },
+        {
+          "checked": true,
+          "text": "Current and immutable captured RiskDecision/UI expose bounded user-attestation provenance while raw quote/book values remain absent from persistent history."
+        },
+        {
+          "checked": true,
+          "text": "Raw and derived Binance market data cannot reach model/tool prompts, research, exports or other external consumers."
+        },
+        {
+          "checked": true,
+          "text": "Public RED→GREEN tests cover positive and refusal paths, binding changes, terms/policy revision, withdrawal, source disconnect/configuration, CAS races, compatibility, and no-network behavior. Fake only external HTTP/vault/WS/clock producers. This slice does not claim full owning-plan Prepare acceptance."
+        },
+        {
+          "checked": true,
+          "text": "Paired English/Chinese contract and implementation evidence are updated. Run the focused checks and required standard repository verification for this code change; report any environment-specific limitation precisely."
+        }
+      ]
+    }
+  ],
+  "nativeDependenciesFor135": [
+    {
+      "number": 133,
+      "title": "[S29.10] 读取并绑定精确标的佣金与条件扣费证据",
+      "state": "closed"
+    },
+    {
+      "number": 131,
+      "title": "[S29.9] 交付拥有方费用陈述与真正所需执行 FX 并声明可达性",
+      "state": "closed"
+    }
+  ],
+  "openIssueQuery": "repo:kaiqiangh/tradex is:issue is:open",
+  "openIssueSearchResults": [
+    {
+      "number": 1,
+      "title": "[Wayfinder] 完整构建 TradeX v1.0 RevC"
+    },
+    {
+      "number": 56,
+      "title": "[Spec] 完成 Alpaca Paper 交易生命周期"
+    },
+    {
+      "number": 107,
+      "title": "[Spec] 恢复 Live 执行并协调中断工作（S27）"
+    },
+    {
+      "number": 113,
+      "title": "[Spec] 验证 Trading 212 Live 可信执行（S28）"
+    },
+    {
+      "number": 115,
+      "title": "[Spec] 接入 Alpaca 已配置数据源与生产报价（S28）"
+    },
+    {
+      "number": 116,
+      "title": "[S28] 接入已配置 Alpaca 报价与 Hot 订阅"
+    },
+    {
+      "number": 117,
+      "title": "[Spec] 补齐 S28 生产金融前置证据"
+    },
+    {
+      "number": 121,
+      "title": "[Spec] 验证 Binance Spot Live 可信执行（S29）"
+    },
+    {
+      "number": 134,
+      "title": "[Spec] 完成 Spot 逐资产金融计划与真实必需 FX（S29.11）"
+    },
+    {
+      "number": 135,
+      "title": "[S29.11] 提供完整 Spot 金融计划、逐资产预留与所需估值"
+    },
+    {
+      "number": 136,
+      "title": "[Spec] 保护工作区导出、恢复、迁移与保留（S31）"
+    },
+    {
+      "number": 140,
+      "title": "[Spec] 完成全页面、键盘与窄屏回归（S33）"
+    },
+    {
+      "number": 141,
+      "title": "[S33] 完成全页面、键盘与窄屏回归"
+    },
+    {
+      "number": 147,
+      "title": "[Spec] 补齐 B2 Saved 会话归档与显式恢复"
+    },
+    {
+      "number": 148,
+      "title": "[B2] 归档会话到 Saved 并显式恢复为活动会话"
+    }
+  ],
+  "boundary": "Readback only. No issue checkbox, label, status, body, or map was changed."
+}

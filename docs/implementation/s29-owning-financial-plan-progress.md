@@ -1123,3 +1123,15 @@ A bilingual, non-normative MARKET-only local Prepare eligibility proposal is sta
 核实 #150 的八项验收及双语证据后，已在 GitHub 将八项全部勾选并关闭。关闭记录引用实现提交 `0315483`、后续 owning 集成回归 `cb91172`/`6a8bd19` 和完整验证证据。#149、#131、#133 先前已关闭。#135 现为 15 项中完成 4 项，#134 父规范票为 14 项中完成 4 项，外层 #121 S29 票仍 OPEN，均不能关闭。其他 Wayfinder 票属于独立的串行工作项；当前 #135 尚未完成或解除规范阻断，本轮不跳去处理它们。
 
 遵循初始的“按现有文档构建”要求，继续保留 Backend ARD §41.44/§41.47 的 fail-closed 契约；不把待审议的非规范提案当作已批准。#135 的 AC6/AC10 正向目标与现行规范目前无法同时满足，因此保持 OPEN，不改变验收勾选，也不虚报完成。未改运行时代码；本状态核查没有运行测试、真实 provider/账户操作、Prepare、订单或金融操作。
+
+### Wayfinder / to-spec resume — 2026-10-19
+
+The user explicitly invoked the upstream skills workflow again. The pinned Matt Pocock skills, full 203-row requirement snapshot, 35 implementation paths and baseline document inventory are recorded in [the workflow snapshot](wayfinder-resume-2026-10-19.md). GitHub CLI reads remain forbidden, but the connected GitHub read tools confirmed that the Binance local-use decision and capability are closed and the same owning financial plan remains open with four of fifteen acceptance criteria checked. No checkbox or issue state was changed in this resume.
+
+The pending rule-composition proposal is now linked to [first-party research](s29-instrument-rules-composition-research.md) pinned at Binance Spot docs commit `f0ee79c8ce24dbeda6645211b9504e237fddef19`. Its clarification distinguishes MARKET's local stated-price placement purpose from venue execution-time PRICE_RANGE, retains ambiguous partial-fill/asset attribution as unavailable, proposes exact category-specific count contributions, preserves existing non-atomic/interval provenance treatment, and requires observed STP facts with understood semantics. These remain proposed local policy; no normative gate or runtime behavior changed. A separate user scope decision has been requested; the prior MARKET_DATA_USE approval does not resolve this InstrumentRules question. Work remains on this item in to-spec until that decision, followed by the existing single owning implementation ticket.
+
+### Wayfinder / to-spec 接续 — 2026-10-19
+
+用户重新明确要求使用上游 skills 工作流。[工作流快照](wayfinder-resume-2026-10-19.md)记录固定版本的 Matt Pocock skills、完整 203 行需求、35 条实施路径及基线文档目录。GitHub CLI 读取仍被拒绝，但已连接的 GitHub 只读工具确认 Binance 本地用途决议及能力票均已关闭，同一 owning 金融计划仍开放且十五项 AC 中四项已勾选。本次接续未修改任何验收勾选或 issue 状态。
+
+待决规则组合提案已链接[第一方研究](s29-instrument-rules-composition-research.md)，Binance Spot 文档固定到 `f0ee79c8ce24dbeda6645211b9504e237fddef19`。澄清明确区分 MARKET 本地明示价格 placement 用途与交易所执行时 PRICE_RANGE；部分成交/资产归属歧义保持不可用；提出按类别精确计算新增计数、沿用既有非原子/区间来源处理，并要求观察到 STP 事实且模式语义可理解。以上仍属本地策略提案，未修改规范 gate 或运行时。已请求单独的用户范围决策，此前 MARKET_DATA_USE 批准不能解决本次 InstrumentRules 问题。串行工作仍停留在本项 to-spec；决议后继续同一完整 owning 实现票。

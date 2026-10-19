@@ -18,7 +18,7 @@
 
 ## 当前交付状态
 
-截至2026-10-19，当前串行项为S29.11 [owning Spot金融计划](../implementation/s29-owning-financial-plan-spec_zh.md)，正在完成AC6实现与验证。实际source-use依据仍未解决；AC5仅豁免排序，仍未验收。当前项完成后才继续后续项。下方S32/S33保留为历史实现和局部证据，不代表全应用完成或达到main PR条件。详见[实现交接](../implementation/README.md)及[当前进度](../implementation/s29-owning-financial-plan-progress.md)。
+截至2026-10-19，当前串行项为完整 [owning Spot 金融计划](https://github.com/kaiqiangh/tradex/issues/135)，继续持有全部十五项 S29.11 验收及 producer-to-Prepare 路径。前置 [Binance 来源绑定本地用途实现](https://github.com/kaiqiangh/tradex/issues/150)及其[已批准的范围决议](https://github.com/kaiqiangh/tradex/issues/149)均已关闭。当前 [MARKET-only InstrumentRules 组合提案](../implementation/s29-instrument-rules-prepare-reachability-proposal_zh.md)仍待决议；现行 Backend §41.44/§41.47 拒绝契约继续有效。实际 provider-entitlement/source activation 依据仍未解决，Binance 本地确认不建立 provider 权利。AC5 仅豁免排序、仍未验收，AC6 与完整 S29.11 继续开放。当前项完成后才继续后续项。下方 S32/S33 保留为历史实现和局部证据，不代表全应用完成或达到 main PR 条件。详见 [203 项需求/35 条路径工作流快照](../implementation/wayfinder-resume-2026-10-19.md)、[实现交接](../implementation/README.md)及[当前进度](../implementation/s29-owning-financial-plan-progress.md)。
 
 ### S32/S33历史实现记录
 

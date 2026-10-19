@@ -17,7 +17,7 @@ S29.11 #135 要求受支持来源通过公开生产者进入 owning RiskDecision
 
 ## 提议决议
 
-允许一个严格限界的**本地 Prepare eligibility**评估，在受支持的普通 Binance Spot **BASE MARKET** 订单中，组合已有的当前 Spot 规则、容量和区间观察，并绑定到不可变 Proposal。新 MARKET 订单没有明示执行价格，因此 `PRICE_RANGE` 按 §41.47 保持用途专属的“不适用”。组合结果只能满足该 Proposal 实际适用的规则义务；不得把 `SpotCapacityInputs.qualification` 或 `SpotOrderIntervalInputs.qualification` 改成 execution-qualified。
+允许一个严格限界的**本地 Prepare eligibility**评估，在受支持的普通 Binance Spot **BASE MARKET** 订单中，组合已有的当前 Spot 规则、容量和区间观察，并绑定到不可变 Proposal。新 MARKET 订单没有明示执行价格，因此本地“明示价格 placement 检查”按 §41.47 保持用途专属的“不适用”。MARKET 仍受交易所执行时 `PRICE_RANGE` 约束；提案不保证成交价格落在已保存区间内，也不保证成交。组合结果只能满足该 Proposal 实际适用的规则义务；不得把 `SpotCapacityInputs.qualification` 或 `SpotOrderIntervalInputs.qualification` 改成 execution-qualified。
 
 只有同时满足以下条件，组合结果才可使现有 `INSTRUMENT_RULES` 检查及 owning approval/Prepare eligibility 通过：
 
@@ -25,9 +25,31 @@ S29.11 #135 要求受支持来源通过公开生产者进入 owning RiskDecision
 2. 每项适用的静态订单形式、数量、notional、asset 和 admission 规则都有完整且已知的 schema 与精确单位；已知违规必须拒绝。
 3. 适用的 `MAX_POSITION`、账户/交易所/币对订单计数、订单列表计数和订单速率义务，须使用现有精确账户容量/区间观察，按实际规则限额和请求的 BASE 数量进行评估。实现前须明确各规则公式、输入覆盖及采用 open buy 原始数量还是未成交数量；不得推断剩余数量或映射未验证的资产。
 4. 必需的账户 self-trade-prevention 事实必须存在，且与所选普通订单形式兼容。缺失值继续不可用。
-5. 任意缺失、过期、非原子覆盖缺口、部分/矛盾的订单清单、未知活动字段或不支持义务均继续 `UNAVAILABLE`。当前精确违规为 `REJECT`。当前不可变 review digest 绑定所有消费输入；刷新或变更后必须重新 review。
+5. 任意缺失、过期、真实覆盖缺口、部分/矛盾的订单清单、未知活动字段或不支持义务均继续 `UNAVAILABLE`。原有非原子与区间关联来源标签沿用 §41.48 的处理：保留可见限制，不仅因这些标签就增加新的覆盖否决。当前精确违规为 `REJECT`。当前不可变 review digest 绑定所有消费输入；刷新或变更后必须重新 review。
 
 正向路径有意仅限没有明示执行价格的 MARKET 形式。受约束的 LIMIT `PRICE_RANGE` 仍保持不可用，其快照边界仍不具权威性。本决议不授权提交订单，也不豁免行情/数据用途权利、费用/FX、钱包 claims、权限/健康、Arm、consent、reservations、Gateway 即时认证 preflight、生命周期或独立 provider/source-use 事实。当前合成 Alpaca Support 上下文不计入验收，也不是用户真实来源用途事实的证据。
+
+## 提议的逐规则语义——基于来源的范围澄清，2026-10-19
+
+[双语第一方研究](s29-instrument-rules-composition-research.md)将 Binance Spot 文档固定到 `f0ee79c8ce24dbeda6645211b9504e237fddef19`。下列内容仍是本地资格策略提议，尚未成为批准的规范修订；提供方事实与本地限制保持区分。
+
+| 义务 | 提议的有限本地处理 |
+| --- | --- |
+| `MAX_POSITION` | 仅 BUY：比较 `free BASE + locked BASE + open BUY 数量 + 请求 BASE` 与精确上限。首期仅对完整全账户空库存给出正向资格，此时 open BUY 数量明确为零。非空库存缺少已确立的数量/资产归属、部分成交、余额缺失或覆盖矛盾均不可用。不得推断 `origQty-executedQty`、prevented quantity 或跨 symbol 的 BASE 映射。SELL 不增加该 BUY 专属义务。 |
+| Symbol 与 exchange 订单总数 | 使用准确账户对应的完整作用域；独立新 MARKET 增加一，比较 `count + 1 <= limit`。不提前计入预计即刻成交减量。 |
+| Algo、iceberg 与订单列表计数 | 支持的独立 MARKET 对这些类别的新增量为零。提议的保守本地策略仍要求完整适用类别证据并比较 `count + 0 <= limit`；该更严格检查属于 TradeX 本地资格策略，不声称交易所会如何处理不相关类别既有超限。不能对每种类别都加一，也不能用订单总数代替列表数。 |
+| `MAX_NUM_ORDER_AMENDS` | 对新建独立 PLACE 用途专属不适用；不因此支持 amend/cancel-replace。 |
+| `ORDERS` 区间额度 | 保留现有 owning 评估：每个准确声明元组都需要至少一个槽位，不本地重置、减量、滚动窗口或提前记预计成交。准确耗尽时拒绝；`count > limit`、声明不匹配、覆盖不完整或可能跨窗口而退役时仍不可用。 |
+| 账户 STP 与 symbol 默认值 | 使用 rule producer 观察到的账户事实、实际默认模式和允许集合。缺失账户事实继续不可用；要求 STP 却默认 NONE 时保留既有拒绝。默认模式语义必须受到支持且可理解，不能仅凭字符串集合成员关系让未知模式通过。无 renderer override，不伪造 false。 |
+| `PRICE_RANGE` | MARKET 本地明示价格 placement 检查可不适用；交易所执行时规则、部分成交/过期风险继续披露。受约束 LIMIT 保留现有不可用结果。 |
+
+原始输入类型继续保持 source-only qualification 及全部既有限制。提议中的消费者在现有 RiskDecision 接缝组合有界逐规则结果，将消费的证据版本绑定到不可变 review；不清除独立来源投影的 unavailable 状态或未知义务。
+
+## 测试决策
+
+沿用完整 owning-plan 票据已确认的 React → typed Rust Control Plane → 一次性 SQLite/outbox 接缝，不新增测试边界或拆票。Fixture 仅替代外部 HTTP/vault/WS/clock producer。
+
+每次完成一个公开行为：完整空库存 MARKET BUY 与 SELL；准确总量/类别/区间限额；缺失/未知 STP；非空歧义/部分成交/其他 symbol 库存；过期或不匹配绑定与 CAS 退役；保持受约束 LIMIT 拒绝；1280/768/390 当前/captured/pre-arm 披露。每次本地规则通过仍须保留独立 blocker；只有完整 owning 事实才能按既有合成测试方案进入正向 approval/Prepare。Fixture 来源用途事实不建立真实提供方验收。同一票据继续持有原有全部十五项 owning AC。
 
 ## 获批后的实现边界
 
