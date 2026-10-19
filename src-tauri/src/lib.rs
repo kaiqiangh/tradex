@@ -97,6 +97,8 @@ use std::{
 };
 use storage::Store;
 
+const DISPATCH_RESERVATION_BINDING_MISMATCH: &str = "DISPATCH_RESERVATION_BINDING_MISMATCH";
+
 pub struct StartupLiveRecoveryPlan {
     pub workspace_id: String,
     pub unresolved_attempts: Vec<protocol::ResolutionEvidenceRefresh>,
@@ -2639,8 +2641,16 @@ impl ControlPlane {
         let review_digest = match self.revalidate_live_dispatch_attempt(&attempt) {
             Ok(digest) => digest,
             Err(error) => {
-                self.invalidate_failed_live_dispatch(&attempt, &error, &now)?;
-                return Err(error);
+                let reservation_binding_mismatch =
+                    error.code == DISPATCH_RESERVATION_BINDING_MISMATCH;
+                if !reservation_binding_mismatch {
+                    self.invalidate_failed_live_dispatch(&attempt, &error, &now)?;
+                }
+                return Err(if reservation_binding_mismatch {
+                    TradeXError::new("RISK_EVIDENCE_UNAVAILABLE")
+                } else {
+                    error
+                });
             }
         };
         self.store.as_mut().unwrap().issue_execution_dispatch_grant(
@@ -2833,8 +2843,16 @@ impl ControlPlane {
         let review_digest = match self.revalidate_live_dispatch_attempt(&attempt) {
             Ok(digest) => digest,
             Err(error) => {
-                self.invalidate_failed_live_dispatch(&attempt, &error, &now)?;
-                return Err(error);
+                let reservation_binding_mismatch =
+                    error.code == DISPATCH_RESERVATION_BINDING_MISMATCH;
+                if !reservation_binding_mismatch {
+                    self.invalidate_failed_live_dispatch(&attempt, &error, &now)?;
+                }
+                return Err(if reservation_binding_mismatch {
+                    TradeXError::new("RISK_EVIDENCE_UNAVAILABLE")
+                } else {
+                    error
+                });
             }
         };
         let (attempt, event) = self.store.as_mut().unwrap().begin_execution_submission(
@@ -8542,7 +8560,7 @@ impl ControlPlane {
                 || owned.side != proposal.fields.side
                 || owned.status != protocol::ExecutionReservationStatus::Active
             {
-                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+                return Err(TradeXError::new(DISPATCH_RESERVATION_BINDING_MISMATCH));
             }
             let index = active_reservations
                 .iter()
@@ -8551,7 +8569,7 @@ impl ControlPlane {
                         && current.attempt_id == owned.attempt_id
                         && current.state_version == owned.state_version
                 })
-                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                .ok_or_else(|| TradeXError::new(DISPATCH_RESERVATION_BINDING_MISMATCH))?;
             active_reservations.remove(index);
         }
         let maximum_authorized_spend = if proposal.fields.order_type == protocol::OrderType::Market
@@ -9628,10 +9646,18 @@ impl ControlPlane {
                     .filter(|reservation| {
                         Some(reservation.reservation_id.as_str())
                             == attempt.reservation_id.as_deref()
+                            && reservation.workspace_id == attempt.workspace_id
                             && reservation.attempt_id == attempt.attempt_id
                             && reservation.account_id == attempt.account_id
+                            && reservation.proposal_id == *proposal_id
+                            && reservation.proposal_hash == proposal.proposal_hash
+                            && reservation.proposal_hash == attempt.intent_hash
+                            && reservation.instrument_id == proposal.fields.instrument_id
+                            && reservation.side == proposal.fields.side
+                            && reservation.account_state_version == attempt.account_state_version
+                            && reservation.status == protocol::ExecutionReservationStatus::Active
                     })
-                    .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                    .ok_or_else(|| TradeXError::new(DISPATCH_RESERVATION_BINDING_MISMATCH))?;
                 let review =
                     self.build_approval_review(&proposal, Some(bound_decision), Some(owned))?;
                 let review_digest_matches = review.review_digest == approval.review_digest;
@@ -22302,6 +22328,273 @@ mod live_approval_tests {
             .unwrap();
         assert_eq!(ledger.len(), 2);
         assert!(ledger.iter().all(|row| row.amount == "500"));
+    }
+
+    #[test]
+    fn failed_place_dispatch_revalidation_keeps_the_original_reservation_active() {
+        let (folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "failed-dispatch-review-retains-reservation",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        let original_reservation = before.reservation.unwrap();
+        mismatch_dispatch_reservation_instrument(&folder, &original_reservation);
+
+        let error = control
+            .issue_live_dispatch_grant(attempt_id, "stale-review-gateway")
+            .unwrap_err();
+        assert_eq!(error.code, "RISK_EVIDENCE_UNAVAILABLE");
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            after.attempt.state,
+            protocol::ExecutionAttemptState::Reserved
+        );
+        let retained = after.reservation.unwrap();
+        assert_eq!(
+            retained.status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(retained.asset_claims, original_reservation.asset_claims);
+        assert_eq!(retained.amount, original_reservation.amount);
+        assert_eq!(retained.state_version, original_reservation.state_version);
+    }
+
+    #[test]
+    fn failed_place_preflight_revalidation_keeps_the_original_reservation_active() {
+        let (folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "failed-dispatch-preflight-retains-reservation",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        let original_reservation = before.reservation.unwrap();
+        let grant = control
+            .issue_live_dispatch_grant(attempt_id, "stale-preflight-gateway")
+            .unwrap();
+        mismatch_dispatch_reservation_instrument(&folder, &original_reservation);
+
+        let error = control
+            .begin_live_execution_submission(&grant.grant_id, "stale-preflight-gateway")
+            .unwrap_err();
+        assert_eq!(error.code, "RISK_EVIDENCE_UNAVAILABLE");
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            after.attempt.state,
+            protocol::ExecutionAttemptState::Reserved
+        );
+        let retained = after.reservation.unwrap();
+        assert_eq!(
+            retained.status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(retained.asset_claims, original_reservation.asset_claims);
+        assert_eq!(retained.amount, original_reservation.amount);
+        assert_eq!(retained.state_version, original_reservation.state_version);
+    }
+
+    #[test]
+    fn failed_place_review_detects_a_changed_durable_reservation_version() {
+        let (_folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "stale-durable-reservation-version",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let preparation = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        let attempt = preparation.attempt;
+        let reservation = preparation.reservation.unwrap();
+        let mut stale_reservation = (*reservation).clone();
+        stale_reservation.state_version.push_str(":stale");
+
+        let approval = control
+            .store
+            .as_mut()
+            .unwrap()
+            .snapshot_for("financial-approval", &attempt.approval_id)
+            .unwrap();
+        let protocol::DomainProjection::FinancialApproval(approval) = approval.projection else {
+            panic!("approval snapshot has the expected projection type");
+        };
+        let mut proposal = control
+            .store
+            .as_ref()
+            .unwrap()
+            .order_proposal(&attempt.intent_id)
+            .unwrap();
+        proposal.status = protocol::OrderProposalStatus::NeedsApproval;
+        proposal.state_version = attempt.intent_state_version.clone();
+        let bound_decision = control
+            .store
+            .as_ref()
+            .unwrap()
+            .risk_decision_history(&workspace_id, &attempt.intent_id)
+            .unwrap()
+            .decisions
+            .into_iter()
+            .find(|decision| decision.decision_id == approval.risk_decision_id)
+            .unwrap();
+
+        let error = control
+            .build_approval_review(&proposal, Some(bound_decision), Some(&stale_reservation))
+            .unwrap_err();
+        assert_eq!(error.code, DISPATCH_RESERVATION_BINDING_MISMATCH);
+    }
+
+    #[test]
+    fn failed_place_review_revalidation_invalidates_and_releases_its_reservation() {
+        let (folder, mut control, workspace_id, _account, proposal, review) =
+            reviewed_live_capacity_fixture();
+        let (_, _, prepared) = issue_and_prepare_live_place(
+            &mut control,
+            &workspace_id,
+            &proposal,
+            &review,
+            "failed-dispatch-review-invalidates-reservation",
+        );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let before = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        let approval_id = before.attempt.approval_id.clone();
+        mismatch_dispatch_approval_review_digest(&folder, &approval_id);
+
+        let error = control
+            .issue_live_dispatch_grant(attempt_id, "changed-review-gateway")
+            .unwrap_err();
+        assert_eq!(error.code, "RISK_EVIDENCE_UNAVAILABLE");
+        let after = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            after.attempt.state,
+            protocol::ExecutionAttemptState::Invalidated
+        );
+        assert_eq!(
+            after.attempt.dispatch_disposition,
+            Some(protocol::ExecutionDispatchDisposition::StoppedBeforeDispatch)
+        );
+        assert_eq!(
+            after.reservation.unwrap().status,
+            protocol::ExecutionReservationStatus::Released
+        );
+    }
+
+    fn mismatch_dispatch_approval_review_digest(folder: &tempfile::TempDir, approval_id: &str) {
+        let database = rusqlite::Connection::open(folder.path().join("workspace.sqlite3")).unwrap();
+        let (sequence, projection): (i64, String) = database
+            .query_row(
+                "SELECT sequence,projection FROM financial_approvals WHERE approval_id=?1",
+                [approval_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        let mut approval: protocol::FinancialApproval = serde_json::from_str(&projection).unwrap();
+        approval.review_digest = format!("sha256:{}", "b".repeat(64));
+        database
+            .execute(
+                "UPDATE financial_approvals SET projection=?1 WHERE approval_id=?2",
+                rusqlite::params![serde_json::to_string(&approval).unwrap(), approval_id],
+            )
+            .unwrap();
+        let envelope: String = database
+            .query_row(
+                "SELECT envelope FROM outbox WHERE aggregate_type='financial-approval' AND aggregate_id=?1 AND sequence=?2",
+                rusqlite::params![approval_id, sequence],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut event: protocol::DomainEvent = serde_json::from_str(&envelope).unwrap();
+        let protocol::DomainProjection::FinancialApproval(projection) = &mut event.payload else {
+            panic!("approval event has the expected projection type");
+        };
+        **projection = approval;
+        database
+            .execute(
+                "UPDATE outbox SET envelope=?1 WHERE aggregate_type='financial-approval' AND aggregate_id=?2 AND sequence=?3",
+                rusqlite::params![serde_json::to_string(&event).unwrap(), approval_id, sequence],
+            )
+            .unwrap();
+    }
+
+    fn mismatch_dispatch_reservation_instrument(
+        folder: &tempfile::TempDir,
+        reservation: &protocol::ExecutionReservation,
+    ) {
+        let mut mismatched = reservation.clone();
+        mismatched.instrument_id = "SPOT.BINDING_MISMATCH".into();
+        let projection = serde_json::to_string(&mismatched).unwrap();
+        let database = rusqlite::Connection::open(folder.path().join("workspace.sqlite3")).unwrap();
+        database
+            .execute(
+                "UPDATE execution_reservations SET projection=?1 WHERE reservation_id=?2",
+                rusqlite::params![projection, mismatched.reservation_id],
+            )
+            .unwrap();
+        let envelope: String = database
+            .query_row(
+                "SELECT envelope FROM outbox WHERE aggregate_type='execution-reservation' AND aggregate_id=?1 AND sequence=1",
+                [&mismatched.reservation_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut event: protocol::DomainEvent = serde_json::from_str(&envelope).unwrap();
+        let protocol::DomainProjection::ExecutionReservation(projection) = &mut event.payload
+        else {
+            panic!("reservation event has the expected projection type");
+        };
+        **projection = mismatched;
+        database
+            .execute(
+                "UPDATE outbox SET envelope=?1 WHERE aggregate_type='execution-reservation' AND aggregate_id=?2 AND sequence=1",
+                rusqlite::params![serde_json::to_string(&event).unwrap(), reservation.reservation_id],
+            )
+            .unwrap();
     }
 
     #[test]
