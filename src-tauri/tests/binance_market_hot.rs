@@ -1905,6 +1905,149 @@ fn connected_binance_proposal(view: &HotView) -> (Value, account_fixtures::Vault
     (proposal["data"].clone(), vault)
 }
 
+fn arm_synthetic_binance_account(
+    view: &HotView,
+    proposal: &Value,
+    vault: &account_fixtures::Vault,
+) -> Value {
+    let policy_state = command(
+        &view.control,
+        "risk.get_policy",
+        json!({"workspaceId":view.workspace}),
+    );
+    let mut policy = policy_state["data"]["policy"].clone();
+    policy["maxOrderNotional"] = json!("1000");
+    policy["maxReservedCapital"] = json!("1000");
+    policy["staleQuoteThresholdSeconds"] = json!(120);
+    policy["allowedInstrumentIds"] = json!([proposal["fields"]["instrumentId"]]);
+    policy["allowedVenues"] = json!([proposal["fields"]["venue"]]);
+    policy["allowedAccountIds"] = json!([proposal["fields"]["accountId"]]);
+    policy["allowedEnvironments"] = json!(["LIVE"]);
+    let saved = command(
+        &view.control,
+        "risk.save_policy",
+        json!({
+            "workspaceId":view.workspace,
+            "expectedStateVersion":policy_state["data"]["stateVersion"],
+            "policy":policy
+        }),
+    );
+    assert_eq!(saved["ok"], true, "{saved}");
+
+    let account_before_refresh = command(
+        &view.control,
+        "account.get",
+        json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
+    );
+    let refresh_request = json!({
+        "requestId":"arming-account-refresh",
+        "schemaVersion":1,
+        "command":"account.refresh",
+        "payload":{
+            "workspaceId":view.workspace,
+            "connectionId":proposal["fields"]["accountId"],
+            "expectedStateVersion":account_before_refresh["data"]["stateVersion"]
+        }
+    });
+    let job = view
+        .control
+        .lock()
+        .unwrap()
+        .prepare_provider_for(&refresh_request, "main")
+        .unwrap()
+        .unwrap();
+    let http = account_fixtures::Http {
+        binance_rules_ui: true,
+        ..Default::default()
+    };
+    let observed = job.run(
+        vault,
+        |_| account_fixtures::credentials(),
+        &http,
+        || view.control.lock().unwrap().provider_job_current(&job),
+    );
+    let refreshed = view
+        .control
+        .lock()
+        .unwrap()
+        .complete_provider(&job, observed);
+    assert_eq!(refreshed["ok"], true, "{refreshed}");
+    let before_reconciliation = command(
+        &view.control,
+        "account.list",
+        json!({"workspaceId":view.workspace}),
+    );
+    let blocked = before_reconciliation["data"]["liveArmingEligibility"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|candidate| candidate["connectionId"] == proposal["fields"]["accountId"])
+        .unwrap();
+    assert_eq!(blocked["canArm"], false, "{before_reconciliation}");
+    assert_eq!(blocked["reasonCode"], "RECONCILIATION_REQUIRED");
+    let account_before_arm = command(
+        &view.control,
+        "account.get",
+        json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
+    );
+    let rejected_arm = command(
+        &view.control,
+        "account.arm",
+        json!({
+            "workspaceId":view.workspace,
+            "connectionId":proposal["fields"]["accountId"],
+            "expectedStateVersion":account_before_arm["data"]["stateVersion"],
+            "confirmed":true
+        }),
+    );
+    assert_eq!(rejected_arm["ok"], false, "{rejected_arm}");
+    assert_eq!(rejected_arm["error"]["code"], "RECONCILIATION_REQUIRED");
+    assert!(
+        view.control
+            .lock()
+            .unwrap()
+            .finish_startup_live_reconciliation(
+                view.workspace.as_str().unwrap(),
+                proposal["fields"]["accountId"].as_str().unwrap(),
+            )
+            .unwrap(),
+        "Production startup reconciliation must require trusted time and current provider observations"
+    );
+
+    let eligibility = command(
+        &view.control,
+        "account.list",
+        json!({"workspaceId":view.workspace}),
+    );
+    let eligible = eligibility["data"]["liveArmingEligibility"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|candidate| candidate["connectionId"] == proposal["fields"]["accountId"])
+        .unwrap();
+    assert_eq!(eligible["canArm"], true, "{eligibility}");
+
+    let current = command(
+        &view.control,
+        "account.get",
+        json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
+    );
+    let armed = command(
+        &view.control,
+        "account.arm",
+        json!({
+            "workspaceId":view.workspace,
+            "connectionId":proposal["fields"]["accountId"],
+            "expectedStateVersion":current["data"]["stateVersion"],
+            "confirmed":true
+        }),
+    );
+    assert_eq!(armed["ok"], true, "{armed}");
+    assert_eq!(armed["data"]["health"]["arming"], "ARMED");
+    assert_eq!(armed["data"]["health"]["armingReason"], "EXPLICIT_USER_ARM");
+    armed["data"].clone()
+}
+
 fn collect_spot_admission(
     view: &HotView,
     proposal: &Value,
@@ -2707,6 +2850,30 @@ fn local_use_confirmation_precedes_collection_and_only_qualifies_its_bound_marke
 }
 
 #[test]
+fn synthetic_binance_live_account_arms_only_after_public_policy_and_health_checks() {
+    if isolated_hot_scenario(
+        "synthetic_binance_live_account_arms_only_after_public_policy_and_health_checks",
+    ) {
+        return;
+    }
+    let view = HotView::open();
+    view.wait(|state| state["data"]["status"] == "STREAMING");
+    let (proposal, vault) = connected_binance_proposal(&view);
+    let armed = arm_synthetic_binance_account(&view, &proposal, &vault);
+    let disarmed = command(
+        &view.control,
+        "account.disarm",
+        json!({
+            "workspaceId":view.workspace,
+            "connectionId":proposal["fields"]["accountId"],
+            "expectedStateVersion":armed["stateVersion"]
+        }),
+    );
+    assert_eq!(disarmed["ok"], true, "{disarmed}");
+    assert_eq!(disarmed["data"]["health"]["arming"], "DISARMED");
+}
+
+#[test]
 fn current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs() {
     if isolated_hot_scenario(
         "current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs",
@@ -3117,7 +3284,22 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
     }
     let view = HotView::open_with_local_use_confirmation();
     view.wait(|v| v["data"]["status"] == "STREAMING");
-    let (proposal, vault) = connected_binance_proposal(&view);
+    let (connected_proposal, vault) = connected_binance_proposal(&view);
+    let armed_account = arm_synthetic_binance_account(&view, &connected_proposal, &vault);
+    assert_eq!(armed_account["health"]["arming"], "ARMED");
+    let draft = command(
+        &view.control,
+        "trade.save_draft",
+        json!({"workspaceId":view.workspace,"fields":{"accountId":connected_proposal["fields"]["accountId"],"venue":"BINANCE","environment":"BINANCE_LIVE","instrumentId":"crypto:BTC/USDT:spot","side":"BUY","orderType":"LIMIT","quantity":{"type":"BASE","value":"0.001"},"limitPrice":"60000","maximumSpend":null,"timeInForce":"GTC"}}),
+    );
+    assert_eq!(draft["ok"], true, "{draft}");
+    let proposal = command(
+        &view.control,
+        "trade.generate_proposal",
+        json!({"workspaceId":view.workspace,"draftId":draft["data"]["draftId"],"expectedDraftVersion":1}),
+    );
+    assert_eq!(proposal["ok"], true, "{proposal}");
+    let proposal = proposal["data"].clone();
     let fee_peer = DepthPeer::with_symbol(
         "BNBUSDT",
         Some(
@@ -3393,7 +3575,7 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
     assert_eq!(valued_decision["ok"], true, "{valued_decision}");
     assert_eq!(
         valued_decision["data"]["status"], "UNAVAILABLE",
-        "Positive monetary checks must not satisfy unrelated Live authorization gates"
+        "The synthetic Arm only qualifies account health; independent owning gates remain required"
     );
     let valued_statement = &valued_decision["data"]["spotFeeFx"];
     assert_eq!(valued_statement["outcome"], "PASS", "{valued_statement}");
@@ -3446,7 +3628,9 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
     );
     assert_eq!(find_check("ORDER_NOTIONAL")["outcome"], "PASS");
     assert_eq!(find_check("RESERVED_CAPITAL")["outcome"], "PASS");
-    assert_eq!(find_check("ACCOUNT_ARMING")["outcome"], "UNAVAILABLE");
+    assert_eq!(find_check("QUOTE_FRESHNESS")["outcome"], "PASS");
+    assert_eq!(find_check("INSTRUMENT_RULES")["outcome"], "UNAVAILABLE");
+    assert_eq!(find_check("ACCOUNT_ARMING")["outcome"], "PASS");
     let alpaca_capabilities = valued_statement["routes"]
         .as_array()
         .unwrap()
@@ -3459,7 +3643,20 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
         "account.get",
         json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
     );
-    assert_eq!(account_state["data"]["health"]["arming"], "DISARMED");
+    assert_eq!(account_state["data"]["health"]["arming"], "ARMED");
+    let review = command(&view.control, "trade.request_approval", query.clone());
+    assert_eq!(review["ok"], true, "{review}");
+    assert_eq!(review["data"]["eligible"], false, "{review}");
+    assert_eq!(
+        review["data"]["riskDecision"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|check| check["checkId"] == "INSTRUMENT_RULES")
+            .unwrap()["outcome"],
+        "UNAVAILABLE",
+        "Explicit Arm does not bypass unresolved Binance order rules"
+    );
     let approvals = command(
         &view.control,
         "trade.approval.list",
@@ -3480,7 +3677,7 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
     http.bnb_free.set("0.0000001");
     let low_capacity = refresh_spot_capacity(&view, &proposal, &vault, &http);
     assert_eq!(low_capacity["data"]["status"], "OBSERVED", "{low_capacity}");
-    let insufficient = command(&view.control, "risk.evaluate_proposal", query);
+    let insufficient = command(&view.control, "risk.evaluate_proposal", query.clone());
     let low = &insufficient["data"]["spotFeeFx"]["currentFeeModel"];
     assert_eq!(low["bnbFee"]["total"], "0.0006120102");
     assert_eq!(
@@ -3585,6 +3782,23 @@ fn owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_disc
         depth_model["chargingCondition"],
         "CONDITIONAL_BNB_INPUTS_REQUIRED"
     );
+
+    let current_account = command(
+        &view.control,
+        "account.get",
+        json!({"workspaceId":view.workspace,"connectionId":proposal["fields"]["accountId"]}),
+    );
+    let disarmed = command(
+        &view.control,
+        "account.disarm",
+        json!({
+            "workspaceId":view.workspace,
+            "connectionId":proposal["fields"]["accountId"],
+            "expectedStateVersion":current_account["data"]["stateVersion"]
+        }),
+    );
+    assert_eq!(disarmed["ok"], true, "{disarmed}");
+    assert_eq!(disarmed["data"]["health"]["arming"], "DISARMED");
     view.supervisor.stop_all();
 }
 
