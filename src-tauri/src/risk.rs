@@ -1898,29 +1898,28 @@ pub(crate) fn evaluate(
         reserved_message,
     );
 
-    let (capacity_outcome, capacity_reason, capacity_message) =
-        if !matches!(
-            proposal.fields.environment,
-            ExecutionContext::Trading212Live
-                | ExecutionContext::BinanceLive
-                | ExecutionContext::BitgetLive
-        ) {
-            (
-                RiskCheckOutcome::Pass,
-                RiskDecisionReasonCode::NotApplicable,
-                "Live reservation capacity is not applicable to this execution context.".to_owned(),
-            )
-        } else {
-            match capacity_projection {
-                Some(projection)
-                    if projection.freshness == crate::protocol::CapacityFreshness::Current =>
-                {
-                    match (
-                        projection.requested_amount.as_deref(),
-                        projection.effective_available.as_deref(),
-                    ) {
-                        (Some(requested), Some(available)) => {
-                            match crate::provider_io::decimal_cmp(requested, available) {
+    let (capacity_outcome, capacity_reason, capacity_message) = if !matches!(
+        proposal.fields.environment,
+        ExecutionContext::Trading212Live
+            | ExecutionContext::BinanceLive
+            | ExecutionContext::BitgetLive
+    ) {
+        (
+            RiskCheckOutcome::Pass,
+            RiskDecisionReasonCode::NotApplicable,
+            "Live reservation capacity is not applicable to this execution context.".to_owned(),
+        )
+    } else {
+        match capacity_projection {
+            Some(projection)
+                if projection.freshness == crate::protocol::CapacityFreshness::Current =>
+            {
+                match (
+                    projection.requested_amount.as_deref(),
+                    projection.effective_available.as_deref(),
+                ) {
+                    (Some(requested), Some(available)) => {
+                        match crate::provider_io::decimal_cmp(requested, available) {
                                 Ok(Ordering::Greater) => (
                                     RiskCheckOutcome::Reject,
                                     RiskDecisionReasonCode::ReservedCapacity,
@@ -1940,30 +1939,31 @@ pub(crate) fn evaluate(
                                     "Current capacity amounts could not be compared exactly.".to_owned(),
                                 ),
                             }
-                        }
-                        _ => (
-                            RiskCheckOutcome::Unavailable,
-                            RiskDecisionReasonCode::ReservationUnavailable,
-                            "Current capacity evidence is missing the requested or effective amount.".to_owned(),
-                        ),
                     }
+                    _ => (
+                        RiskCheckOutcome::Unavailable,
+                        RiskDecisionReasonCode::ReservationUnavailable,
+                        "Current capacity evidence is missing the requested or effective amount."
+                            .to_owned(),
+                    ),
                 }
-                Some(projection) => (
-                    RiskCheckOutcome::Unavailable,
-                    if projection.freshness == crate::protocol::CapacityFreshness::Stale {
-                        RiskDecisionReasonCode::EvidenceStale
-                    } else {
-                        RiskDecisionReasonCode::EvidenceMissing
-                    },
-                    "Current provider capacity and reservation evidence is unavailable.".to_owned(),
-                ),
-                None => (
-                    RiskCheckOutcome::Unavailable,
-                    RiskDecisionReasonCode::EvidenceMissing,
-                    "Current provider capacity and reservation evidence is unavailable.".to_owned(),
-                ),
             }
-        };
+            Some(projection) => (
+                RiskCheckOutcome::Unavailable,
+                if projection.freshness == crate::protocol::CapacityFreshness::Stale {
+                    RiskDecisionReasonCode::EvidenceStale
+                } else {
+                    RiskDecisionReasonCode::EvidenceMissing
+                },
+                "Current provider capacity and reservation evidence is unavailable.".to_owned(),
+            ),
+            None => (
+                RiskCheckOutcome::Unavailable,
+                RiskDecisionReasonCode::EvidenceMissing,
+                "Current provider capacity and reservation evidence is unavailable.".to_owned(),
+            ),
+        }
+    };
     push!(
         RiskCheckId::ReservedCapacity,
         capacity_outcome,

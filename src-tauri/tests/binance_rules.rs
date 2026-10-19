@@ -6135,6 +6135,13 @@ fn owning_spot_qualification_surfaces_an_interval_window_that_cannot_be_shown_to
     // counter has no provider timestamp, so the window it was read in can no longer be shown.
     external.edit.set(Some(|route, body| {
         match route {
+            // Keep the initial association away from the one-second boundary so the test checks
+            // expiration after collection rather than depending on wall-clock phase.
+            "/api/v3/time" => {
+                let now = (time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000)
+                    as u64;
+                body["serverTime"] = json!(now / 1_000 * 1_000 + 500);
+            }
             "/api/v3/exchangeInfo" => body["rateLimits"]
                 .as_array_mut()
                 .unwrap()

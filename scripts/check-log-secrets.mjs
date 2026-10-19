@@ -56,9 +56,30 @@ try {
       credential: 'synthetic-credential-canary',
     },
   };
-  const run = spawnSync('cargo', [
-    'run', '--quiet', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'tradex-ipc', '--', workspacePath,
-  ], { cwd: root, input: `${JSON.stringify(probe)}\n`, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  const metadata = spawnSync('cargo', ['metadata', '--no-deps', '--format-version=1'], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  if (metadata.error) throw metadata.error;
+  assert.equal(metadata.status, 0, `isolated diagnostic metadata failed:\n${metadata.stderr}`);
+  const targetDirectory = JSON.parse(metadata.stdout).target_directory;
+  const build = spawnSync('cargo', [
+    'build', '--quiet', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'tradex-ipc',
+  ], { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  if (build.error) throw build.error;
+  assert.equal(build.status, 0, `isolated diagnostic build failed:\n${build.stderr}`);
+  const executable = join(
+    targetDirectory,
+    'debug',
+    process.platform === 'win32' ? 'tradex-ipc.exe' : 'tradex-ipc',
+  );
+  const run = spawnSync(executable, [workspacePath], {
+    cwd: root,
+    input: `${JSON.stringify(probe)}\n`,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  });
   if (run.error) throw run.error;
   assert.equal(run.status, 0, `isolated diagnostic probe failed:\n${run.stderr}`);
   const corpus = `${run.stdout}\n${run.stderr}`;
