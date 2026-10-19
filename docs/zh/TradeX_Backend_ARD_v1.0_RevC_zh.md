@@ -3315,6 +3315,8 @@ storage在同一个immediate SQLite事务中，将完整claim向量与绑定的�
 
 对于owning Spot Prepare，`ExecutionReservation.workspaceNotional`必须使用刚复验的Proposal范围`INTENT_POLICY`路线，与其`spotFeeFx`陈述使用同一份估值证据。保留本次选择的完整reservation notional（包括适用的独立本地授权上限），不得直接复制较小的expected-spend值。按准确BUY ask／SELL bid计算，校验workspace与结果币种、意图身份、requirements和route-material版本；缺失或变化时拒绝。该路径不得使用历史portfolio FX、平价、倒数或额外换汇腿。原生本金／费用claims及所有独立权限门禁分别继续校验。
 
+已消费PLACE在派发前复验时，Control Plane只可在临时风险评估中复用准确attempt已保存的ACTIVE reservation。须对照耐久记录核对reservation ID、attempt、账户、Proposal/hash、标的、side和当前状态版本。只从竞争性本地claims、钱包／费用证据及容量汇总中排除这一条自身记录，所有其他reservation继续计入。持久化reservation仍保持ACTIVE，原始各项claim继续持有。新review、审批签发和Prepare仍统计全部既有reservation。缺失、已释放、错绑或借用其他意图的reservation必须拒绝派发；该评估不释放、结算、创建新同意或执行provider mutation。
+
 ### 41.58 累计原生资产结算（S29.11 AC7，部分实现）
 
 `LiveOrderSettlement.initialAssetClaims`可选保留PLACE最初的有界向量；缺少该字段的旧结算仍可读取。对完整的提供方累计成交、费用及trade事实，使用精确十进制字符串从原始向量重算每项剩余claim：BUY本金按累计成交quote value消耗，SELL本金按累计成交base数量消耗，每笔费用只减少其实际收费原生资产的预留容量；若存在匹配的`FEE` claim则使用该项，否则同一资产的主claim剩余额度作为兼容上限。收到资产上的费用记录为从收益扣除的实际借记，不消耗无关的支出本金额度。标量`remainingCommitment`继续作为主本金兼容值。

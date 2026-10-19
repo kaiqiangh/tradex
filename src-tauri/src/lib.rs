@@ -4025,7 +4025,7 @@ impl ControlPlane {
                 if proposal.workspace_id != input.workspace_id {
                     return Err(TradeXError::new("IPC_AGGREGATE_NOT_FOUND"));
                 }
-                let mut review = self.build_approval_review(&proposal, None)?;
+                let mut review = self.build_approval_review(&proposal, None, None)?;
                 let event = self
                     .store
                     .as_mut()
@@ -4057,7 +4057,8 @@ impl ControlPlane {
                 {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
-                let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
+                let review =
+                    self.build_approval_review(&proposal, Some(bound_decision.clone()), None)?;
                 if !review.eligible
                     || review.review_digest != input.review_digest
                     || review.risk_decision.decision_id != input.reviewed_risk_decision_id
@@ -4259,7 +4260,8 @@ impl ControlPlane {
                 {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
-                let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
+                let review =
+                    self.build_approval_review(&proposal, Some(bound_decision.clone()), None)?;
                 if review.review_digest != input.review_digest {
                     return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
                 }
@@ -4309,7 +4311,7 @@ impl ControlPlane {
                         .decisions
                         .into_iter()
                         .last();
-                    let review = self.build_approval_review(&proposal, latest)?;
+                    let review = self.build_approval_review(&proposal, latest, None)?;
                     // A capacity-only change does not invalidate the user's approval. The
                     // final reservation transaction still enforces current capacity, while
                     // the same approval may be retried if funds become available again.
@@ -8468,7 +8470,7 @@ impl ControlPlane {
         proposal: &protocol::OrderProposal,
         policy: Option<risk::RiskPolicyState>,
     ) -> Result<risk::RiskDecision> {
-        self.build_risk_evaluation(proposal, policy)
+        self.build_risk_evaluation(proposal, policy, None)
             .map(|(decision, _, _, _, _, _)| decision)
     }
 
@@ -8476,6 +8478,7 @@ impl ControlPlane {
         &mut self,
         proposal: &protocol::OrderProposal,
         policy: Option<risk::RiskPolicyState>,
+        owned_reservation: Option<&protocol::ExecutionReservation>,
     ) -> Result<(
         risk::RiskDecision,
         Option<AccountConnection>,
@@ -8522,11 +8525,35 @@ impl ControlPlane {
         });
         let fee_market = fee_market_query
             .and_then(|query| binance_market::stream::fee_projection(self, query).ok());
-        let active_reservations = self
+        let mut active_reservations = self
             .store
             .as_ref()
             .unwrap()
             .active_execution_reservations(workspace_id)?;
+        if let Some(owned) = owned_reservation {
+            // A consumed PLACE revalidates the capacity already reserved for this exact attempt.
+            // Remove only its verified durable row from this temporary assessment; every other
+            // reservation stays visible, and the persisted claims are never released here.
+            if owned.workspace_id != proposal.workspace_id
+                || Some(owned.account_id.as_str()) != proposal.fields.account_id.as_deref()
+                || owned.proposal_id != proposal.proposal_id
+                || owned.proposal_hash != proposal.proposal_hash
+                || owned.instrument_id != proposal.fields.instrument_id
+                || owned.side != proposal.fields.side
+                || owned.status != protocol::ExecutionReservationStatus::Active
+            {
+                return Err(TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"));
+            }
+            let index = active_reservations
+                .iter()
+                .position(|current| {
+                    current.reservation_id == owned.reservation_id
+                        && current.attempt_id == owned.attempt_id
+                        && current.state_version == owned.state_version
+                })
+                .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+            active_reservations.remove(index);
+        }
         let maximum_authorized_spend = if proposal.fields.order_type == protocol::OrderType::Market
         {
             proposal.fields.maximum_spend.clone()
@@ -9258,6 +9285,7 @@ impl ControlPlane {
         &mut self,
         proposal: &protocol::OrderProposal,
         bound_decision: Option<risk::RiskDecision>,
+        owned_reservation: Option<&protocol::ExecutionReservation>,
     ) -> Result<protocol::ApprovalReview> {
         if !matches!(
             proposal.fields.environment,
@@ -9276,7 +9304,7 @@ impl ControlPlane {
             time_status,
             currency_evidence,
             capacity_projection,
-        ) = self.build_risk_evaluation(proposal, policy.clone())?;
+        ) = self.build_risk_evaluation(proposal, policy.clone(), owned_reservation)?;
         let defer_reservation_recheck = bound_decision.is_some();
         let bound = bound_decision.unwrap_or_else(|| current_decision.clone());
         // A bound review tolerates reservation-snapshot changes for decision identity, but the
@@ -9586,7 +9614,26 @@ impl ControlPlane {
                     .into_iter()
                     .find(|decision| decision.decision_id == approval.risk_decision_id)
                     .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
-                let review = self.build_approval_review(&proposal, Some(bound_decision))?;
+                let preparation = self
+                    .store
+                    .as_ref()
+                    .unwrap()
+                    .execution_preparation_for_attempt(
+                        &attempt.workspace_id,
+                        &attempt.attempt_id,
+                    )?;
+                let owned = preparation
+                    .reservation
+                    .as_deref()
+                    .filter(|reservation| {
+                        Some(reservation.reservation_id.as_str())
+                            == attempt.reservation_id.as_deref()
+                            && reservation.attempt_id == attempt.attempt_id
+                            && reservation.account_id == attempt.account_id
+                    })
+                    .ok_or_else(|| TradeXError::new("RISK_EVIDENCE_UNAVAILABLE"))?;
+                let review =
+                    self.build_approval_review(&proposal, Some(bound_decision), Some(owned))?;
                 let review_digest_matches = review.review_digest == approval.review_digest;
                 let risk_decision_matches = review.risk_decision.decision_id
                     == approval.risk_decision_id
@@ -9744,7 +9791,7 @@ impl ControlPlane {
         {
             return Err(TradeXError::new("STATE_VERSION_CONFLICT"));
         }
-        let review = self.build_approval_review(&proposal, Some(bound_decision.clone()))?;
+        let review = self.build_approval_review(&proposal, Some(bound_decision.clone()), None)?;
         // Capacity is intentionally not approval-bound. If it became insufficient after
         // consent, let the atomic preparation transaction persist the typed capacity refusal;
         // every other changed or unavailable approval input must still stop here.
@@ -22178,6 +22225,83 @@ mod live_approval_tests {
             prepared["data"]["reservation"]["capacityProjection"]["effectiveAvailable"], "0",
             "{prepared}"
         );
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let grant = control.issue_live_dispatch_grant(attempt_id, "exact-capacity-gateway");
+        assert!(
+            grant.is_ok(),
+            "The dispatch review must reuse its own reserved capacity rather than charge it a second time: {grant:?}"
+        );
+        let retained = control
+            .store
+            .as_ref()
+            .unwrap()
+            .execution_preparation_for_attempt(&workspace_id, attempt_id)
+            .unwrap();
+        assert_eq!(
+            retained.attempt.state,
+            protocol::ExecutionAttemptState::Reserved
+        );
+        assert_eq!(
+            retained.reservation.as_ref().unwrap().status,
+            protocol::ExecutionReservationStatus::Active
+        );
+        assert_eq!(retained.reservation.as_ref().unwrap().amount, "500");
+    }
+
+    #[test]
+    fn dispatch_review_keeps_other_attempts_reserved_and_rejects_a_borrowed_reservation() {
+        let (_folder, mut control, workspace_id, account, proposal, _) =
+            reviewed_live_capacity_fixture();
+        let second = live_proposal(&mut control, &workspace_id, &account);
+        let mut preparations = Vec::new();
+        for proposal in [&proposal, &second] {
+            let review = dispatch_main(
+                &mut control,
+                "trade.request_approval",
+                json!({"workspaceId":workspace_id,"proposalId":proposal["proposalId"]}),
+            );
+            assert_eq!(review["ok"], true, "{review}");
+            let (_, _, prepared) = issue_and_prepare_live_place(
+                &mut control,
+                &workspace_id,
+                proposal,
+                &review["data"],
+                proposal["proposalId"].as_str().unwrap(),
+            );
+            preparations.push(prepared["data"].clone());
+        }
+        let typed: protocol::OrderProposal = serde_json::from_value(proposal).unwrap();
+        let owned: protocol::ExecutionReservation =
+            serde_json::from_value(preparations[0]["reservation"].clone()).unwrap();
+        let other: protocol::ExecutionReservation =
+            serde_json::from_value(preparations[1]["reservation"].clone()).unwrap();
+        let policy = control.store.as_ref().unwrap().risk_or_new().unwrap();
+        let (_, _, _, _, _, capacity) = control
+            .build_risk_evaluation(&typed, policy.clone(), Some(&owned))
+            .unwrap();
+        let capacity = capacity.unwrap();
+        assert_eq!(capacity.reserved.as_deref(), Some("500"));
+        assert_eq!(capacity.effective_available.as_deref(), Some("500"));
+        assert!(
+            control
+                .build_risk_evaluation(&typed, policy, Some(&other))
+                .is_err(),
+            "Only the exact Proposal's verified reservation may be reused"
+        );
+        let attempt_id = preparations[0]["attempt"]["attemptId"].as_str().unwrap();
+        assert!(
+            control
+                .issue_live_dispatch_grant(attempt_id, "shared-capacity-gateway")
+                .is_ok()
+        );
+        let ledger = control
+            .store
+            .as_ref()
+            .unwrap()
+            .active_execution_reservations(&workspace_id)
+            .unwrap();
+        assert_eq!(ledger.len(), 2);
+        assert!(ledger.iter().all(|row| row.amount == "500"));
     }
 
     #[test]
@@ -22407,7 +22531,7 @@ mod live_approval_tests {
         allowed_account.label.push_str(" updated");
         allowed_control.persist_account(allowed_account).unwrap();
         let changed_review = allowed_control
-            .build_approval_review(&typed_proposal, Some(bound_decision))
+            .build_approval_review(&typed_proposal, Some(bound_decision), None)
             .unwrap();
         assert_eq!(
             changed_review.risk_decision.status,

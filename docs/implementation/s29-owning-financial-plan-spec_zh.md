@@ -108,6 +108,8 @@ S29.9早期“估算永不低于未来交易所收费”不是RevC、精度或�
 
 对于owning Spot Prepare，`ExecutionReservation.workspaceNotional`必须使用刚复验的Proposal范围`INTENT_POLICY`路线，与其`spotFeeFx`陈述使用同一份估值证据。保留本次选择的完整reservation notional（包括适用的独立本地授权上限），不得直接复制较小的expected-spend值。按准确BUY ask／SELL bid计算，校验workspace与结果币种、意图身份、requirements和route-material版本；缺失或变化时拒绝。该路径不得使用历史portfolio FX、平价、倒数或额外换汇腿。原生本金／费用claims及所有独立权限门禁分别继续校验。
 
+已消费PLACE在派发前复验时，Control Plane只可在临时风险评估中复用准确attempt已保存的ACTIVE reservation。须对照耐久记录核对reservation ID、attempt、账户、Proposal/hash、标的、side和当前状态版本。只从竞争性本地claims、钱包／费用证据及容量汇总中排除这一条自身记录，所有其他reservation继续计入。持久化reservation仍保持ACTIVE，原始各项claim继续持有。新review、审批签发和Prepare仍统计全部既有reservation。缺失、已释放、错绑或借用其他意图的reservation必须拒绝派发；该评估不释放、结算、创建新同意或执行provider mutation。
+
 ## 测试决策
 
 沿用已批准最高接缝：实际 React→类型化 Rust Control Plane→隔离 SQLite/outbox；仅 HTTP/vault/WS 外部生产者 fake。无需重问接缝或粒度；来源生命周期、结算及原子 Prepare 公开测试作为先例。

@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-19",
+  "baseCommit": "86b3cc8",
+  "scope": "AC6 supporting implementation; not owning Spot positive Prepare acceptance",
+  "sourceSha256": {
+    "src-tauri/src/lib.rs": "eb37fb2b69e6b5c511d298185caad68c7a9adb76a6b2dc18260328d4c5f409c3",
+    "src-tauri/src/spot_fee_fx.rs": "c806c0c4efbbb5403995e78f1cf323f72a94f625f70c24f01f94315ce4bb8709"
+  },
+  "rust": {
+    "passed": 572,
+    "failed": 0,
+    "ignored": 33
+  },
+  "nodePassed": 35,
+  "checkExit": 0,
+  "actualSourceUse": "UNRESOLVED",
+  "acceptancePromoted": false
+}

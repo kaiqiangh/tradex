@@ -986,3 +986,24 @@ These are supporting implementation and derivation checks, not public positive o
 三项金融推导回归覆盖完整授权金额（`150 USDT`按`1.0001` ask得`150.015 USD`；SELL按`0.9999` bid得`149.985 USD`）、identity及缺失／变化／错绑拒绝。普通`npm run check`退出0：schema一致、前端production build、35项Node单测、571项Rust测试通过、33项既有ignored、secret scan及203/70/13/23追踪门禁通过；Rust格式和diff检查通过。保留既有dead-code和5,901.99 kB Vite chunk警告。[完整收据](evidence/s29-owning-financial-plan/work-in-progress/reservation-valuation-full-check-20261019.txt)。
 
 这些属于辅助实现与推导检查，不证明owning Spot公开正向Prepare、provider entitlement、真实source激活、原生UI或S29.11整体验收。实际source-use仍未解决，AC5继续豁免／未验收，AC6保持未勾选。文档首页已统一当前串行项为S29.11并保留S32/S33历史。未读取真实provider／账户或执行金融操作。下一项AC6审阅关注派发前复验对本次自身reservation的处理；未开始后续切片。
+
+
+## AC6 owned reservation at dispatch revalidation — 2026-10-19, supporting implementation
+
+A new assertion on the existing generic public Prepare scenario reproduced a concrete failure: reserving all `500 USD` succeeded, but its dispatch-grant review counted that same reservation again and refused with `RISK_EVIDENCE_UNAVAILABLE`. The [RED receipt](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-dispatch-red-20261019.txt) is retained separately from the [GREEN receipt](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-dispatch-green-20261019.txt).
+
+Dispatch revalidation now loads the exact attempt's durable ACTIVE reservation, validates its attempt/account/Proposal/hash/instrument/side/state-version binding, and excludes that one row only from the temporary competing-reservation assessment. This same filtered collection supplies wallet/fee evidence, scalar capacity and reserved-capital calculations. The ledger is not changed or released; new reviews, approval issuance and Prepare still count every active reservation. A second regression prepares two distinct `500 USD` intents, verifies the other attempt still occupies `500 USD`, rejects borrowing its reservation, and keeps both ledger rows ACTIVE. This uses existing generic prior-art fixtures; it is not a new owning-Spot authority setter or full owning-Spot public acceptance.
+
+The final `npm run check` exited 0: schema agreement, production frontend build, 35 Node unit tests, 572 Rust tests passed (including 280 library and 123 Binance-rule tests), 33 pre-existing ignored, secret scan and 203 requirements / 70 screens / 13 QA scenarios / 23 baseline files. Rust formatting and diff checks passed. [Full check](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-full-check-20261019.txt) and [source binding](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-source-binding-20261019.json) retain the final source hashes. Existing compiler dead-code and Vite bundle-size warnings remain. Self-review checked exact reservation ownership, retained claims, other-attempt capacity, same-current-route monetary valuation, unchanged external/financial authority boundaries and paired contracts; this does not replace the ticket-wide independent review gate.
+
+The valuation correction was committed locally on dev at `86b3cc8`, after verification reliability fixes at `500e01d`. Current actual source-use remains unresolved and the account-specific Support evidence requested in this chat has not been supplied. No real provider/account read, provider mutation or financial operation occurred. AC5 remains waived/unaccepted, AC6 stays unchecked, and public positive owning Spot Prepare plus remaining source, lifecycle, native and ticket-wide acceptance remain open. No later slice or main PR has started.
+
+## AC6 派发复验复用自身预留 — 2026-10-19，辅助实现
+
+在既有通用公开Prepare场景增加断言后，实际复现：准确预留全部`500 USD`成功，但派发grant复验再次统计同一预留，返回`RISK_EVIDENCE_UNAVAILABLE`。[RED收据](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-dispatch-red-20261019.txt)与[GREEN收据](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-dispatch-green-20261019.txt)分别保留。
+
+派发复验现读取准确attempt耐久ACTIVE reservation，核对attempt／账户／Proposal/hash／标的／side／状态版本，只在临时竞争性预留评估中排除这一条自身记录。钱包／费用证据、标量容量和reserved-capital计算使用同一过滤集合。账本不被修改或释放；新review、审批签发和Prepare仍统计所有活动预留。第二项回归通过公开Prepare建立两个不同意图各`500 USD`预留，确认另一个attempt仍占`500 USD`、借用其reservation会被拒绝，且两条账本记录均保持ACTIVE。沿用既有通用测试fixture，不新增owning Spot权限setter，也不代表owning Spot公开整体验收。
+
+最终`npm run check`退出0：schema一致、production前端build、35项Node单测、572项Rust通过（含280项库测试及123项Binance-rule测试）、33项既有ignored、secret scan及203需求／70屏／13 QA／23基线文件检查通过；Rust格式和diff检查通过。[完整检查](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-full-check-20261019.txt)及[源码绑定](evidence/s29-owning-financial-plan/work-in-progress/own-reservation-source-binding-20261019.json)保留最终源码哈希。既有compiler dead-code和Vite bundle-size警告保留。自审核对准确预留归属、claims继续持有、其他attempt容量、同一当前估值路线、外部／金融权限边界及配对契约；不替代全票独立审查门禁。
+
+估值修复已本地提交至dev `86b3cc8`，验证可靠性修复为`500e01d`。实际source-use仍未解决，本聊天所请求的账户辖区Support事实尚未收到。未读取真实provider／账户，未进行provider mutation或金融操作。AC5仍豁免／未验收，AC6未勾选，owning Spot公开正向Prepare及其余来源／生命周期／原生／全票验收继续开放；未开始后续切片或main PR。

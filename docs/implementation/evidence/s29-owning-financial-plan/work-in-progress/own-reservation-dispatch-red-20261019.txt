@@ -1,0 +1,79 @@
+   Compiling tradex v0.1.0 (/workspace/tradex/src-tauri)
+warning: field `action` is never read
+  --> src-tauri/src/gateway.rs:26:16
+   |
+23 | pub struct GatewayJob {
+   |            ---------- field in this struct
+...
+26 |     pub(crate) action: GatewayAction,
+   |                ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `SERVICE` is never used
+  --> src-tauri/src/provider_io.rs:42:7
+   |
+42 | const SERVICE: &str = "com.tradex.broker.credentials";
+   |       ^^^^^^^
+
+warning: function `binance_testnet_private_stream_subscription` is never used
+  --> src-tauri/src/provider_io.rs:55:15
+   |
+55 | pub(crate) fn binance_testnet_private_stream_subscription(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_binance_testnet_private_stream_account` is never used
+  --> src-tauri/src/provider_io.rs:63:15
+   |
+63 | pub(crate) fn verify_binance_testnet_private_stream_account(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_binance_testnet_private_stream` is never used
+  --> src-tauri/src/provider_io.rs:91:15
+   |
+91 | pub(crate) fn reconcile_binance_testnet_private_stream(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_testnet_order_book` is never used
+    --> src-tauri/src/binance.rs:1863:15
+     |
+1863 | pub(super) fn reconcile_testnet_order_book(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `private_stream_subscription` is never used
+    --> src-tauri/src/binance.rs:1935:15
+     |
+1935 | pub(super) fn private_stream_subscription(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_private_stream_account` is never used
+    --> src-tauri/src/binance.rs:1965:15
+     |
+1965 | pub(super) fn verify_private_stream_account(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_action` is never used
+    --> src-tauri/src/binance.rs:1974:4
+     |
+1974 | fn reconcile_action(
+     |    ^^^^^^^^^^^^^^^^
+
+warning: `tradex` (lib test) generated 9 warnings
+    Finished `test` profile [unoptimized] target(s) in 16.41s
+     Running unittests src/lib.rs (target/debug/deps/tradex-85a17ee2f91a6c9d)
+
+running 1 test
+test live_approval_tests::live_place_preparation_accepts_exact_available_capacity ... 
+thread 'live_approval_tests::live_place_preparation_accepts_exact_available_capacity' (49373) panicked at src-tauri/src/lib.rs:22183:9:
+The dispatch review must reuse its own reserved capacity rather than charge it a second time: Err(TradeXError { category: "POLICY_ERROR", code: "RISK_EVIDENCE_UNAVAILABLE", message: "Required risk evidence is missing or untrusted. No order was submitted.", retryable: false, blocking: true, field: None, reason: None, capacity_context: None, remediation_actions: [Remediation { id: "review_risk", label: "Review risk evidence" }] })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    live_approval_tests::live_place_preparation_accepts_exact_available_capacity
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 278 filtered out; finished in 0.12s
+
+error: test failed, to rerun pass `--lib`
