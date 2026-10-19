@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for tracker writes and as the default for reads. If the execution environment blocks CLI requests, already-authorized repository, issue, and map reads may use the configured GitHub connector. Record the CLI failure and the successful read transport. This fallback covers reads only; the tracker-write workflow below still applies.
 
 ## Conventions
 

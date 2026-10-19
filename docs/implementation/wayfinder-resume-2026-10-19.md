@@ -296,7 +296,7 @@ English scope: this is a dated requirements and workflow snapshot. It inventorie
 
 ## 当前前沿与冲突
 
-通过 `gh issue view` 和 `gh api` 查询均收到 `Forbidden`；随后 GitHub 连接器的只读查询成功。本轮以实际读回状态核对：
+通过 `gh issue view` 和 `gh api` 查询均收到 `Forbidden`；随后 GitHub 连接器的只读查询成功。本轮以实际读回状态核对。Standards 审查指出原约定仅列 CLI；现已在 [tracker 约定](../agents/issue-tracker.md)补充环境阻止 CLI 时的已授权只读回退，`gh` 仍是读取首选及 tracker 写入工作流：
 
 1. [Binance 来源绑定本地用途确认与 MARKET_DATA_USE 检查](https://github.com/kaiqiangh/tradex/issues/150) 已 CLOSED，八项 AC 勾选完成；[批准的来源绑定用途决议](https://github.com/kaiqiangh/tradex/issues/149) 同样 CLOSED。
 2. 当前串行项为 [完整 Spot 金融计划、逐资产预留与所需估值](https://github.com/kaiqiangh/tradex/issues/135)，已认领、OPEN，十五项 AC 中四项勾选。其原生前置 [精确标的佣金来源](https://github.com/kaiqiangh/tradex/issues/133) 与 [费用/必需 FX 陈述](https://github.com/kaiqiangh/tradex/issues/131) 已 CLOSED；已完成的前置不等于当前项通过。
