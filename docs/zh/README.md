@@ -4,6 +4,8 @@
 
 ## 阅读顺序与中英文配对
 
+2026-10-20 最新 S29.11 接续见[拥有方预留与FX重验证双语证据](../implementation/s29-owning-dispatch-revalidation-evidence.md)：源码 `46b1ec9` 修复 Prepare 生命周期误使未变化 FX 观察失效。原 owning ticket、完整map及原生/真实provider验收仍开放。
+
 | 顺序 | 中文版 | 英文版 |
 |---|---|---|
 | 1 | [PRD](./TradeX_PRD_v1.0_RevC_zh.md) | [PRD](../TradeX_PRD_v1.0_RevC.md) |

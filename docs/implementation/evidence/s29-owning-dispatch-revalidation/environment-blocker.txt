@@ -1,0 +1,15 @@
+2026-10-19 Debian GNU/Linux 13; uid=1000(agent).
+pkg-config cannot find glib-2.0, gtk+-3.0, webkit2gtk-4.1 or libsoup-3.0.
+sudo -n true: sudo: command not found.
+
+Command:
+apt-get --assume-no install libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+Exit: 100
+W: Unable to read /etc/apt/apt.conf.d/80-applied-apt-retries - open (13: Permission denied)
+E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)
+E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?
+
+No system packages were installed. Native build remains unverified; the prior
+cargo desktop check's GLib failure is not relabeled a pass. No policy or privilege
+configuration was changed.

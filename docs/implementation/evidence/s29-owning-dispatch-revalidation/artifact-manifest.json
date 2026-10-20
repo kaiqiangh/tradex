@@ -1,0 +1,156 @@
+{
+  "sourceCommit": "46b1ec995f94738d7311e86b9b73dd4b733987e6",
+  "scope": "Final evidence and handoff documents; this manifest excludes itself. Source/build/test input hashes are separately recorded in source-inputs.json.",
+  "artifacts": [
+    {
+      "path": "docs/README.md",
+      "bytes": 32936,
+      "sha256": "26a8ca419397375b403b555dcf8ab53703eeeae509d2b12406ab6e3b397ce221"
+    },
+    {
+      "path": "docs/implementation/README.md",
+      "bytes": 171003,
+      "sha256": "db3a4c95a90551aaceeb0c75204dd963192264780992fdc3c6c4599b474a2691"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/capture-1280.png",
+      "bytes": 147758,
+      "sha256": "0b91a6e86adcae99f30c9c255a4cd35c6910b0f8da3f89d9f53e8c45249d54d2"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/capture-390.png",
+      "bytes": 77599,
+      "sha256": "dc4b25c48fb1c534e4a9401d62c5bfff3890dd70d56139950fdf9b855861ef65"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/capture-768.png",
+      "bytes": 113843,
+      "sha256": "8d95024d434b8a3917114829c715b21e8898b8fa8471fdeb3d9c0d31e1a040f5"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/environment-blocker.txt",
+      "bytes": 769,
+      "sha256": "e60adba20b0f80d1522cde28391c42018efda4bbdd5434ebb64abda3402aa16d"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/first-green.txt",
+      "bytes": 3515,
+      "sha256": "c5f665caee8885e78bd098bedfd3ac3d2898298f0beaabcf728efbb9b85129ed"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/first-red.txt",
+      "bytes": 4813,
+      "sha256": "856a488abe5666c9b388ed9603891e733673c8174c72c7c272408a695b5798fe"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/focused.txt",
+      "bytes": 4113,
+      "sha256": "1d043815e1eb43ab8c4d9ecec491b389719615a766cebc12a3e1403d9eb44f9b"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/full-check-before-resume.txt",
+      "bytes": 82997,
+      "sha256": "208e807fb15e0f8d17763c45b388c9fa9916e0d064af02fdfa70e083cdb4a8fe"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/full-check-status.json",
+      "bytes": 104,
+      "sha256": "9c043f6bbce8c9be6751effdc2c742cdfcfd26bbfc47beb68d8cab323b0e9bcf"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/full-check.txt",
+      "bytes": 82934,
+      "sha256": "58db0e1503d57c09c17ba05901029c0a7cd567a47014faa9170d45246630ff70"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/gateway-regression.txt",
+      "bytes": 3571,
+      "sha256": "bb06097f427f71878946016b55e086de83492b0fed347b08bd39b05d984e2cec"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/gateway-status.json",
+      "bytes": 122,
+      "sha256": "7c1ba3459ad9cbbbd6dfa546fb37cc542a4e057582a50b566c7562430e4973ad"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/hot-final.txt",
+      "bytes": 34059,
+      "sha256": "f3ee7e896825ce56d5b255acdc172774d6cd2f899d6b9c515a7ffb27054c7bc3"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/hot-status.json",
+      "bytes": 55,
+      "sha256": "06bdad3492330e7e7077015f3d7e2c0237475b22b70181bd291c265e71a7844b"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/prearm-1280.png",
+      "bytes": 170354,
+      "sha256": "6baacccfe8a41d430acb3ed3745e3cd7417684ac093123b86964dab5d30eb6c0"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/prearm-390.png",
+      "bytes": 90898,
+      "sha256": "400ac9d1b11b30b8b1b26396162aa7bb13a5b756da13b1b4d50c14dbe1a1be5f"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/prearm-768.png",
+      "bytes": 140556,
+      "sha256": "e627066a43365e56c941f7b078e2900d50dffc0eb3cde82940b976ca42163b4a"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/source-inputs.json",
+      "bytes": 44648,
+      "sha256": "d43bc608a52e072834f162f2e4a6cd843f8a17e913031a74918f589dc84af33d"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/spec-review.md",
+      "bytes": 1750,
+      "sha256": "6be4270d31dcf4fc1dd3aba1a2d75c91da0a35d244c5b15e0ab2dc1e75f78e89"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/standards-review.md",
+      "bytes": 1223,
+      "sha256": "71107877c34d147ba367b41a293d8a9931e184e686c2f4d76c547683232515b6"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/tracker-handoff.md",
+      "bytes": 1991,
+      "sha256": "e0eb5529f93898415c440a467f925641ad51ed9f918aab95c1b6ce5e599b5dd4"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/tracker-write.txt",
+      "bytes": 49,
+      "sha256": "682deed6ccd21e66582c7f0e0efdffb3363feeac4c8b58f35a46d43dc240c725"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/ui-final.txt",
+      "bytes": 656,
+      "sha256": "3359f7d00e0d9e3e9a3a1d3ef87f3c3ab3037529157c2335e39f6e95d05125b6"
+    },
+    {
+      "path": "docs/implementation/evidence/s29-owning-dispatch-revalidation/ui-result.json",
+      "bytes": 960,
+      "sha256": "c847496cfae6f7ec36e93a1e0dcf3d3af1747938e63fb5877a8cbcacffe4fe0f"
+    },
+    {
+      "path": "docs/implementation/s29-owning-dispatch-revalidation-evidence.md",
+      "bytes": 11556,
+      "sha256": "b012a1bdd8403d1b5d19a60d2724dd6c7c5273bad8ad8b1fa9c7739345bd3c4c"
+    },
+    {
+      "path": "docs/implementation/s29-owning-financial-plan-progress.md",
+      "bytes": 289365,
+      "sha256": "5c662ea44616a4ae879f586a25d0fb9e273d8ac81440f2ac2b175d7c745861cf"
+    },
+    {
+      "path": "docs/implementation/wayfinder-resume-2026-10-19.md",
+      "bytes": 48779,
+      "sha256": "e60ec11dd97f3f7b794a28f3f66e79fecf95e315e7d5cf438f4b00634aef374c"
+    },
+    {
+      "path": "docs/zh/README.md",
+      "bytes": 29005,
+      "sha256": "d992f21ce28fa7539f59ba3a89ddb891fb43a893f0a517e30c4ffb9f313daf6d"
+    }
+  ]
+}

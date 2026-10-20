@@ -1,0 +1,88 @@
+warning: associated function `for_gateway` is never used
+  --> src-tauri/src/codex_runtime.rs:38:19
+   |
+37 | impl RuntimeAccess {
+   | ------------------ associated function in this implementation
+38 |     pub(crate) fn for_gateway(api_key: &str) -> Option<Self> {
+   |                   ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `action` is never read
+  --> src-tauri/src/gateway.rs:26:16
+   |
+23 | pub struct GatewayJob {
+   |            ---------- field in this struct
+...
+26 |     pub(crate) action: GatewayAction,
+   |                ^^^^^^
+
+warning: constant `SERVICE` is never used
+  --> src-tauri/src/provider_io.rs:42:7
+   |
+42 | const SERVICE: &str = "com.tradex.broker.credentials";
+   |       ^^^^^^^
+
+warning: function `binance_testnet_private_stream_subscription` is never used
+  --> src-tauri/src/provider_io.rs:55:15
+   |
+55 | pub(crate) fn binance_testnet_private_stream_subscription(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_binance_testnet_private_stream_account` is never used
+  --> src-tauri/src/provider_io.rs:63:15
+   |
+63 | pub(crate) fn verify_binance_testnet_private_stream_account(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `private_stream_subscription` is never used
+    --> src-tauri/src/binance.rs:1935:15
+     |
+1935 | pub(super) fn private_stream_subscription(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_private_stream_account` is never used
+    --> src-tauri/src/binance.rs:1965:15
+     |
+1965 | pub(super) fn verify_private_stream_account(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `tradex` (lib) generated 7 warnings
+   Compiling tradex v0.1.0 (/workspace/tradex/src-tauri)
+warning: unused imports: `GatewayDispatchIntent` and `PrivilegedLiveOperation`
+  --> src-tauri/src/bin/tradex-order-gateway.rs:8:21
+   |
+ 8 |     order_gateway::{GatewayDispatchIntent, GatewayDispatchPackage},
+   |                     ^^^^^^^^^^^^^^^^^^^^^
+ 9 |     provider_io::{
+10 |         BrokerHttp, CredentialVault, Credentials, PrivilegedLiveOperation, ProviderEndpoint,
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `GatewaySummaryHttp` is never constructed
+  --> src-tauri/src/bin/tradex-order-gateway.rs:85:8
+   |
+85 | struct GatewaySummaryHttp<'a, H> {
+   |        ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `GatewayVault` is never constructed
+   --> src-tauri/src/bin/tradex-order-gateway.rs:335:8
+    |
+335 | struct GatewayVault;
+    |        ^^^^^^^^^^^^
+
+warning: `tradex` (bin "tradex-order-gateway") generated 3 warnings (run `cargo fix --bin "tradex-order-gateway" -p tradex` to apply 1 suggestion)
+    Finished `test` profile [unoptimized] target(s) in 2.01s
+     Running tests/order_gateway.rs (target/debug/deps/order_gateway-4145203e6abcb647)
+
+running 5 tests
+test launches_the_pinned_gateway_over_a_private_session_and_stops_it ... ok
+test refuses_to_launch_an_executable_that_does_not_match_its_pin ... ok
+test rejects_a_gateway_that_does_not_echo_the_current_session_credential ... ok
+test rejects_a_gateway_with_an_incompatible_protocol_version ... ok
+test rejects_an_oversized_handshake_frame_before_reading_its_body ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.86s

@@ -4,6 +4,8 @@ Revision C clarification dated 2026-09-05. Product scope and existing requiremen
 
 ## Authority and reading order
 
+Latest S29.11 correction (source `46b1ec9`, 2026-10-20 handoff): [owning reservation / FX revalidation evidence](implementation/s29-owning-dispatch-revalidation-evidence.md). The existing owning ticket and full map remain open; native and actual provider acceptance are not upgraded.
+
 1. [PRD](./TradeX_PRD_v1.0_RevC.md) — source of truth for scope, financial authority, state semantics, and acceptance.
 2. [UI / Prototype Spec](./TradeX_UI_Prototype_Spec_v1.0_RevC.md) — target screens and interactions; §14 defines detailed repair contracts.
 3. [Frontend ARD](./TradeX_Frontend_ARD_v1.0_RevC.md) and [Backend ARD](./TradeX_Backend_ARD_v1.0_RevC.md) — implementation architecture under the PRD/UI requirements. Backend §41–42 own the shared wire contract; the frontend references it.

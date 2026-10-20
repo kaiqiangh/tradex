@@ -1,0 +1,877 @@
+
+> tradex@0.1.0 test:binance-hot
+> node scripts/test-binance-hot.mjs
+
+    Finished `test` profile [unoptimized] target(s) in 0.83s
+Scenario 1/67: a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect
+
+running 1 test
+test a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect ...
+running 1 test
+test a_banned_websocket_upgrade_is_terminal_without_bootstrap_or_reconnect ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.12s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.13s
+
+Scenario 2/67: a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable
+
+running 1 test
+test a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable ...
+running 1 test
+test a_future_dated_unchanged_event_cannot_keep_the_original_connection_usable ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 3/67: a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation
+
+running 1 test
+test a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation ...
+running 1 test
+test a_missing_update_range_retires_the_old_book_and_rebootstraps_a_new_connection_generation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.18s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.18s
+
+Scenario 4/67: a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection
+
+running 1 test
+test a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection ...
+running 1 test
+test a_snapshot_behind_the_first_buffered_update_is_reread_on_the_same_connection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.70s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.70s
+
+Scenario 5/67: a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting
+
+running 1 test
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ...
+running 1 test
+test a_snapshot_newer_than_buffered_updates_waits_for_its_bridge_without_reconnecting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.72s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.73s
+
+Scenario 6/67: a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason
+
+running 1 test
+test a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason ...
+running 1 test
+test a_typed_server_shutdown_retires_liquidity_with_a_distinct_bounded_reconnect_reason ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.18s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.19s
+
+Scenario 7/67: an_oversized_actual_websocket_frame_retires_good_depth_before_rebootstrap
+
+running 1 test
+test an_oversized_actual_websocket_frame_retires_good_depth_before_rebootstrap ...
+running 1 test
+test an_oversized_actual_websocket_frame_retires_good_depth_before_rebootstrap ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.19s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.20s
+
+Scenario 8/67: authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade
+
+running 1 test
+test authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade ...
+running 1 test
+test authentic_public_spot_depth_satisfies_only_quote_freshness_without_a_fictional_last_trade ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.53s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.54s
+
+Scenario 9/67: bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit
+
+running 1 test
+test bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit ...
+running 1 test
+test bootstrap_byte_capacity_stops_large_valid_frames_before_the_frame_count_limit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.63s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.64s
+
+Scenario 10/67: bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source
+
+running 1 test
+test bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source ...
+running 1 test
+test bootstrap_frame_capacity_retires_before_a_late_snapshot_can_publish_into_a_new_source ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.62s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.63s
+
+Scenario 11/67: cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried
+
+running 1 test
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ...
+running 1 test
+test cached_public_books_expire_on_trusted_elapsed_time_and_never_renew_when_queried ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+Scenario 12/67: captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references
+
+running 1 test
+test captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references ...
+running 1 test
+test captured_spot_review_keeps_raw_depth_ephemeral_while_risk_history_restores_only_references ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 13/67: configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials
+
+running 1 test
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ...
+running 1 test
+test configured_public_spot_source_can_acquire_a_hot_lease_without_execution_credentials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.11s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.12s
+
+Scenario 14/67: current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book ...
+running 1 test
+test current_api_trading_lock_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.53s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.54s
+
+Scenario 15/67: current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs
+
+running 1 test
+test current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs ...
+running 1 test
+test current_public_spot_book_cannot_be_handed_to_research_or_artifact_inputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 16/67: current_symbol_break_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_symbol_break_rejects_spot_admission_despite_a_continuous_public_book ...
+running 1 test
+test current_symbol_break_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+Scenario 17/67: current_symbol_halt_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_symbol_halt_rejects_spot_admission_despite_a_continuous_public_book ...
+running 1 test
+test current_symbol_halt_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 18/67: current_system_maintenance_rejects_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test current_system_maintenance_rejects_spot_admission_despite_a_continuous_public_book ...
+running 1 test
+test current_system_maintenance_rejects_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 19/67: displayed_spot_base_liquidity_qualifies_only_its_own_exact_side_size_check
+
+running 1 test
+test displayed_spot_base_liquidity_qualifies_only_its_own_exact_side_size_check ...
+running 1 test
+test displayed_spot_base_liquidity_qualifies_only_its_own_exact_side_size_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+Scenario 20/67: eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity
+
+running 1 test
+test eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity ...
+running 1 test
+test eth_depth_uses_its_exact_public_stream_rest_symbol_and_base_liquidity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+Scenario 21/67: exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority
+
+running 1 test
+test exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority ...
+running 1 test
+test exact_account_spot_admission_qualifies_its_own_check_without_an_equity_calendar_or_order_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+Scenario 22/67: exact_spot_spread_comparison_and_missing_last_trade_reference_remain_separate
+
+running 1 test
+test exact_spot_spread_comparison_and_missing_last_trade_reference_remain_separate ...
+running 1 test
+test exact_spot_spread_comparison_and_missing_last_trade_reference_remain_separate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 23/67: fee_only_bnb_book_is_continuous_without_replacing_the_trading_quote_or_catalogue
+
+running 1 test
+test fee_only_bnb_book_is_continuous_without_replacing_the_trading_quote_or_catalogue ...
+running 1 test
+test fee_only_bnb_book_is_continuous_without_replacing_the_trading_quote_or_catalogue ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.91s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.91s
+
+Scenario 24/67: fee_only_bnb_cached_reads_expire_without_receipt_renewal_and_clock_changes_retire_them
+
+running 1 test
+test fee_only_bnb_cached_reads_expire_without_receipt_renewal_and_clock_changes_retire_them ...
+running 1 test
+test fee_only_bnb_cached_reads_expire_without_receipt_renewal_and_clock_changes_retire_them ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 3.78s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 3.79s
+
+Scenario 25/67: fee_only_bnb_gap_rebuilds_its_own_generation_and_source_disconnect_retires_it
+
+running 1 test
+test fee_only_bnb_gap_rebuilds_its_own_generation_and_source_disconnect_retires_it ...
+running 1 test
+test fee_only_bnb_gap_rebuilds_its_own_generation_and_source_disconnect_retires_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.37s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.38s
+
+Scenario 26/67: fee_only_bnb_wrong_metadata_cannot_admit_a_book_or_extend_the_order_surface
+
+running 1 test
+test fee_only_bnb_wrong_metadata_cannot_admit_a_book_or_extend_the_order_surface ...
+running 1 test
+test fee_only_bnb_wrong_metadata_cannot_admit_a_book_or_extend_the_order_surface ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.95s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.96s
+
+Scenario 27/67: financial_quote_ttl_is_stricter_than_collection_age_and_cached_reads_cannot_renew_it
+
+running 1 test
+test financial_quote_ttl_is_stricter_than_collection_age_and_cached_reads_cannot_renew_it ...
+running 1 test
+test financial_quote_ttl_is_stricter_than_collection_age_and_cached_reads_cannot_renew_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 28/67: five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating
+
+running 1 test
+test five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating ...
+running 1 test
+test five_thousand_known_levels_remain_bounded_and_one_extra_level_retires_instead_of_truncating ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.74s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.75s
+
+Scenario 29/67: http_redirects_never_follow_an_untrusted_source_path
+
+running 1 test
+test http_redirects_never_follow_an_untrusted_source_path ...
+running 1 test
+test http_redirects_never_follow_an_untrusted_source_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.69s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.70s
+
+Scenario 30/67: http_source_denial_stops_without_retry_or_fallback
+
+running 1 test
+test http_source_denial_stops_without_retry_or_fallback ...
+running 1 test
+test http_source_denial_stops_without_retry_or_fallback ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.31s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.31s
+
+Scenario 31/67: local_use_confirmation_precedes_collection_and_only_qualifies_its_bound_market_gate
+
+running 1 test
+test local_use_confirmation_precedes_collection_and_only_qualifies_its_bound_market_gate ...
+running 1 test
+test local_use_confirmation_precedes_collection_and_only_qualifies_its_bound_market_gate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 32/67: material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity
+
+running 1 test
+test material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity ...
+running 1 test
+test material_outside_the_displayed_twenty_levels_still_changes_immutable_depth_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.71s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.71s
+
+Scenario 33/67: obsolete_update_ids_do_not_hide_malformed_original_depth_values
+
+running 1 test
+test obsolete_update_ids_do_not_hide_malformed_original_depth_values ...
+running 1 test
+test obsolete_update_ids_do_not_hide_malformed_original_depth_values ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.31s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.32s
+
+Scenario 34/67: original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material
+
+running 1 test
+test original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material ...
+running 1 test
+test original_depth_wire_types_unknown_fields_and_duplicate_prices_cannot_replace_good_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.98s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.99s
+
+Scenario 35/67: other_symbol_rules_and_expired_rule_receipts_cannot_qualify_spot_admission
+
+running 1 test
+test other_symbol_rules_and_expired_rule_receipts_cannot_qualify_spot_admission ...
+running 1 test
+test other_symbol_rules_and_expired_rule_receipts_cannot_qualify_spot_admission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 36/67: overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material
+
+running 1 test
+test overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material ...
+running 1 test
+test overlapping_updates_delete_levels_without_expanding_known_bands_or_renewing_unchanged_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.12s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.13s
+
+Scenario 37/67: owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch
+
+running 1 test
+test owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch ...
+running 1 test
+test owning_bnb_fee_estimate_uses_continuous_market_and_compares_the_complete_discounted_branch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.41s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.42s
+
+Scenario 38/67: owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend
+
+running 1 test
+test owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend ...
+running 1 test
+test owning_limit_buy_capacity_uses_native_quantity_times_limit_not_maximum_spend ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 39/67: owning_market_buy_base_fee_is_a_received_base_deduction_at_the_real_ask
+
+running 1 test
+test owning_market_buy_base_fee_is_a_received_base_deduction_at_the_real_ask ...
+running 1 test
+test owning_market_buy_base_fee_is_a_received_base_deduction_at_the_real_ask ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+Scenario 40/67: owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding
+
+running 1 test
+test owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding ...
+running 1 test
+test owning_market_buy_quote_fee_keeps_the_exact_ratio_until_final_family_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 41/67: owning_market_preflight_rejects_changed_quote_after_grant_and_releases_once
+
+running 1 test
+test owning_market_preflight_rejects_changed_quote_after_grant_and_releases_once ...
+running 1 test
+test owning_market_preflight_rejects_changed_quote_after_grant_and_releases_once ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.31s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.32s
+
+Scenario 42/67: owning_market_preflight_rejects_reconfigured_fx_source_without_reusing_old_observation
+
+running 1 test
+test owning_market_preflight_rejects_reconfigured_fx_source_without_reusing_old_observation ...
+running 1 test
+test owning_market_preflight_rejects_reconfigured_fx_source_without_reusing_old_observation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.17s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.17s
+
+Scenario 43/67: owning_market_preflight_reuses_its_native_claims_without_changing_review_or_expiry
+
+running 1 test
+test owning_market_preflight_reuses_its_native_claims_without_changing_review_or_expiry ...
+running 1 test
+test owning_market_preflight_reuses_its_native_claims_without_changing_review_or_expiry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.16s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.17s
+
+Scenario 44/67: owning_market_rules_reach_approval_and_prepare_from_complete_public_producers
+
+running 1 test
+test owning_market_rules_reach_approval_and_prepare_from_complete_public_producers ...
+running 1 test
+test owning_market_rules_reach_approval_and_prepare_from_complete_public_producers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.11s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.12s
+
+Scenario 45/67: owning_market_rules_retired_capacity_refuses_prepare_without_partial_financial_state
+
+running 1 test
+test owning_market_rules_retired_capacity_refuses_prepare_without_partial_financial_state ...
+running 1 test
+test owning_market_rules_retired_capacity_refuses_prepare_without_partial_financial_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.19s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.19s
+
+Scenario 46/67: owning_market_sell_fee_uses_the_real_current_bid_and_taker_families
+
+running 1 test
+test owning_market_sell_fee_uses_the_real_current_bid_and_taker_families ...
+running 1 test
+test owning_market_sell_fee_uses_the_real_current_bid_and_taker_families ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.53s
+
+Scenario 47/67: owning_quote_market_coverage_compares_native_quote_units_without_rounding
+
+running 1 test
+test owning_quote_market_coverage_compares_native_quote_units_without_rounding ...
+running 1 test
+test owning_quote_market_coverage_compares_native_quote_units_without_rounding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.73s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.75s
+
+Scenario 48/67: owning_quote_subscale_remainder_is_not_discarded_before_fee_ceiling
+
+running 1 test
+test owning_quote_subscale_remainder_is_not_discarded_before_fee_ceiling ...
+running 1 test
+test owning_quote_subscale_remainder_is_not_discarded_before_fee_ceiling ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 49/67: planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap
+
+running 1 test
+test planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap ...
+running 1 test
+test planned_socket_rotation_retires_the_old_book_before_a_new_bootstrap ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.60s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 1.60s
+
+Scenario 50/67: protected_market_digest_keeps_unchanged_material_and_retires_on_depth_or_source_change
+
+running 1 test
+test protected_market_digest_keeps_unchanged_material_and_retires_on_depth_or_source_change ...
+running 1 test
+test protected_market_digest_keeps_unchanged_material_and_retires_on_depth_or_source_change ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.91s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.91s
+
+Scenario 51/67: provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom
+
+running 1 test
+test provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom ...
+running 1 test
+test provider_ping_payloads_are_echoed_but_control_bursts_stop_before_exceeding_reserved_headroom ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.52s
+
+Scenario 52/67: public_depth_provenance_binds_runtime_scope_and_bounded_known_material
+
+running 1 test
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ...
+running 1 test
+test public_depth_provenance_binds_runtime_scope_and_bounded_known_material ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.70s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.71s
+
+Scenario 53/67: public_http_ban_stops_and_its_shared_cooldown_survives_source_replacement
+
+running 1 test
+test public_http_ban_stops_and_its_shared_cooldown_survives_source_replacement ...
+running 1 test
+test public_http_ban_stops_and_its_shared_cooldown_survives_source_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.73s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.74s
+
+Scenario 54/67: public_http_rate_limit_stops_and_its_shared_cooldown_survives_source_replacement
+
+running 1 test
+test public_http_rate_limit_stops_and_its_shared_cooldown_survives_source_replacement ...
+running 1 test
+test public_http_rate_limit_stops_and_its_shared_cooldown_survives_source_replacement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.71s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.72s
+
+Scenario 55/67: public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes
+
+running 1 test
+test public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes ...
+running 1 test
+test public_spot_collection_keeps_an_independent_unverified_data_use_gate_after_reads_and_source_changes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 56/67: real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key
+
+running 1 test
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ...
+running 1 test
+test real_snapshot_and_diff_stream_publish_exact_time_bound_continuous_depth_without_a_key ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 57/67: repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability
+
+running 1 test
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ...
+running 1 test
+test repeated_unbridged_bootstraps_stop_after_three_retries_and_project_unavailability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 3.54s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 3.54s
+
+Scenario 58/67: selected_public_spot_source_is_explicit_in_current_and_retired_market_details
+
+running 1 test
+test selected_public_spot_source_is_explicit_in_current_and_retired_market_details ...
+running 1 test
+test selected_public_spot_source_is_explicit_in_current_and_retired_market_details ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 59/67: session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition
+
+running 1 test
+test session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition ...
+running 1 test
+test session_safety_and_time_revalidation_retire_old_books_before_explicit_reacquisition ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 3.62s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 3.63s
+
+Scenario 60/67: skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection
+
+running 1 test
+test skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection ...
+running 1 test
+test skewed_public_clock_samples_stop_before_depth_reads_or_claiming_quote_collection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.63s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.63s
+
+Scenario 61/67: snapshot_original_id_types_and_per_side_capacity_never_become_quote_authority
+
+running 1 test
+test snapshot_original_id_types_and_per_side_capacity_never_become_quote_authority ...
+running 1 test
+test snapshot_original_id_types_and_per_side_capacity_never_become_quote_authority ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 10.79s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 10.80s
+
+Scenario 62/67: source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease
+
+running 1 test
+test source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease ...
+running 1 test
+test source_changes_old_releases_and_reopen_cannot_preserve_or_retire_another_current_lease ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.89s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.90s
+
+Scenario 63/67: spot_admission_retires_when_the_public_account_refresh_changes_its_binding
+
+running 1 test
+test spot_admission_retires_when_the_public_account_refresh_changes_its_binding ...
+running 1 test
+test spot_admission_retires_when_the_public_account_refresh_changes_its_binding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+Scenario 64/67: stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io
+
+running 1 test
+test stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io ...
+running 1 test
+test stopping_the_manager_immediately_retires_current_liquidity_without_waiting_for_socket_io ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.49s
+
+Scenario 65/67: synthetic_binance_live_account_arms_only_after_public_policy_and_health_checks
+
+running 1 test
+test synthetic_binance_live_account_arms_only_after_public_policy_and_health_checks ...
+running 1 test
+test synthetic_binance_live_account_arms_only_after_public_policy_and_health_checks ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+Scenario 66/67: unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts
+
+running 1 test
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ...
+running 1 test
+test unchanged_continuous_updates_advance_health_without_renewing_quote_identity_or_receipts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.71s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.72s
+
+Scenario 67/67: unsatisfied_account_permission_sets_reject_spot_admission_despite_a_continuous_public_book
+
+running 1 test
+test unsatisfied_account_permission_sets_reject_spot_admission_despite_a_continuous_public_book ...
+running 1 test
+test unsatisfied_account_permission_sets_reject_spot_admission_despite_a_continuous_public_book ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.50s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 0.51s
+
+PASS: 67 Binance Hot scenarios, serial isolated processes

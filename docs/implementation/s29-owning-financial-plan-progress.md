@@ -1151,3 +1151,16 @@ The approved §41.62 local consumer is implemented on dev, with [paired evidence
 ### 有界 MARKET 组合已实现——2026-10-19
 
 已批准的 §41.62 本地消费者已在 dev 实现，详见[配对证据](s29-market-rule-composition-evidence_zh.md)。十二项核心公开场景、两项公开 producer→审批/Prepare、三项 wire 测试及响应式当前/捕获/pre-arm 检查通过。串行 Standards→Spec 审查完成，重复容量判断已合并。完整 `npm run check` 通过（38 前端、Rust 汇总 591 通过/33 既有 ignored、协议/构建/日志/追踪），64 项隔离 Binance Hot 场景全部通过。原生桌面检查受宿主缺少 `glib-2.0 >= 2.70` 阻塞。以上仅为本地合成证据，不证明真实来源激活、provider entitlement 或完整 owning 验收。十五项 AC 状态未改，继续 #135，未创建 main PR。
+
+
+### Owning FX identity through Prepare and Control Plane preflight — 2026-10-20
+
+Source `46b1ec995f94738d7311e86b9b73dd4b733987e6` corrects the public producer→approval→Prepare→dispatch-grant failure caused by hashing mutable Proposal lifecycle fields in FX requirements. Only status/stateVersion/history/invalidationReason are excluded; all remaining Proposal fields and complete account-version-bound routes stay bound. Three public regressions pass: exact BNB sufficiency and unchanged own claims/review/expiry through grant/preflight, quote-change refusal with one release, and source-reconfiguration retirement/refusal. All67 isolated Binance Hot scenarios pass. Actual React current/captured/pre-arm checks pass at1280/768/390 with104 observed backend commands, no forbidden command, no page/console error or external browser request. Standards review has0 hard violations/1 nonblocking finite-scenario maintenance advisory; subsequent Spec review has0 actionable correction defects. See [bilingual evidence](s29-owning-dispatch-revalidation-evidence.md) for full receipts and final verification.
+
+The trusted Control Plane calls are not a Binance Gateway package/subprocess/provider preflight or real submission. Existing Linux Gateway pin/handshake regressions pass5/5; macOS child-provider scenarios are feature/platform-excluded and not accepted. No provider support gate changed. Source-entitlement/activation, full settlement/concurrency, native/physical/release and whole-owning/map acceptance remain open; all15 owning AC states are unchanged. Native system dependency installation exits100 because dpkg is root-owned and sudo is absent; GLib development metadata remains missing. No real provider action, worktree or main PR occurred. Work remains on the same owning ticket.
+
+### 拥有方FX身份跨Prepare与Control Plane preflight保持一致——2026-10-20
+
+源码`46b1ec995f94738d7311e86b9b73dd4b733987e6`修复公开producer→审批→Prepare→dispatch grant失败：FX requirements误将可变Proposal生命周期字段计入金融身份。现仅排除status/stateVersion/history/invalidationReason，其余Proposal字段及完整账户版本绑定路线继续绑定。三项公开回归通过：BNB恰好足额时grant/preflight不重复扣自身claim，预留/review/到期时间不变；报价变化拒绝且只释放一次；来源重配退休旧观察并拒绝。67项隔离Binance Hot场景全部通过。实际React当前/捕获/pre-arm在1280/768/390通过，观察104条后端命令、无禁用命令、页面/控制台错误或外部浏览器请求。Standards为0硬性违规/1条非阻断有限场景维护建议；随后Spec为0项本修复缺陷。完整收据及最终验证见[双语证据](s29-owning-dispatch-revalidation-evidence.md)。
+
+受信Control Plane调用不代表Binance Gateway package/子进程/provider预检或真实提交。Linux可执行的Gateway pin/握手回归5/5通过；macOS child-provider场景受feature/平台条件排除，不算验收。provider支持门禁未改。真实来源权限/激活、完整结算/并发、原生/物理/发布及owning/map验收仍开放，15项AC状态均未改变。系统依赖安装因dpkg为root所有且无sudo以100退出，GLib开发元数据仍缺失。本轮无真实provider操作、worktree或main PR，继续同一owning ticket。

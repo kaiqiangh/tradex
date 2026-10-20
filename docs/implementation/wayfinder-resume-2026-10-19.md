@@ -1,5 +1,8 @@
 # Wayfinder 需求清单与串行恢复 — 2026-10-19
 
+> Subsequent correction, 2026-10-20: `dev@46b1ec9` preserves immutable Proposal-scoped FX evidence through Prepare and trusted Control Plane grant/preflight. See [bilingual revalidation evidence](s29-owning-dispatch-revalidation-evidence.md). The snapshot and all owning/map acceptance states below remain historical and unchanged.
+> 后续修复：`dev@46b1ec9` 使不可变Proposal范围FX证据跨Prepare及受信Control Plane grant/preflight保持有效，详见[双语重验证证据](s29-owning-dispatch-revalidation-evidence.md)。下方快照及owning/map验收状态保留原记录，不因此升级。
+
 > Later update, 2026-10-19: the user approved the MARKET scope and its bounded local implementation is now verified. See the [implementation evidence](s29-market-rule-composition-evidence.md). The inventory, tracker readback and tables below preserve the earlier snapshot; #135 and the full map remain open.
 > 后续更新：MARKET 范围已获批准，并完成有界本地实现验证，详见[配对证据](s29-market-rule-composition-evidence_zh.md)。下方清单、tracker 读回及表格保留早先快照；#135 与完整地图仍开放。
 
