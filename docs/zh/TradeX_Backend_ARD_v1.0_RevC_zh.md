@@ -3323,6 +3323,8 @@ storage在同一个immediate SQLite事务中，将完整claim向量与绑定的�
 
 已消费PLACE在派发前复验时，Control Plane只可在临时风险评估中复用准确attempt已保存的ACTIVE reservation。须对照耐久记录核对reservation ID、attempt、账户、Proposal/hash、标的、side和当前状态版本。只从竞争性本地claims、钱包／费用证据及容量汇总中排除这一条自身记录，所有其他reservation继续计入。持久化reservation仍保持ACTIVE，原始各项claim继续持有。新review、审批签发和Prepare仍统计全部既有reservation。缺失、已释放、错绑或借用其他意图的reservation必须拒绝派发；该评估不释放、结算、创建新同意或执行provider mutation。
 
+Proposal范围的`FxRequirements.materialVersion`绑定不可变Proposal实质内容及完整、账户版本绑定的路线要求。Proposal生命周期`status`、`stateVersion`、`history`和`invalidationReason`不进入金融身份：原子Prepare消费未变化的Proposal时，不得因此退休已绑定FX观察。其余Proposal字段、workspace/本位币及路线/账户版本仍全部绑定。这不使已失效或已消费Proposal可再次审批；耐久approval/attempt/reservation身份、当前来源/账户/policy/time、原到期时间及一次性派发检查继续独立生效，不新增provider支持或权限。
+
 ### 41.58 累计原生资产结算（S29.11 AC7，部分实现）
 
 `LiveOrderSettlement.initialAssetClaims`可选保留PLACE最初的有界向量；缺少该字段的旧结算仍可读取。对完整的提供方累计成交、费用及trade事实，使用精确十进制字符串从原始向量重算每项剩余claim：BUY本金按累计成交quote value消耗，SELL本金按累计成交base数量消耗，每笔费用只减少其实际收费原生资产的预留容量；若存在匹配的`FEE` claim则使用该项，否则同一资产的主claim剩余额度作为兼容上限。收到资产上的费用记录为从收益扣除的实际借记，不消耗无关的支出本金额度。标量`remainingCommitment`继续作为主本金兼容值。

@@ -4574,7 +4574,7 @@ fn owning_market_rules_reach_approval_and_prepare_from_complete_public_producers
     ) {
         return;
     }
-    run_owning_market_rule_prepare(false);
+    run_owning_market_rule_prepare(OwningMarketScenario::Prepare);
 }
 
 #[test]
@@ -4584,10 +4584,50 @@ fn owning_market_rules_retired_capacity_refuses_prepare_without_partial_financia
     ) {
         return;
     }
-    run_owning_market_rule_prepare(true);
+    run_owning_market_rule_prepare(OwningMarketScenario::RetiredCapacity);
 }
 
-fn run_owning_market_rule_prepare(retire_capacity: bool) {
+#[test]
+fn owning_market_preflight_reuses_its_native_claims_without_changing_review_or_expiry() {
+    if isolated_hot_scenario(
+        "owning_market_preflight_reuses_its_native_claims_without_changing_review_or_expiry",
+    ) {
+        return;
+    }
+    run_owning_market_rule_prepare(OwningMarketScenario::Preflight);
+}
+
+#[test]
+fn owning_market_preflight_rejects_changed_quote_after_grant_and_releases_once() {
+    if isolated_hot_scenario(
+        "owning_market_preflight_rejects_changed_quote_after_grant_and_releases_once",
+    ) {
+        return;
+    }
+    run_owning_market_rule_prepare(OwningMarketScenario::ChangedQuotePreflight);
+}
+
+#[test]
+fn owning_market_preflight_rejects_reconfigured_fx_source_without_reusing_old_observation() {
+    if isolated_hot_scenario(
+        "owning_market_preflight_rejects_reconfigured_fx_source_without_reusing_old_observation",
+    ) {
+        return;
+    }
+    run_owning_market_rule_prepare(OwningMarketScenario::ChangedFxSourcePreflight);
+}
+
+#[derive(Clone, Copy)]
+enum OwningMarketScenario {
+    Prepare,
+    RetiredCapacity,
+    Preflight,
+    ChangedQuotePreflight,
+    ChangedFxSourcePreflight,
+}
+
+fn run_owning_market_rule_prepare(scenario: OwningMarketScenario) {
+    let retire_capacity = matches!(scenario, OwningMarketScenario::RetiredCapacity);
     let view = HotView::open_with_local_use_confirmation();
     view.wait(|v| v["data"]["status"] == "STREAMING");
     let (connected, vault) = connected_binance_proposal(&view);
@@ -4638,7 +4678,14 @@ fn run_owning_market_rule_prepare(retire_capacity: bool) {
             ),
             ..Default::default()
         },
-        bnb_free: std::cell::Cell::new("1"),
+        // Independent literal oracle: 0.001 BTC at 60001 USDT/BTC, BNB bid 500:
+        // discounted standard = 0.0000120002 BNB; tax = 0.00060001 BNB.
+        // Exact sufficiency makes counting this attempt's own fee claim twice observable.
+        bnb_free: std::cell::Cell::new(if matches!(scenario, OwningMarketScenario::Preflight) {
+            "0.0006120102"
+        } else {
+            "1"
+        }),
     };
     collect_spot_admission(&view, &proposal, &vault, &http, "crypto:BTC/USDT:spot");
     let fx_http = configure_synthetic_policy_fx(&view, &proposal, &vault);
@@ -4681,6 +4728,12 @@ fn run_owning_market_rule_prepare(retire_capacity: bool) {
     );
     assert_eq!(approved["ok"], true, "{approved}");
     let approval = &approved["data"];
+    let requirements_before = command(
+        &view.control,
+        "data.fx.requirements",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(requirements_before["ok"], true, "{requirements_before}");
     let payload = json!({"workspaceId":view.workspace,"approvalId":approval["approvalId"],"expectedApprovalStateVersion":approval["stateVersion"],"idempotencyKey":"synthetic-market-prepare","confirmed":true});
     if retire_capacity {
         http.inner
@@ -4733,6 +4786,16 @@ fn run_owning_market_rule_prepare(retire_capacity: bool) {
         return;
     }
     assert_eq!(prepared["ok"], true, "{prepared}");
+    let requirements_after = command(
+        &view.control,
+        "data.fx.requirements",
+        json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+    );
+    assert_eq!(requirements_after["ok"], true, "{requirements_after}");
+    assert_eq!(
+        requirements_after["data"], requirements_before["data"],
+        "Atomic consumption changes lifecycle history, not immutable FX requirements"
+    );
     let claims = prepared["data"]["reservation"]["assetClaims"]
         .as_array()
         .unwrap();
@@ -4772,6 +4835,147 @@ fn run_owning_market_rule_prepare(retire_capacity: bool) {
     let approvals = command(&view.control, "trade.approval.list", query);
     assert_eq!(approvals["data"]["approvals"].as_array().unwrap().len(), 1);
     assert_eq!(approvals["data"]["approvals"][0]["status"], "CONSUMED");
+
+    if matches!(
+        scenario,
+        OwningMarketScenario::Preflight
+            | OwningMarketScenario::ChangedQuotePreflight
+            | OwningMarketScenario::ChangedFxSourcePreflight
+    ) {
+        assert_eq!(fee["amount"], "0.0006120102");
+        let attempt_id = prepared["data"]["attempt"]["attemptId"].as_str().unwrap();
+        let gateway_session = "synthetic-owning-preflight";
+        let grant = view
+            .control
+            .lock()
+            .unwrap()
+            .issue_live_dispatch_grant(attempt_id, gateway_session)
+            .expect("Unchanged public owning evidence must revalidate its own held vector");
+        assert_eq!(grant.approval_id, approval["approvalId"].as_str().unwrap());
+        let retained = command(
+            &view.control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":view.workspace,"approvalId":approval["approvalId"]}),
+        );
+        assert_eq!(retained["ok"], true, "{retained}");
+        assert_eq!(
+            retained["data"]["preparation"]["reservation"],
+            prepared["data"]["reservation"]
+        );
+        if matches!(
+            scenario,
+            OwningMarketScenario::ChangedQuotePreflight
+                | OwningMarketScenario::ChangedFxSourcePreflight
+        ) {
+            if matches!(scenario, OwningMarketScenario::ChangedQuotePreflight) {
+                view.peer.events.send(json!({"e":"depthUpdate","E":(time::OffsetDateTime::now_utc().unix_timestamp_nanos()/1_000_000) as u64,"s":"BTCUSDT","U":9_007_199_254_740_994u64,"u":9_007_199_254_740_994u64,"b":[],"a":[["60001","0"],["60002","0.75"]]})).unwrap();
+                view.wait(|v| v["data"]["detail"]["snapshot"]["ask"] == "60002");
+            } else {
+                let source = command(
+                    &view.control,
+                    "data.fx.connection",
+                    json!({"workspaceId":view.workspace}),
+                );
+                let changed = command(
+                    &view.control,
+                    "data.fx.configure",
+                    json!({
+                        "workspaceId":view.workspace,
+                        "expectedStateVersion":source["data"]["stateVersion"],
+                        "connectionId":source["data"]["connectionId"],
+                        "cryptoLocation":"us-1",
+                        "sourceUseContext":source["data"]["sourceUseContext"]
+                    }),
+                );
+                assert_eq!(changed["ok"], true, "{changed}");
+                assert_ne!(
+                    changed["data"]["stateVersion"],
+                    source["data"]["stateVersion"]
+                );
+                assert_ne!(changed["data"]["status"], "AVAILABLE");
+                assert_eq!(changed["data"]["evidence"], Value::Null);
+            }
+            let rejected = view
+                .control
+                .lock()
+                .unwrap()
+                .begin_live_execution_submission(&grant.grant_id, gateway_session)
+                .unwrap_err();
+            assert_eq!(rejected.code, "RISK_EVIDENCE_UNAVAILABLE");
+            let released = command(
+                &view.control,
+                "trade.execution.preparation.get",
+                json!({"workspaceId":view.workspace,"approvalId":approval["approvalId"]}),
+            );
+            assert_eq!(
+                released["data"]["preparation"]["attempt"]["state"],
+                "INVALIDATED"
+            );
+            assert_eq!(
+                released["data"]["preparation"]["reservation"]["status"],
+                "RELEASED"
+            );
+            let duplicate = view
+                .control
+                .lock()
+                .unwrap()
+                .begin_live_execution_submission(&grant.grant_id, gateway_session)
+                .unwrap_err();
+            assert_eq!(duplicate.code, "EXECUTION_DISPATCH_NOT_READY");
+            let repeated = command(
+                &view.control,
+                "trade.execution.preparation.get",
+                json!({"workspaceId":view.workspace,"approvalId":approval["approvalId"]}),
+            );
+            assert_eq!(
+                repeated["data"], released["data"],
+                "No repeated release or new attempt"
+            );
+            assert!(http.inner.binance_posts.borrow().is_empty());
+            assert!(fx_http.alpaca_posts.borrow().is_empty());
+            view.supervisor.stop_all();
+            return;
+        }
+        let submitting = view
+            .control
+            .lock()
+            .unwrap()
+            .begin_live_execution_submission(&grant.grant_id, gateway_session)
+            .expect("Immediate preflight must not charge its own principal/BNB claims twice");
+        assert_eq!(
+            submitting.state,
+            tradex::protocol::ExecutionAttemptState::Submitting
+        );
+        let replay = view
+            .control
+            .lock()
+            .unwrap()
+            .begin_live_execution_submission(&grant.grant_id, gateway_session)
+            .unwrap_err();
+        assert_eq!(replay.code, "EXECUTION_DISPATCH_NOT_READY");
+        let after_preflight = command(
+            &view.control,
+            "trade.execution.preparation.get",
+            json!({"workspaceId":view.workspace,"approvalId":approval["approvalId"]}),
+        );
+        assert_eq!(
+            after_preflight["data"]["preparation"]["reservation"],
+            prepared["data"]["reservation"]
+        );
+        let history = command(
+            &view.control,
+            "trade.approval.list",
+            json!({"workspaceId":view.workspace,"proposalId":proposal["proposalId"]}),
+        );
+        assert_eq!(
+            history["data"]["approvals"][0]["expiresAt"],
+            approval["expiresAt"]
+        );
+        assert_eq!(
+            history["data"]["approvals"][0]["reviewDigest"],
+            approval["reviewDigest"]
+        );
+    }
 
     assert!(http.inner.binance_posts.borrow().is_empty());
     assert!(fx_http.alpaca_posts.borrow().is_empty());

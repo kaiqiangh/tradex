@@ -288,7 +288,25 @@ pub(crate) fn fx_requirements(
         return Err(TradeXError::new("PROVIDER_DATA_INCOMPLETE"));
     }
     let requirements = keyed.into_iter().map(|(_, row)| row).collect::<Vec<_>>();
-    let material_version = hash(&json!([input.workspace_id, base, proposal, requirements]))?;
+    let proposal_material = proposal
+        .as_ref()
+        .map(|proposal| {
+            let mut material = serde_json::to_value(proposal).map_err(|_| invalid())?;
+            // Prepare consumes the Proposal without changing its financial terms. Keep its
+            // immutable fields bound, while durable authority checks own lifecycle validation.
+            let fields = material.as_object_mut().ok_or_else(invalid)?;
+            for lifecycle in ["status", "stateVersion", "history", "invalidationReason"] {
+                fields.remove(lifecycle);
+            }
+            Ok(material)
+        })
+        .transpose()?;
+    let material_version = hash(&json!([
+        input.workspace_id,
+        base,
+        proposal_material,
+        requirements
+    ]))?;
     Ok(FxRequirements {
         workspace_id: input.workspace_id.clone(),
         base_currency: base,

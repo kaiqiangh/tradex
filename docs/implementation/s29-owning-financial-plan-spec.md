@@ -112,6 +112,8 @@ For an owning Spot Prepare, compute `ExecutionReservation.workspaceNotional` fro
 
 Before dispatch of a consumed PLACE, the Control Plane may reuse only the exact attempt’s saved ACTIVE reservation in its temporary risk assessment. Validate the reservation’s ID, attempt, account, Proposal/hash, instrument, side and current state version against the durable rows. Exclude that one owned row from competing local claims, wallet/fee evidence and capacity totals; keep every other reservation in scope. The stored reservation remains ACTIVE with every original claim held. New reviews, approval issuance and Prepare continue to count all existing reservations. A missing, released, mismatched or borrowed reservation refuses dispatch; this assessment creates no release, settlement, new consent or provider mutation.
 
+`FxRequirements.materialVersion` binds immutable Proposal material and complete account-version-bound routes. Exclude only lifecycle `status`, `stateVersion`, `history` and `invalidationReason` from that financial identity so atomic consumption cannot invalidate an unchanged required observation. All other Proposal fields, workspace/base, route/account versions, source freshness and independent durable execution authority remain enforced; this cannot reopen consent or add provider support.
+
 ## Testing Decisions
 
 Use the standing approved highest seam: actual React → typed Rust Control Plane → disposable SQLite/outbox, with only external HTTP/vault/WS producers fake. No further seam or granularity interview is needed. Preserve the existing source lifecycle, settlement and atomic Prepare public tests as prior art.
